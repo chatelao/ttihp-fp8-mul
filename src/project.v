@@ -1,63 +1,33 @@
 module tt_um_chatelao_fp8_multiplier (
-    input  wire [7:0] ui_in,    // Dedicated inputs
-    output wire [7:0] uo_out,   // Dedicated outputs
-    input  wire [7:0] uio_in,   // IOs: Input path
-    output wire [7:0] uio_out,  // IOs: Output path
-    output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
-    input  wire       ena,      // always 1 when the design is powered, so you can ignore it
-    input  wire       clk,      // clock
-    input  wire       rst_n     // reset_n - low to reset
+    input  wire [7:0] ui_in,    // Operand 1
+    output wire [7:0] uo_out,   // Result
+    input  wire [7:0] uio_in,   // Operand 2
+    output wire [7:0] uio_out,  // Unused
+    output wire [7:0] uio_oe,   // Set to 0 to make uio_in an input
+    input  wire       ena,      
+    input  wire       clk,      
+    input  wire       rst_n     
 );
-    assign uio_out = 0;
-    assign uio_oe  = 0;
 
-    wire [2:0] ctrl = ui_in[3:1];
-    wire [3:0] data = ui_in[7:4];
-    // wire [6:0] led_out;
-    // assign uo_out[6:0] = led_out;
-    // wire [5:0] seed_input = ui_in[7:2];
+    // 1. Configure UIO as inputs
+    assign uio_oe  = 8'b00000000; 
+    assign uio_out = 8'b00000000;
 
-    reg [8:0] operand1;
-    reg [8:0] operand2;
-    // For now we're commenting this out and leaving the results unbuffered.
-    // reg [8:0] result_out;
-    // assign uo_out = result_out;
-
-    always @(posedge clk) begin
-        if (!ctrl[0]) begin  // if first CTRL bit is off, we're in STORE mode
-            if (!ctrl[1]) begin  // second CTRL bit controls whether it's the first or second operand
-                if (!ctrl[2]) begin  // third CTRL bit controls whether it's the upper or lower half
-                    operand1[3:0] <= data;
-                end else begin
-                    operand1[7:4] <= data;
-                end
-            end else begin
-                if (!ctrl[2]) begin
-                    operand2[3:0] <= data;
-                end else begin
-                    operand2[7:4] <= data;
-                end
-            end
-        end else begin  // if first CTRL bit is on, this is reserved.
-            // TODO
-            // if (!ctrl[1] && !ctrl[2]) begin
-            //     result_out[7:0] <= 0;
-            // end
-        end
-    end
-
-    // Compute result_out in terms of operand1, operand2
-    fp8mul mul1(
-        .sign1(operand1[7]),
-        .exp1(operand1[6:3]),
-        .mant1(operand1[2:0]),
-        .sign2(operand2[7]),
-        .exp2(operand2[6:3]),
-        .mant2(operand2[2:0]),
+    // 2. Direct instantiation (No registers, no cycles)
+    fp8mul mul1 (
+        .sign1(ui_in[7]),
+        .exp1(ui_in[6:3]),
+        .mant1(ui_in[2:0]),
+        
+        .sign2(uio_in[7]),
+        .exp2(uio_in[6:3]),
+        .mant2(uio_in[2:0]),
+        
         .sign_out(uo_out[7]),
         .exp_out(uo_out[6:3]),
         .mant_out(uo_out[2:0])
     );
+
 endmodule
 
 module fp8mul (
