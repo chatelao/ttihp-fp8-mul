@@ -56,6 +56,11 @@ module tt_um_chatelao_fp8_multiplier (
         .exp_out(uo_out[6:3]),
         .mant_out(uo_out[2:0])
     );
+
+    assign uio_out = 0;
+    assign uio_oe  = 0;
+
+    wire _unused = &{uio_in, ena, clk, rst_n, 1'b0};
 endmodule
 
 module fp8mul (
@@ -76,14 +81,16 @@ module fp8mul (
     wire [7:0] full_mant = ({exp1 != 0, mant1} * {exp2 != 0, mant2});
     wire overflow_mant = full_mant[7];
     wire [6:0] shifted_mant = overflow_mant ? full_mant[6:0] : {full_mant[5:0], 1'b0};
+    wire [4:0] exp_sum_raw = {1'b0, exp1} + {1'b0, exp2} + {4'b0, overflow_mant};
     // is the mantissa overflowing up to the next exponent?
-    wire roundup = (exp1 + exp2 + overflow_mant < 1 + EXP_BIAS) && (shifted_mant[6:0] != 0)
+    wire roundup = (exp_sum_raw < (5'd1 + EXP_BIAS)) && (shifted_mant[6:0] != 7'b0)
                    || (shifted_mant[6:4] == 3'b111 && shifted_mant[3]);
-    wire underflow = (exp1 + exp2 + overflow_mant) < 1 - roundup + EXP_BIAS;
+    wire underflow = exp_sum_raw < (5'd1 + EXP_BIAS - {4'b0, roundup});
     wire is_zero = exp1 == 0 || exp2 == 0 || isnan || underflow;
     // note: you can't use negative numbers reliably. just keep things positive during compares.
-    wire [4:0] exp_out_tmp = (exp1 + exp2 + overflow_mant + roundup) < EXP_BIAS ? 0 : (exp1 + exp2 + overflow_mant + roundup - EXP_BIAS);
-    assign exp_out = exp_out_tmp > 15 ? 4'b1111 : (is_zero) ? 0 : exp_out_tmp[3:0];  // Exponent bias is 7
-    assign mant_out = exp_out_tmp > 15 ? 3'b111 : (is_zero || roundup) ? 0 : (shifted_mant[6:4] + (shifted_mant[3:0] > 8 || (shifted_mant[3:0] == 8 && shifted_mant[4])));
+    wire [4:0] exp_sum_roundup = exp_sum_raw + {4'b0, roundup};
+    wire [4:0] exp_out_tmp = (exp_sum_roundup < EXP_BIAS) ? 5'd0 : (exp_sum_roundup - EXP_BIAS[4:0]);
+    assign exp_out = exp_out_tmp > 5'd15 ? 4'b1111 : (is_zero) ? 4'd0 : exp_out_tmp[3:0];  // Exponent bias is 7
+    assign mant_out = exp_out_tmp > 5'd15 ? 3'b111 : (is_zero || roundup) ? 3'd0 : (shifted_mant[6:4] + {2'b0, (shifted_mant[3:0] > 4'd8 || (shifted_mant[3:0] == 4'd8 && shifted_mant[4]))});
     assign sign_out = ((sign1 ^ sign2) && !(is_zero)) || isnan;
 endmodule
