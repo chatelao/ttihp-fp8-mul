@@ -1,0 +1,8 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1771715808" />
+    <testcase name="test_all_inputs" classname="test_fp8" file="/app/src/test_fp8.py" lineno="6" time="0.003306150436401367" sim_time_ns="0.0" ratio_time="0.0">
+      <failure error_type="AttributeError" error_msg="tt_um_chatelao_fp8_multiplier contains no child object named io_in" />
+    </testcase>
+  </testsuite>
+</testsuites>

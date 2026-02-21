@@ -25,16 +25,37 @@ async def test_project(dut):
 
     dut._log.info("Test project behavior")
 
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
+    async def store(operand, upper, data):
+        # ui_in[1] is store_en_n (active low)
+        # ui_in[2] is op_sel (0=op1, 1=op2)
+        # ui_in[3] is nibble_sel (0=lower, 1=upper)
+        # ui_in[7:4] is data
+        val = (data << 4) | (upper << 3) | (operand << 2) | (0 << 1) | 0
+        dut.ui_in.value = val
+        await ClockCycles(dut.clk, 1)
+        # De-assert store_en
+        dut.ui_in.value = val | 2
+        await ClockCycles(dut.clk, 1)
 
-    # Wait for one clock cycle to see the output values
+    # Load 1.0 (0x38) into operand 1
+    await store(0, 0, 0x8) # op1 lower = 0x8
+    await store(0, 1, 0x3) # op1 upper = 0x3
+
+    # Load 1.0 (0x38) into operand 2
+    await store(1, 0, 0x8) # op2 lower = 0x8
+    await store(1, 1, 0x3) # op2 upper = 0x3
+
+    # Wait for result
     await ClockCycles(dut.clk, 1)
 
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
+    # 1.0 * 1.0 = 1.0 (0x38)
+    assert dut.uo_out.value == 0x38
 
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+    # Load 2.0 (0x40) into operand 2
+    # 2.0 = (-1)^0 * 2^(8-7) * 1.000 = 0_1000_000 = 0x40
+    await store(1, 0, 0x0) # op2 lower = 0x0
+    await store(1, 1, 0x4) # op2 upper = 0x4
+
+    await ClockCycles(dut.clk, 1)
+    # 1.0 * 2.0 = 2.0 (0x40)
+    assert dut.uo_out.value == 0x40

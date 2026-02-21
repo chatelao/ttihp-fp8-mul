@@ -4,11 +4,11 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 
-VERILOG_SOURCES += $(PWD)/fp8.v
+VERILOG_SOURCES += $(PWD)/project.v
 # use VHDL_SOURCES for VHDL files
 
 # TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
-TOPLEVEL = cchan_fp8_multiplier
+TOPLEVEL = tt_um_chatelao_fp8_multiplier
 
 # MODULE is the basename of the Python test file
 MODULE = test_fp8

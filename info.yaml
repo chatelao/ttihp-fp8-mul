@@ -17,40 +17,40 @@ project:
   # Source files must be in ./src and you must list each source file separately, one per line.
   # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
-    - "fp8.v"
+    - "project.v"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).  
 pinout:
   # Inputs
-  ui[0]: "mant1[0]"
-  ui[1]: "mant1[1]"
-  ui[2]: "mant1[2]"
-  ui[3]: "operand1[0]"
-  ui[4]: "operand1[1]"
-  ui[5]: "operand1[2]"
-  ui[6]: "operand1[3]"
-  ui[7]: "sign1"
+  ui[0]: "unused"
+  ui[1]: "store_en_n"
+  ui[2]: "op_sel"
+  ui[3]: "nibble_sel"
+  ui[4]: "data[0]"
+  ui[5]: "data[1]"
+  ui[6]: "data[2]"
+  ui[7]: "data[3]"
 
   # Outputs
-  uo[0]: "mant[0]"
-  uo[1]: "mant[1]"
-  uo[2]: "mant[2]"
-  uo[3]: "operand[0]"
-  uo[4]: "operand[1]"
-  uo[5]: "operand[2]"
-  uo[6]: "operand[3]"
-  uo[7]: "sign"
+  uo[0]: "mant_out[0]"
+  uo[1]: "mant_out[1]"
+  uo[2]: "mant_out[2]"
+  uo[3]: "exp_out[0]"
+  uo[4]: "exp_out[1]"
+  uo[5]: "exp_out[2]"
+  uo[6]: "exp_out[3]"
+  uo[7]: "sign_out"
 
   # Bidirectional pins
-  uio[0]: "mant2[0]"
-  uio[1]: "mant2[1]"
-  uio[2]: "mant2[2]"
-  uio[3]: "operand2[0]"
-  uio[4]: "operand2[1]"
-  uio[5]: "operand2[2]"
-  uio[6]: "operand2[3]"
-  uio[7]: "sign2"
+  uio[0]: ""
+  uio[1]: ""
+  uio[2]: ""
+  uio[3]: ""
+  uio[4]: ""
+  uio[5]: ""
+  uio[6]: ""
+  uio[7]: ""
 
 # Do not change!
 yaml_version: 6
