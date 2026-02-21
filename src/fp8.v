@@ -1,4 +1,4 @@
-module cchan_fp8_multiplier (
+module tt_um_chatelao_fp8_multiplier (
   input  [7:0] io_in,
   output [7:0] io_out
 );
