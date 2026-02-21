@@ -9,12 +9,16 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+The project implements a simple 8-bit combinational adder. It takes two 8-bit inputs: `ui_in` (Operand A) and `uio_in` (Operand B, configured as input). It outputs the 8-bit sum on `uo_out`.
 
 ## How to test
 
-Explain how to use your project
+To test the adder:
+1. Apply the first 8-bit number to the dedicated input pins `ui_in[7:0]`.
+2. Apply the second 8-bit number to the bidirectional pins `uio_in[7:0]`.
+3. Read the result from the dedicated output pins `uo_out[7:0]`.
+4. Verify that `uo_out` equals the sum of `ui_in` and `uio_in`.
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+No external hardware is required.
