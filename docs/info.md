@@ -9,14 +9,15 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-The project implements the user's design. See the source files in `src/` for details.
+The project implements an 8-bit multiplier (currently an adder example in the source). It takes two 8-bit operands and produces an 8-bit result.
 
 ## How to test
 
-To test the project:
-1. Provide inputs to the input pins.
-2. Observe the outputs on the output pins.
+To test the multiplier:
+1. Provide the first operand on `ui_in`.
+2. Provide the second operand on `uio_in`.
+3. Observe the result on `uo_out`.
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+None.
