@@ -10,8 +10,10 @@ jobs:
           submodules: recursive
 
       - name: Install iverilog
-        shell: bash
-        run: sudo apt-get update && sudo apt-get install -y iverilog
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: iverilog
+          version: 1.0
 
       # Set Python up and install cocotb
       - name: Setup python
