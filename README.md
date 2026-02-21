@@ -1,4 +1,7 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
+![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gds.yaml/badge.svg)
+![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/docs.yaml/badge.svg)
+![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/test.yaml/badge.svg)
+![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/fpga.yaml/badge.svg)
 
 # Tiny Tapeout Verilog Project Template
 
