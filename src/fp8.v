@@ -1,19 +1,25 @@
 module tt_um_chatelao_fp8_multiplier (
-  input  [7:0] io_in,
-  output [7:0] io_out
+    input  wire [7:0] ui_in,    // Dedicated inputs
+    output wire [7:0] uo_out,   // Dedicated outputs
+    input  wire [7:0] uui_in,   // IOs: Input path
+    output wire [7:0] uuo_out,  // IOs: Output path
+    output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
+    input  wire       ena,      // always 1 when the design is powered, so you can ignore it
+    input  wire       clk,      // clock
+    input  wire       rst_n     // reset_n - low to reset
 );
-    wire clk = io_in[0];
-    wire [2:0] ctrl = io_in[3:1];
-    wire [3:0] data = io_in[7:4];
+    wire clk = ui_in[0];
+    wire [2:0] ctrl = ui_in[3:1];
+    wire [3:0] data = ui_in[7:4];
     // wire [6:0] led_out;
-    // assign io_out[6:0] = led_out;
-    // wire [5:0] seed_input = io_in[7:2];
+    // assign uo_out[6:0] = led_out;
+    // wire [5:0] seed_input = ui_in[7:2];
 
     reg [8:0] operand1;
     reg [8:0] operand2;
     // For now we're commenting this out and leaving the results unbuffered.
     // reg [8:0] result_out;
-    // assign io_out = result_out;
+    // assign uo_out = result_out;
 
     always @(posedge clk) begin
         if (!ctrl[0]) begin  // if first CTRL bit is off, we're in STORE mode
@@ -46,9 +52,9 @@ module tt_um_chatelao_fp8_multiplier (
         .sign2(operand2[7]),
         .exp2(operand2[6:3]),
         .mant2(operand2[2:0]),
-        .sign_out(io_out[7]),
-        .exp_out(io_out[6:3]),
-        .mant_out(io_out[2:0])
+        .sign_out(uo_out[7]),
+        .exp_out(uo_out[6:3]),
+        .mant_out(uo_out[2:0])
     );
 endmodule
 
