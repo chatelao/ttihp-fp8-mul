@@ -1,27 +1,27 @@
 module tt_um_chatelao_fp8_multiplier (
     input  wire [7:0] ui_in,    // Dedicated inputs
     output wire [7:0] uo_out,   // Dedicated outputs
-    input  wire [7:0] uui_in,   // IOs: Input path
-    output wire [7:0] uuo_out,  // IOs: Output path
+    input  wire [7:0] uio_in,   // IOs: Input path
+    output wire [7:0] uio_out,  // IOs: Output path
     output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
     input  wire       ena,      // always 1 when the design is powered, so you can ignore it
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
 );
-    wire clk = ui_in[0];
+    wire step_clk = ui_in[0];
     wire [2:0] ctrl = ui_in[3:1];
     wire [3:0] data = ui_in[7:4];
     // wire [6:0] led_out;
     // assign uo_out[6:0] = led_out;
     // wire [5:0] seed_input = ui_in[7:2];
 
-    reg [8:0] operand1;
-    reg [8:0] operand2;
+    reg [7:0] operand1;
+    reg [7:0] operand2;
     // For now we're commenting this out and leaving the results unbuffered.
     // reg [8:0] result_out;
     // assign uo_out = result_out;
 
-    always @(posedge clk) begin
+    always @(posedge step_clk) begin
         if (!ctrl[0]) begin  // if first CTRL bit is off, we're in STORE mode
             if (!ctrl[1]) begin  // second CTRL bit controls whether it's the first or second operand
                 if (!ctrl[2]) begin  // third CTRL bit controls whether it's the upper or lower half
