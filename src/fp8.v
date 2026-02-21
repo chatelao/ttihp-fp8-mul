@@ -11,7 +11,6 @@ module tt_um_chatelao_fp8_multiplier (
     assign uio_out = 0;
     assign uio_oe  = 0;
 
-    wire clk = ui_in[0];
     wire [2:0] ctrl = ui_in[3:1];
     wire [3:0] data = ui_in[7:4];
     // wire [6:0] led_out;
