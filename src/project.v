@@ -73,6 +73,14 @@ module fp8mul (
   output [3:0] exp_out,
   output [2:0] mant_out
 );
+    // FP8 E4M3 (1 sign bit, 4 exponent bits, 3 mantissa bits) multiplication logic.
+    // The value is calculated as: (-1)^sign * 2^(exponent - 7) * 1.mantissa
+    // This implementation flushes denormals to zero and saturates overflows.
+    // Negative zero is treated as NaN.
+    // References:
+    // - Wikipedia (Minifloat): https://en.wikipedia.org/wiki/Minifloat
+    // - Nvidia Blog: https://developer.nvidia.com/blog/nvidia-arm-and-intel-publish-fp8-specification-for-standardization-as-an-interchange-format-for-ai/
+    // - Arxiv Paper: https://arxiv.org/abs/2209.05433
     parameter EXP_BIAS = 7;
     wire isnan = (sign1 == 1 && exp1 == 0 && mant1 == 0) || (sign2 == 1 && exp2 == 0 && mant2 == 0);
     wire [7:0] full_mant = ({exp1 != 0, mant1} * {exp2 != 0, mant2});
