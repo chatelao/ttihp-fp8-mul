@@ -3,6 +3,7 @@
 # Tiny Tapeout Verilog Project Template
 
 - [Read the documentation for project](docs/info.md)
+- [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
 ## What is Tiny Tapeout?
 
