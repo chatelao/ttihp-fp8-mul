@@ -31,6 +31,10 @@
   "//": "https://tinytapeout.com/faq/#how-can-i-map-an-additional-external-clock-to-one-of-the-gpios",
   "CLOCK_PORT": "clk",
 
+  "//": "CUSTOM SYNTHESIS OPTIMIZATION:",
+  "SYNTH_STRATEGY": "AREA 3",
+  "SYNTH_SIZING": 1,
+
   "//": "Configuration docs: https://librelane.readthedocs.io/en/latest/reference/configuration.html",
 
   "//": "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
