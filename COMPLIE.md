@@ -9,6 +9,7 @@ To run simulations and develop locally, you need the following tools:
 - **Icarus Verilog**: Open-source Verilog simulation and synthesis tool.
 - **Python 3**: For running `cocotb`-based tests.
 - **pip**: Python package manager.
+- **venv**: Python virtual environment module (often part of `python3-venv`).
 - **GTKWave**: (Optional) For viewing simulation waveforms.
 
 ### Installation
@@ -16,7 +17,7 @@ To run simulations and develop locally, you need the following tools:
 #### Ubuntu / Debian
 ```bash
 sudo apt-get update
-sudo apt-get install iverilog python3 python3-pip gtkwave
+sudo apt-get install iverilog python3 python3-pip python3-venv gtkwave
 ```
 
 #### macOS (using Homebrew)
