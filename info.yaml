@@ -1,6 +1,6 @@
 # Tiny Tapeout project information
 project:
-  title:        "8-bit (E4M3) Floating Point Multiplier"      # Project title
+  title:        "8-bit (IEEE 754 - E4M3) Floating Point Multiplier"      # Project title
   author:       "Olivier Chatelain"                           # Your name
   discord:      "evertex"                                     # Your discord handle - make sure to include the # part as well
   description:  "8-bit (E4M3) Floating Point Multiplier"      # Short description of what your project does
