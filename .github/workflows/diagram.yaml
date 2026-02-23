@@ -24,12 +24,18 @@ jobs:
           dot -Tpng logic_diagram.dot -o logic_diagram.png
           dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 
+          tred logic_diagram.dot | dot -T png > logic_diagram_tred.png
+          tred logic_diagram.dot | dot -T svg > logic_diagram_tred.svg
+
           # 2. Flattened Logic Diagram
           # Note: Technology mapping to IHP SG13G2 (synth_ihp) is currently unavailable in this CI environment.
           # Using generic 'synth' with 'flatten' as a substitute to show the flattened design structure.
           yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
           dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
           dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
+
+          tred logic_diagram_flattened.dot | dot -T png > logic_diagram_flattened_tred.png
+          tred logic_diagram_flattened.dot | dot -T svg > logic_diagram_flattened_tred.svg
 
       - name: Upload Diagram Artifacts
         uses: actions/upload-artifact@v4
