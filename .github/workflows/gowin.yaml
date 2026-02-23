@@ -1,0 +1,44 @@
+name: gowin
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  gowin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install oss-cad-suite
+        uses: YosysHQ/setup-oss-cad-suite@v3
+
+      - name: Create build directory
+        run: mkdir -p build
+
+      - name: Synthesis
+        run: |
+          yosys -p "read_verilog src/project.v src_gowin/tt_gowin_top.v; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+
+      - name: Place and Route
+        run: |
+          nextpnr-gowin --json build/gowin.json \
+                        --write build/gowin_pnr.json \
+                        --device GW1NR-LV9QN88PC6/I5 \
+                        --family GW1N-9C \
+                        --cst src_gowin/tangnano9k.cst
+
+      - name: Pack bitstream
+        run: |
+          gowin_pack -d GW1N-9C -o build/tangnano9k.fs build/gowin_pnr.json
+
+      - name: Upload bitstream
+        uses: actions/upload-artifact@v4
+        with:
+          name: gowin_bitstream
+          path: build/tangnano9k.fs
