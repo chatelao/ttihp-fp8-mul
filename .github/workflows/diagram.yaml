@@ -24,7 +24,12 @@ jobs:
           dot -Tpng logic_diagram.dot -o logic_diagram.png
           dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 
-          # 2. Flattened Logic Diagram
+          # 2. Flattened RTL Logic Diagram (Resolution level +/- between top-level and flatten)
+          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; opt; show -format dot -prefix logic_diagram_rtl tt_um_chatelao_fp8_multiplier"
+          dot -Tpng logic_diagram_rtl.dot -o logic_diagram_rtl.png
+          dot -Tsvg logic_diagram_rtl.dot -o logic_diagram_rtl.svg
+
+          # 3. Flattened Gate-Level Logic Diagram
           # Note: Technology mapping to IHP SG13G2 (synth_ihp) is currently unavailable in this CI environment.
           # Using generic 'synth' with 'flatten' as a substitute to show the flattened design structure.
           yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
@@ -38,5 +43,7 @@ jobs:
           path: |
             logic_diagram.png
             logic_diagram.svg
+            logic_diagram_rtl.png
+            logic_diagram_rtl.svg
             logic_diagram_flattened.png
             logic_diagram_flattened.svg

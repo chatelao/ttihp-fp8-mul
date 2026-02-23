@@ -31,8 +31,20 @@ dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 - `opt`: Performs simple optimizations to make the diagram more readable.
 - `show -format dot -prefix logic_diagram tt_um_chatelao_fp8_multiplier`: Generates the Graphviz file for the specified module.
 
-### Flattened Logic Diagram
-To generate a flattened diagram, use the following commands:
+### Flattened RTL Logic Diagram
+To generate a flattened RTL diagram (which shows coarse-grained blocks like adders and multipliers instead of individual gates), use the following commands:
+
+```bash
+# 1. Use Yosys with flatten and opt
+yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; opt; show -format dot -prefix logic_diagram_rtl tt_um_chatelao_fp8_multiplier"
+
+# 2. Convert to PNG/SVG
+dot -Tpng logic_diagram_rtl.dot -o logic_diagram_rtl.png
+dot -Tsvg logic_diagram_rtl.dot -o logic_diagram_rtl.svg
+```
+
+### Flattened Gate-Level Logic Diagram
+To generate a flattened gate-level diagram, use the following commands:
 
 ```bash
 # 1. Use Yosys with flatten and synth
@@ -44,7 +56,7 @@ dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
 ```
 
 - `flatten`: Replaces module instances with their contents.
-- `synth`: Performs logic synthesis.
+- `synth`: Performs logic synthesis to map the design to a gate-level netlist.
 
 ## GitHub Actions Integration (Artifacts)
 
@@ -79,7 +91,12 @@ jobs:
           dot -Tpng logic_diagram.dot -o logic_diagram.png
           dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 
-          # 2. Flattened Logic Diagram
+          # 2. Flattened RTL Logic Diagram (Resolution level +/- between top-level and flatten)
+          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; opt; show -format dot -prefix logic_diagram_rtl tt_um_chatelao_fp8_multiplier"
+          dot -Tpng logic_diagram_rtl.dot -o logic_diagram_rtl.png
+          dot -Tsvg logic_diagram_rtl.dot -o logic_diagram_rtl.svg
+
+          # 3. Flattened Gate-Level Logic Diagram
           # Note: Technology mapping to IHP SG13G2 (synth_ihp) is currently unavailable in this CI environment.
           # Using generic 'synth' with 'flatten' as a substitute to show the flattened design structure.
           yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
@@ -93,6 +110,8 @@ jobs:
           path: |
             logic_diagram.png
             logic_diagram.svg
+            logic_diagram_rtl.png
+            logic_diagram_rtl.svg
             logic_diagram_flattened.png
             logic_diagram_flattened.svg
 ```
