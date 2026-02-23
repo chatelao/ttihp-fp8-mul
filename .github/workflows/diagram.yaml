@@ -7,15 +7,13 @@ on:
 jobs:
   generate_diagram:
     runs-on: ubuntu-latest
+    container: ghcr.io/tinytapeout/ttihp-sg13g2:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Graphviz
-        run: sudo apt-get update && sudo apt-get install -y graphviz
-
-      - name: Install oss-cad-suite
-        uses: YosysHQ/setup-oss-cad-suite@v3
+        run: apt-get update && apt-get install -y graphviz
 
       - name: Generate Logic Diagrams
         run: |

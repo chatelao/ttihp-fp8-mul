@@ -44,7 +44,7 @@ dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
 ```
 
 - `flatten`: Replaces module instances with their contents.
-- `synth_ihp`: Performs synthesis targeting the IHP SG13G2 technology.
+- `synth_ihp`: Performs synthesis targeting the IHP SG13G2 technology. Note: This requires the IHP PDK and a compatible Yosys build.
 
 ## GitHub Actions Integration (Artifacts)
 
@@ -62,15 +62,13 @@ on:
 jobs:
   generate_diagram:
     runs-on: ubuntu-latest
+    container: ghcr.io/tinytapeout/ttihp-sg13g2:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Graphviz
-        run: sudo apt-get update && sudo apt-get install -y graphviz
-
-      - name: Install oss-cad-suite
-        uses: YosysHQ/setup-oss-cad-suite@v3
+        run: apt-get update && apt-get install -y graphviz
 
       - name: Generate Logic Diagrams
         run: |
