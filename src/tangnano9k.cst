@@ -1,0 +1,33 @@
+IO_LOC "clk" 52;
+IO_PORT "clk" PULL_MODE=UP;
+IO_LOC "rst_n" 4;
+IO_PORT "rst_n" PULL_MODE=UP;
+IO_LOC "ena" 3;
+IO_PORT "ena" PULL_MODE=UP;
+
+IO_LOC "ui_in[0]" 38;
+IO_LOC "ui_in[1]" 37;
+IO_LOC "ui_in[2]" 36;
+IO_LOC "ui_in[3]" 39;
+IO_LOC "ui_in[4]" 25;
+IO_LOC "ui_in[5]" 26;
+IO_LOC "ui_in[6]" 27;
+IO_LOC "ui_in[7]" 28;
+
+IO_LOC "uo_out[0]" 63;
+IO_LOC "uo_out[1]" 86;
+IO_LOC "uo_out[2]" 85;
+IO_LOC "uo_out[3]" 84;
+IO_LOC "uo_out[4]" 83;
+IO_LOC "uo_out[5]" 82;
+IO_LOC "uo_out[6]" 81;
+IO_LOC "uo_out[7]" 80;
+
+IO_LOC "uio[0]" 29;
+IO_LOC "uio[1]" 30;
+IO_LOC "uio[2]" 33;
+IO_LOC "uio[3]" 34;
+IO_LOC "uio[4]" 40;
+IO_LOC "uio[5]" 35;
+IO_LOC "uio[6]" 41;
+IO_LOC "uio[7]" 42;
