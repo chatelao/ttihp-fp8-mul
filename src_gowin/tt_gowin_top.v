@@ -4,9 +4,9 @@ module tt_gowin_top (
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
     inout  wire [7:0] uio,
-    input  wire       clk,
-    input  wire       rst_n,
-    input  wire       ena
+    (* keep *) input  wire       clk,
+    (* keep *) input  wire       rst_n,
+    (* keep *) input  wire       ena
 );
     wire [7:0] uio_in;
     wire [7:0] uio_out;

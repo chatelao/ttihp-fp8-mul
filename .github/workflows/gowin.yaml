@@ -2,13 +2,11 @@ name: gowin
 
 on:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
   gowin:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -21,21 +19,48 @@ jobs:
       - name: Create build directory
         run: mkdir -p build
 
+      - name: Debug toolchain
+        run: |
+          echo "Toolchain path: $(dirname $(which yosys))"
+          ls -l $(dirname $(which yosys))/nextpnr*
+          ls -l $(dirname $(which yosys))/gowin*
+
       - name: Synthesis
         run: |
-          yosys -p "read_verilog src/project.v src_gowin/tt_gowin_top.v; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+          yosys -p "read_verilog -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
 
       - name: Place and Route
         run: |
-          nextpnr-gowin --json build/gowin.json \
-                        --write build/gowin_pnr.json \
-                        --device GW1NR-LV9QN88PC6/I5 \
-                        --family GW1N-9C \
-                        --cst src_gowin/tangnano9k.cst
+          # Try nextpnr-gowin first, fall back to nextpnr-himbaechel
+          if command -v nextpnr-gowin >/dev/null 2>&1; then
+            nextpnr-gowin --json build/gowin.json \
+                          --write build/gowin_pnr.json \
+                          --device GW1NR-LV9QN88PC6/I5 \
+                          --family GW1N-9C \
+                          --top tt_gowin_top \
+                          --freq 27 \
+                          --cst src_gowin/tangnano9k.cst
+          elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
+            nextpnr-himbaechel --json build/gowin.json \
+                               --write build/gowin_pnr.json \
+                               --device GW1NR-LV9QN88PC6/I5 \
+                               --vopt family=GW1N-9C \
+                               --vopt cst=src_gowin/tangnano9k.cst \
+                               --top tt_gowin_top \
+                               --freq 27
+          else
+            echo "Error: No nextpnr binary found for Gowin"
+            exit 1
+          fi
 
       - name: Pack bitstream
         run: |
-          gowin_pack -d GW1N-9C -o build/tangnano9k.fs build/gowin_pnr.json
+          if command -v gowin_pack >/dev/null 2>&1; then
+            gowin_pack -d GW1N-9C -o build/tangnano9k.fs build/gowin_pnr.json
+          else
+            echo "Error: gowin_pack not found"
+            exit 1
+          fi
 
       - name: Upload bitstream
         uses: actions/upload-artifact@v4
