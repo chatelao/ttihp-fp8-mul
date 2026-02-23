@@ -19,19 +19,35 @@ jobs:
       - name: Create build directory
         run: mkdir -p build
 
+      - name: Debug toolchain
+        run: |
+          echo "Toolchain path: $(dirname $(which yosys))"
+          ls $(dirname $(which yosys))/nextpnr*
+
       - name: Synthesis
         run: |
           yosys -p "read_verilog -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
 
       - name: Place and Route
         run: |
-          nextpnr-gowin --json build/gowin.json \
-                        --write build/gowin_pnr.json \
-                        --device GW1NR-LV9QN88PC6/I5 \
-                        --family GW1N-9C \
-                        --top tt_gowin_top \
-                        --freq 27 \
-                        --cst src_gowin/tangnano9k.cst
+          if command -v nextpnr-gowin >/dev/null 2>&1; then
+            nextpnr-gowin --json build/gowin.json \
+                          --write build/gowin_pnr.json \
+                          --device GW1NR-LV9QN88PC6/I5 \
+                          --family GW1N-9C \
+                          --top tt_gowin_top \
+                          --freq 27 \
+                          --cst src_gowin/tangnano9k.cst
+          else
+            nextpnr-himbaechel --json build/gowin.json \
+                               --write build/gowin_pnr.json \
+                               --device GW1NR-LV9QN88PC6/I5 \
+                               --vopt family=GW1N-9C \
+                               --vopt device=GW1NR-9C \
+                               --top tt_gowin_top \
+                               --freq 27 \
+                               --cst src_gowin/tangnano9k.cst
+          fi
 
       - name: Pack bitstream
         run: |
