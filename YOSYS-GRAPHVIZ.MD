@@ -31,6 +31,21 @@ dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 - `opt`: Performs simple optimizations to make the diagram more readable.
 - `show -format dot -prefix logic_diagram tt_um_chatelao_fp8_multiplier`: Generates the Graphviz file for the specified module.
 
+### Flattened and Tech-Mapped Diagram
+To generate a flattened diagram that shows the design mapped to the IHP SG13G2 standard cells, use the following commands:
+
+```bash
+# 1. Use Yosys with flatten and synth_ihp
+yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth_ihp -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
+
+# 2. Convert to PNG/SVG
+dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
+dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
+```
+
+- `flatten`: Replaces module instances with their contents.
+- `synth_ihp`: Performs synthesis targeting the IHP SG13G2 technology.
+
 ## GitHub Actions Integration (Artifacts)
 
 To automatically generate and attach the diagram as a build artifact on every push, you can add a new job to your GitHub Actions workflow.
@@ -51,14 +66,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Yosys and Graphviz
-        run: sudo apt-get update && sudo apt-get install -y yosys graphviz
+      - name: Install Graphviz
+        run: sudo apt-get update && sudo apt-get install -y graphviz
 
-      - name: Generate Logic Diagram
+      - name: Install oss-cad-suite
+        uses: YosysHQ/setup-oss-cad-suite@v3
+
+      - name: Generate Logic Diagrams
         run: |
+          # 1. Standard Logic Diagram
           yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; opt; show -format dot -prefix logic_diagram tt_um_chatelao_fp8_multiplier"
           dot -Tpng logic_diagram.dot -o logic_diagram.png
           dot -Tsvg logic_diagram.dot -o logic_diagram.svg
+
+          # 2. Flattened Logic Diagram targeting IHP SG13G2
+          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth_ihp -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
+          dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
+          dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
 
       - name: Upload Diagram Artifacts
         uses: actions/upload-artifact@v4
@@ -67,6 +91,8 @@ jobs:
           path: |
             logic_diagram.png
             logic_diagram.svg
+            logic_diagram_flattened.png
+            logic_diagram_flattened.svg
 ```
 
 ## Benefits
