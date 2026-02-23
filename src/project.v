@@ -18,9 +18,9 @@ module tt_um_chatelao_fp8_multiplier (
     input  wire [7:0] uio_in,   // Operand 2
     output wire [7:0] uio_out,  // Unused
     output wire [7:0] uio_oe,   // Set to 0 to make uio_in an input
-    input  wire       ena,      
-    input  wire       clk,      
-    input  wire       rst_n     
+    (* keep *) input  wire       ena,
+    (* keep *) input  wire       clk,
+    (* keep *) input  wire       rst_n
 );
 
     // Avoid unused warnings
