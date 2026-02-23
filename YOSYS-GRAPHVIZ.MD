@@ -16,7 +16,7 @@ To generate a logic diagram of the top-level module, run the following commands 
 
 ```bash
 # 1. Use Yosys to generate a Graphviz .dot file
-yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; opt; write_dot logic_diagram.dot"
+yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; opt; show -format dot -prefix logic_diagram tt_um_chatelao_fp8_multiplier"
 
 # 2. Use Graphviz 'dot' to convert to an image (PNG or SVG)
 dot -Tpng logic_diagram.dot -o logic_diagram.png
@@ -29,14 +29,14 @@ dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 - `hierarchy -top tt_um_chatelao_fp8_multiplier`: Sets the top module for the diagram.
 - `proc`: Translates processes (always blocks) to netlist components.
 - `opt`: Performs simple optimizations to make the diagram more readable.
-- `write_dot logic_diagram.dot`: Generates the Graphviz file for the design.
+- `show -format dot -prefix logic_diagram tt_um_chatelao_fp8_multiplier`: Generates the Graphviz file for the specified module.
 
 ### Flattened Logic Diagram
 To generate a flattened diagram, use the following commands:
 
 ```bash
 # 1. Use Yosys with flatten and synth
-yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; write_dot logic_diagram_flattened.dot"
+yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
 
 # 2. Convert to PNG/SVG
 dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
@@ -75,14 +75,14 @@ jobs:
       - name: Generate Logic Diagrams
         run: |
           # 1. Standard Logic Diagram
-          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; opt; write_dot logic_diagram.dot"
+          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; opt; show -format dot -prefix logic_diagram tt_um_chatelao_fp8_multiplier"
           dot -Tpng logic_diagram.dot -o logic_diagram.png
           dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 
           # 2. Flattened Logic Diagram
           # Note: Technology mapping to IHP SG13G2 (synth_ihp) is currently unavailable in this CI environment.
           # Using generic 'synth' with 'flatten' as a substitute to show the flattened design structure.
-          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; write_dot logic_diagram_flattened.dot"
+          yosys -p "read_verilog src/project.v; hierarchy -top tt_um_chatelao_fp8_multiplier; proc; flatten; synth -top tt_um_chatelao_fp8_multiplier; show -format dot -prefix logic_diagram_flattened tt_um_chatelao_fp8_multiplier"
           dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
           dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
 
