@@ -3,8 +3,10 @@
 /**
  * OCP MXFP8 Streaming MAC Unit
  *
- * Roadmap Step 1: Protocol Skeleton & FSM
+ * Roadmap Step 2: MXFP8 Multiplier Core
  */
+
+`include "fp8_mul.v"
 
 module tt_um_chatelao_fp8_multiplier (
     input  wire [7:0] ui_in,    // Scale/Elements
@@ -53,13 +55,20 @@ module tt_um_chatelao_fp8_multiplier (
         end
     end
 
+    // MXFP8 Multiplier Instance (Step 2)
+    wire [7:0] mul_out;
+    fp8_mul multiplier (
+        .a(ui_in),
+        .b(uio_in),
+        .out(mul_out)
+    );
+
     // Output logic
-    // Step 1: uo_out remains zero during STREAM.
-    // We also keep it zero during IDLE and LOAD_SCALE.
-    // During OUTPUT, we provide a dummy value (cycle_count) for verification.
+    // Restore protocol logic: uo_out provides a value only during OUTPUT phase.
+    // For now (Step 2), we keep the dummy verification value from Step 1.
     assign uo_out = (state == STATE_OUTPUT) ? {2'b0, cycle_count} : 8'h00;
 
     // Avoid unused warnings for now
-    wire _unused = &{ui_in, uio_in, 1'b0};
+    wire _unused = &{mul_out, 1'b0};
 
 endmodule
