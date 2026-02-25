@@ -1,0 +1,9 @@
+# Makefile for aligner test
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+SRC_DIR = $(PWD)/../src
+VERILOG_SOURCES = $(SRC_DIR)/fp8_aligner.v $(PWD)/tb_aligner.v
+TOPLEVEL = tb_aligner
+MODULE = test_aligner
+
+include $(shell cocotb-config --makefiles)/Makefile.sim
