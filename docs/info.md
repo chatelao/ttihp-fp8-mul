@@ -22,3 +22,16 @@ You can also include images in this folder and reference them in the markdown. E
     of the two FP8's in the buffers, regardless of the clock.
 
     The module has been verified over all possible pairs of 8-bit inputs.
+
+## How to test
+
+    The design is purely combinational. To test it, provide two 8-bit floating point
+    numbers (E4M3 format) on the `ui_in` and `uio_in` ports. The result of the
+    multiplication will appear on the `uo_out` port.
+
+    For example:
+    - Set `ui_in` to `0x40` (1.0 in E4M3)
+    - Set `uio_in` to `0x40` (1.0 in E4M3)
+    - `uo_out` should show `0x40` (1.0 in E4M3)
+
+    Wait for the propagation delay to see the result on `uo_out`.

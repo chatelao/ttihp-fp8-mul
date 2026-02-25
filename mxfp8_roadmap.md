@@ -4,6 +4,42 @@ This roadmap outlines a step-by-step approach to implementing the OCP MXFP8 Stre
 
 ## Step 1: Protocol Skeleton & FSM
 - **Goal**: Establish the 38-cycle operational protocol.
+
+### I/O Bit Mapping Tables
+
+#### Table 1: Primary Input `ui_in`
+| Phase | Cycles | Bits [7:0] | Function | Description |
+|-------|--------|------------|----------|-------------|
+| **IDLE** | 0 | `00000000` | N/A | No input accepted. |
+| **LOAD_SCALE** | 1 | `X_A[7:0]` | **Scale A** | Shared UE8M0 scale for Tensor A. |
+| **LOAD_SCALE** | 2 | `XXXXXXXX` | N/A | Ignored (Scale B on `uio_in`). |
+| **STREAM** | 3-34 | `A_i[7:0]` | **Element A** | MXFP8 element (see Format table). |
+| **OUTPUT** | 35-38 | `XXXXXXXX` | N/A | Ignored. |
+
+#### Table 2: Bidirectional Input `uio_in`
+| Phase | Cycles | Bits [7:0] | Function | Description |
+|-------|--------|------------|----------|-------------|
+| **IDLE** | 0 | `00000000` | N/A | No input accepted. |
+| **LOAD_SCALE** | 1 | `XXXXXXXX` | N/A | Ignored. |
+| **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** | Shared UE8M0 scale for Tensor B. |
+| **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MXFP8 element (see Format table). |
+| **OUTPUT** | 35-38 | `XXXXXXXX` | N/A | Input buffer isolated. |
+
+#### Table 3: Element Bit Formats (MXFP8)
+| Format | Sign (S) | Exponent (E) | Mantissa (M) | Notes |
+|--------|----------|--------------|--------------|-------|
+| **E4M3** | Bit 7 | Bits [6:3] | Bits [2:0] | Bias 7 |
+| **E5M2** | Bit 7 | Bits [6:2] | Bits [1:0] | Bias 15 |
+
+#### Table 4: Primary Output `uo_out`
+| Phase | Cycles | Bits [7:0] | Function | Description |
+|-------|--------|------------|----------|-------------|
+| **IDLE** | 0 | `00000000` | Zero | Constant zero. |
+| **LOAD/STREAM** | 1-34 | `00000000` | Zero | Constant zero during computation. |
+| **OUTPUT** | 35 | `Acc[31:24]` | **Result Byte 3** | Accumulator MSB. |
+| **OUTPUT** | 36 | `Acc[23:16]` | **Result Byte 2** | Accumulator Byte 2. |
+| **OUTPUT** | 37 | `Acc[15:8]` | **Result Byte 1** | Accumulator Byte 1. |
+| **OUTPUT** | 38 | `Acc[7:0]` | **Result Byte 0** | Accumulator LSB. |
 - **Code Tasks**:
   - Implement a 6-bit cycle counter in the top-level module.
   - Implement a Finite State Machine (FSM) with states: `IDLE`, `LOAD_SCALE`, `STREAM`, `OUTPUT`.
