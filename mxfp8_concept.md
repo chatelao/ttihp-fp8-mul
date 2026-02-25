@@ -10,6 +10,34 @@ The implementation focuses on the **MXFP8** format (supporting both E4M3 and E5M
 - **Element Formats**:
   - **E4M3**: 1-bit sign, 4-bit exponent, 3-bit mantissa.
   - **E5M2**: 1-bit sign, 5-bit exponent, 2-bit mantissa.
+
+### Bitwise Layout
+
+#### E4M3 (8-bit)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | S | E3 | E2 | E1 | E0 | M2 | M1 | M0 |
+
+- **S**: Sign bit (1 = negative, 0 = positive)
+- **E[3:0]**: 4-bit Exponent (Bias 7)
+- **M[2:0]**: 3-bit Mantissa (Fractional part)
+
+#### E5M2 (8-bit)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | S | E4 | E3 | E2 | E1 | E0 | M1 | M0 |
+
+- **S**: Sign bit (1 = negative, 0 = positive)
+- **E[4:0]**: 5-bit Exponent (Bias 15)
+- **M[1:0]**: 2-bit Mantissa (Fractional part)
+
+#### Shared Scale: UE8M0 (8-bit)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | X7 | X6 | X5 | X4 | X3 | X2 | X1 | X0 |
+
+- **X[7:0]**: 8-bit Unsigned Integer Exponent.
+
 - **Block Size ($k$)**: 32 elements.
 - **Mathematical Formula**:
   $$V_i = (-1)^{S_i} \times 2^{E_i - \text{Bias}} \times (1 + M_i) \times 2^X$$
