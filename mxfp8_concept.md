@@ -28,6 +28,40 @@ The unit communicates with a host (e.g., RP2040) using a strictly timed protocol
 | **STREAM** | 3-34 | Element $A_i$ | Element $B_i$ | 0 |
 | **OUTPUT** | 35-38 | - | - | Accumulator[byte] |
 
+#### Detailed I/O Bit Mapping
+
+**Table 1: Input `ui_in` (Primary)**
+| Phase | Cycles | Bits [7:0] | Function |
+|-------|--------|------------|----------|
+| **IDLE** | 0 | `00000000` | N/A |
+| **LOAD_SCALE** | 1 | `X_A[7:0]` | **Scale A** (UE8M0) |
+| **LOAD_SCALE** | 2 | `XXXXXXXX` | Ignored |
+| **STREAM** | 3-34 | `A_i[7:0]` | **Element A** (MXFP8) |
+| **OUTPUT** | 35-38 | `XXXXXXXX` | Ignored |
+
+**Table 2: Input `uio_in` (Bidirectional)**
+| Phase | Cycles | Bits [7:0] | Function |
+|-------|--------|------------|----------|
+| **IDLE** | 0 | `00000000` | N/A |
+| **LOAD_SCALE** | 1 | `XXXXXXXX` | Ignored |
+| **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** (UE8M0) |
+| **STREAM** | 3-34 | `B_i[7:0]` | **Element B** (MXFP8) |
+| **OUTPUT** | 35-38 | `XXXXXXXX` | Isolated |
+
+**Table 3: Element Formats**
+| Format | Sign (S) | Exponent (E) | Mantissa (M) | Bias |
+|--------|----------|--------------|--------------|------|
+| **E4M3** | Bit 7 | Bits [6:3] | Bits [2:0] | 7 |
+| **E5M2** | Bit 7 | Bits [6:2] | Bits [1:0] | 15 |
+
+**Table 4: Output `uo_out` (Accumulator Serialization)**
+| Phase | Cycle | Bits [7:0] | Content |
+|-------|-------|------------|---------|
+| **OUTPUT** | 35 | `Acc[31:24]` | Byte 3 (MSB) |
+| **OUTPUT** | 36 | `Acc[23:16]` | Byte 2 |
+| **OUTPUT** | 37 | `Acc[15:8]` | Byte 1 |
+| **OUTPUT** | 38 | `Acc[7:0]` | Byte 0 (LSB) |
+
 ### 3.2. Hardware/Software Co-Design
 The hardware computes the dot product of the scaled elements but factors out the shared scales to minimize gate count:
 $$C = \left( \sum_{i=1}^{32} \text{FP8}(A_i) \times \text{FP8}(B_i) \right) \times 2^{X_A + X_B}$$
