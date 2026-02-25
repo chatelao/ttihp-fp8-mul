@@ -42,6 +42,14 @@ module fp8_mul (
     reg       round_up;
 
     always @(*) begin
+        // Initialize intermediate variables to avoid latch inference
+        m = 8'd0;
+        e = 7'd0;
+        s = 1'b0;
+        round_up = 1'b0;
+        final_m = 3'd0;
+        final_e = 7'd0;
+
         if (nan_a || nan_b || (inf_a && zero_b) || (zero_a && inf_b)) begin
             out = 8'h7F; // Canonical NaN
         end else if (inf_a || inf_b) begin
