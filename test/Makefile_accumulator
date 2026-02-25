@@ -1,0 +1,9 @@
+# Makefile for accumulator test
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+SRC_DIR = $(PWD)/../src
+VERILOG_SOURCES = $(SRC_DIR)/accumulator.v $(PWD)/tb_accumulator.v
+TOPLEVEL = tb_accumulator
+MODULE = test_accumulator
+
+include $(shell cocotb-config --makefiles)/Makefile.sim
