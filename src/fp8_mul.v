@@ -32,23 +32,24 @@ module fp8_mul (
     wire [4:0] eff_eb = (eb == 0) ? 5'd1 : {1'b0, eb};
     wire signed [6:0] exp_sum = {2'b0, eff_ea} + {2'b0, eff_eb} - 7'd7;
 
-    // Intermediate variables for combinatorial logic
-    reg [7:0] m;
-    reg signed [6:0] e;
-    reg s;
-    integer i;
-    reg [2:0] final_m;
-    reg signed [6:0] final_e;
-    reg       round_up;
+    always @(*) begin : compute_logic
+        // Intermediate variables declared locally
+        reg [7:0] m;
+        reg signed [6:0] e;
+        reg s;
+        integer i;
+        reg [2:0] final_m;
+        reg signed [6:0] final_e;
+        reg       round_up;
 
-    always @(*) begin
-        // Initialize intermediate variables to avoid latch inference
+        // Initialize all outputs and intermediate variables to avoid latch inference and 'X' in GLS
+        out = 8'h00;
         m = 8'd0;
         e = 7'd0;
         s = 1'b0;
-        round_up = 1'b0;
         final_m = 3'd0;
         final_e = 7'd0;
+        round_up = 1'b0;
 
         if (nan_a || nan_b || (inf_a && zero_b) || (zero_a && inf_b)) begin
             out = 8'h7F; // Canonical NaN

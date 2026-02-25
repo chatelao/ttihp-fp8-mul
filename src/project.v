@@ -28,6 +28,11 @@ module tt_um_chatelao_fp8_multiplier (
     reg [1:0] state;
     reg [5:0] cycle_count;
 
+    initial begin
+        state = STATE_IDLE;
+        cycle_count = 6'd0;
+    end
+
     // 1. Configure UIO as inputs
     assign uio_oe  = 8'b00000000; 
     assign uio_out = 8'b00000000;
