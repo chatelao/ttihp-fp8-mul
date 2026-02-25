@@ -28,16 +28,17 @@ async def test_fsm_protocol(dut):
     for iteration in range(3):
         dut._log.info(f"Iteration {iteration}")
 
-        for _ in range(39):
-            cycle = int(dut.user_project.cycle_count.value)
-            state = int(dut.user_project.state.value)
+        for expected_cycle in range(39):
             actual = int(dut.uo_out.value)
-            # dut._log.info(f"Internal cycle_count={cycle}, state={state}, uo_out={actual}")
 
-            if 35 <= cycle <= 38:
-                assert actual == cycle, f"Cycle {cycle}: uo_out should be {cycle}, got {actual}"
+            # The hardware increments the cycle_count on each posedge.
+            # At cycle 0, uo_out should be 0.
+            # During OUTPUT phase (cycles 35-38), uo_out should be cycle_count.
+
+            if 35 <= expected_cycle <= 38:
+                assert actual == expected_cycle, f"Cycle {expected_cycle}: uo_out should be {expected_cycle}, got {actual}"
             else:
-                assert actual == 0, f"Cycle {cycle}: uo_out should be 0, got {actual}"
+                assert actual == 0, f"Cycle {expected_cycle}: uo_out should be 0, got {actual}"
 
             await ClockCycles(dut.clk, 1)
 
