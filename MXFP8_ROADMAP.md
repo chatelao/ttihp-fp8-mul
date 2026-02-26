@@ -5,7 +5,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 ## Phase 1: Baseline MXFP8 Implementation
 
 ### Step 1: Protocol Skeleton & FSM (Status: **COMPLETED**)
-- **Goal**: Establish the 40-cycle operational protocol.
+- **Goal**: Establish the 41-cycle operational protocol.
 - **Details**: Implemented a 6-bit cycle counter and FSM (IDLE, LOAD_SCALE, STREAM, OUTPUT). Updated to 40 cycles to support pipelined datapath.
 - **Verification**: Cocotb tests verify state transitions and I/O timing.
 
@@ -68,21 +68,23 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 - **Details**:
   - Decoupled format selection logic for A and B.
   - Implemented unified exponent sum formula to handle mixed FP/INT precision.
-  - Updated 40-cycle protocol to sample `format_a` (Cycle 1) and `format_b` (Cycle 2).
+  - Updated 41-cycle protocol to sample `format_a` (Cycle 1) and `format_b` (Cycle 2).
 - **Verification**: New mixed-precision and randomized test cases in `test/test.py`.
 
 ### Step 11: Hardware-Accelerated Shared Scaling (Status: **COMPLETED**)
 - **Goal**: Apply shared scales ($X_A, X_B$) in hardware.
 - **Details**:
   - Reused the `fp8_aligner` to apply the shared scale $2^{(X_A-127) + (X_B-127)}$ to the 32-bit accumulator.
-  - Optimized the 40-cycle protocol by removing a pipeline stage to ensure the fully scaled result is ready for serialization starting at cycle 36.
+  - Optimized the 41-cycle protocol by removing a pipeline stage to ensure the fully scaled result is ready for serialization starting at cycle 36.
 - **Verification**: New test cases in `test/test.py` verify accuracy for varying shared scales and randomized vectors.
 
-### Step 12: Throughput Optimization & Scale Compression
+### Step 12: Throughput Optimization & Scale Compression (Status: **COMPLETED**)
 - **Goal**: Maximize performance and efficiency.
-- **Tasks**:
-  - Pipeline the multiplier/accumulator datapath.
-  - Implement Scale Compression for multi-block streams.
+- **Details**:
+  - Implemented a pipeline stage after the multiplier to break the critical path to the aligner/accumulator.
+  - Updated the operational protocol to 41 cycles (0-40) to accommodate the pipeline flush while maintaining registered outputs.
+  - Implemented "Fast Start" (Scale Compression) allowing the reuse of previous scales/formats by jumping from IDLE to STREAM.
+- **Verification**: Updated Python reference model and protocol verification script.
 
 ---
 
@@ -96,7 +98,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Perform exhaustive verification for all supported FP formats.
 
 ### Step 14: Formal Protocol Proofs
-- **Goal**: Mathematically prove the correctness of the 40-cycle FSM.
+- **Goal**: Mathematically prove the correctness of the 41-cycle FSM.
 - **Tasks**:
   - Define formal properties using SVA (SystemVerilog Assertions).
   - Use SymbiYosys or similar tools to prove safety and liveness of the protocol.

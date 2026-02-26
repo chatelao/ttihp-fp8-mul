@@ -44,7 +44,7 @@ A Python reference model (`model.py` and within `test.py`) serves as the "Golden
 - **Alignment Extremes**: Testing very large and very small exponents to verify barrel shifter bounds.
 
 ### 4.3. Randomized Testing (Constrained Random)
-- Random elements, random formats, and random scales across thousands of 40-cycle blocks to ensure no hidden state-space bugs.
+- Random elements, random formats, and random scales across thousands of 41-cycle blocks to ensure no hidden state-space bugs.
 
 ## 5. Rounding Mode Verification
 Verification of the four rounding modes defined in Cycle 1 `uio_in[4:3]`:
