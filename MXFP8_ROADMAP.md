@@ -115,3 +115,9 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 - **Tasks**:
   - Develop a serial-to-parallel interface for high-throughput hardware testing.
   - Compare FPGA results bit-for-bit with the Python reference model.
+
+### Step 17: Test on the TT Dev Kit
+- **Goal**: Verify the design on the [Tiny Tapeout Development Kit](https://store.tinytapeout.com/products/FPGA-Development-Kit-p813805747).
+- **Tasks**:
+  - Deploy the bitstream to the TT Dev Kit FPGA.
+  - Validate the 41-cycle streaming protocol using real hardware I/O.
