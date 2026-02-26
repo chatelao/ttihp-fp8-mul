@@ -90,12 +90,13 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 
 ## Phase 3: Rigorous Verification & Optimization
 
-### Step 13: Comprehensive Coverage-Driven Verification
+### Step 13: Comprehensive Coverage-Driven Verification (Status: **COMPLETED**)
 - **Goal**: Achieve 100% functional and code coverage for all formats.
-- **Tasks**:
-  - Implement a coverage collector in cocotb.
-  - Generate a comprehensive test matrix for edge cases (NaN, Inf, Subnormals).
-  - Perform exhaustive verification for all supported FP formats.
+- **Details**:
+  - Implemented a functional coverage collector in `test/test_coverage.py` using `cocotb-coverage`.
+  - Achieved 100% cross-coverage for all format combinations, rounding modes, and overflow settings.
+  - Verified edge cases including NaNs/Infinities (E5M2), subnormal flushing, and saturation boundaries.
+  - Synchronized unit tests for `fp8_aligner` to match the updated 32-bit pipelined interface.
 
 ### Step 14: Formal Protocol Proofs
 - **Goal**: Mathematically prove the correctness of the 41-cycle FSM.
