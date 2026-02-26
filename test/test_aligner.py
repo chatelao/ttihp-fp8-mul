@@ -2,34 +2,8 @@ import cocotb
 from cocotb.triggers import Timer
 import random
 
-def align_reference(prod, exp_sum, sign):
-    # exp_sum is signed 7-bit
-    if exp_sum >= 64:
-        exp_sum -= 128
-
-    val = (prod / 64.0) * (2.0 ** (exp_sum - 7))
-    if sign:
-        val = -val
-
-    # Fixed point representation (bit 8 = 2^0)
-    # This means value * 2^8
-    # We use integer arithmetic to match Verilog
-
-    shift_amt = exp_sum - 5
-    shifted = prod
-    if shift_amt >= 0:
-        shifted = prod << shift_amt
-    else:
-        shifted = prod >> (-shift_amt)
-
-    # Keep 32 bits
-    mask = 0xFFFFFFFF
-    if sign:
-        res = (-shifted) & mask
-    else:
-        res = shifted & mask
-
-    return res
+# Reuse model from test.py
+from test import align_model
 
 @cocotb.test()
 async def test_aligner_basic(dut):
@@ -46,9 +20,12 @@ async def test_aligner_basic(dut):
         dut.prod.value = prod
         dut.exp_sum.value = exp_sum
         dut.sign.value = sign
-        await Timer(1, units="ns")
+        dut.round_mode.value = 0
+        dut.overflow_wrap.value = 0
+        await Timer(1, unit="ns")
 
-        expected = align_reference(prod, exp_sum, sign)
+        expected_val = align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0)
+        expected = expected_val & 0xFFFFFFFF
         actual = int(dut.aligned.value)
 
         dut._log.info(f"{label}: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}) -> Actual: 0x{actual:08x}, Expected: 0x{expected:08x}")
@@ -57,18 +34,23 @@ async def test_aligner_basic(dut):
 @cocotb.test()
 async def test_aligner_random(dut):
     for i in range(100):
-        prod = random.randint(0, 255)
-        exp_sum = random.randint(-64, 63)
+        prod = random.randint(0, 0xFFFFFFFF)
+        exp_sum = random.randint(-127, 127)
         sign = random.randint(0, 1)
+        rm = random.randint(0, 3)
+        ov = random.randint(0, 1)
 
         dut.prod.value = prod
         dut.exp_sum.value = exp_sum
         dut.sign.value = sign
-        await Timer(1, units="ns")
+        dut.round_mode.value = rm
+        dut.overflow_wrap.value = ov
+        await Timer(1, unit="ns")
 
-        expected = align_reference(prod, exp_sum, sign)
+        expected_val = align_model(prod, exp_sum, sign, round_mode=rm, overflow_wrap=ov)
+        expected = expected_val & 0xFFFFFFFF
         actual = int(dut.aligned.value)
 
         if actual != expected:
-             dut._log.error(f"FAIL: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}) -> Actual: 0x{actual:08x}, Expected: 0x{expected:08x}")
+             dut._log.error(f"FAIL: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}, rm={rm}, ov={ov}) -> Actual: 0x{actual:08x}, Expected: 0x{expected:08x}")
         assert actual == expected
