@@ -47,11 +47,12 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Updated 38-cycle protocol to support 3-bit format selection during Cycle 1.
   - Unified datapath to handle variable exponent ranges and mantissa padding.
 
-### Step 8: Integer Support (MXINT8) & Symmetric Range
+### Step 8: Integer Support (MXINT8) & Symmetric Range (Status: **COMPLETED**)
 - **Goal**: Support 8-bit integer elements (MXINT8).
-- **Tasks**:
-  - Implement MXINT8 multiplication path (implicit $2^{-6}$ scale).
-  - Add optional symmetric clamping for -128.
+- **Details**:
+  - Implemented signed 8x8 multiplication with implicit $2^{-6}$ scale (mapped to $2^{-4}$ alignment shift).
+  - Added support for both standard INT8 and symmetric INT8 (clamping -128 to -127).
+- **Verification**: Dedicated test cases for both INT8 variants and randomized testing.
 
 ### Step 9: Advanced Numerical Control (Rounding & Overflow)
 - **Goal**: Implement optional rounding modes and configurable overflow methods.

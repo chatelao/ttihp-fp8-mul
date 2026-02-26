@@ -88,6 +88,8 @@ The unit communicates with a host using a strictly timed protocol:
 | `010` | E3M2 | MXFP6 | 6 | [5] | [4:2] | [1:0] | 3 |
 | `011` | E2M3 | MXFP6 | 6 | [5] | [4:3] | [2:0] | 1 |
 | `100` | E2M1 | MXFP4 | 4 | [3] | [2:1] | [0] | 1 |
+| `101` | INT8 | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
+| `110` | INT8_SYM | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
 
 **Table 3: Output `uo_out` (Accumulator Serialization)**
 | Phase | Cycle | Bits [7:0] | Content |
@@ -129,8 +131,8 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 - [ ] **Step 6**: Physical Design & Gate-Level Simulation (GDS generation, GLS).
 
 ### Phase 2: Advanced OCP MX Features
-- [ ] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4).
-- [ ] **Step 8**: Integer Support (MXINT8) & Symmetric Range.
+- [x] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4).
+- [x] **Step 8**: Integer Support (MXINT8) & Symmetric Range.
 - [ ] **Step 9**: Advanced Numerical Control (Rounding & Overflow modes).
 - [ ] **Step 10**: Mixed-Precision Operations (Independent A/B formats).
 - [ ] **Step 11**: Hardware-Accelerated Shared Scaling (Applying $2^{X_A+X_B}$ in hardware).
