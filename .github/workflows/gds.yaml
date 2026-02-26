@@ -57,6 +57,20 @@ jobs:
 
       - uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
 
+  colorizer:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download GDS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tt_submission
+
       - name: Generate Colored Visualization
         run: |
           sudo apt-get update
