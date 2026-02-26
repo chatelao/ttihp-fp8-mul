@@ -165,6 +165,6 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 - [x] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4).
 - [x] **Step 8**: Integer Support (MXINT8) & Symmetric Range.
 - [x] **Step 9**: Advanced Numerical Control (Rounding & Overflow modes).
-- [ ] **Step 10**: Mixed-Precision Operations (Independent A/B formats).
+- [x] **Step 10**: Mixed-Precision Operations (Independent A/B formats).
 - [ ] **Step 11**: Hardware-Accelerated Shared Scaling (Applying $2^{X_A+X_B}$ in hardware).
 - [ ] **Step 12**: Throughput Optimization & Scale Compression.

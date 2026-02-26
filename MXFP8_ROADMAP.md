@@ -63,11 +63,13 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Optimized aligner logic and pipelined the datapath to meet 27MHz timing for Gowin.
 - **Verification**: Targeted tests for rounding bit-accuracy and saturation/wrap behavior.
 
-### Step 10: Mixed-Precision Operations
+### Step 10: Mixed-Precision Operations (Status: **COMPLETED**)
 - **Goal**: Enable independent format selection for Operand A and Operand B.
-- **Tasks**:
-  - Decouple format selection logic.
-  - Update datapath to handle mixed exponent ranges.
+- **Details**:
+  - Decoupled format selection logic for A and B.
+  - Implemented unified exponent sum formula to handle mixed FP/INT precision.
+  - Updated 40-cycle protocol to sample `format_a` (Cycle 1) and `format_b` (Cycle 2).
+- **Verification**: New mixed-precision and randomized test cases in `test/test.py`.
 
 ### Step 11: Hardware-Accelerated Shared Scaling
 - **Goal**: Apply shared scales ($X_A, X_B$) in hardware.
