@@ -25,7 +25,14 @@ module fp8_aligner (
         reg round_bit;
         reg [7:0] n;
 
+        // Initialize all to avoid latches
         shifted = {48'd0, prod};
+        base = 64'd0;
+        rounded = 64'd0;
+        sticky = 1'b0;
+        round_bit = 1'b0;
+        n = 8'd0;
+        aligned = 32'd0;
 
         if (shift_amt >= 0) begin
             rounded = (shift_amt > 60) ? 64'hFFFFFFFFFFFFFFFF : (shifted << shift_amt);
