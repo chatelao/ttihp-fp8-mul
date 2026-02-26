@@ -14,3 +14,4 @@ project.v
 fp8_mul.v
 fp8_aligner.v
 accumulator.v
+top_control.v
