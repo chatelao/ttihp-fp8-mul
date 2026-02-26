@@ -30,7 +30,7 @@ The current implementation supports a wide range of OCP MX formats (MXFP8, MXFP6
 
 To achieve the ~1500 gate target for a 1x1 tile, the design must prioritize hardware efficiency over exhaustive format support and optional features.
 
-### Optimization 1: Downsize the Aligner Path
+### Optimization 1: Downsize the Aligner Path (Status: **Always Recommended**)
 The current aligner uses a **64-bit** internal path to handle both 16x32 alignment and 32x32 shared scaling.
 - **Change**: Narrow the internal shifter and rounding adder to **40 bits**.
 - **Impact**: This reduces aligner area by ~40%.
@@ -61,17 +61,26 @@ The OCP MX specification includes many formats, but the primary ones are MXFP8 a
     - **Precision**: **Loss of flexibility**. Loss of directed rounding modes (CEIL/FLOOR) which may be required for specific quantization or interval arithmetic tasks.
     - **Speed**: **Minor improvement**. Removing muxes from the rounding logic slightly reduces the combinational delay of the aligner.
 
+### Optimization 5: Remove Mixed-Precision Support
+The current implementation allows independent format selection for `format_a` and `format_b`.
+- **Change**: Force both operands to share a single format configuration sampled at Cycle 1.
+- **Impact**: Eliminates the `format_b` register and one set of format decoders, saving ~150 gates.
+- **Speed/Precision**:
+    - **Precision**: **Functional loss**. The unit can no longer perform mixed-precision operations (e.g., E4M3 * E5M2).
+    - **Speed**: **Minor improvement**. Reduced fan-out on format control signals improves timing slack.
+
 ### Optimization Summary for 1x1 Tile
 
 | Component | Current Gates | Optimized Gates | Reduction |
 |---|---|---|---|
 | Aligner (Shifter/Adder) | ~1250 | ~650 | 48% |
-| Multiplier (Decoders/Mult) | ~750 | ~500 | 33% |
-| Registers (DFFs) | ~800 | ~250* | 68% |
+| Multiplier (Decoders/Mult) | ~750 | ~350*** | 53% |
+| Registers (DFFs) | ~800 | ~200* | 75% |
 | Control & Misc | ~630 | ~150** | 76% |
-| **Total** | **~3430** | **~1550** | **~55%** |
+| **Total** | **~3430** | **~1350** | **~60%** |
 
 *\*Reducing the number of supported formats and removing shared scaling registers saves significant DFF count.*
 *\*\*Simplifying the FSM by removing cycles and config registers.*
+*\*\*\*Includes Optimization 5 (Removal of mixed-precision decoders).*
 
 By implementing these optimizations, the OCP MXFP8 MAC unit can fit comfortably into a **1x1 Tiny Tapeout tile** while maintaining its core functionality for the most important MX formats.
