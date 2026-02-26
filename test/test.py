@@ -185,7 +185,12 @@ async def run_mac_test(dut, format_val, a_elements, b_elements, round_mode=0, ov
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Cycle 35-38: Output Serialized Result
+    # Cycle 35: Extra cycle for pipeline latency
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 36-39: Output Serialized Result
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")

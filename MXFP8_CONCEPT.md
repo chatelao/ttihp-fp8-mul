@@ -49,16 +49,17 @@ The implementation focuses on the **MXFP8** format (supporting both E4M3 and E5M
 ## 3. Architecture: Operand Streaming
 To fit within the ~320 D-Flip-Flop (DFF) budget of a 1x1 tile, the design employs **Temporal Multiplexing (Operand Streaming)**.
 
-### 3.1. I/O Protocol (38-Cycle Sequence)
+### 3.1. I/O Protocol (40-Cycle Sequence)
 The unit communicates with a host using a strictly timed protocol:
 
 | Phase | Cycles | Input (`ui_in`) | Input (`uio_in`) | Output (`uo_out`) |
 |-------|--------|-----------------|------------------|-------------------|
 | **IDLE** | 0 | - | - | 0 |
-| **LOAD_SCALE** | 1 | Scale $X_A$ | Format Select | 0 |
+| **LOAD_SCALE** | 1 | Scale $X_A$ | Format/NC | 0 |
 | **LOAD_SCALE** | 2 | - | Scale $X_B$ | 0 |
 | **STREAM** | 3-34 | Element $A_i$ | Element $B_i$ | 0 |
-| **OUTPUT** | 35-38 | - | - | Accumulator[byte] |
+| **PIPELINE** | 35 | - | - | 0 |
+| **OUTPUT** | 36-39 | - | - | Accumulator[byte] |
 
 #### Detailed I/O Bit Mapping
 
@@ -69,7 +70,8 @@ The unit communicates with a host using a strictly timed protocol:
 | **LOAD_SCALE** | 1 | `X_A[7:0]` | **Scale A** | Shared UE8M0 scale for Tensor A. |
 | **LOAD_SCALE** | 2 | `XXXXXXXX` | N/A | |
 | **STREAM** | 3-34 | `A_i[7:0]` | **Element A** | MXFP8 element (E4M3/E5M2). |
-| **OUTPUT** | 35-38 | `XXXXXXXX` | N/A | |
+| **PIPELINE** | 35 | `XXXXXXXX` | N/A | |
+| **OUTPUT** | 36-39 | `XXXXXXXX` | N/A | |
 
 **Table 2: Input `uio_in` (Bidirectional)**
 | Phase | Cycles | Bits [7:0] | Function | Description |
@@ -78,7 +80,8 @@ The unit communicates with a host using a strictly timed protocol:
 | **LOAD_SCALE** | 1 | `XXOWWRRR` | **Format/NC** | Bits [2:0]: Format, [4:3]: Rounding, [5]: Overflow. |
 | **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** | Shared UE8M0 scale for Tensor B. |
 | **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MX element (aligned to lower bits). |
-| **OUTPUT** | 35-38 | `XXXXXXXX` | Isolated | |
+| **PIPELINE** | 35 | `XXXXXXXX` | Isolated | |
+| **OUTPUT** | 36-39 | `XXXXXXXX` | Isolated | |
 
 #### Table 4: Supported Formats
 | Format ID (`FFF`) | Name | Type | Bits | Sign | Exponent | Mantissa | Bias |
@@ -101,10 +104,10 @@ The unit communicates with a host using a strictly timed protocol:
 **Table 3: Output `uo_out` (Accumulator Serialization)**
 | Phase | Cycle | Bits [7:0] | Content |
 |-------|-------|------------|---------|
-| **OUTPUT** | 35 | `Acc[31:24]` | Byte 3 (MSB) |
-| **OUTPUT** | 36 | `Acc[23:16]` | Byte 2 |
-| **OUTPUT** | 37 | `Acc[15:8]` | Byte 1 |
-| **OUTPUT** | 38 | `Acc[7:0]` | Byte 0 (LSB) |
+| **OUTPUT** | 36 | `Acc[31:24]` | Byte 3 (MSB) |
+| **OUTPUT** | 37 | `Acc[23:16]` | Byte 2 |
+| **OUTPUT** | 38 | `Acc[15:8]` | Byte 1 |
+| **OUTPUT** | 39 | `Acc[7:0]` | Byte 0 (LSB) |
 
 ### 3.2. Hardware/Software Co-Design
 The hardware computes the dot product of the scaled elements but factors out the shared scales to minimize gate count:
@@ -130,7 +133,7 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 ## 6. Implementation Progress
 
 ### Phase 1: Baseline MXFP8 Implementation
-- [x] **Step 1**: Protocol Skeleton & FSM (38-cycle operational protocol).
+- [x] **Step 1**: Protocol Skeleton & FSM (40-cycle operational protocol).
 - [x] **Step 2**: MXFP8 Multiplier Core (E4M3/E5M2 support, subnormal flushing).
 - [x] **Step 3**: Product Alignment (Barrel shifter with saturation).
 - [x] **Step 4**: Accumulator Unit (32-bit signed summation).
