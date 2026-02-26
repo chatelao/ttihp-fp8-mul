@@ -28,26 +28,13 @@ jobs:
 
           # 1. Standard Logic Diagram
           yosys -p "read_verilog $SOURCES; hierarchy -top $TOP_MODULE; proc; opt; show -format dot -prefix logic_diagram $TOP_MODULE"
-          dot -Tpng logic_diagram.dot -o logic_diagram.png
-          dot -Tsvg logic_diagram.dot -o logic_diagram.svg
+          timeout 300 dot -Tpng logic_diagram.dot -o logic_diagram.png
+          timeout 300 dot -Tsvg logic_diagram.dot -o logic_diagram.svg
 
           # 2. Flattened RTL Logic Diagram (Resolution level +/- between top-level and flatten)
           yosys -p "read_verilog $SOURCES; hierarchy -top $TOP_MODULE; proc; flatten; opt; show -format dot -prefix logic_diagram_rtl $TOP_MODULE"
-          dot -Tpng logic_diagram_rtl.dot -o logic_diagram_rtl.png
-          dot -Tsvg logic_diagram_rtl.dot -o logic_diagram_rtl.svg
-
-          tred logic_diagram_rtl.dot | dot -T png > logic_diagram_rtl_tred.png
-          tred logic_diagram_rtl.dot | dot -T svg > logic_diagram_rtl_tred.svg
-
-          # 3. Flattened Gate-Level Logic Diagram
-          # Note: Technology mapping to IHP SG13G2 (synth_ihp) is currently unavailable in this CI environment.
-          # Using generic 'synth' with 'flatten' as a substitute to show the flattened design structure.
-          yosys -p "read_verilog $SOURCES; hierarchy -top $TOP_MODULE; proc; flatten; synth -top $TOP_MODULE; show -format dot -prefix logic_diagram_flattened $TOP_MODULE"
-          dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
-          dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
-
-          tred logic_diagram_flattened.dot | dot -T png > logic_diagram_flattened_tred.png
-          tred logic_diagram_flattened.dot | dot -T svg > logic_diagram_flattened_tred.svg
+          timeout 300 dot -Tpng logic_diagram_rtl.dot -o logic_diagram_rtl.png
+          timeout 300 dot -Tsvg logic_diagram_rtl.dot -o logic_diagram_rtl.svg
 
       - name: Upload Diagram Artifacts
         uses: actions/upload-artifact@v4
@@ -58,9 +45,3 @@ jobs:
             logic_diagram.svg
             logic_diagram_rtl.png
             logic_diagram_rtl.svg
-            logic_diagram_rtl_tred.png
-            logic_diagram_rtl_tred.svg
-            logic_diagram_flattened.png
-            logic_diagram_flattened.svg
-            logic_diagram_flattened_tred.png
-            logic_diagram_flattened_tred.svg
