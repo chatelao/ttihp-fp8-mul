@@ -11,7 +11,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 
 ### Step 2: MXFP8 Multiplier Core (Status: **COMPLETED**)
 - **Goal**: Implement combinatorial FP8 multiplication logic.
-- **Refinement (Review 1)**: Refactored to align with OCP MX v1.0 (flush subnormals, support E5M2, simplify IEEE-754 logic).
+- **Refinement (Review findings)**: Refactored to align with OCP MX v1.0 (flush subnormals, support E5M2, simplify IEEE-754 logic).
 - **Verification**: Exhaustive 256x256 unit tests against Python model.
 
 ### Step 3: Product Alignment (Status: **COMPLETED**)
