@@ -83,3 +83,32 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 - **Tasks**:
   - Pipeline the multiplier/accumulator datapath.
   - Implement Scale Compression for multi-block streams.
+
+---
+
+## Phase 3: Rigorous Verification & Optimization
+
+### Step 13: Comprehensive Coverage-Driven Verification
+- **Goal**: Achieve 100% functional and code coverage for all formats.
+- **Tasks**:
+  - Implement a coverage collector in cocotb.
+  - Generate a comprehensive test matrix for edge cases (NaN, Inf, Subnormals).
+  - Perform exhaustive verification for all supported FP formats.
+
+### Step 14: Formal Protocol Proofs
+- **Goal**: Mathematically prove the correctness of the 40-cycle FSM.
+- **Tasks**:
+  - Define formal properties using SVA (SystemVerilog Assertions).
+  - Use SymbiYosys or similar tools to prove safety and liveness of the protocol.
+
+### Step 15: Power & Performance Characterization
+- **Goal**: Evaluate the MAC unit's efficiency.
+- **Tasks**:
+  - Run post-layout simulations with diverse switching activity.
+  - Calculate mW/TOPS and area efficiency ($MACs/mm^2$).
+
+### Step 16: Hardware-in-the-Loop (HIL) Validation
+- **Goal**: Cross-verify RTL behavior on the Tang Nano 9K FPGA.
+- **Tasks**:
+  - Develop a serial-to-parallel interface for high-throughput hardware testing.
+  - Compare FPGA results bit-for-bit with the Python reference model.
