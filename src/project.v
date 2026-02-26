@@ -114,7 +114,7 @@ module tt_um_chatelao_fp8_multiplier (
     wire [31:0] acc_abs = acc_out[31] ? -acc_out : acc_out;
 
     wire [31:0] aligner_in_prod = (cycle_count >= 6'd35) ? acc_abs : {16'd0, mul_prod};
-    wire signed [9:0] aligner_in_exp  = (cycle_count >= 6'd35) ? (shared_exp + 10'sd5) : $signed(mul_exp_sum);
+    wire signed [9:0] aligner_in_exp  = (cycle_count >= 6'd35) ? (shared_exp + 10'sd5) : {{3{mul_exp_sum[6]}}, mul_exp_sum};
     wire aligner_in_sign = (cycle_count >= 6'd35) ? acc_out[31] : mul_sign;
 
     wire [31:0] aligned_res;
