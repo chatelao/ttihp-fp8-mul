@@ -75,10 +75,19 @@ The unit communicates with a host using a strictly timed protocol:
 | Phase | Cycles | Bits [7:0] | Function | Description |
 |-------|--------|------------|----------|-------------|
 | **IDLE** | 0 | `00000000` | N/A | |
-| **LOAD_SCALE** | 1 | `XXXXXXXF` | **Format** | Bit 0: `is_e5m2` (1=E5M2, 0=E4M3). |
+| **LOAD_SCALE** | 1 | `XXXXXFFF` | **Format** | Bits [2:0]: Format Select (see Table 4). |
 | **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** | Shared UE8M0 scale for Tensor B. |
-| **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MXFP8 element (E4M3/E5M2). |
+| **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MX element (aligned to lower bits). |
 | **OUTPUT** | 35-38 | `XXXXXXXX` | Isolated | |
+
+#### Table 4: Supported Formats
+| Format ID (`FFF`) | Name | Type | Bits | Sign | Exponent | Mantissa | Bias |
+|---|---|---|---|---|---|---|---|
+| `000` | E4M3 | MXFP8 | 8 | [7] | [6:3] | [2:0] | 7 |
+| `001` | E5M2 | MXFP8 | 8 | [7] | [6:2] | [1:0] | 15 |
+| `010` | E3M2 | MXFP6 | 6 | [5] | [4:2] | [1:0] | 3 |
+| `011` | E2M3 | MXFP6 | 6 | [5] | [4:3] | [2:0] | 1 |
+| `100` | E2M1 | MXFP4 | 4 | [3] | [2:1] | [0] | 1 |
 
 **Table 3: Output `uo_out` (Accumulator Serialization)**
 | Phase | Cycle | Bits [7:0] | Content |
