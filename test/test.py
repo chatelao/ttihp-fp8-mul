@@ -60,7 +60,7 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
     shift_amt = exp_sum - 5
 
     if shift_amt >= 0:
-        if shift_amt > 60:
+        if not overflow_wrap and shift_amt > 60:
             aligned = 0xFFFFFFFFFFFFFFFF
         else:
             aligned = prod << shift_amt
@@ -157,6 +157,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
+    # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap)
 
@@ -196,6 +197,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     shared_exp = scale_a + scale_b - 254
     acc_abs = abs(expected_acc)
     acc_sign = 1 if expected_acc < 0 else 0
+
+    # In Cycle 36, the aligner gets acc_abs as prod, shared_exp + 5 as exp_sum, acc_sign as sign
+    # But wait, acc_abs is 32-bit. align_model takes prod.
+    # The RTL does: aligner_in_prod = (cycle_count >= 6'd36) ? acc_abs : {16'd0, mul_prod_reg};
 
     expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
 

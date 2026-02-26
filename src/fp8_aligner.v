@@ -25,11 +25,13 @@ module fp8_aligner (
         reg sticky;
         reg round_bit;
         reg signed [10:0] n;
+        reg huge;
 
         // Initialize all to avoid latches
         shifted = {32'd0, prod};
         base = 64'd0;
         rounded = 64'd0;
+        huge = 1'b0;
         sticky = 1'b0;
         round_bit = 1'b0;
         n = 11'd0;
@@ -37,9 +39,16 @@ module fp8_aligner (
 
         if (shift_amt >= 0) begin
             // Left shift
-            // If shift_amt is large, it will definitely saturate.
-            // Shifting a non-zero 32-bit value by 32 bits already overflows 32-bit signed range.
-            rounded = (shift_amt > 11'sd60) ? 64'hFFFFFFFFFFFFFFFF : (shifted << shift_amt);
+            if (prod != 32'd0) begin
+                if (shift_amt >= 11'sd31) begin
+                    huge = 1'b1;
+                    if (shift_amt < 11'sd64) rounded = shifted << shift_amt;
+                    else rounded = 64'd0;
+                end else begin
+                    rounded = shifted << shift_amt;
+                    if (rounded[63:31] != 33'd0) huge = 1'b1;
+                end
+            end
             sticky = 1'b0;
             round_bit = 1'b0;
         end else begin
@@ -81,13 +90,13 @@ module fp8_aligner (
         // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000
         if (sign) begin
             // Magnitude > 2^31 saturates
-            if (!overflow_wrap && (|rounded[63:32] || (rounded[31] && |rounded[30:0])))
+            if (!overflow_wrap && (huge || |rounded[63:32] || (rounded[31] && |rounded[30:0])))
                 aligned = 32'h80000000;
             else
                 aligned = -rounded[31:0];
         end else begin
             // Magnitude > 2^31-1 saturates
-            if (!overflow_wrap && |rounded[63:31])
+            if (!overflow_wrap && (huge || |rounded[63:31]))
                 aligned = 32'h7FFFFFFF;
             else
                 aligned = rounded[31:0];
