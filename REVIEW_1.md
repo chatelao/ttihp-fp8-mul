@@ -35,7 +35,7 @@ The project aims to implement a Streaming Multiply-Accumulate (MAC) Unit compati
 
 ## 4. Documentation Status
 - **PDF Specification**: Successfully added the OCP MX v1.0 specification to the `/documentation` folder (retrieved via archival mirror to bypass primary site access issues).
-- **Project Docs**: `mxfp8_concept.md` and `mxfp8_roadmap.md` are excellent and provide a clear vision for the project.
+- **Project Docs**: `mxfp8_concept.md` and `ROADMAP.md` are excellent and provide a clear vision for the project.
 
 ## 5. Recommendations
 1.  **Simplify Multiplier**: Refactor `fp8_mul.v` to align with OCP MX v1.0 (flush subnormals, saturate overflows, remove Inf/NaN logic).
