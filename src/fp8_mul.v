@@ -36,7 +36,7 @@ module fp8_mul (
     reg signed [15:0] s_prod;
 
     always @(*) begin
-        // Defaults
+        // Defaults to avoid latches
         sign_a = 1'b0;
         ea = 5'd0;
         ma = 3'd0;
@@ -47,6 +47,18 @@ module fp8_mul (
         is_int = 1'b0;
         ia = 8'sd0;
         ib = 8'sd0;
+
+        // Output and temporal variables initialization
+        p_res = 16'd0;
+        exp_sum_res = 7'sd0;
+        sign_res = 1'b0;
+
+        zero_a = 1'b0;
+        zero_b = 1'b0;
+        mant_a = 4'd0;
+        mant_b = 4'd0;
+        p_fp = 8'd0;
+        s_prod = 16'sd0;
 
         case (format)
             FMT_E4M3: begin
