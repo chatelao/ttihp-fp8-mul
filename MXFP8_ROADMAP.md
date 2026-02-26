@@ -5,8 +5,8 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 ## Phase 1: Baseline MXFP8 Implementation
 
 ### Step 1: Protocol Skeleton & FSM (Status: **COMPLETED**)
-- **Goal**: Establish the 38-cycle operational protocol.
-- **Details**: Implemented a 6-bit cycle counter and FSM (IDLE, LOAD_SCALE, STREAM, OUTPUT).
+- **Goal**: Establish the 40-cycle operational protocol.
+- **Details**: Implemented a 6-bit cycle counter and FSM (IDLE, LOAD_SCALE, STREAM, OUTPUT). Updated to 40 cycles to support pipelined datapath.
 - **Verification**: Cocotb tests verify state transitions and I/O timing.
 
 ### Step 2: MXFP8 Multiplier Core (Status: **COMPLETED**)
@@ -54,11 +54,14 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Added support for both standard INT8 and symmetric INT8 (clamping -128 to -127).
 - **Verification**: Dedicated test cases for both INT8 variants and randomized testing.
 
-### Step 9: Advanced Numerical Control (Rounding & Overflow)
+### Step 9: Advanced Numerical Control (Rounding & Overflow) (Status: **COMPLETED**)
 - **Goal**: Implement optional rounding modes and configurable overflow methods.
-- **Tasks**:
-  - Add Truncate, Round-to-Plus-Infinity, and Round-to-Minus-Infinity modes.
-  - Support configurable overflow methods (Wrapping vs Saturation).
+- **Details**:
+  - Implemented four rounding modes: Truncate (00), Ceil (01), Floor (10), and Round-to-Nearest-Ties-to-Even (11).
+  - Added configurable overflow methods: Saturation (0) vs. Wrapping (1), applied to both the aligner and the 32-bit accumulator.
+  - Configuration sampled from `uio_in[5:3]` during Cycle 1 of the protocol.
+  - Optimized aligner logic and pipelined the datapath to meet 27MHz timing for Gowin.
+- **Verification**: Targeted tests for rounding bit-accuracy and saturation/wrap behavior.
 
 ### Step 10: Mixed-Precision Operations
 - **Goal**: Enable independent format selection for Operand A and Operand B.
