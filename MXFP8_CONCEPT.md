@@ -1,50 +1,71 @@
-# Concept: Streaming MXFP8 MAC Unit for Tiny Tapeout
+# Concept: Streaming MX MAC Unit for Tiny Tapeout
 
 ## 1. Introduction
-The scaling of Deep Learning models necessitates efficient numerical representations to overcome the "Memory Wall". The **OCP Microscaling Formats (MX) Specification v1.0** introduces a block-based scaling approach that significantly reduces memory bandwidth and hardware complexity. This concept outlines the implementation of an MXFP8-compatible Multiply-Accumulate (MAC) unit within the strict constraints of a single **1x1 Tiny Tapeout tile** (Sky130/IHP SG13G2).
+The scaling of Deep Learning models necessitates efficient numerical representations to overcome the "Memory Wall". The **OCP Microscaling Formats (MX) Specification v1.0** introduces a block-based scaling approach that significantly reduces memory bandwidth and hardware complexity. This concept outlines the implementation of an MX-compatible Multiply-Accumulate (MAC) unit supporting various floating-point and integer formats within the strict constraints of a single **1x1 Tiny Tapeout tile** (Sky130/IHP SG13G2).
 
-## 2. Numerical Representation: OCP MXFP8
-The implementation focuses on the **MXFP8** format (supporting both E4M3 and E5M2 variants) with a shared block scaling factor.
+## 2. Numerical Representation: OCP MX
+The implementation supports multiple **OCP MX** formats, including MXFP8, MXFP6, MXFP4, and MXINT8, all sharing a common block scaling factor.
 
 - **Shared Scale**: UE8M0 (8-bit unsigned biased exponent, Bias 127, power-of-two scaling).
 - **Element Formats**:
-  - **E4M3**: 1-bit sign, 4-bit exponent, 3-bit mantissa (Bias 7).
-  - **E5M2**: 1-bit sign, 5-bit exponent, 2-bit mantissa (Bias 15).
+  - **MXFP8**: E4M3 (Bias 7) and E5M2 (Bias 15).
+  - **MXFP6**: E3M2 (Bias 3) and E2M3 (Bias 1).
+  - **MXFP4**: E2M1 (Bias 1).
+  - **MXINT8**: Standard and Symmetric 8-bit signed integers.
 
-### Bitwise Layout
+### Bitwise Layouts
+All formats are aligned to the lower bits of the 8-bit input wires during the `STREAM` phase.
 
-#### E4M3 (8-bit)
+#### E4M3 (8-bit MXFP8)
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Field** | S | E3 | E2 | E1 | E0 | M2 | M1 | M0 |
+- **S**: Sign bit. **E[3:0]**: Exponent (Bias 7). **M[2:0]**: Mantissa.
 
-- **S**: Sign bit (1 = negative, 0 = positive)
-- **E[3:0]**: 4-bit Exponent (Bias 7)
-- **M[2:0]**: 3-bit Mantissa (Fractional part)
-
-#### E5M2 (8-bit)
+#### E5M2 (8-bit MXFP8)
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Field** | S | E4 | E3 | E2 | E1 | E0 | M1 | M0 |
+- **S**: Sign bit. **E[4:0]**: Exponent (Bias 15). **M[1:0]**: Mantissa.
 
-- **S**: Sign bit (1 = negative, 0 = positive)
-- **E[4:0]**: 5-bit Exponent (Bias 15)
-- **M[1:0]**: 2-bit Mantissa (Fractional part)
+#### E3M2 (6-bit MXFP6)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | - | - | S | E2 | E1 | E0 | M1 | M0 |
+- **S**: Sign bit. **E[2:0]**: Exponent (Bias 3). **M[1:0]**: Mantissa.
+
+#### E2M3 (6-bit MXFP6)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | - | - | S | E1 | E0 | M2 | M1 | M0 |
+- **S**: Sign bit. **E[1:0]**: Exponent (Bias 1). **M[2:0]**: Mantissa.
+
+#### E2M1 (4-bit MXFP4)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | - | - | - | - | S | E1 | E0 | M0 |
+- **S**: Sign bit. **E[1:0]**: Exponent (Bias 1). **M[0]**: Mantissa.
+
+#### MXINT8 (8-bit)
+| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Field** | S | V6 | V5 | V4 | V3 | V2 | V1 | V0 |
+- **S**: Sign bit. **V[6:0]**: Value (Two's complement).
+- **INT8_SYM**: Symmetric range where -128 is clamped to -127.
 
 #### Shared Scale: UE8M0 (8-bit)
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Field** | X7 | X6 | X5 | X4 | X3 | X2 | X1 | X0 |
-
 - **X[7:0]**: 8-bit Unsigned Biased Exponent (Bias 127).
 
 ### Numerical Semantics
 - **Block Size ($k$)**: 32 elements.
 - **Mathematical Formula**:
-  $$V_i = (-1)^{S_i} \times 2^{E_i - \text{Bias}} \times (1 + M_i) \times 2^{X-127}$$
-  Where $X$ is the shared UE8M0 scale.
+  - **FP Formats**: $V_i = (-1)^{S_i} \times 2^{E_i - \text{Bias}} \times (1 + M_i) \times 2^{X-127}$
+  - **INT Formats**: $V_i = (\text{Integer}_i \times 2^{-6}) \times 2^{X-127}$ (As per OCP MX v1.0, INT8 has an implicit $2^{-6}$ scale).
 - **Subnormals**: Flushed to zero (E=0).
-- **Special Values**: In accordance with OCP MX v1.0, the unit prioritizes saturation for out-of-range values. E5M2 supports IEEE-style Infinities and NaNs, while E4M3 utilizes the full range for finite numbers or specialized NaN encodings.
+- **Special Values**: The unit prioritizes saturation for out-of-range values. E5M2 supports IEEE-style Infinities and NaNs, while other formats utilize the full range for finite numbers or specialized NaN encodings as per OCP MX v1.0.
 
 ## 3. Architecture: Operand Streaming
 To fit within the ~320 D-Flip-Flop (DFF) budget of a 1x1 tile, the design employs **Temporal Multiplexing (Operand Streaming)**.
@@ -111,23 +132,23 @@ The unit communicates with a host using a strictly timed protocol:
 
 ### 3.2. Hardware/Software Co-Design
 The hardware computes the dot product of the scaled elements but factors out the shared scales to minimize gate count:
-$$C = \left( \sum_{i=1}^{32} \text{FP8}(A_i) \times \text{FP8}(B_i) \right) \times 2^{(X_A-127) + (X_B-127)}$$
+$$C = \left( \sum_{i=1}^{32} \text{FP}(A_i) \times \text{FP}(B_i) \right) \times 2^{(X_A-127) + (X_B-127)}$$
 The ASIC performs the summation and the intermediate exponent arithmetic. The final scaling by the shared factors is performed by the host software (default) or hardware-accelerated in later stages.
 
 ## 4. Microarchitecture
 ### 4.1. Datapath
-- [x] **Sign Logic**: $S_{res} = S_A \oplus S_B$.
-- [x] **Exponent Path**: Adds $E_A$ and $E_B$, subtracts appropriate bias (7 for E4M3, 15 for E5M2).
-- [x] **Mantissa Multiplier**: 4x4-bit integer multiplier (handles both 1.MMM and 1.MM paddings).
+- [x] **Sign Logic**: $S_{res} = S_A \oplus S_B$ (for FP) or signed multiplication (for INT).
+- [x] **Exponent Path**: Unified logic for variable exponent ranges and biases.
+- [x] **Mantissa Multiplier**: 4x4-bit integer multiplier (extended to 8x8 for INT8).
 - [x] **Alignment Shifter**: A barrel shifter aligns the product to a 32-bit fixed-point format (bit 8 = $2^0$) with saturation logic.
 - [x] **Accumulator**: A 32-bit signed register stores the running sum.
 
 ### 4.2. Control Logic
-- [x] **Finite State Machine (FSM)**: Manages the cycle transitions and control signals for the registers and the output multiplexer.
+- [x] **Finite State Machine (FSM)**: Manages the 38-cycle protocol, including format and scale sampling.
 
 ## 5. Resource Estimation (1x1 Tile)
-- **D-Flip-Flops (DFFs)**: ~100 DFFs (approx. 30% of 1x1 tile limit).
-- **Combinational Logic**: 4x4 Multiplier + Shifter + 32-bit Adder.
+- **D-Flip-Flops (DFFs)**: ~150 DFFs (approx. 45% of 1x1 tile limit).
+- **Combinational Logic**: 8x8 Multiplier + Barrel Shifter + 32-bit Adder.
 - **Total Area**: Optimized for IHP SG13G2 1x1 tile.
 
 ## 6. Implementation Progress
