@@ -5,80 +5,73 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
 
-def align_product_model(a_bits, b_bits, format_val, round_mode=0, overflow_wrap=0):
+def decode_format(bits, format_val):
     if format_val == 0: # E4M3
-        ea = (a_bits >> 3) & 0xF
-        ma = (a_bits & 0x7)
-        eb = (b_bits >> 3) & 0xF
-        mb = (b_bits & 0x7)
+        sign = (bits >> 7) & 1
+        exp = (bits >> 3) & 0xF
+        mant = (bits & 0x7)
         bias = 7
-        sign_a = (a_bits >> 7) & 1
-        sign_b = (b_bits >> 7) & 1
         is_int = False
     elif format_val == 1: # E5M2
-        ea = (a_bits >> 2) & 0x1F
-        ma = (a_bits & 0x3) << 1
-        eb = (b_bits >> 2) & 0x1F
-        mb = (b_bits & 0x3) << 1
+        sign = (bits >> 7) & 1
+        exp = (bits >> 2) & 0x1F
+        mant = (bits & 0x3) << 1
         bias = 15
-        sign_a = (a_bits >> 7) & 1
-        sign_b = (b_bits >> 7) & 1
         is_int = False
     elif format_val == 2: # E3M2
-        ea = (a_bits >> 2) & 0x7
-        ma = (a_bits & 0x3) << 1
-        eb = (b_bits >> 2) & 0x7
-        mb = (b_bits & 0x3) << 1
+        sign = (bits >> 5) & 1
+        exp = (bits >> 2) & 0x7
+        mant = (bits & 0x3) << 1
         bias = 3
-        sign_a = (a_bits >> 5) & 1
-        sign_b = (b_bits >> 5) & 1
         is_int = False
     elif format_val == 3: # E2M3
-        ea = (a_bits >> 3) & 0x3
-        ma = (a_bits & 0x7)
-        eb = (b_bits >> 3) & 0x3
-        mb = (b_bits & 0x7)
+        sign = (bits >> 5) & 1
+        exp = (bits >> 3) & 0x3
+        mant = (bits & 0x7)
         bias = 1
-        sign_a = (a_bits >> 5) & 1
-        sign_b = (b_bits >> 5) & 1
         is_int = False
     elif format_val == 4: # E2M1
-        ea = (a_bits >> 1) & 0x3
-        ma = (a_bits & 0x1) << 2
-        eb = (b_bits >> 1) & 0x3
-        mb = (b_bits & 0x1) << 2
+        sign = (bits >> 3) & 1
+        exp = (bits >> 1) & 0x3
+        mant = (bits & 0x1) << 2
         bias = 1
-        sign_a = (a_bits >> 3) & 1
-        sign_b = (b_bits >> 3) & 1
         is_int = False
     elif format_val == 5: # INT8
-        ia = a_bits
-        if ia >= 128: ia -= 256
-        ib = b_bits
-        if ib >= 128: ib -= 256
+        sign = (bits >> 7) & 1
+        val = bits if bits < 128 else bits - 256
+        mant = abs(val)
+        exp = 0
+        bias = 3
         is_int = True
     elif format_val == 6: # INT8_SYM
-        ia = a_bits
-        if ia >= 128: ia -= 256
-        if ia == -128: ia = -127
-        ib = b_bits
-        if ib >= 128: ib -= 256
-        if ib == -128: ib = -127
+        sign = (bits >> 7) & 1
+        val = bits if bits < 128 else bits - 256
+        if val == -128: val = -127
+        mant = abs(val)
+        exp = 0
+        bias = 3
         is_int = True
-    else: # Default to E4M3
-        return align_product_model(a_bits, b_bits, 0, round_mode, overflow_wrap)
+    else: # Default E4M3
+        return decode_format(bits, 0)
 
-    if is_int:
-        prod_val = ia * ib
-        sign = 1 if prod_val < 0 else 0
-        prod = abs(prod_val)
-        exp_sum = 1
-    else:
-        sign = sign_a ^ sign_b
-        if ea == 0 or eb == 0:
-            return 0
-        prod = (8 + ma) * (8 + mb)
-        exp_sum = ea + eb - 2*bias + 7
+    return sign, exp, mant, bias, is_int
+
+def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0):
+    sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
+    sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
+
+    sign = sa ^ sb
+
+    if (not inta and ea == 0) or (not intb and eb == 0):
+        return 0
+    if (inta and a_bits == 0) or (intb and b_bits == 0):
+        return 0
+
+    real_ma = (8 + ma) if not inta else ma
+    real_mb = (8 + mb) if not intb else mb
+
+    prod = real_ma * real_mb
+    exp_sum = ea + eb - (ba + bb - 7)
 
     shift_amt = exp_sum - 5
 
@@ -144,22 +137,22 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_val, a_elements, b_elements, round_mode=0, overflow_wrap=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, round_mode=0, overflow_wrap=0):
     await reset_dut(dut)
 
     # Cycle 1: Load Scale A and Format/Numerical Control
     dut.ui_in.value = 0x00 # Scale A
-    dut.uio_in.value = format_val | (round_mode << 3) | (overflow_wrap << 5)
+    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5)
     await ClockCycles(dut.clk, 1)
 
-    # Cycle 2: Load Scale B
-    dut.ui_in.value = 0x00
+    # Cycle 2: Load Scale B and Format B
+    dut.ui_in.value = format_b
     dut.uio_in.value = 0x00 # Scale B
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_val, round_mode, overflow_wrap)
+        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap)
 
         acc_32 = expected_acc & 0xFFFFFFFF
         prod_32 = prod & 0xFFFFFFFF
@@ -201,8 +194,9 @@ async def run_mac_test(dut, format_val, a_elements, b_elements, round_mode=0, ov
         actual_acc -= 0x100000000
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
-    name = format_names[format_val] if format_val < len(format_names) else "Unknown"
-    dut._log.info(f"Format: {name}, RM: {round_mode}, Wrap: {overflow_wrap}, Expected: {expected_acc}, Actual: {actual_acc}")
+    name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
+    name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
+    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Expected: {expected_acc}, Actual: {actual_acc}")
     assert actual_acc == expected_acc
 
 @cocotb.test()
@@ -212,7 +206,7 @@ async def test_mxfp8_mac_e4m3(dut):
     cocotb.start_soon(clock.start())
     a_elements = [0x38] * 32 # 1.0 in E4M3
     b_elements = [0x38] * 32
-    await run_mac_test(dut, 0, a_elements, b_elements)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements)
 
 @cocotb.test()
 async def test_mxfp8_mac_e5m2(dut):
@@ -221,7 +215,7 @@ async def test_mxfp8_mac_e5m2(dut):
     cocotb.start_soon(clock.start())
     a_elements = [0x3C] * 32 # 1.0 in E5M2
     b_elements = [0x3C] * 32
-    await run_mac_test(dut, 1, a_elements, b_elements)
+    await run_mac_test(dut, 1, 1, a_elements, b_elements)
 
 @cocotb.test()
 async def test_rounding_modes(dut):
@@ -233,26 +227,26 @@ async def test_rounding_modes(dut):
     b_elements = [0x31] * 32
 
     # TRN: 40 * 32 = 1280
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=0)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
     # CEL: (40+1) * 32 = 1312
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=1)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=1)
     # FLR: 40 * 32 = 1280 (positive)
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=2)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=2)
     # RNE: 81 >> 1 = 40.5. Ties to even. 40 is even. So 40.
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=3)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=3)
 
     # Negative test
     a_elements = [0xA9] * 32 # -0.28125
     b_elements = [0x31] * 32 # 0.5625
     # a*b = -0.158203125. Fixed point magnitude = 40.5.
     # TRN: -40 * 32 = -1280
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=0)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
     # CEL: -40 * 32 = -1280 (negative, ceil towards 0)
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=1)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=1)
     # FLR: -(40+1) * 32 = -1312
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=2)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=2)
     # RNE: -40 * 32 = -1280
-    await run_mac_test(dut, 0, a_elements, b_elements, round_mode=3)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=3)
 
 @cocotb.test()
 async def test_overflow_saturation(dut):
@@ -264,9 +258,9 @@ async def test_overflow_saturation(dut):
     b_elements = [0x7C] * 32
 
     # Saturation
-    await run_mac_test(dut, 1, a_elements, b_elements, overflow_wrap=0)
+    await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
     # Wrap
-    await run_mac_test(dut, 1, a_elements, b_elements, overflow_wrap=1)
+    await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
 
 @cocotb.test()
 async def test_accumulator_saturation(dut):
@@ -278,9 +272,25 @@ async def test_accumulator_saturation(dut):
     b_elements = [0x78] * 32
 
     # Accumulator Saturation
-    await run_mac_test(dut, 1, a_elements, b_elements, overflow_wrap=0)
+    await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
     # Accumulator Wrap
-    await run_mac_test(dut, 1, a_elements, b_elements, overflow_wrap=1)
+    await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
+
+@cocotb.test()
+async def test_mixed_precision(dut):
+    dut._log.info("Start Mixed-Precision MAC Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # E4M3 x E5M2
+    a_elements = [0x38] * 32 # 1.0 in E4M3
+    b_elements = [0x3C] * 32 # 1.0 in E5M2
+    await run_mac_test(dut, 0, 1, a_elements, b_elements)
+
+    # E3M2 x INT8
+    a_elements = [0x10] * 32 # 1.0 in E3M2
+    b_elements = [0x40] * 32 # 64 in INT8 (which is 1.0 with 2^-6 scale)
+    await run_mac_test(dut, 2, 5, a_elements, b_elements)
 
 @cocotb.test()
 async def test_mxfp_mac_randomized(dut):
@@ -290,9 +300,10 @@ async def test_mxfp_mac_randomized(dut):
     cocotb.start_soon(clock.start())
 
     for i in range(50):
-        format_val = random.randint(0, 6)
+        format_a = random.randint(0, 6)
+        format_b = random.randint(0, 6)
         round_mode = random.randint(0, 3)
         overflow_wrap = random.randint(0, 1)
         a_elements = [random.randint(0, 255) for _ in range(32)]
         b_elements = [random.randint(0, 255) for _ in range(32)]
-        await run_mac_test(dut, format_val, a_elements, b_elements, round_mode, overflow_wrap)
+        await run_mac_test(dut, format_a, format_b, a_elements, b_elements, round_mode, overflow_wrap)
