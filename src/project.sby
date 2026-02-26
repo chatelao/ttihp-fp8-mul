@@ -1,0 +1,16 @@
+[options]
+mode prove
+depth 10
+
+[engines]
+smtbmc z3
+
+[script]
+read -formal project.v
+prep -top tt_um_chatelao_fp8_multiplier
+
+[files]
+project.v
+fp8_mul.v
+fp8_aligner.v
+accumulator.v

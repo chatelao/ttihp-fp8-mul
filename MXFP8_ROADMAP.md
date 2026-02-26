@@ -98,11 +98,13 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Verified edge cases including NaNs/Infinities (E5M2), subnormal flushing, and saturation boundaries.
   - Synchronized unit tests for `fp8_aligner` to match the updated 32-bit pipelined interface.
 
-### Step 14: Formal Protocol Proofs
+### Step 14: Formal Protocol Proofs (Status: **COMPLETED**)
 - **Goal**: Mathematically prove the correctness of the 41-cycle FSM.
-- **Tasks**:
-  - Define formal properties using SVA (SystemVerilog Assertions).
-  - Use SymbiYosys or similar tools to prove safety and liveness of the protocol.
+- **Details**:
+  - Defined formal properties using SystemVerilog Assertions (SVA) within `src/project.v`.
+  - Verified FSM state transitions, cycle count progression, and "Fast Start" logic.
+  - Proved register stability and output gating/serialization correctness.
+  - Successfully proved all properties using SymbiYosys and Z3 with k-induction.
 
 ### Step 15: Power & Performance Characterization
 - **Goal**: Evaluate the MAC unit's efficiency.
