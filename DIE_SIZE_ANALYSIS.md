@@ -33,21 +33,33 @@ To achieve the ~1500 gate target for a 1x1 tile, the design must prioritize hard
 ### Optimization 1: Downsize the Aligner Path
 The current aligner uses a **64-bit** internal path to handle both 16x32 alignment and 32x32 shared scaling.
 - **Change**: Narrow the internal shifter and rounding adder to **40 bits**.
-- **Impact**: Since element products are 16-bit and the accumulator is 32-bit, a 40-bit window (32 bits + 8 bits for rounding/sticky) is sufficient. This reduces aligner area by ~40%.
+- **Impact**: This reduces aligner area by ~40%.
+- **Speed/Precision**:
+    - **Precision**: **No loss**. A 40-bit window is sufficient to represent a 32-bit result plus 8 bits for guard, round, and sticky bits.
+    - **Speed**: **Slight improvement**. Shorter carry chains in the rounding adder and fewer stages in the barrel shifter improve timing slack.
 
 ### Optimization 2: Offload Shared Scaling to Software
 Hardware-accelerated shared scaling (Cycle 36) applies $2^{(X_A+X_B-254)}$ in hardware, requiring 32-bit absolute value logic and a full 32-bit shifter.
 - **Change**: Revert to the original concept (Section 3.2 of `MXFP8_CONCEPT.md`) where the host software applies the shared scale to the 32-bit result.
 - **Impact**: Removes the absolute value logic and simplifies the shifter, saving ~300 gates.
+- **Speed/Precision**:
+    - **Precision**: **No loss**. Software can perform the power-of-two scaling bit-exactly.
+    - **Speed**: **Significant decrease**. System-level throughput drops as the host CPU/controller must perform post-processing on every 32-element block result.
 
 ### Optimization 3: Prune Optional Formats (FP6/FP4)
 The OCP MX specification includes many formats, but the primary ones are MXFP8 and MXINT8.
 - **Change**: Prune support for MXFP6 (E3M2, E2M3) and MXFP4 (E2M1).
 - **Impact**: Significantly simplifies the `fp8_mul` decoders and exponent bias arithmetic, saving ~250 gates.
+- **Speed/Precision**:
+    - **Precision**: **Functional loss**. The unit loses the ability to process FP6/FP4 formats.
+    - **Speed**: **Improved**. Simplifying the combinatorial decoder and bias logic reduces the critical path delay in the multiplier stage.
 
 ### Optimization 4: Simplify Rounding Modes
 - **Change**: Support only **Round-to-Nearest-Ties-to-Even (RNE)** and **Truncate (TRN)**.
 - **Impact**: Eliminates the CEIL and FLOOR muxing logic and simplifies the rounding bit generation, saving ~100 gates.
+- **Speed/Precision**:
+    - **Precision**: **Loss of flexibility**. Loss of directed rounding modes (CEIL/FLOOR) which may be required for specific quantization or interval arithmetic tasks.
+    - **Speed**: **Minor improvement**. Removing muxes from the rounding logic slightly reduces the combinational delay of the aligner.
 
 ### Optimization Summary for 1x1 Tile
 
