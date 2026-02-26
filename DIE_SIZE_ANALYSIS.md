@@ -46,13 +46,25 @@ Hardware-accelerated shared scaling (Cycle 36) applies $2^{(X_A+X_B-254)}$ in ha
     - **Precision**: **No loss**. Software can perform the power-of-two scaling bit-exactly.
     - **Speed**: **Significant decrease**. System-level throughput drops as the host CPU/controller must perform post-processing on every 32-element block result.
 
-### Optimization 3: Prune Optional Formats (FP6/FP4)
-The OCP MX specification includes many formats, but the primary ones are MXFP8 and MXINT8.
-- **Change**: Prune support for MXFP6 (E3M2, E2M3) and MXFP4 (E2M1).
-- **Impact**: Significantly simplifies the `fp8_mul` decoders and exponent bias arithmetic, saving ~250 gates.
+### Optimization 3a: Prune MXFP6 Formats (E3M2, E2M3)
+MXFP6 provides a middle ground between FP8 and FP4, but requires two additional decoding paths per operand.
+- **Change**: Remove support for E3M2 (Bias 3) and E2M3 (Bias 1).
+- **Impact**: Saves **~170 gates** by simplifying the operand muxes and exponent arithmetic logic in `fp8_mul`.
 - **Speed/Precision**:
-    - **Precision**: **Functional loss**. The unit loses the ability to process FP6/FP4 formats.
-    - **Speed**: **Improved**. Simplifying the combinatorial decoder and bias logic reduces the critical path delay in the multiplier stage.
+    - **Precision**: **Functional loss** of 6-bit floating point capabilities.
+    - **Speed**: **Improved** timing slack in the multiplier stage.
+
+### Optimization 3b: Prune MXFP4 Formats (E2M1)
+MXFP4 is the most aggressive quantization format in OCP MX, with very limited range/precision.
+- **Change**: Remove support for E2M1 (Bias 1).
+- **Impact**: Saves **~80 gates**.
+- **Speed/Precision**:
+    - **Precision**: **Functional loss** of the 4-bit format.
+    - **Speed**: **Minor improvement** in combinatorial delay.
+
+### Recommendation: Which to prune first?
+**Pruning MXFP4 (Optimization 3b) is recommended first.**
+While pruning MXFP6 saves more area, **MXFP4 is significantly less common** in practice due to its extremely low precision (1-bit mantissa). MXFP6 remains more useful for various neural network layers. If the area target is extremely tight (e.g., fitting in a 1x1 tile), **pruning both** is the standard approach to further reduce control signal bit-widths and configuration registers.
 
 ### Optimization 4: Simplify Rounding Modes
 - **Change**: Support only **Round-to-Nearest-Ties-to-Even (RNE)** and **Truncate (TRN)**.
