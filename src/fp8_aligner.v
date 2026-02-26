@@ -1,7 +1,7 @@
 `default_nettype none
 
 module fp8_aligner (
-    input  wire [7:0]  prod,     // Mantissa product (integer, [7:0] where bit 6 is 1.0)
+    input  wire [15:0] prod,     // Mantissa product (integer)
     input  wire signed [6:0] exp_sum,  // Combined exponent (biased)
     input  wire        sign,     // SA ^ SB
     output reg  [31:0] aligned   // 32-bit fixed point (bit 8 = 2^0)
@@ -17,17 +17,21 @@ module fp8_aligner (
 
     always @(*) begin : align_logic
         reg [63:0] shifted;
-        shifted = {56'd0, prod};
+        shifted = {48'd0, prod};
 
         if (shift_amt >= 0) begin
             // Shift left
-            // Max shift_amt is ~34 (for E5M2: 39-5), prod is 8 bits. 8+34 = 42 bits.
+            // Max shift_amt is ~34 (for E5M2: 39-5), prod is 16 bits. 16+34 = 50 bits.
             // Fits in 64 bits.
             shifted = shifted << shift_amt;
         end else begin
             // Shift right
             // Handle negative shift by taking absolute value.
-            shifted = shifted >> (-shift_amt);
+            if ((-shift_amt) >= 64) begin
+                shifted = 64'd0;
+            end else begin
+                shifted = shifted >> (-shift_amt);
+            end
         end
 
         // Convert to two's complement and saturate to 32-bit signed range

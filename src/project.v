@@ -78,7 +78,7 @@ module tt_um_chatelao_fp8_multiplier (
     // ------------------------------------------------------------------------
 
     // 1. Multiplier
-    wire [7:0] mul_prod;
+    wire [15:0] mul_prod;
     wire signed [6:0] mul_exp_sum;
     wire mul_sign;
 

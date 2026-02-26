@@ -14,6 +14,7 @@ def align_product_model(a_bits, b_bits, format_val):
         bias = 7
         sign_a = (a_bits >> 7) & 1
         sign_b = (b_bits >> 7) & 1
+        is_int = False
     elif format_val == 1: # E5M2
         ea = (a_bits >> 2) & 0x1F
         ma = (a_bits & 0x3) << 1
@@ -22,6 +23,7 @@ def align_product_model(a_bits, b_bits, format_val):
         bias = 15
         sign_a = (a_bits >> 7) & 1
         sign_b = (b_bits >> 7) & 1
+        is_int = False
     elif format_val == 2: # E3M2
         ea = (a_bits >> 2) & 0x7
         ma = (a_bits & 0x3) << 1
@@ -30,6 +32,7 @@ def align_product_model(a_bits, b_bits, format_val):
         bias = 3
         sign_a = (a_bits >> 5) & 1
         sign_b = (b_bits >> 5) & 1
+        is_int = False
     elif format_val == 3: # E2M3
         ea = (a_bits >> 3) & 0x3
         ma = (a_bits & 0x7)
@@ -38,6 +41,7 @@ def align_product_model(a_bits, b_bits, format_val):
         bias = 1
         sign_a = (a_bits >> 5) & 1
         sign_b = (b_bits >> 5) & 1
+        is_int = False
     elif format_val == 4: # E2M1
         ea = (a_bits >> 1) & 0x3
         ma = (a_bits & 0x1) << 2
@@ -46,16 +50,36 @@ def align_product_model(a_bits, b_bits, format_val):
         bias = 1
         sign_a = (a_bits >> 3) & 1
         sign_b = (b_bits >> 3) & 1
+        is_int = False
+    elif format_val == 5: # INT8
+        ia = a_bits
+        if ia >= 128: ia -= 256
+        ib = b_bits
+        if ib >= 128: ib -= 256
+        is_int = True
+    elif format_val == 6: # INT8_SYM
+        ia = a_bits
+        if ia >= 128: ia -= 256
+        if ia == -128: ia = -127
+        ib = b_bits
+        if ib >= 128: ib -= 256
+        if ib == -128: ib = -127
+        is_int = True
     else: # Default to E4M3
         return align_product_model(a_bits, b_bits, 0)
 
-    sign = sign_a ^ sign_b
+    if is_int:
+        prod_val = ia * ib
+        sign = 1 if prod_val < 0 else 0
+        prod = abs(prod_val)
+        exp_sum = 1
+    else:
+        sign = sign_a ^ sign_b
+        if ea == 0 or eb == 0:
+            return 0
+        prod = (8 + ma) * (8 + mb)
+        exp_sum = ea + eb - 2*bias + 7
 
-    if ea == 0 or eb == 0:
-        return 0
-
-    prod = (8 + ma) * (8 + mb)
-    exp_sum = ea + eb - 2*bias + 7
     shift_amt = exp_sum - 5
 
     if shift_amt >= 0:
@@ -130,7 +154,7 @@ async def run_mac_test(dut, format_val, a_elements, b_elements):
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
 
-    format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1"]
+    format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name = format_names[format_val] if format_val < len(format_names) else "Unknown"
     dut._log.info(f"Format: {name}, Expected: {expected_acc}, Actual: {actual_acc}")
     assert actual_acc == expected_acc
@@ -158,7 +182,7 @@ async def test_mxfp6_mac_e3m2(dut):
     dut._log.info("Start MXFP6 MAC Test (E3M2)")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-    a_elements = [0x0C] * 32 # 1.0 in E3M2 (S=0, E=3, M=0) -> bit 5=0, bit [4:2]=3, bit [1:0]=0 -> 001100 = 0x0C
+    a_elements = [0x0C] * 32 # 1.0 in E3M2
     b_elements = [0x0C] * 32
     await run_mac_test(dut, 2, a_elements, b_elements)
 
@@ -167,7 +191,7 @@ async def test_mxfp6_mac_e2m3(dut):
     dut._log.info("Start MXFP6 MAC Test (E2M3)")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-    a_elements = [0x08] * 32 # 1.0 in E2M3 (S=0, E=1, M=0) -> bit 5=0, bit [4:3]=1, bit [2:0]=0 -> 001000 = 0x08
+    a_elements = [0x08] * 32 # 1.0 in E2M3
     b_elements = [0x08] * 32
     await run_mac_test(dut, 3, a_elements, b_elements)
 
@@ -176,9 +200,31 @@ async def test_mxfp4_mac_e2m1(dut):
     dut._log.info("Start MXFP4 MAC Test (E2M1)")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-    a_elements = [0x02] * 32 # 1.0 in E2M1 (S=0, E=1, M=0) -> bit 3=0, bit [2:1]=1, bit 0=0 -> 0010 = 0x02
+    a_elements = [0x02] * 32 # 1.0 in E2M1
     b_elements = [0x02] * 32
     await run_mac_test(dut, 4, a_elements, b_elements)
+
+@cocotb.test()
+async def test_mxint8_mac(dut):
+    dut._log.info("Start MXINT8 MAC Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+    a_elements = [10] * 32 # 10 * 2^-6
+    b_elements = [10] * 32 # 10 * 2^-6
+    # Expected product = 100 * 2^-12. Sum of 32 elements = 3200 * 2^-12 = 3200 / 4096 = 0.78125
+    # In fixed point (bit 8 = 2^0), 0.78125 * 256 = 200.
+    await run_mac_test(dut, 5, a_elements, b_elements)
+
+@cocotb.test()
+async def test_mxint8_sym_mac(dut):
+    dut._log.info("Start MXINT8 Symmetric MAC Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+    a_elements = [0x80] * 32 # -128 -> should be -127
+    b_elements = [1] * 32
+    # Expected: -127 * 1 * 2^-12 * 32 = -127 * 32 / 4096 = -127 / 128 = -0.9921875
+    # In fixed point: -0.9921875 * 256 = -254.
+    await run_mac_test(dut, 6, a_elements, b_elements)
 
 @cocotb.test()
 async def test_mxfp_mac_randomized(dut):
@@ -187,8 +233,8 @@ async def test_mxfp_mac_randomized(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    for i in range(20):
-        format_val = random.randint(0, 4)
+    for i in range(50):
+        format_val = random.randint(0, 6)
         a_elements = [random.randint(0, 255) for _ in range(32)]
         b_elements = [random.randint(0, 255) for _ in range(32)]
         await run_mac_test(dut, format_val, a_elements, b_elements)
