@@ -28,17 +28,17 @@ module tt_um_chatelao_fp8_multiplier (
     reg [1:0] state;
     reg [5:0] cycle_count;
 
-    // MXFP8 Registers
+    // MXFP Registers
     reg [7:0] scale_a;
     reg [7:0] scale_b;
-    reg       is_e5m2;
+    reg [2:0] format;
 
     initial begin
         state = STATE_IDLE;
         cycle_count = 6'd0;
         scale_a = 8'd0;
         scale_b = 8'd0;
-        is_e5m2 = 1'b0;
+        format = 3'd0;
     end
 
     // 1. Configure UIO as inputs
@@ -52,7 +52,7 @@ module tt_um_chatelao_fp8_multiplier (
             state <= STATE_IDLE;
             scale_a <= 8'd0;
             scale_b <= 8'd0;
-            is_e5m2 <= 1'b0;
+            format  <= 3'd0;
         end else if (ena) begin
             cycle_count <= (cycle_count == 6'd38) ? 6'd0 : cycle_count + 6'd1;
 
@@ -60,7 +60,7 @@ module tt_um_chatelao_fp8_multiplier (
                 6'd0:  state <= STATE_LOAD_SCALE;
                 6'd1:  begin
                          scale_a <= ui_in;
-                         is_e5m2 <= uio_in[0];
+                         format  <= uio_in[2:0];
                        end
                 6'd2:  begin
                          state   <= STATE_STREAM;
@@ -85,7 +85,7 @@ module tt_um_chatelao_fp8_multiplier (
     fp8_mul multiplier (
         .a(ui_in),
         .b(uio_in),
-        .is_e5m2(is_e5m2),
+        .format(format),
         .prod(mul_prod),
         .exp_sum(mul_exp_sum),
         .sign(mul_sign)
