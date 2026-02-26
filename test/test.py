@@ -184,9 +184,12 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Cycle 35: Scaling and sampling
+    # Cycle 35: Pipeline flush for last element
     dut.ui_in.value = 0
     dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 36: Shared scaling alignment
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
@@ -196,7 +199,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
 
-    # Cycle 36-39: Output Serialized Result
+    # Cycle 37-40: Output Serialized Result
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
@@ -341,3 +344,59 @@ async def test_mxfp_mac_randomized(dut):
         a_elements = [random.randint(0, 255) for _ in range(32)]
         b_elements = [random.randint(0, 255) for _ in range(32)]
         await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap)
+
+@cocotb.test()
+async def test_fast_start_scale_compression(dut):
+    dut._log.info("Start Fast Start (Scale Compression) Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    format_a = 0 # E4M3
+    format_b = 0
+    scale_a = 128
+    scale_b = 127
+    a_elements = [0x38] * 32 # 1.0
+    b_elements = [0x38] * 32
+
+    # 1. Normal Start
+    await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b)
+
+    # 2. Fast Start (Reuse scales)
+    # We can't use run_mac_test as is because it does a reset.
+    # Manual protocol for fast start:
+
+    # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
+    dut.ui_in.value = 0x80
+    await ClockCycles(dut.clk, 1)
+
+    # Now at Cycle 3
+    expected_acc = 32 * 256 * 2 # (1.0 * 1.0 * 2^1) in fixed point = 2.0. 2 * 256 = 512. Wait.
+    # 1.0 * 1.0 * 2^1 = 2.0.
+    # Bit 8 = 2^0, so 2.0 is 2.0 * 256 = 512.
+    # Oh, wait. In run_mac_test, expected_final is calculated.
+
+    expected_acc = 0
+    for a, b in zip(a_elements, b_elements):
+        prod = align_product_model(a, b, format_a, format_b)
+        expected_acc += prod
+
+    shared_exp = scale_a + scale_b - 254
+    acc_abs = abs(expected_acc)
+    acc_sign = 1 if expected_acc < 0 else 0
+    expected_final = align_model(acc_abs, shared_exp + 5, acc_sign)
+
+    for i in range(32):
+        dut.ui_in.value = a_elements[i]
+        dut.uio_in.value = b_elements[i]
+        await ClockCycles(dut.clk, 1)
+
+    await ClockCycles(dut.clk, 2) # Flush + Shared Scale
+
+    actual_acc = 0
+    for i in range(4):
+        await Timer(1, unit="ns")
+        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        await ClockCycles(dut.clk, 1)
+
+    if actual_acc & 0x80000000: actual_acc -= 0x100000000
+    assert actual_acc == expected_final
