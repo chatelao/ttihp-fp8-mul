@@ -194,4 +194,88 @@ module tt_um_chatelao_fp8_multiplier (
     end
     assign uo_out = uo_out_reg;
 
+`ifdef FORMAL
+    // 1. Reset and Clock assumptions
+    reg f_past_valid = 1'b0;
+    always @(posedge clk) f_past_valid <= 1'b1;
+
+    initial assume(!rst_n);
+    always @(posedge clk) begin
+        if (!f_past_valid)
+            assume(!rst_n);
+        else
+            assume(rst_n);
+    end
+
+    // 2. Global Assumptions
+    always @(*) assume(ena == 1'b1);
+
+    // 3. Invariants
+    always @(posedge clk) begin
+        if (rst_n) begin
+            assert(cycle_count <= 6'd40);
+        end
+    end
+
+    // 4. Protocol FSM Transitions
+    always @(posedge clk) begin
+        if (f_past_valid && $past(rst_n) && rst_n) begin
+            // Cycle count progression
+            if ($past(state) == STATE_IDLE && $past(ui_in[7])) begin
+                assert(cycle_count == 6'd3);
+                assert(state == STATE_STREAM);
+            end else if ($past(cycle_count) == 6'd40) begin
+                assert(cycle_count == 6'd0);
+            end else begin
+                assert(cycle_count == $past(cycle_count) + 1'b1);
+            end
+
+            // State progression
+            if (!($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
+                case ($past(cycle_count))
+                    6'd0:  assert(state == STATE_LOAD_SCALE);
+                    6'd2:  assert(state == STATE_STREAM);
+                    6'd36: assert(state == STATE_OUTPUT);
+                    6'd40: assert(state == STATE_IDLE);
+                    default: assert(state == $past(state));
+                endcase
+            end
+        end
+    end
+
+    // 5. Register Stability
+    always @(posedge clk) begin
+        if (f_past_valid && $past(rst_n) && rst_n) begin
+            // scale_a, format_a, round_mode, overflow_wrap loaded at cycle 1
+            if ($past(cycle_count) != 6'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
+                assert(scale_a       == $past(scale_a));
+                assert(format_a      == $past(format_a));
+                assert(round_mode    == $past(round_mode));
+                assert(overflow_wrap == $past(overflow_wrap));
+            end
+            // scale_b, format_b loaded at cycle 2
+            if ($past(cycle_count) != 6'd2 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
+                assert(scale_b  == $past(scale_b));
+                assert(format_b == $past(format_b));
+            end
+        end
+    end
+
+    // 6. Output Gating & Serialization
+    always @(*) begin
+        if (rst_n) begin
+            if (state != STATE_OUTPUT || cycle_count < 6'd37) begin
+                assert(uo_out == 8'd0);
+            end else begin
+                case (cycle_count)
+                    6'd37: assert(uo_out == scaled_acc_reg[31:24]);
+                    6'd38: assert(uo_out == scaled_acc_reg[23:16]);
+                    6'd39: assert(uo_out == scaled_acc_reg[15:8]);
+                    6'd40: assert(uo_out == scaled_acc_reg[7:0]);
+                endcase
+            end
+        end
+    end
+`endif
+
 endmodule
