@@ -95,16 +95,34 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 
 ## 4. Microarchitecture
 ### 4.1. Datapath
-1.  **Sign Logic**: $S_{res} = S_A \oplus S_B$.
-2.  **Exponent Path**: Adds $E_A$ and $E_B$, subtracts appropriate bias (7 for E4M3, 15 for E5M2).
-3.  **Mantissa Multiplier**: 4x4-bit integer multiplier (handles both 1.MMM and 1.MM paddings).
-4.  **Alignment Shifter**: A barrel shifter aligns the product to a 32-bit fixed-point format (bit 8 = $2^0$) with saturation logic.
-5.  **Accumulator**: A 32-bit signed register stores the running sum.
+- [x] **Sign Logic**: $S_{res} = S_A \oplus S_B$.
+- [x] **Exponent Path**: Adds $E_A$ and $E_B$, subtracts appropriate bias (7 for E4M3, 15 for E5M2).
+- [x] **Mantissa Multiplier**: 4x4-bit integer multiplier (handles both 1.MMM and 1.MM paddings).
+- [x] **Alignment Shifter**: A barrel shifter aligns the product to a 32-bit fixed-point format (bit 8 = $2^0$) with saturation logic.
+- [x] **Accumulator**: A 32-bit signed register stores the running sum.
 
 ### 4.2. Control Logic
-A Finite State Machine (FSM) manages the cycle transitions and control signals for the registers and the output multiplexer.
+- [x] **Finite State Machine (FSM)**: Manages the cycle transitions and control signals for the registers and the output multiplexer.
 
 ## 5. Resource Estimation (1x1 Tile)
 - **D-Flip-Flops (DFFs)**: ~100 DFFs (approx. 30% of 1x1 tile limit).
 - **Combinational Logic**: 4x4 Multiplier + Shifter + 32-bit Adder.
 - **Total Area**: Optimized for IHP SG13G2 1x1 tile.
+
+## 6. Implementation Progress
+
+### Phase 1: Baseline MXFP8 Implementation
+- [x] **Step 1**: Protocol Skeleton & FSM (38-cycle operational protocol).
+- [x] **Step 2**: MXFP8 Multiplier Core (E4M3/E5M2 support, subnormal flushing).
+- [x] **Step 3**: Product Alignment (Barrel shifter with saturation).
+- [x] **Step 4**: Accumulator Unit (32-bit signed summation).
+- [x] **Step 5**: Full Datapath Integration (System-level verification).
+- [ ] **Step 6**: Physical Design & Gate-Level Simulation (GDS generation, GLS).
+
+### Phase 2: Advanced OCP MX Features
+- [ ] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4).
+- [ ] **Step 8**: Integer Support (MXINT8) & Symmetric Range.
+- [ ] **Step 9**: Advanced Numerical Control (Rounding & Overflow modes).
+- [ ] **Step 10**: Mixed-Precision Operations (Independent A/B formats).
+- [ ] **Step 11**: Hardware-Accelerated Shared Scaling (Applying $2^{X_A+X_B}$ in hardware).
+- [ ] **Step 12**: Throughput Optimization & Scale Compression.
