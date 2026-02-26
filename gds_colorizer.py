@@ -11,16 +11,19 @@ def colorize_gds(input_gds, output_png):
     print(f"Top cell: {top_cell.name}")
 
     # 2. Define Submodule Configuration
+    # Pattern matching for instance names or cell names
     submodule_config = {
         'multiplier':   {'color': 0xE63946, 'layer': 1001}, # Red
+        'fp8_mul':      {'color': 0xE63946, 'layer': 1001}, # Red
         'aligner_inst': {'color': 0xF1FAEE, 'layer': 1002}, # Light
+        'fp8_aligner':  {'color': 0xF1FAEE, 'layer': 1002}, # Light
         'acc_inst':     {'color': 0x457B9D, 'layer': 1003}, # Blue
+        'accumulator':  {'color': 0x457B9D, 'layer': 1003}, # Blue
         'top_control':  {'color': 0xA8DADC, 'layer': 1004}  # Cyan
     }
 
     # 3. Setup View
-    main_window = pya.Application.instance().main_window()
-    view = main_window.create_layout_view() if main_window else pya.LayoutView()
+    view = pya.LayoutView()
     view.show_layout(layout, False)
 
     # 4. Identify and Annotate Submodules
@@ -30,11 +33,13 @@ def colorize_gds(input_gds, output_png):
         print(f"Searching for pattern: {pattern}")
 
         for inst in top_cell.each_inst():
-            name = inst.name.lower() if inst.name else inst.cell.name.lower()
-            if pattern in name:
+            # Match both instance name and cell name
+            name = inst.name.lower() if inst.name else ""
+            cell_name = inst.cell.name.lower()
+            if pattern in name or pattern in cell_name:
                 top_cell.shapes(idx).insert(inst.bbox())
                 found_instances = True
-                print(f"  Found instance: {name}")
+                print(f"  Found instance: name='{name}', cell='{cell_name}'")
 
         if found_instances:
             lp = pya.LayerPropertiesNode()
