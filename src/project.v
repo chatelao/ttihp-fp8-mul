@@ -32,6 +32,8 @@ module tt_um_chatelao_fp8_multiplier (
     reg [7:0] scale_a;
     reg [7:0] scale_b;
     reg [2:0] format;
+    reg [1:0] round_mode;
+    reg       overflow_wrap;
 
     initial begin
         state = STATE_IDLE;
@@ -39,6 +41,8 @@ module tt_um_chatelao_fp8_multiplier (
         scale_a = 8'd0;
         scale_b = 8'd0;
         format = 3'd0;
+        round_mode = 2'd0;
+        overflow_wrap = 1'b0;
     end
 
     // 1. Configure UIO as inputs
@@ -53,14 +57,18 @@ module tt_um_chatelao_fp8_multiplier (
             scale_a <= 8'd0;
             scale_b <= 8'd0;
             format  <= 3'd0;
+            round_mode <= 2'd0;
+            overflow_wrap <= 1'b0;
         end else if (ena) begin
             cycle_count <= (cycle_count == 6'd38) ? 6'd0 : cycle_count + 6'd1;
 
             case (cycle_count)
                 6'd0:  state <= STATE_LOAD_SCALE;
                 6'd1:  begin
-                         scale_a <= ui_in;
-                         format  <= uio_in[2:0];
+                         scale_a       <= ui_in;
+                         format        <= uio_in[2:0];
+                         round_mode    <= uio_in[4:3];
+                         overflow_wrap <= uio_in[5];
                        end
                 6'd2:  begin
                          state   <= STATE_STREAM;
@@ -97,6 +105,8 @@ module tt_um_chatelao_fp8_multiplier (
         .prod(mul_prod),
         .exp_sum(mul_exp_sum),
         .sign(mul_sign),
+        .round_mode(round_mode),
+        .overflow_wrap(overflow_wrap),
         .aligned(aligned_prod)
     );
 
@@ -107,6 +117,7 @@ module tt_um_chatelao_fp8_multiplier (
         .rst_n(rst_n),
         .clear(state == STATE_LOAD_SCALE), // Clear during scale loading
         .en(state == STATE_STREAM),        // Enable during stream phase
+        .overflow_wrap(overflow_wrap),
         .data_in(aligned_prod),
         .data_out(acc_out)
     );

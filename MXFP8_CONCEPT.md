@@ -75,7 +75,7 @@ The unit communicates with a host using a strictly timed protocol:
 | Phase | Cycles | Bits [7:0] | Function | Description |
 |-------|--------|------------|----------|-------------|
 | **IDLE** | 0 | `00000000` | N/A | |
-| **LOAD_SCALE** | 1 | `XXXXXFFF` | **Format** | Bits [2:0]: Format Select (see Table 4). |
+| **LOAD_SCALE** | 1 | `XXOWWRRR` | **Format/NC** | Bits [2:0]: Format, [4:3]: Rounding, [5]: Overflow. |
 | **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** | Shared UE8M0 scale for Tensor B. |
 | **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MX element (aligned to lower bits). |
 | **OUTPUT** | 35-38 | `XXXXXXXX` | Isolated | |
@@ -90,6 +90,13 @@ The unit communicates with a host using a strictly timed protocol:
 | `100` | E2M1 | MXFP4 | 4 | [3] | [2:1] | [0] | 1 |
 | `101` | INT8 | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
 | `110` | INT8_SYM | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
+
+#### Table 5: Numerical Control Bits (Cycle 1)
+| Bits | Name | Description |
+|---|---|---|
+| [2:0] | Format | Format Selection (see Table 4). |
+| [4:3] | Rounding | 00: TRN (Truncate), 01: CEIL (Round up), 10: FLOOR (Round down), 11: RNE (Ties to Even). |
+| [5] | Overflow | 0: SAT (Saturation), 1: WRAP (Wrapping). |
 
 **Table 3: Output `uo_out` (Accumulator Serialization)**
 | Phase | Cycle | Bits [7:0] | Content |
@@ -133,7 +140,7 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 ### Phase 2: Advanced OCP MX Features
 - [x] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4).
 - [x] **Step 8**: Integer Support (MXINT8) & Symmetric Range.
-- [ ] **Step 9**: Advanced Numerical Control (Rounding & Overflow modes).
+- [x] **Step 9**: Advanced Numerical Control (Rounding & Overflow modes).
 - [ ] **Step 10**: Mixed-Precision Operations (Independent A/B formats).
 - [ ] **Step 11**: Hardware-Accelerated Shared Scaling (Applying $2^{X_A+X_B}$ in hardware).
 - [ ] **Step 12**: Throughput Optimization & Scale Compression.

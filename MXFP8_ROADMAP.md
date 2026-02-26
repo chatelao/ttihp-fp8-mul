@@ -54,11 +54,13 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Added support for both standard INT8 and symmetric INT8 (clamping -128 to -127).
 - **Verification**: Dedicated test cases for both INT8 variants and randomized testing.
 
-### Step 9: Advanced Numerical Control (Rounding & Overflow)
+### Step 9: Advanced Numerical Control (Rounding & Overflow) (Status: **COMPLETED**)
 - **Goal**: Implement optional rounding modes and configurable overflow methods.
-- **Tasks**:
-  - Add Truncate, Round-to-Plus-Infinity, and Round-to-Minus-Infinity modes.
-  - Support configurable overflow methods (Wrapping vs Saturation).
+- **Details**:
+  - Implemented four rounding modes: Truncate (00), Ceil (01), Floor (10), and Round-to-Nearest-Ties-to-Even (11).
+  - Added configurable overflow methods: Saturation (0) vs. Wrapping (1), applied to both the aligner and the 32-bit accumulator.
+  - Configuration sampled from `uio_in[5:3]` during Cycle 1 of the protocol.
+- **Verification**: Targeted tests for rounding bit-accuracy and saturation/wrap behavior.
 
 ### Step 10: Mixed-Precision Operations
 - **Goal**: Enable independent format selection for Operand A and Operand B.
