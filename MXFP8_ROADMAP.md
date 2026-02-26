@@ -71,11 +71,12 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Updated 40-cycle protocol to sample `format_a` (Cycle 1) and `format_b` (Cycle 2).
 - **Verification**: New mixed-precision and randomized test cases in `test/test.py`.
 
-### Step 11: Hardware-Accelerated Shared Scaling
+### Step 11: Hardware-Accelerated Shared Scaling (Status: **COMPLETED**)
 - **Goal**: Apply shared scales ($X_A, X_B$) in hardware.
-- **Tasks**:
-  - Implement 32-bit shift logic to apply $2^{(X_A-127) + (X_B-127)}$ to the accumulator result.
-  - Update protocol to output the fully scaled result.
+- **Details**:
+  - Reused the `fp8_aligner` to apply the shared scale $2^{(X_A-127) + (X_B-127)}$ to the 32-bit accumulator.
+  - Optimized the 40-cycle protocol by removing a pipeline stage to ensure the fully scaled result is ready for serialization starting at cycle 36.
+- **Verification**: New test cases in `test/test.py` verify accuracy for varying shared scales and randomized vectors.
 
 ### Step 12: Throughput Optimization & Scale Compression
 - **Goal**: Maximize performance and efficiency.

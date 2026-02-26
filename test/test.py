@@ -56,6 +56,65 @@ def decode_format(bits, format_val):
 
     return sign, exp, mant, bias, is_int
 
+def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
+    shift_amt = exp_sum - 5
+
+    if shift_amt >= 0:
+        if shift_amt > 60:
+            aligned = 0xFFFFFFFFFFFFFFFF
+        else:
+            aligned = prod << shift_amt
+        sticky = 0
+        shifted_out = 0
+        base = aligned
+    else:
+        n = -shift_amt
+        if n >= 64:
+            base = 0
+            sticky = 1 if prod != 0 else 0
+            shifted_out = prod
+        else:
+            base = prod >> n
+            shifted_out = prod & ((1 << n) - 1)
+            sticky = 1 if shifted_out != 0 else 0
+
+        if round_mode == 0: # TRN
+            aligned = base
+        elif round_mode == 1: # CEL
+            aligned = base + 1 if (not sign and (shifted_out != 0 or sticky)) else base
+        elif round_mode == 2: # FLR
+            aligned = base + 1 if (sign and (shifted_out != 0 or sticky)) else base
+        elif round_mode == 3: # RNE
+            half = 1 << (n - 1)
+            if shifted_out > half:
+                aligned = base + 1
+            elif shifted_out < half:
+                aligned = base
+            else: # Tie
+                aligned = base + 1 if (base & 1) else base
+        else:
+            aligned = base
+
+    if sign:
+        # Check saturation for negative
+        # Magnitude > 2^31 saturates to -2^31
+        if not overflow_wrap and (aligned > 0x80000000 or (aligned == 0x80000000 and shifted_out != 0)):
+            res = -0x80000000
+        else:
+            res = -aligned
+    else:
+        # Magnitude > 2^31-1 saturates to 2^31-1
+        if not overflow_wrap and aligned > 0x7FFFFFFF:
+            res = 0x7FFFFFFF
+        else:
+            res = aligned
+
+    # Return as 32-bit signed integer
+    res_32 = res & 0xFFFFFFFF
+    if res_32 & 0x80000000:
+        return res_32 - 0x100000000
+    return res_32
+
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0):
     sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
     sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
@@ -73,60 +132,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     prod = real_ma * real_mb
     exp_sum = ea + eb - (ba + bb - 7)
 
-    shift_amt = exp_sum - 5
-
-    if shift_amt >= 0:
-        aligned = prod << shift_amt
-    else:
-        n = -shift_amt
-        if n >= 64:
-            base = 0
-            sticky = 1 if prod != 0 else 0
-            shifted_out = prod
-        else:
-            base = prod >> n
-            shifted_out = prod & ((1 << n) - 1)
-            sticky = 1 if shifted_out != 0 else 0
-
-        if round_mode == 0: # TRN
-            aligned = base
-        elif round_mode == 1: # CEL
-            aligned = base + 1 if (not sign and sticky) else base
-        elif round_mode == 2: # FLR
-            aligned = base + 1 if (sign and sticky) else base
-        elif round_mode == 3: # RNE
-            if n >= 64:
-                aligned = 0
-            else:
-                half = 1 << (n - 1)
-                if shifted_out > half:
-                    aligned = base + 1
-                elif shifted_out < half:
-                    aligned = base
-                else: # Tie
-                    aligned = base + 1 if (base & 1) else base
-        else:
-            aligned = base
-
-    if sign:
-        if not overflow_wrap and aligned > 0x80000000:
-            aligned = 0x80000000
-        else:
-            aligned = -aligned
-    else:
-        if not overflow_wrap and aligned > 0x7FFFFFFF:
-            aligned = 0x7FFFFFFF
-        else:
-            aligned = aligned
-
-    # Mask to 32 bits and handle sign
-    aligned = aligned & 0xFFFFFFFF
-    if aligned & 0x80000000:
-        if aligned == 0x80000000:
-            return -0x80000000
-        aligned -= 0x100000000
-
-    return aligned
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap)
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -137,17 +143,17 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, round_mode=0, overflow_wrap=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0):
     await reset_dut(dut)
 
     # Cycle 1: Load Scale A and Format/Numerical Control
-    dut.ui_in.value = 0x00 # Scale A
+    dut.ui_in.value = scale_a
     dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5)
     await ClockCycles(dut.clk, 1)
 
     # Cycle 2: Load Scale B and Format B
     dut.ui_in.value = format_b
-    dut.uio_in.value = 0x00 # Scale B
+    dut.uio_in.value = scale_b
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
@@ -178,10 +184,17 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, round_mo
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Cycle 35: Extra cycle for pipeline latency
+    # Cycle 35: Scaling and sampling
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 1)
+
+    # Calculate expected final result after shared scaling
+    shared_exp = scale_a + scale_b - 254
+    acc_abs = abs(expected_acc)
+    acc_sign = 1 if expected_acc < 0 else 0
+
+    expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
 
     # Cycle 36-39: Output Serialized Result
     actual_acc = 0
@@ -196,8 +209,27 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, round_mo
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
-    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Expected: {expected_acc}, Actual: {actual_acc}")
-    assert actual_acc == expected_acc
+    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
+    assert actual_acc == expected_final
+
+@cocotb.test()
+async def test_mxfp8_mac_shared_scale(dut):
+    dut._log.info("Start MXFP8 MAC Shared Scale Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x38] * 32 # 1.0 in E4M3
+    b_elements = [0x38] * 32
+
+    # Scale A = 128 (2^1), Scale B = 127 (2^0) -> Total scale 2^1
+    # Expected: 32 * 1.0 * 2^1 = 64
+    # In fixed point (bit 8=1), 64 is 64*256 = 16384
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=128, scale_b=127)
+
+    # Scale A = 126 (2^-1), Scale B = 127 (2^0) -> Total scale 2^-1
+    # Expected: 32 * 1.0 * 2^-1 = 16
+    # In fixed point, 16 is 16*256 = 4096
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=126, scale_b=127)
 
 @cocotb.test()
 async def test_mxfp8_mac_e4m3(dut):
@@ -304,6 +336,8 @@ async def test_mxfp_mac_randomized(dut):
         format_b = random.randint(0, 6)
         round_mode = random.randint(0, 3)
         overflow_wrap = random.randint(0, 1)
+        scale_a = random.randint(110, 140) # Keep range reasonable for test
+        scale_b = random.randint(110, 140)
         a_elements = [random.randint(0, 255) for _ in range(32)]
         b_elements = [random.randint(0, 255) for _ in range(32)]
-        await run_mac_test(dut, format_a, format_b, a_elements, b_elements, round_mode, overflow_wrap)
+        await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap)

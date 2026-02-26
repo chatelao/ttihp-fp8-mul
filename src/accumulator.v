@@ -11,7 +11,10 @@ module accumulator (
 );
 
     // 33-bit sum to detect overflow
-    wire [32:0] sum = $signed({data_out[31], data_out}) + $signed({data_in[31], data_in});
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire signed [32:0] sum_full = $signed({data_out[31], data_out}) + $signed({data_in[31], data_in});
+    /* verilator lint_on UNUSEDSIGNAL */
+    wire [31:0] sum = sum_full[31:0];
 
     // Check overflow: signs of inputs are same, but sign of 32-bit sum is different.
     wire overflow = (data_out[31] == data_in[31]) && (sum[31] != data_out[31]);
