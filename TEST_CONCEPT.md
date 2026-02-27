@@ -5,33 +5,33 @@ The verification of the Streaming MX MAC Unit ensures compliance with the **OCP 
 
 ## 2. Verification Hierarchy
 
-### 2.1. Level 1: Unit Testing (Combinatorial Logic)
+### 2.1. Level 1: Unit Testing (Combinatorial Logic) (Status: **COMPLETED**)
 - **Multiplier Core**: Exhaustive testing (256x256 combinations) for FP8/INT8 and full coverage for smaller formats.
 - **Aligner**: Verification of shift amounts, saturation logic, and rounding mode application.
 - **Accumulator**: Verification of 33-bit addition, sign extension, and overflow (SAT/WRAP) behavior.
 
-### 2.2. Level 2: Integration Testing (Protocol FSM)
+### 2.2. Level 2: Integration Testing (Protocol FSM) (Status: **COMPLETED**)
 - **State Transitions**: Verify IDLE -> LOAD_SCALE -> STREAM -> PIPELINE -> OUTPUT transitions.
 - **Timing Compliance**: Ensure scale and format sampling occurs at precise cycles (Cycle 1 and Cycle 2).
 - **Control Signal Integrity**: Verify clear/enable signals to the accumulator and aligner based on the FSM state.
 
-### 2.3. Level 3: System-Level Testing (Block MAC)
+### 2.3. Level 3: System-Level Testing (Block MAC) (Status: **COMPLETED**)
 - **Full 41-Cycle Protocol**: End-to-end verification of a 32-element dot product.
 - **Mixed-Precision**: Verifying operations where Operand A and Operand B use different formats.
 - **Numerical Consistency**: Cross-verification against a Python-based bit-accurate reference model.
 
-### 2.4. Level 4: Physical & Post-Synthesis Verification
+### 2.4. Level 4: Physical & Post-Synthesis Verification (Status: **IN PROGRESS**)
 - **Gate-Level Simulation (GLS)**: Verification of the synthesized netlist to catch timing violations or synthesis mismatches.
 - **Power Analysis**: Switching activity (VCD) driven power estimation to evaluate mW/TOPS efficiency.
 
-## 3. Bit-Accurate Reference Model
+## 3. Bit-Accurate Reference Model (Status: **COMPLETED**)
 A Python reference model (`model.py` and within `test.py`) serves as the "Golden Reference".
 - **Decoding**: Emulates the OCP MX decoding logic for all 7 supported formats.
 - **Arithmetic**: Performs high-precision floating-point multiplication and alignment.
 - **Rounding**: Implements TRN, CEL, FLR, and RNE logic bit-for-bit identical to the RTL.
 - **Accumulation**: Models the 32-bit signed saturation/wrapping logic.
 
-## 4. Test Generation Strategy
+## 4. Test Generation Strategy (Status: **COMPLETED**)
 
 ### 4.1. Exhaustive Testing
 - **FP8 Multiplier**: All $2^8 \times 2^8 = 65,536$ input combinations are verified for E4M3 and E5M2.
@@ -46,7 +46,7 @@ A Python reference model (`model.py` and within `test.py`) serves as the "Golden
 ### 4.3. Randomized Testing (Constrained Random)
 - Random elements, random formats, and random scales across thousands of 41-cycle blocks to ensure no hidden state-space bugs.
 
-## 5. Rounding Mode Verification
+## 5. Rounding Mode Verification (Status: **COMPLETED**)
 Verification of the four rounding modes defined in Cycle 1 `uio_in[4:3]`:
 - **TRN (00)**: Truncate towards zero.
 - **CEL (01)**: Ceiling (round towards $+\infty$).
@@ -55,11 +55,11 @@ Verification of the four rounding modes defined in Cycle 1 `uio_in[4:3]`:
 
 Tests include mid-point values to ensure RNE "ties-to-even" logic is correct.
 
-## 6. Formal Verification
+## 6. Formal Verification (Status: **COMPLETED**)
 - **FSM Safety**: Use Bounded Model Checking (BMC) to prove that the FSM cannot reach an undefined state.
 - **Property Checking**: Assert that the accumulator is only cleared during the `LOAD_SCALE` phase.
 
-## 7. HIL Phase 1: FPGA Prototyping (Gowin Tang Nano 9K)
+## 7. HIL Phase 1: FPGA Prototyping (Gowin Tang Nano 9K) (Status: **COMPLETED**)
 
 ### 7.1. Aims
 - Validate RTL behavior on real hardware logic gates.
@@ -85,7 +85,7 @@ Tests include mid-point values to ensure RNE "ties-to-even" logic is correct.
    - Compare with Python reference.
 4. **Stress Test**: Run 1 million randomized blocks with varying scales and formats.
 
-## 8. HIL Phase 2: TT DevKit Emulation (ICE40)
+## 8. HIL Phase 2: TT DevKit Emulation (ICE40) (Status: **IN PROGRESS**)
 
 ### 8.1. Aims
 - Evaluate performance on the "official" Tiny Tapeout emulation platform.
@@ -106,7 +106,7 @@ Tests include mid-point values to ensure RNE "ties-to-even" logic is correct.
 2. **Automated Verification**: The RP2040 runs a simplified bit-accurate model to check results.
 3. **Manual Override**: Use the DevKit DIP switches to manually step through cycles and observe `uo_out` on the 7-segment display.
 
-## 9. ASIC Silicon Validation
+## 9. ASIC Silicon Validation (Status: **PLANNED**)
 
 ### 9.1. Aims
 - Characterize the maximum operational frequency ($F_{max}$) of the fabricated chip.
@@ -127,7 +127,7 @@ Tests include mid-point values to ensure RNE "ties-to-even" logic is correct.
 3. **Signature Analysis**: Collect `uo_out` patterns and verify them against the golden vectors at each frequency step.
 4. **Efficiency Calculation**: Derive Energy-per-Operation ($\text{pJ/MAC}$).
 
-## 10. Oscilloscope Measurements
+## 10. Oscilloscope Measurements (Status: **PLANNED**)
 
 To gain deeper insights into the physical behavior, the following measurements are performed on the TT DevKit:
 
@@ -138,7 +138,7 @@ To gain deeper insights into the physical behavior, the following measurements a
 | **Power Signature** | VCC Pin (AC coupled) | Observe the current spikes during the `STREAM` phase vs `IDLE` to correlate switching activity. |
 | **Signal Integrity** | `uio[7:0]` | Check for crosstalk or ground bounce during high-speed switching of bidirectional pins. |
 
-## 11. Continuous Integration
+## 11. Continuous Integration (Status: **COMPLETED**)
 - Every commit triggers a full suite of cocotb tests.
 - Automated generation of coverage reports (Line, Toggle, FSM).
 - Performance regression tracking (Cycle count per MAC).
