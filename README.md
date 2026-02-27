@@ -9,6 +9,36 @@ This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible wi
 - [Project Roadmap](MXFP8_ROADMAP.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
+## OCP MX Feature Support
+
+This implementation follows the **OCP Microscaling Formats (MX) Specification (v1.0)**.
+
+### Implemented Features
+- **Multiple Element Formats**:
+  - **MXFP8**: E4M3 (Bias 7) and E5M2 (Bias 15).
+  - **MXFP6**: E3M2 (Bias 3) and E2M3 (Bias 1).
+  - **MXFP4**: E2M1 (Bias 1).
+  - **MXINT8**: Standard and Symmetric 8-bit signed integers.
+- **Shared Scaling**: Hardware-accelerated application of shared scales ($X_A, X_B$) using the UE8M0 format (8-bit unsigned biased exponent, Bias 127).
+- **Rounding Modes**: Support for all four OCP MX rounding modes:
+  - **TRN**: Truncate (Towards Zero).
+  - **CEL**: Ceil (Towards $+\infty$).
+  - **FLR**: Floor (Towards $-\infty$).
+  - **RNE**: Round-to-Nearest-Ties-to-Even.
+- **Overflow Methods**: Configurable behavior for out-of-range results:
+  - **SAT**: Saturation (Clamp to Max/Min representable value).
+  - **WRAP**: Wrapping (Modulo arithmetic).
+- **Mixed-Precision Operations**: Independent format selection for Operand A and Operand B within a single MAC block.
+- **Efficiency**: 41-cycle pipelined streaming protocol with **Fast Start** (Scale Compression) to reuse scales/formats across consecutive blocks.
+
+### Omitted Features & Deviations
+- **Subnormal Support**: Subnormal elements are **flushed to zero** (Denormals-Are-Zero) to reduce hardware area.
+- **Fixed Block Size**: The unit is hard-coded for a block size of **$k=32$** elements.
+- **NaN/Infinity Handling**:
+  - **E5M2** fully supports IEEE-754 style Infinities and NaNs.
+  - For other formats, the unit prioritizes **saturation** for out-of-range values, consistent with OCP MX "Saturation-only" modes for narrower formats.
+- **Accumulator Precision**: A **32-bit signed fixed-point accumulator** is used, providing sufficient range for 32-element dot products of all supported formats.
+
 ## What is Tiny Tapeout?
 
 Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
