@@ -126,3 +126,10 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 - **Tasks**:
   - Deploy the bitstream to the TT Dev Kit FPGA.
   - Validate the 41-cycle streaming protocol using real hardware I/O.
+
+### Step 18: Final ASIC Silicon Validation
+- **Goal**: Verify the fabricated OCP MX MAC Unit on the [TT Demo Board](https://github.com/TinyTapeout/tt-demo-pcb) using the TT Dev Kit.
+- **Tasks**:
+  - **Functional HIL Verification**: Use a Raspberry Pi Pico as a master controller to drive the 41-cycle streaming protocol, verifying results bit-accurately against the Python reference model.
+  - **Oscilloscope Characterization**: Measure protocol latency (from LOAD_SCALE to serialization) and clock jitter on the hardware.
+  - **Power Signature Analysis**: Analyze power consumption signatures during the STREAM phase using an oscilloscope to characterize the final silicon.
