@@ -19,18 +19,18 @@ module fp8_aligner (
     wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
 
     always @(*) begin : align_logic
-        reg [63:0] shifted;
-        reg [63:0] base;
-        reg [63:0] rounded;
+        reg [39:0] shifted;
+        reg [39:0] base;
+        reg [39:0] rounded;
         reg sticky;
         reg round_bit;
         reg signed [10:0] n;
         reg huge;
 
         // Initialize all to avoid latches
-        shifted = {32'd0, prod};
-        base = 64'd0;
-        rounded = 64'd0;
+        shifted = {8'd0, prod};
+        base = 40'd0;
+        rounded = 40'd0;
         huge = 1'b0;
         sticky = 1'b0;
         round_bit = 1'b0;
@@ -42,11 +42,11 @@ module fp8_aligner (
             if (prod != 32'd0) begin
                 if (shift_amt >= 11'sd31) begin
                     huge = 1'b1;
-                    if (shift_amt < 11'sd64) rounded = shifted << shift_amt;
-                    else rounded = 64'd0;
+                    if (shift_amt < 11'sd40) rounded = shifted << shift_amt;
+                    else rounded = 40'd0;
                 end else begin
                     rounded = shifted << shift_amt;
-                    if (rounded[63:31] != 33'd0) huge = 1'b1;
+                    if (|rounded[39:31]) huge = 1'b1;
                 end
             end
             sticky = 1'b0;
@@ -54,8 +54,8 @@ module fp8_aligner (
         end else begin
             // Right shift
             n = -shift_amt;
-            if (n >= 11'sd64) begin
-                base = 64'd0;
+            if (n >= 11'sd40) begin
+                base = 40'd0;
                 sticky = (prod != 32'd0);
                 round_bit = 1'b0;
             end else begin
@@ -63,8 +63,8 @@ module fp8_aligner (
                 round_bit = (n > 0) ? shifted[n-1] : 1'b0;
                 if (n > 1) begin
                     // Efficient sticky bit calculation
-                    // Use a 64-bit mask to check bits [n-2:0]
-                    sticky = |(shifted & ((64'd1 << (n-1)) - 64'd1));
+                    // Use a 40-bit mask to check bits [n-2:0]
+                    sticky = |(shifted & ((40'd1 << (n-1)) - 40'd1));
                 end else begin
                     sticky = 1'b0;
                 end
@@ -72,11 +72,11 @@ module fp8_aligner (
 
             case (round_mode)
                 R_TRN: rounded = base;
-                R_CEL: rounded = (!sign && (round_bit || sticky)) ? base + 64'd1 : base;
-                R_FLR: rounded = (sign && (round_bit || sticky)) ? base + 64'd1 : base;
+                R_CEL: rounded = (!sign && (round_bit || sticky)) ? base + 40'd1 : base;
+                R_FLR: rounded = (sign && (round_bit || sticky)) ? base + 40'd1 : base;
                 R_RNE: begin
                     if (round_bit) begin
-                        if (sticky || base[0]) rounded = base + 64'd1;
+                        if (sticky || base[0]) rounded = base + 40'd1;
                         else rounded = base;
                     end else begin
                         rounded = base;
@@ -90,13 +90,13 @@ module fp8_aligner (
         // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000
         if (sign) begin
             // Magnitude > 2^31 saturates
-            if (!overflow_wrap && (huge || |rounded[63:32] || (rounded[31] && |rounded[30:0])))
+            if (!overflow_wrap && (huge || |rounded[39:32] || (rounded[31] && |rounded[30:0])))
                 aligned = 32'h80000000;
             else
                 aligned = -rounded[31:0];
         end else begin
             // Magnitude > 2^31-1 saturates
-            if (!overflow_wrap && (huge || |rounded[63:31]))
+            if (!overflow_wrap && (huge || |rounded[39:31]))
                 aligned = 32'h7FFFFFFF;
             else
                 aligned = rounded[31:0];
