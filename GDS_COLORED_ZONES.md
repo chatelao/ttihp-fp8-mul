@@ -27,16 +27,18 @@ The visualization is automated using a Python script interacting with the **KLay
 ### 4.1. Implementation Script (`gds_colorizer.py`)
 
 ```python
-import pya
+import klayout.db as db
+import klayout.lay as lay
 import os
 import sys
 import glob
 
 def colorize_gds(input_gds, output_png):
     # 1. Load the layout
-    layout = pya.Layout()
+    layout = db.Layout()
     layout.read(input_gds)
     top_cell = layout.top_cell()
+    print(f"Loaded {input_gds}, top cell: {top_cell.name}")
 
     # 2. Define Submodule Configuration
     # Mapping submodule patterns to colors and unique layer indices
@@ -47,9 +49,8 @@ def colorize_gds(input_gds, output_png):
         'top_control':  {'color': 0xA8DADC, 'layer': 1004}  # Cyan
     }
 
-    # 3. Setup View (Handles both GUI and Headless/CI modes)
-    main_window = pya.Application.instance().main_window()
-    view = main_window.create_layout_view() if main_window else pya.LayoutView()
+    # 3. Setup View (Headless mode for standalone klayout pip package)
+    view = lay.LayoutView()
     view.show_layout(layout, False)
 
     # 4. Identify and Annotate Submodules
@@ -59,22 +60,29 @@ def colorize_gds(input_gds, output_png):
 
         # Search for instances matching the pattern
         found_instances = False
+        # Search for instances in the top cell
         for inst in top_cell.each_inst():
+            # Check instance name or cell name
+            inst_name = inst.name.lower() if inst.name else ""
             cell_name = inst.cell.name.lower()
-            if pattern in cell_name:
+
+            if pattern in inst_name or pattern in cell_name:
                 # Add a colored rectangle on the specific visualization layer
                 top_cell.shapes(idx).insert(inst.bbox())
                 found_instances = True
+                print(f"Found {pattern} in instance {inst.name} (cell {inst.cell.name})")
 
         if found_instances:
             # Set layer properties for this specific layer index
-            lp = pya.LayerPropertiesNode()
+            lp = lay.LayerPropertiesNode()
             lp.source_layer_index = idx
             lp.fill_color = config['color']
             lp.frame_color = 0x000000
             lp.width = 1
             lp.dither_pattern = 1 # Solid
             view.insert_layer(view.end_layers(), lp)
+        else:
+            print(f"Warning: No instances found for pattern '{pattern}'")
 
     # 5. Export Visualization
     # Note: Headless execution may require a virtual display (e.g., xvfb-run)

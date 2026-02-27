@@ -1,11 +1,12 @@
-import pya
+import klayout.db as db
+import klayout.lay as lay
 import os
 import sys
 import glob
 
 def colorize_gds(input_gds, output_png):
     # 1. Load the layout
-    layout = pya.Layout()
+    layout = db.Layout()
     layout.read(input_gds)
     top_cell = layout.top_cell()
     print(f"Loaded {input_gds}, top cell: {top_cell.name}")
@@ -19,9 +20,8 @@ def colorize_gds(input_gds, output_png):
         'top_control':  {'color': 0xA8DADC, 'layer': 1004}  # Cyan
     }
 
-    # 3. Setup View (Handles both GUI and Headless/CI modes)
-    main_window = pya.Application.instance().main_window()
-    view = main_window.create_layout_view() if main_window else pya.LayoutView()
+    # 3. Setup View (Headless mode for standalone klayout pip package)
+    view = lay.LayoutView()
     view.show_layout(layout, False)
 
     # 4. Identify and Annotate Submodules
@@ -45,7 +45,7 @@ def colorize_gds(input_gds, output_png):
 
         if found_instances:
             # Set layer properties for this specific layer index
-            lp = pya.LayerPropertiesNode()
+            lp = lay.LayerPropertiesNode()
             lp.source_layer_index = idx
             lp.fill_color = config['color']
             lp.frame_color = 0x000000
