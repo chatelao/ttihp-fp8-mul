@@ -4,13 +4,11 @@
 The scaling of Deep Learning models necessitates efficient numerical representations to overcome the "Memory Wall". The **OCP Microscaling Formats (MX) Specification v1.0** introduces a block-based scaling approach that significantly reduces memory bandwidth and hardware complexity. This concept outlines the implementation of an MX-compatible Multiply-Accumulate (MAC) unit supporting various floating-point and integer formats within the strict constraints of a single **1x1 Tiny Tapeout tile** (Sky130/IHP SG13G2).
 
 ## 2. Numerical Representation: OCP MX
-The implementation supports multiple **OCP MX** formats, including MXFP8, MXFP6, MXFP4, and MXINT8, all sharing a common block scaling factor.
+The implementation supports multiple **OCP MX** formats, including MXFP8 and MXINT8, all sharing a common block scaling factor. (Note: MXFP6 and MXFP4 were pruned to fit 1x1 tile constraints).
 
 - **Shared Scale**: UE8M0 (8-bit unsigned biased exponent, Bias 127, power-of-two scaling).
 - **Element Formats**:
   - **MXFP8**: E4M3 (Bias 7) and E5M2 (Bias 15).
-  - **MXFP6**: E3M2 (Bias 3) and E2M3 (Bias 1).
-  - **MXFP4**: E2M1 (Bias 1).
   - **MXINT8**: Standard and Symmetric 8-bit signed integers.
 
 ### Bitwise Layouts
@@ -27,24 +25,6 @@ All formats are aligned to the lower bits of the 8-bit input wires during the `S
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Field** | S | E4 | E3 | E2 | E1 | E0 | M1 | M0 |
 - **S**: Sign bit. **E[4:0]**: Exponent (Bias 15). **M[1:0]**: Mantissa.
-
-#### E3M2 (6-bit MXFP6)
-| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Field** | - | - | S | E2 | E1 | E0 | M1 | M0 |
-- **S**: Sign bit. **E[2:0]**: Exponent (Bias 3). **M[1:0]**: Mantissa.
-
-#### E2M3 (6-bit MXFP6)
-| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Field** | - | - | S | E1 | E0 | M2 | M1 | M0 |
-- **S**: Sign bit. **E[1:0]**: Exponent (Bias 1). **M[2:0]**: Mantissa.
-
-#### E2M1 (4-bit MXFP4)
-| Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Field** | - | - | - | - | S | E1 | E0 | M0 |
-- **S**: Sign bit. **E[1:0]**: Exponent (Bias 1). **M[0]**: Mantissa.
 
 #### MXINT8 (8-bit)
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
@@ -98,27 +78,24 @@ The unit communicates with a host using a strictly timed protocol:
 | Phase | Cycles | Bits [7:0] | Function | Description |
 |-------|--------|------------|----------|-------------|
 | **IDLE** | 0 | `00000000` | N/A | |
-| **LOAD_SCALE** | 1 | `XXOWWRRR` | **Format/NC** | Bits [2:0]: Format, [4:3]: Rounding, [5]: Overflow. |
+| **LOAD_SCALE** | 1 | `XXOWWxFF` | **Format/NC** | Bits [1:0]: Format, [4:3]: Rounding, [5]: Overflow. |
 | **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** | Shared UE8M0 scale for Tensor B. |
 | **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MX element (aligned to lower bits). |
 | **PIPELINE** | 35 | `XXXXXXXX` | Isolated | |
 | **OUTPUT** | 36-39 | `XXXXXXXX` | Isolated | |
 
 #### Table 4: Supported Formats
-| Format ID (`FFF`) | Name | Type | Bits | Sign | Exponent | Mantissa | Bias |
+| Format ID (`FF`) | Name | Type | Bits | Sign | Exponent | Mantissa | Bias |
 |---|---|---|---|---|---|---|---|
-| `000` | E4M3 | MXFP8 | 8 | [7] | [6:3] | [2:0] | 7 |
-| `001` | E5M2 | MXFP8 | 8 | [7] | [6:2] | [1:0] | 15 |
-| `010` | E3M2 | MXFP6 | 6 | [5] | [4:2] | [1:0] | 3 |
-| `011` | E2M3 | MXFP6 | 6 | [5] | [4:3] | [2:0] | 1 |
-| `100` | E2M1 | MXFP4 | 4 | [3] | [2:1] | [0] | 1 |
-| `101` | INT8 | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
-| `110` | INT8_SYM | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
+| `00` | E4M3 | MXFP8 | 8 | [7] | [6:3] | [2:0] | 7 |
+| `01` | E5M2 | MXFP8 | 8 | [7] | [6:2] | [1:0] | 15 |
+| `10` | INT8 | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
+| `11` | INT8_SYM | MXINT8 | 8 | [7] | N/A | [6:0] | N/A |
 
 #### Table 5: Numerical Control Bits (Cycle 1)
 | Bits | Name | Description |
 |---|---|---|
-| [2:0] | Format | Format Selection (see Table 4). |
+| [1:0] | Format | Format Selection (see Table 4). |
 | [4:3] | Rounding | 00: TRN (Truncate), 01: CEIL (Round up), 10: FLOOR (Round down), 11: RNE (Ties to Even). |
 | [5] | Overflow | 0: SAT (Saturation), 1: WRAP (Wrapping). |
 
@@ -162,7 +139,7 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 - [ ] **Step 6**: Physical Design & Gate-Level Simulation (GDS generation, GLS).
 
 ### Phase 2: Advanced OCP MX Features
-- [x] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4).
+- [x] **Step 7**: Extended Floating Point Support (MXFP6 & MXFP4) - *Pruned in Optimization 3*.
 - [x] **Step 8**: Integer Support (MXINT8) & Symmetric Range.
 - [x] **Step 9**: Advanced Numerical Control (Rounding & Overflow modes).
 - [x] **Step 10**: Mixed-Precision Operations (Independent A/B formats).

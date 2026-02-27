@@ -18,32 +18,14 @@ def decode_format(bits, format_val):
         mant = (bits & 0x3) << 1
         bias = 15
         is_int = False
-    elif format_val == 2: # E3M2
-        sign = (bits >> 5) & 1
-        exp = (bits >> 2) & 0x7
-        mant = (bits & 0x3) << 1
-        bias = 3
-        is_int = False
-    elif format_val == 3: # E2M3
-        sign = (bits >> 5) & 1
-        exp = (bits >> 3) & 0x3
-        mant = (bits & 0x7)
-        bias = 1
-        is_int = False
-    elif format_val == 4: # E2M1
-        sign = (bits >> 3) & 1
-        exp = (bits >> 1) & 0x3
-        mant = (bits & 0x1) << 2
-        bias = 1
-        is_int = False
-    elif format_val == 5: # INT8
+    elif format_val == 2: # INT8
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
         mant = abs(val)
         exp = 0
         bias = 3
         is_int = True
-    elif format_val == 6: # INT8_SYM
+    elif format_val == 3: # INT8_SYM
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
         if val == -128: val = -127
@@ -214,7 +196,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
 
-    format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
+    format_names = ["E4M3", "E5M2", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
     dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
@@ -327,10 +309,10 @@ async def test_mixed_precision(dut):
     b_elements = [0x3C] * 32 # 1.0 in E5M2
     await run_mac_test(dut, 0, 1, a_elements, b_elements)
 
-    # E3M2 x INT8
-    a_elements = [0x10] * 32 # 1.0 in E3M2
+    # E5M2 x INT8
+    a_elements = [0x3C] * 32 # 1.0 in E5M2
     b_elements = [0x40] * 32 # 64 in INT8 (which is 1.0 with 2^-6 scale)
-    await run_mac_test(dut, 2, 5, a_elements, b_elements)
+    await run_mac_test(dut, 1, 2, a_elements, b_elements)
 
 @cocotb.test()
 async def test_mxfp_mac_randomized(dut):
@@ -340,8 +322,8 @@ async def test_mxfp_mac_randomized(dut):
     cocotb.start_soon(clock.start())
 
     for i in range(50):
-        format_a = random.randint(0, 6)
-        format_b = random.randint(0, 6)
+        format_a = random.randint(0, 3)
+        format_b = random.randint(0, 3)
         round_mode = random.randint(0, 3)
         overflow_wrap = random.randint(0, 1)
         scale_a = random.randint(110, 140) # Keep range reasonable for test

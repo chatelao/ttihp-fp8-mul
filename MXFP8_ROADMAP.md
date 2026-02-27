@@ -40,12 +40,12 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 
 ## Phase 2: Advanced OCP MX Features
 
-### Step 7: Extended Floating Point Support (MXFP6 & MXFP4) (Status: **COMPLETED**)
+### Step 7: Extended Floating Point Support (MXFP6 & MXFP4) (Status: **PRUNED**)
 - **Goal**: Support 6-bit and 4-bit floating point formats.
 - **Details**:
   - Implemented decoding for E3M2 (Bias 3), E2M3 (Bias 1), and E2M1 (Bias 1).
-  - Updated 38-cycle protocol to support 3-bit format selection during Cycle 1.
-  - Unified datapath to handle variable exponent ranges and mantissa padding.
+  - **Pruned** in Optimization 3 (Die Size Analysis) to fit within 1x1 tile constraints.
+  - Reverted protocol to 2-bit format selection.
 
 ### Step 8: Integer Support (MXINT8) & Symmetric Range (Status: **COMPLETED**)
 - **Goal**: Support 8-bit integer elements (MXINT8).

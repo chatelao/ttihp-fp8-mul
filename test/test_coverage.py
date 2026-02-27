@@ -28,12 +28,6 @@ def get_operand_class(bits, format_val):
             max_exp = 15
         elif format_val == 1: # E5M2
             max_exp = 31
-        elif format_val == 2: # E3M2
-            max_exp = 7
-        elif format_val == 3: # E2M3
-            max_exp = 3
-        elif format_val == 4: # E2M1
-            max_exp = 3
         else:
             max_exp = 15
 
@@ -47,8 +41,8 @@ def get_operand_class(bits, format_val):
 
 # Coverage Definitions
 @coverage_section(
-    CoverPoint("top.format_a", vname="format_a", bins=list(range(7)), bins_labels=["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]),
-    CoverPoint("top.format_b", vname="format_b", bins=list(range(7)), bins_labels=["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]),
+    CoverPoint("top.format_a", vname="format_a", bins=list(range(4)), bins_labels=["E4M3", "E5M2", "INT8", "INT8_SYM"]),
+    CoverPoint("top.format_b", vname="format_b", bins=list(range(4)), bins_labels=["E4M3", "E5M2", "INT8", "INT8_SYM"]),
     CoverPoint("top.round_mode", vname="round_mode", bins=list(range(4)), bins_labels=["TRN", "CEL", "FLR", "RNE"]),
     CoverPoint("top.overflow_wrap", vname="overflow_wrap", bins=list(range(2)), bins_labels=["SAT", "WRAP"]),
     CoverPoint("top.op_class_a", vname="op_class_a", bins=["ZERO", "SUBNORMAL", "NORMAL", "MAX_NORMAL", "SPECIAL", "POSITIVE", "NEGATIVE", "MIN_INT", "MAX_INT"]),
@@ -83,7 +77,7 @@ async def test_exhaustive_formats_subset(dut):
     formats_to_test = [
         (0, 0), # E4M3 x E4M3
         (1, 1), # E5M2 x E5M2
-        (5, 5), # INT8 x INT8
+        (2, 2), # INT8 x INT8
     ]
 
     for fa, fb in formats_to_test:
@@ -108,7 +102,7 @@ async def test_edge_cases(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    for fmt in range(7):
+    for fmt in range(4):
         # Zero, Min, Max, Special
         elements = [0x00, 0x7F, 0x80, 0xFF]
         # Pad to 32
@@ -145,8 +139,8 @@ async def test_randomized_coverage(dut):
     cocotb.start_soon(clock.start())
 
     for _ in range(500):
-        fa = random.randint(0, 6)
-        fb = random.randint(0, 6)
+        fa = random.randint(0, 3)
+        fb = random.randint(0, 3)
         rm = random.randint(0, 3)
         ov = random.randint(0, 1)
         sa = random.randint(0, 255)

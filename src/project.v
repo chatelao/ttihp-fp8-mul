@@ -31,8 +31,8 @@ module tt_um_chatelao_fp8_multiplier (
     // MXFP Registers
     reg [7:0] scale_a;
     reg [7:0] scale_b;
-    reg [2:0] format_a;
-    reg [2:0] format_b;
+    reg [1:0] format_a;
+    reg [1:0] format_b;
     reg [1:0] round_mode;
     reg       overflow_wrap;
 
@@ -41,8 +41,8 @@ module tt_um_chatelao_fp8_multiplier (
         cycle_count = 6'd0;
         scale_a = 8'd0;
         scale_b = 8'd0;
-        format_a = 3'd0;
-        format_b = 3'd0;
+        format_a = 2'd0;
+        format_b = 2'd0;
         round_mode = 2'd0;
         overflow_wrap = 1'b0;
     end
@@ -58,8 +58,8 @@ module tt_um_chatelao_fp8_multiplier (
             state <= STATE_IDLE;
             scale_a <= 8'd0;
             scale_b <= 8'd0;
-            format_a <= 3'd0;
-            format_b <= 3'd0;
+            format_a <= 2'd0;
+            format_b <= 2'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
         end else if (ena) begin
@@ -74,14 +74,14 @@ module tt_um_chatelao_fp8_multiplier (
                     6'd0:  state <= STATE_LOAD_SCALE;
                     6'd1:  begin
                              scale_a       <= ui_in;
-                             format_a      <= uio_in[2:0];
+                             format_a      <= uio_in[1:0];
                              round_mode    <= uio_in[4:3];
                              overflow_wrap <= uio_in[5];
                            end
                     6'd2:  begin
                              state    <= STATE_STREAM;
                              scale_b  <= uio_in;
-                             format_b <= ui_in[2:0];
+                             format_b <= ui_in[1:0];
                            end
                     6'd36: state   <= STATE_OUTPUT;
                     6'd40: state   <= STATE_IDLE;
