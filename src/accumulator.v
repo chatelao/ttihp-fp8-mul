@@ -3,6 +3,7 @@
 module accumulator (
     input  wire        clk,
     input  wire        rst_n,
+    input  wire        ena,     // Global enable
     input  wire        clear,   // Synchronous clear (at LOAD_SCALE)
     input  wire        en,      // Enable accumulation (during STREAM)
     input  wire        overflow_wrap, // Configurable overflow method
@@ -22,13 +23,15 @@ module accumulator (
     always @(posedge clk) begin
         if (!rst_n) begin
             data_out <= 32'd0;
-        end else if (clear) begin
-            data_out <= 32'd0;
-        end else if (en) begin
-            if (overflow && !overflow_wrap) begin
-                data_out <= data_out[31] ? 32'h80000000 : 32'h7FFFFFFF;
-            end else begin
-                data_out <= sum[31:0];
+        end else if (ena) begin
+            if (clear) begin
+                data_out <= 32'd0;
+            end else if (en) begin
+                if (overflow && !overflow_wrap) begin
+                    data_out <= data_out[31] ? 32'h80000000 : 32'h7FFFFFFF;
+                end else begin
+                    data_out <= sum[31:0];
+                end
             end
         end
     end

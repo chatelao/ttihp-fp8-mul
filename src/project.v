@@ -124,6 +124,7 @@ module tt_um_chatelao_fp8_multiplier (
     accumulator acc_inst (
         .clk(clk),
         .rst_n(rst_n),
+        .ena(ena),
         .clear(acc_clear),
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
