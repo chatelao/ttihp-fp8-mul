@@ -55,6 +55,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Download Layout Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Diagnostic Path List
+        run: ls -R
+
       - name: Generate Colored Visualization
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb
