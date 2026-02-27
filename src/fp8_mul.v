@@ -1,6 +1,7 @@
 `default_nettype none
 
 module fp8_mul #(
+    parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1
 )(
@@ -58,7 +59,7 @@ module fp8_mul #(
                 bias_a = 6'sd7;
                 zero_a = (ea == 5'd0);
             end
-            FMT_E5M2: begin
+            FMT_E5M2: if (SUPPORT_E5M2) begin
                 sign_a = a[7];
                 ea = a[6:2];
                 ma = {4'b0, 1'b1, a[1:0], 1'b0};
@@ -118,7 +119,7 @@ module fp8_mul #(
                 bias_b = 6'sd7;
                 zero_b = (eb == 5'd0);
             end
-            FMT_E5M2: begin
+            FMT_E5M2: if (SUPPORT_E5M2) begin
                 sign_b = b[7];
                 eb = b[6:2];
                 mb = {4'b0, 1'b1, b[1:0], 1'b0};
