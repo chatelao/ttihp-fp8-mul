@@ -62,15 +62,15 @@ def colorize_gds(input_gds, output_png):
         found_instances = False
         # Search for instances in the top cell
         for inst in top_cell.each_inst():
-            # Check instance name or cell name
-            inst_name = inst.name.lower() if inst.name else ""
+            # In klayout.db, Instance objects don't have a 'name' attribute like they might in GUI
+            # We match against the cell name they point to.
             cell_name = inst.cell.name.lower()
 
-            if pattern in inst_name or pattern in cell_name:
+            if pattern in cell_name:
                 # Add a colored rectangle on the specific visualization layer
                 top_cell.shapes(idx).insert(inst.bbox())
                 found_instances = True
-                print(f"Found {pattern} in instance {inst.name} (cell {inst.cell.name})")
+                print(f"Found {pattern} in instance pointing to cell {inst.cell.name}")
 
         if found_instances:
             # Set layer properties for this specific layer index
@@ -85,7 +85,6 @@ def colorize_gds(input_gds, output_png):
             print(f"Warning: No instances found for pattern '{pattern}'")
 
     # 5. Export Visualization
-    # Note: Headless execution may require a virtual display (e.g., xvfb-run)
     view.zoom_fit()
     view.save_image(output_png, 1024, 768)
     print(f"Visualization saved to {output_png}")
