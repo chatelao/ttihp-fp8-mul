@@ -1,6 +1,5 @@
 `default_nettype none
 
-(* keep_hierarchy *)
 module accumulator (
     input  wire        clk,
     input  wire        rst_n,

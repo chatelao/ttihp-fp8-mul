@@ -1,6 +1,5 @@
 `default_nettype none
 
-(* keep_hierarchy *)
 module fp8_aligner (
     input  wire [31:0] prod,     // Increased to 32-bit to support accumulator scaling
     input  wire signed [9:0] exp_sum,  // Increased to 10-bit signed for shared scales

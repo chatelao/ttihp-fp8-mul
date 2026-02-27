@@ -1,6 +1,5 @@
 `default_nettype none
 
-(* keep_hierarchy *)
 module top_control (
     input  wire clk,
     input  wire rst_n,
@@ -16,7 +15,7 @@ module top_control (
     output reg [1:0] round_mode,
     output reg overflow_wrap,
     input  wire [31:0] aligned_res, // Result from shared scaling (at cycle 36)
-    output reg [7:0] uo_out
+    output reg [7:0] serial_out
 );
 
     // FSM States
@@ -91,14 +90,14 @@ module top_control (
     always @(*) begin
         if (state == STATE_OUTPUT && cycle_count >= 6'd37) begin
             case (cycle_count)
-                6'd37: uo_out = scaled_acc_reg[31:24]; // Byte 3 (MSB)
-                6'd38: uo_out = scaled_acc_reg[23:16]; // Byte 2
-                6'd39: uo_out = scaled_acc_reg[15:8];  // Byte 1
-                6'd40: uo_out = scaled_acc_reg[7:0];   // Byte 0 (LSB)
-                default: uo_out = 8'h00;
+                6'd37: serial_out = scaled_acc_reg[31:24]; // Byte 3 (MSB)
+                6'd38: serial_out = scaled_acc_reg[23:16]; // Byte 2
+                6'd39: serial_out = scaled_acc_reg[15:8];  // Byte 1
+                6'd40: serial_out = scaled_acc_reg[7:0];   // Byte 0 (LSB)
+                default: serial_out = 8'h00;
             endcase
         end else begin
-            uo_out = 8'h00;
+            serial_out = 8'h00;
         end
     end
 

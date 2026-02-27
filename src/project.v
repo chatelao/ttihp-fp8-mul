@@ -50,7 +50,7 @@ module tt_um_chatelao_fp8_multiplier (
         .round_mode(round_mode),
         .overflow_wrap(overflow_wrap),
         .aligned_res(aligned_res),
-        .uo_out(uo_out)
+        .serial_out(uo_out)
     );
 
     // 2. Configure UIO as inputs
