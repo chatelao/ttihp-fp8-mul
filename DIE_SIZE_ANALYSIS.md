@@ -30,10 +30,10 @@ The current implementation supports a wide range of OCP MX formats (MXFP8, MXFP6
 
 To achieve the ~1500 gate target for a 1x1 tile, the design must prioritize hardware efficiency over exhaustive format support and optional features.
 
-### Optimization 1: Downsize the Aligner Path (Status: **Always Recommended**)
-The current aligner uses a **64-bit** internal path to handle both 16x32 alignment and 32x32 shared scaling.
-- **Change**: Narrow the internal shifter and rounding adder to **40 bits**.
-- **Impact**: This reduces aligner area by ~40%.
+### Optimization 1: Downsize the Aligner Path (Status: **COMPLETED**)
+The aligner has been downsized to a **40-bit** internal path to handle both 16x32 alignment and 32x32 shared scaling, replacing the original 64-bit baseline.
+- **Change**: Narrowed the internal shifter and rounding adder to **40 bits** via the `WIDTH` parameter.
+- **Impact**: Reduced aligner area by approximately 40%.
 - **Speed/Precision**:
     - **Precision**: **No loss**. A 40-bit window is sufficient to represent a 32-bit result plus 8 bits for guard, round, and sticky bits.
     - **Speed**: **Slight improvement**. Shorter carry chains in the rounding adder and fewer stages in the barrel shifter improve timing slack.

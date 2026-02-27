@@ -1,6 +1,8 @@
 `default_nettype none
 
-module fp8_aligner (
+module fp8_aligner #(
+    parameter WIDTH = 40
+)(
     input  wire [31:0] prod,     // Increased to 32-bit to support accumulator scaling
     input  wire signed [9:0] exp_sum,  // Increased to 10-bit signed for shared scales
     input  wire        sign,     // Sign bit
@@ -19,33 +21,36 @@ module fp8_aligner (
     wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
 
     always @(*) begin : align_logic
-        reg [39:0] shifted;
-        reg [39:0] base;
-        reg [39:0] rounded;
+        reg [WIDTH-1:0] shifted;
+        reg [WIDTH-1:0] base;
+        reg [WIDTH-1:0] rounded;
         reg sticky;
         reg round_bit;
         reg signed [10:0] n;
         reg huge;
+        reg [WIDTH-1:0] mask;
 
         // Initialize all to avoid latches
-        shifted = {8'd0, prod};
-        base = 40'd0;
-        rounded = 40'd0;
+        shifted = {WIDTH{1'b0}};
+        shifted[31:0] = prod;
+        base = {WIDTH{1'b0}};
+        rounded = {WIDTH{1'b0}};
         huge = 1'b0;
         sticky = 1'b0;
         round_bit = 1'b0;
         n = 11'd0;
         aligned = 32'd0;
+        mask = {WIDTH{1'b0}};
 
         if (shift_amt >= 0) begin
             // Left shift
             if (prod != 32'd0) begin
-                if (shift_amt >= 11'sd40) begin
+                if (shift_amt >= $signed({1'b0, WIDTH[9:0]})) begin
                     huge = 1'b1;
-                    rounded = 40'd0;
+                    rounded = {WIDTH{1'b0}};
                 end else begin
-                    // Check if any bits of shifted will be shifted out of the 40-bit window
-                    if (shift_amt > 0 && |(shifted >> (11'sd40 - shift_amt))) huge = 1'b1;
+                    // Check if any bits of shifted will be shifted out of the WIDTH-bit window
+                    if (shift_amt > 0 && |(shifted >> ($signed({1'b0, WIDTH[9:0]}) - shift_amt))) huge = 1'b1;
                     rounded = shifted << shift_amt;
                 end
             end
@@ -54,8 +59,8 @@ module fp8_aligner (
         end else begin
             // Right shift
             n = -shift_amt;
-            if (n >= 11'sd40) begin
-                base = 40'd0;
+            if (n >= $signed({1'b0, WIDTH[9:0]})) begin
+                base = {WIDTH{1'b0}};
                 sticky = (prod != 32'd0);
                 round_bit = 1'b0;
             end else begin
@@ -63,8 +68,9 @@ module fp8_aligner (
                 round_bit = (n > 0) ? shifted[n-1] : 1'b0;
                 if (n > 1) begin
                     // Efficient sticky bit calculation
-                    // Use a 40-bit mask to check bits [n-2:0]
-                    sticky = |(shifted & ((40'd1 << (n-1)) - 40'd1));
+                    mask = {WIDTH{1'b1}};
+                    mask = ~(mask << (n-1));
+                    sticky = |(shifted & mask);
                 end else begin
                     sticky = 1'b0;
                 end
@@ -72,11 +78,11 @@ module fp8_aligner (
 
             case (round_mode)
                 R_TRN: rounded = base;
-                R_CEL: rounded = (!sign && (round_bit || sticky)) ? base + 40'd1 : base;
-                R_FLR: rounded = (sign && (round_bit || sticky)) ? base + 40'd1 : base;
+                R_CEL: rounded = (!sign && (round_bit || sticky)) ? base + 1'b1 : base;
+                R_FLR: rounded = (sign && (round_bit || sticky)) ? base + 1'b1 : base;
                 R_RNE: begin
                     if (round_bit) begin
-                        if (sticky || base[0]) rounded = base + 40'd1;
+                        if (sticky || base[0]) rounded = base + 1'b1;
                         else rounded = base;
                     end else begin
                         rounded = base;
@@ -90,13 +96,14 @@ module fp8_aligner (
         // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000
         if (sign) begin
             // Magnitude > 2^31 saturates
-            if (!overflow_wrap && (huge || |rounded[39:32] || (rounded[31] && |rounded[30:0])))
+            // Using shift to avoid illegal range if WIDTH=32
+            if (!overflow_wrap && (huge || |(rounded >> 32) || (rounded[31] && |rounded[30:0])))
                 aligned = 32'h80000000;
             else
                 aligned = -rounded[31:0];
         end else begin
             // Magnitude > 2^31-1 saturates
-            if (!overflow_wrap && (huge || |rounded[39:31]))
+            if (!overflow_wrap && (huge || |(rounded >> 31)))
                 aligned = 32'h7FFFFFFF;
             else
                 aligned = rounded[31:0];

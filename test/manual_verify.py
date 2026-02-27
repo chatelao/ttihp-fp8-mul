@@ -1,7 +1,9 @@
 
 def align_reference(prod, exp_sum, sign):
-    # exp_sum is signed 7-bit
-    if exp_sum >= 64:
+    # exp_sum is signed 7-bit (legacy, now 10-bit in RTL but manual_verify uses it for basic cases)
+    if exp_sum >= 512:
+        exp_sum_val = exp_sum - 1024
+    elif exp_sum >= 64 and exp_sum < 512: # Handle 7-bit signed for backward compat
         exp_sum_val = exp_sum - 128
     else:
         exp_sum_val = exp_sum
@@ -14,15 +16,34 @@ def align_reference(prod, exp_sum, sign):
     # fixed_point = prod * 2^(exp_sum_val - 6 - 7 + 8) = prod * 2^(exp_sum_val - 5)
 
     shift_amt = exp_sum_val - 5
+    WIDTH = 40
+
+    huge = False
     if shift_amt >= 0:
-        res = prod << shift_amt
+        if shift_amt >= WIDTH and prod != 0:
+            huge = True
+            res = (1 << WIDTH) - 1
+        else:
+            if shift_amt > 0 and (prod >> (WIDTH - shift_amt)) != 0:
+                huge = True
+            res = prod << shift_amt
     else:
-        res = prod >> (-shift_amt)
+        n = -shift_amt
+        if n >= WIDTH:
+            res = 0
+        else:
+            res = prod >> n
 
     mask = 0xFFFFFFFF
+
     if sign:
+        # Saturation check matching RTL
+        if (huge or (res >> 32) != 0 or ((res & (1 << 31)) != 0 and (res & ((1 << 31) - 1)) != 0)):
+            return 0x80000000
         return (-res) & mask
     else:
+        if (huge or (res >> 31) != 0):
+            return 0x7FFFFFFF
         return res & mask
 
 def test():
