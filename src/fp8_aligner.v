@@ -84,7 +84,7 @@ module fp8_aligner (
             if (!overflow_wrap && (magnitude_ovf_val && (r_val > 40'h0080000000)))
                 aligned = 32'h80000000;
             else
-                aligned = -r_val[31:0];
+                aligned = ~r_val[31:0] + 32'd1;
         end else begin
             // Positive: Saturation at 2^31-1 (0x7FFFFFFF)
             if (!overflow_wrap && magnitude_ovf_val)

@@ -69,8 +69,8 @@ The unit communicates with a host using a strictly timed protocol:
 |-------|--------|------------|----------|-------------|
 | **IDLE** | 0 | `SXXXXXXX` | **Fast Start** | Bit [7]=1 skips LOAD_SCALE cycles. |
 | **LOAD_SCALE** | 1 | `X_A[7:0]` | **Scale A** | Shared UE8M0 scale for Tensor A. |
-| **LOAD_SCALE** | 2 | `XXXXXXXX` | N/A | |
-| **STREAM** | 3-34 | `A_i[7:0]` | **Element A** | MXFP8 element (E4M3/E5M2). |
+| **LOAD_SCALE** | 2 | `XXXXXXBB` | **Format B** | Bits [1:0]: Format for Tensor B. |
+| **STREAM** | 3-34 | `A_i[7:0]` | **Element A** | MX element (aligned to lower bits). |
 | **PIPELINE** | 35-39 | `XXXXXXXX` | N/A | |
 | **OUTPUT** | 40-43 | `XXXXXXXX` | N/A | |
 

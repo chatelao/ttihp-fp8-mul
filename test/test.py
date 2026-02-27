@@ -166,14 +166,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Elements: in at 3-34, reaches Acc at 6-37. Final Addition end of 37 (edge 38).
-    # Shared Scale: acc_abs captures at end of 37 (edge 38).
-    # Aligner works Cycle 38, results in aligned_res_reg at end of 38 (edge 39).
-    # scaled_acc_reg captures at end of 39 (edge 40).
-    # Serialization starts at Cycle 40.
+    # Cycles 35-39: Flush pipeline and perform shared scaling
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 5) # Cycles 35, 36, 37, 38, 39
+    await ClockCycles(dut.clk, 5)
 
     # Now at Cycle 40. read uo_out.
     shared_exp = scale_a + scale_b - 254
