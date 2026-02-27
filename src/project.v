@@ -172,11 +172,10 @@ module tt_um_chatelao_fp8_multiplier (
     end
 
     // 4. Accumulator Control
-    // Elements: in at 3-34, mul_reg at 4-35, align_reg at 5-36, reaches Acc at 5.
-    // Addition happens at posedge edges 6, 7, ..., 37.
-    // So acc_en must be high during cycles 5, 6, ..., 36.
-    wire acc_en    = (cycle_count >= 6'd5 && cycle_count <= 6'd36) && (state == STATE_STREAM || state == STATE_OUTPUT);
-    wire acc_clear = (cycle_count <= 6'd4) && (state != STATE_STREAM);
+    // Elements: in at 3-34, mul_reg at 4-35, align_reg at 5-36, reaches Acc at 6.
+    // Addition happens at end of cycles 6-37.
+    wire acc_en    = (cycle_count >= 6'd6 && cycle_count <= 6'd37) && (state == STATE_STREAM || state == STATE_OUTPUT);
+    wire acc_clear = (cycle_count <= 6'd5) && (state != STATE_STREAM);
 
     accumulator acc_inst (
         .clk(clk),
@@ -189,7 +188,7 @@ module tt_um_chatelao_fp8_multiplier (
     );
 
     // 5. Output Serialization Register
-    // acc_out is final at Cycle 37.
+    // acc_out is final at Cycle 36.
     // acc_abs_reg captures at end of Cycle 37 (edge 38).
     // Aligner works during Cycle 38.
     // aligned_res_reg captures at end of Cycle 38 (edge 39).
@@ -208,10 +207,10 @@ module tt_um_chatelao_fp8_multiplier (
     always @(*) begin
         if (state == STATE_OUTPUT && cycle_count >= 6'd40) begin
             case (cycle_count)
-                40: uo_out_reg = scaled_acc_reg[31:24]; // Byte 3 (MSB)
-                41: uo_out_reg = scaled_acc_reg[23:16]; // Byte 2
-                42: uo_out_reg = scaled_acc_reg[15:8];  // Byte 1
-                43: uo_out_reg = scaled_acc_reg[7:0];   // Byte 0 (LSB)
+                6'd40: uo_out_reg = scaled_acc_reg[31:24]; // Byte 3 (MSB)
+                6'd41: uo_out_reg = scaled_acc_reg[23:16]; // Byte 2
+                6'd42: uo_out_reg = scaled_acc_reg[15:8];  // Byte 1
+                6'd43: uo_out_reg = scaled_acc_reg[7:0];   // Byte 0 (LSB)
                 default: uo_out_reg = 8'h00;
             endcase
         end else begin
