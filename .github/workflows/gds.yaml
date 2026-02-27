@@ -55,4 +55,16 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Generate Colored Visualization
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          pip install klayout
+          xvfb-run python3 gds_colorizer.py
+
+      - name: Upload Colored Visualization
+        uses: actions/upload-artifact@v4
+        with:
+          name: gds_colored_zones
+          path: gds_colored_zones.png
+
       - uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
