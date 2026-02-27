@@ -58,18 +58,27 @@ def decode_format(bits, format_val):
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
     shift_amt = exp_sum - 5
+    WIDTH = 40
 
     if shift_amt >= 0:
-        if not overflow_wrap and shift_amt > 60:
-            aligned = 0xFFFFFFFFFFFFFFFF
+        if not overflow_wrap and shift_amt >= WIDTH:
+            aligned = (1 << WIDTH) - 1 # This will be caught by huge/saturation
         else:
             aligned = prod << shift_amt
         sticky = 0
         shifted_out = 0
         base = aligned
+
+        # Huge detection: if bits are shifted out of WIDTH-bit window
+        huge = False
+        if shift_amt >= WIDTH and prod != 0:
+            huge = True
+        elif shift_amt > 0 and (prod >> (WIDTH - shift_amt)) != 0:
+            huge = True
     else:
         n = -shift_amt
-        if n >= 64:
+        huge = False
+        if n >= WIDTH:
             base = 0
             sticky = 1 if prod != 0 else 0
             shifted_out = prod
@@ -98,13 +107,15 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
     if sign:
         # Check saturation for negative
         # Magnitude > 2^31 saturates to -2^31
-        if not overflow_wrap and (aligned > 0x80000000 or (aligned == 0x80000000 and shifted_out != 0)):
+        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
+        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
             res = -0x80000000
         else:
             res = -aligned
     else:
         # Magnitude > 2^31-1 saturates to 2^31-1
-        if not overflow_wrap and aligned > 0x7FFFFFFF:
+        # In RTL: (huge || |rounded[WIDTH-1:31])
+        if not overflow_wrap and (huge or (aligned >> 31) != 0):
             res = 0x7FFFFFFF
         else:
             res = aligned

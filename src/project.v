@@ -8,7 +8,9 @@
 `include "fp8_aligner.v"
 `include "accumulator.v"
 
-module tt_um_chatelao_fp8_multiplier (
+module tt_um_chatelao_fp8_multiplier #(
+    parameter ALIGNER_WIDTH = 40
+)(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
     input  wire [7:0] uio_in,   // Scale/Elements
@@ -142,7 +144,9 @@ module tt_um_chatelao_fp8_multiplier (
     wire aligner_in_sign = (cycle_count >= 6'd36) ? acc_out[31] : mul_sign_reg;
 
     wire [31:0] aligned_res;
-    fp8_aligner aligner_inst (
+    fp8_aligner #(
+        .WIDTH(ALIGNER_WIDTH)
+    ) aligner_inst (
         .prod(aligner_in_prod),
         .exp_sum(aligner_in_exp),
         .sign(aligner_in_sign),
