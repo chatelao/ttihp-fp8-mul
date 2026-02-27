@@ -62,7 +62,7 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
 
     if shift_amt >= 0:
         if not overflow_wrap and shift_amt >= WIDTH:
-            aligned = (1 << WIDTH) - 1 # This will be caught by huge/saturation
+            aligned = (1 << WIDTH) - 1 if prod != 0 else 0
         else:
             aligned = prod << shift_amt
         sticky = 0
@@ -71,10 +71,10 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
 
         # Huge detection: if bits are shifted out of WIDTH-bit window
         huge = False
-        if shift_amt >= WIDTH and prod != 0:
-            huge = True
-        elif shift_amt > 0 and (prod >> (WIDTH - shift_amt)) != 0:
-            huge = True
+        if shift_amt >= WIDTH:
+            if prod != 0: huge = True
+        elif shift_amt > 0:
+            if (prod >> (WIDTH - shift_amt)) != 0: huge = True
     else:
         n = -shift_amt
         huge = False
@@ -132,7 +132,14 @@ def get_param(handle, default=1):
     except Exception:
         return default
 
-def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0):
+def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
+                        support_mxfp6=1, support_mxfp4=1):
+    # Fallback for unsupported formats in hardware
+    if not support_mxfp6 and format_a in [2, 3]: return 0
+    if not support_mxfp6 and format_b in [2, 3]: return 0
+    if not support_mxfp4 and format_a == 4: return 0
+    if not support_mxfp4 and format_b == 4: return 0
+
     sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
     sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
 
@@ -171,6 +178,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
+
     await reset_dut(dut)
 
     # Cycle 1: Load Scale A and Format/Numerical Control
@@ -186,7 +196,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     expected_acc = 0
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap)
+        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
+                                   support_mxfp6, support_mxfp4)
 
         acc_32 = expected_acc & 0xFFFFFFFF
         prod_32 = prod & 0xFFFFFFFF
@@ -425,14 +436,13 @@ async def test_fast_start_scale_compression(dut):
     await ClockCycles(dut.clk, 1)
 
     # Now at Cycle 3
-    expected_acc = 32 * 256 * 2 # (1.0 * 1.0 * 2^1) in fixed point = 2.0. 2 * 256 = 512. Wait.
-    # 1.0 * 1.0 * 2^1 = 2.0.
-    # Bit 8 = 2^0, so 2.0 is 2.0 * 256 = 512.
-    # Oh, wait. In run_mac_test, expected_final is calculated.
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
 
     expected_acc = 0
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_a, format_b)
+        prod = align_product_model(a, b, format_a, format_b,
+                                   support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
         expected_acc += prod
 
     if support_shared:
