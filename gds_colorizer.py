@@ -1,6 +1,7 @@
 import pya
 import os
 import sys
+import glob
 
 def colorize_gds(input_gds, output_png):
     # 1. Load the layout
@@ -60,23 +61,33 @@ def colorize_gds(input_gds, output_png):
     print(f"Visualization saved to {output_png}")
 
 if __name__ == "__main__":
-    # Search for GDS in multiple locations
-    possible_paths = [
-        "tt_um_chatelao_fp8_multiplier.gds",
-        "gds/tt_um_chatelao_fp8_multiplier.gds",
-        "runs/wokwi/results/final/gds/tt_um_chatelao_fp8_multiplier.gds"
-    ]
+    # Robust search for GDS/OAS files in current and subdirectories
+    possible_extensions = ["*.gds", "*.oas"]
+    found_files = []
+    for ext in possible_extensions:
+        found_files.extend(glob.glob(f"**/{ext}", recursive=True))
+
+    # Filter out files in .git or other common hidden dirs if needed
+    found_files = [f for f in found_files if ".git" not in f]
+
+    print(f"Scanning for layout files. Found: {found_files}")
 
     gds_path = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            gds_path = path
-            break
+    if found_files:
+        # Prioritize files that look like our top module
+        top_module = "tt_um_chatelao_fp8_multiplier"
+        for f in found_files:
+            if top_module in f:
+                gds_path = f
+                break
+
+        # Fallback to the first one found if no exact match
+        if not gds_path:
+            gds_path = found_files[0]
 
     if gds_path:
         output_png = "gds_colored_zones.png"
         colorize_gds(gds_path, output_png)
     else:
-        print(f"Error: GDS not found in {possible_paths}. Run hardening first.")
-        # Don't exit with error if we just want to install the script
-        # sys.exit(1)
+        print(f"Error: No GDS or OAS layout files found in recursive search.")
+        sys.exit(1)

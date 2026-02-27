@@ -29,6 +29,8 @@ The visualization is automated using a Python script interacting with the **KLay
 ```python
 import pya
 import os
+import sys
+import glob
 
 def colorize_gds(input_gds, output_png):
     # 1. Load the layout
@@ -81,11 +83,36 @@ def colorize_gds(input_gds, output_png):
     print(f"Visualization saved to {output_png}")
 
 if __name__ == "__main__":
-    gds_path = "tt_um_chatelao_fp8_multiplier.gds"
-    if os.path.exists(gds_path):
-        colorize_gds(gds_path, "gds_colored_zones.png")
+    # Robust search for GDS/OAS files in current and subdirectories
+    possible_extensions = ["*.gds", "*.oas"]
+    found_files = []
+    for ext in possible_extensions:
+        found_files.extend(glob.glob(f"**/{ext}", recursive=True))
+
+    # Filter out files in .git or other common hidden dirs if needed
+    found_files = [f for f in found_files if ".git" not in f]
+
+    print(f"Scanning for layout files. Found: {found_files}")
+
+    gds_path = None
+    if found_files:
+        # Prioritize files that look like our top module
+        top_module = "tt_um_chatelao_fp8_multiplier"
+        for f in found_files:
+            if top_module in f:
+                gds_path = f
+                break
+
+        # Fallback to the first one found if no exact match
+        if not gds_path:
+            gds_path = found_files[0]
+
+    if gds_path:
+        output_png = "gds_colored_zones.png"
+        colorize_gds(gds_path, output_png)
     else:
-        print(f"Error: {gds_path} not found. Run hardening first.")
+        print(f"Error: No GDS or OAS layout files found in recursive search.")
+        sys.exit(1)
 ```
 
 ## 5. Integration with CI/CD
