@@ -1,5 +1,6 @@
 `default_nettype none
 
+(* keep_hierarchy *)
 module fp8_mul (
     input  wire [7:0] a,
     input  wire [7:0] b,

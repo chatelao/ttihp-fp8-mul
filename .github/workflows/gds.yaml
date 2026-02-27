@@ -74,7 +74,7 @@ jobs:
       - name: Generate Colored Visualization
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libqt5widgets5
+          sudo apt-get install -y xvfb libqt5widgets5 libqt5gui5 libqt5core5a libqt5xml5 libqt5network5 libqt5multimedia5 libqt5printsupport5 libqt5svg5 libqt5sql5 libqt5dbus5 libqt5test5 libxcb-xinerama0
           pip install klayout
           xvfb-run python3 gds_colorizer.py
 
