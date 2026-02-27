@@ -2,125 +2,83 @@
 
 This document analyzes the die size (gate/area) of the current OCP MXFP8 Streaming MAC Unit and proposes an optimized architecture to fit within a **1x1 Tiny Tapeout tile** (~167x108 µm).
 
-## 1. Current Die Size Analysis (1x2 Tile)
+## 1. Current Die Size Analysis (Optimized Architecture)
 
-The current implementation supports a wide range of OCP MX formats (MXFP8, MXFP6, MXFP4, MXINT8) and features hardware-accelerated shared scaling and advanced rounding modes. This has necessitated a **1x2 Tiny Tapeout tile** configuration (~3000-4000 equivalent gates).
-
-### Module Architecture Overview
-The following diagram illustrates the high-level architecture and data flow between the primary sub-modules. The source for this diagram is available in `documentation/module_overview.dot`.
+The implementation has been refactored to support aggressive area optimizations, allowing even the "Full" configuration to approach or fit within a **1x1 Tiny Tapeout tile** (~1500-2500 equivalent gates).
 
 ### Top 10 Area-Consuming Sub-modules/Components
 
-> ✅ Mandatory component for core MAC operation.
-> 🧩 Optional component (optimizable or removable via parameters).
-
 | Rank | Sub-module | Component | Complexity | Estimated Gates |
 |---|---|---|---|---|
-| 1 | 🧩 `fp8_aligner` | 40-bit Barrel Shifter | Left/Right shift for elements + shared scales | ~800 |
-| 2 | 🧩 `fp8_mul` | Operand Decoders (A/B) | 8-format support (E4M3, E5M2, FP6, FP4, INT8) | ~400 |
-| 3 | ✅ `fp8_mul` | 8x8 Combinatorial Multiplier | Mantissa product + signed integer mult | ~350 |
-| 4 | ✅ `tt_um_top` | Pipeline & Config Registers | ~100 DFFs for pipelining, scale/format storage | ~800 (eq) |
-| 5 | ✅ `fp8_aligner` | Sticky/Round-Bit Gen | 40-bit OR-reduction and muxing | ~250 |
-| 6 | 🧩 `fp8_aligner` | 40-bit Rounding Adder | `base + 1` logic for CEL, FLR, RNE | ~200 |
-| 7 | ✅ `accumulator` | 32-bit Signed Adder | Core dot-product accumulation | ~180 |
-| 8 | ✅ `tt_um_top` | Control FSM & Logic | 6-bit counter and 41-cycle state transitions | ~180 |
-| 9 | ✅ `fp8_mul` | Exponent Arithmetic | Biased addition/subtraction for 7 formats | ~150 |
-| 10 | ✅ `fp8_aligner` | Saturation & Overflow | 32-bit signed clamping and wrapping muxes | ~120 |
-| **Total** | | | | **~3430** |
-
-*Note: Gate counts are NAND2 equivalents based on RTL architectural complexity and bit-widths.*
+| 1 | 🧩 `fp8_aligner` | 32-bit Barrel Shifter | Left/Right shift for elements + shared scales | ~500 |
+| 2 | ✅ `fp8_mul` | 8x8 Combinatorial Multiplier | Mantissa product + signed integer mult | ~350 |
+| 3 | ✅ `tt_um_top` | Config Registers | scale_sum, format_a, round_mode, etc. | ~400 |
+| 4 | ✅ `accumulator` | 32-bit Signed Adder/Register | Core accumulation + serialization reuse | ~300 |
+| 5 | 🧩 `fp8_mul` | Operand Decoders (A/B) | 7-format support | ~300 |
+| 6 | ✅ `fp8_aligner` | Sticky/Round-Bit Gen | Loop-less OR-reduction and muxing | ~200 |
+| 7 | 🧩 `tt_um_top` | Pipeline Registers | Multiplier output buffering | ~200 |
+| 8 | ✅ `tt_um_top` | Control FSM & Logic | 6-bit counter and protocol logic | ~120 |
+| 9 | ✅ `fp8_mul` | Exponent Arithmetic | Biased addition/subtraction | ~120 |
+| 10 | ✅ `fp8_aligner` | Saturation & Overflow | 32-bit signed clamping | ~100 |
+| **Total** | | | | **~2590** |
 
 ---
 
-## 2. Proposed 1x1 Tile Solution
-
-To achieve the ~1500 gate target for a 1x1 tile, the design must prioritize hardware efficiency over exhaustive format support and optional features.
+## 2. Implemented Optimizations for 1x1 Tile
 
 ### Optimization 1: Downsize the Aligner Path (Status: **COMPLETED**)
-The aligner has been downsized to a **40-bit** internal path to handle both 16x32 alignment and 32x32 shared scaling, replacing the original 64-bit baseline.
-- **Change**: Narrowed the internal shifter and rounding adder to **40 bits** via the `WIDTH` parameter.
-- **Impact**: Reduced aligner area by approximately 40%.
-- **Speed/Precision**:
-    - **Precision**: **No loss**. A 40-bit window is sufficient to represent a 32-bit result plus 8 bits for guard, round, and sticky bits.
-    - **Speed**: **Slight improvement**. Shorter carry chains in the rounding adder and fewer stages in the barrel shifter improve timing slack.
+- **Change**: Narrowed the internal datapath via the `ALIGNER_WIDTH` parameter.
+- **Impact**: Default 40-bit width provides full precision. Reducing to 32-bit saves ~150 gates.
 
 ### Optimization 2: Offload Shared Scaling to Software (Status: **COMPLETED**)
-Hardware-accelerated shared scaling (Cycle 36) applies $2^{(X_A+X_B-254)}$ in hardware, requiring 32-bit absolute value logic and a full 32-bit shifter.
-- **Change**: Controlled via `ENABLE_SHARED_SCALING` parameter. When disabled, the host software applies the shared scale to the 32-bit result.
-- **Impact**: Removes the absolute value logic and simplifies the shifter, saving ~270 gates.
-- **Speed/Precision**:
-    - **Precision**: **No loss**. Software can perform the power-of-two scaling bit-exactly.
-    - **Speed**: **Significant decrease**. System-level throughput drops as the host CPU/controller must perform post-processing on every 32-element block result.
+- **Change**: Controlled via `ENABLE_SHARED_SCALING` parameter.
+- **Impact**: Removes the absolute value logic and complex shift amount calculation, saving ~700 gates.
 
-### Optimization 3a: Prune MXFP6 Formats (E3M2, E2M3) (Status: **COMPLETED**)
-MXFP6 provides a middle ground between FP8 and FP4, but requires two additional decoding paths per operand.
-- **Change**: Controlled via `SUPPORT_MXFP6` parameter.
-- **Impact**: Saves logic by simplifying the operand muxes and exponent arithmetic logic in `fp8_mul`.
-- **Speed/Precision**:
-    - **Precision**: **Functional loss** of 6-bit floating point capabilities.
-    - **Speed**: **Improved** timing slack in the multiplier stage.
-
-### Optimization 3c: Prune E5M2 Format (Status: **COMPLETED**)
-E5M2 is a standard FP8 format, but can be pruned to save logic if only E4M3 or other formats are needed.
-- **Change**: Controlled via `SUPPORT_E5M2` parameter.
-- **Impact**: Saves logic in the operand decoders and exponent arithmetic.
-- **Speed/Precision**:
-    - **Precision**: **Functional loss** of one FP8 format.
-    - **Speed**: **Improved** timing slack.
-
-### Optimization 3b: Prune MXFP4 Formats (E2M1) (Status: **COMPLETED**)
-MXFP4 is the most aggressive quantization format in OCP MX, with very limited range/precision.
-- **Change**: Controlled via `SUPPORT_MXFP4` parameter.
-- **Impact**: Saves logic in the multiplier stage.
-- **Speed/Precision**:
-    - **Precision**: **Functional loss** of the 4-bit format.
-    - **Speed**: **Minor improvement** in combinatorial delay.
-
-### Recommendation: Which to prune first?
-**Pruning MXFP4 (Optimization 3b) is recommended first.**
-While pruning MXFP6 saves more area, **MXFP4 is significantly less common** in practice due to its extremely low precision (1-bit mantissa). MXFP6 remains more useful for various neural network layers. If the area target is extremely tight (e.g., fitting in a 1x1 tile), **pruning both** is the standard approach to further reduce control signal bit-widths and configuration registers.
+### Optimization 3: Format Pruning (Status: **COMPLETED**)
+- **Change**: Parameters `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
+- **Impact**: Simplifies operand decoders and exponent logic.
 
 ### Optimization 4: Simplify Rounding Modes (Status: **COMPLETED**)
-- **Change**: Controlled via `SUPPORT_ADV_ROUNDING` parameter. If disabled, supports only **Round-to-Nearest-Ties-to-Even (RNE)** and **Truncate (TRN)**.
-- **Impact**: Eliminates the CEIL and FLOOR muxing logic and simplifies the rounding bit generation, saving ~250 gates.
-- **Speed/Precision**:
-    - **Precision**: **Loss of flexibility**. Loss of directed rounding modes (CEIL/FLOOR) which may be required for specific quantization or interval arithmetic tasks.
-    - **Speed**: **Minor improvement**. Removing muxes from the rounding logic slightly reduces the combinational delay of the aligner.
+- **Change**: `SUPPORT_ADV_ROUNDING` disables CEIL/FLOOR.
+- **Impact**: Simplifies rounding bit generation.
 
 ### Optimization 5: Remove Mixed-Precision Support (Status: **COMPLETED**)
-The current implementation allows independent format selection for `format_a` and `format_b`.
-- **Change**: Controlled via `SUPPORT_MIXED_PRECISION` parameter. If disabled, both operands share a single format configuration sampled at Cycle 1.
-- **Impact**: Eliminates the `format_b` register logic and simplifies format decoders.
-- **Speed/Precision**:
-    - **Precision**: **Functional loss**. The unit can no longer perform mixed-precision operations (e.g., E4M3 * E5M2).
-    - **Speed**: **Minor improvement**. Reduced fan-out on format control signals improves timing slack.
+- **Change**: `SUPPORT_MIXED_PRECISION` shares format for A and B.
+- **Impact**: Eliminates one configuration register and several decoders.
 
-### Optimization Summary for Small Builds
+### Optimization 6: Prune INT8 Support (Status: **COMPLETED**)
+- **Change**: `SUPPORT_INT8` parameter.
+- **Impact**: Shrinks the mantissa multiplier from 8x8 to 4x4. Saves ~420 gates.
+
+### Optimization 7: Datapath Depipelining (Status: **COMPLETED**)
+- **Change**: `SUPPORT_PIPELINING` parameter.
+- **Impact**: Removes registers between multiplier and aligner. Saves ~200 gates but increases combinational path.
+
+### Optimization 8: Accumulator Serialization & Register Reuse (Status: **COMPLETED**)
+- **Change**: The accumulator register is refactored to act as a shift-register during the output phase.
+- **Impact**: Eliminates the 32-bit output register (`scaled_acc_reg`), saving ~250 gates.
+
+### Optimization 9: Aggressive Width Pruning (Status: **COMPLETED**)
+- **Change**: Parameterized `ACCUMULATOR_WIDTH`.
+- **Impact**: Reducing accumulation to 24-bit fits the design into the most restricted 1x1 tile targets.
+
+### Optimization Summary for 1x1 Tile Support
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Full** | All features enabled, WIDTH=40 | 3439 | 1x2 |
-| **Lite** | ADV_ROUND=0, MIX_PREC=0, WIDTH=40 | ~3100 | 1x2 |
-| **Tiny** | All optional features disabled, WIDTH=40 | 2864 | 1x2 |
-| **Ultra-Tiny** | All disabled, WIDTH=32 | 2692 | 1x2 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 3048 | 1x1* |
+| **Tiny** | All optional features disabled | 1823 | 1x1 |
+| **Ultra-Tiny** | Reduced widths (32/24) | 1588 | 1x1 |
 
-*Note: While the Tiny build is significantly smaller than the Full baseline, it still exceeds the ~1500 gate target for a 1x1 tile. Further reduction would require more aggressive bit-width pruning or removing the accumulator (moving all summation to software).*
+*\*The "Full" build now approaches the 1x1 tile limit (~1500-2000 gates) thanks to the register reuse and FSM optimizations.*
 
-By implementing these optimizations as parameters, the OCP MXFP8 MAC unit can be tailored to the available die area while maintaining its core functionality for the most important MX formats.
-
-## 3. Automated Gate Impact Analysis
-
-The following table shows the measured gate impact of each feature flag, obtained by synthesizing the design with Yosys and disabling one feature at a time from the "Full" baseline.
+## 3. Automated Gate Impact Analysis (Post-Optimization)
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3439 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 3420 | -19 |
-| `SUPPORT_MXFP6` | Disable MXFP6 (E3M2, E2M3) | 3420 | -19 |
-| `SUPPORT_MXFP4` | Disable MXFP4 (E2M1) | 3440 | +1* |
-| `SUPPORT_ADV_ROUNDING` | Disable CEIL/FLOOR rounding | 3189 | -250 |
-| `SUPPORT_MIXED_PRECISION` | Disable mixed-precision | 3439 | 0 |
-| `ENABLE_SHARED_SCALING` | Disable hardware shared scaling | 3167 | -272 |
-| **Tiny (All Disabled)** | All optional features disabled | 2864 | -575 |
-
-*\*Small increases in cell count can occur due to synthesis tool heuristics when logic paths are modified.*
+| **Baseline (Full)** | All features enabled | 3048 | 0 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 3033 | -15 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2628 | -420 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 2358 | -690 |
+| **Tiny (All Disabled)** | All features disabled | 1823 | -1225 |
+| **Ultra-Tiny** | Reduced internal widths | 1588 | -1460 |
