@@ -133,3 +133,15 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - **Functional HIL Verification**: Use a Raspberry Pi Pico as a master controller to drive the 41-cycle streaming protocol, verifying results bit-accurately against the Python reference model.
   - **Oscilloscope Characterization**: Measure protocol latency (from LOAD_SCALE to serialization) and clock jitter on the hardware.
   - **Power Signature Analysis**: Analyze power consumption signatures during the STREAM phase using an oscilloscope to characterize the final silicon.
+
+---
+
+## Phase 4: Parameterization & Scalability
+
+### Step 19: Hardware Parameterization (Status: **COMPLETED**)
+- **Goal**: Make the design scalable via Verilog parameters.
+- **Details**:
+  - Implement `SUPPORT_MXFP6`, `SUPPORT_MXFP4`, and `SUPPORT_ADV_ROUNDING` to prune logic.
+  - Implement `ENABLE_SHARED_SCALING` and `SUPPORT_MIXED_PRECISION` for architectural scaling.
+  - Parameterize `ALIGNER_WIDTH` for datapath optimization.
+- **Verification**: Matrix testing of Full, Lite, and Tiny variants.

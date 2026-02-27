@@ -126,6 +126,12 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
         return res_32 - 0x100000000
     return res_32
 
+def get_param(handle, default=1):
+    try:
+        return int(handle.value)
+    except Exception:
+        return default
+
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0):
     sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
     sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
@@ -155,6 +161,16 @@ async def reset_dut(dut):
     await ClockCycles(dut.clk, 1)
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0):
+    # Enforce parameter constraints in model
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    if not support_mixed:
+        format_b = format_a
+
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    if not support_adv:
+        if round_mode in [1, 2]: # CEL, FLR
+            round_mode = 0 # Fallback to TRN in model to match hardware fallback
+
     await reset_dut(dut)
 
     # Cycle 1: Load Scale A and Format/Numerical Control
@@ -205,15 +221,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
-    shared_exp = scale_a + scale_b - 254
-    acc_abs = abs(expected_acc)
-    acc_sign = 1 if expected_acc < 0 else 0
-
-    # In Cycle 36, the aligner gets acc_abs as prod, shared_exp + 5 as exp_sum, acc_sign as sign
-    # But wait, acc_abs is 32-bit. align_model takes prod.
-    # The RTL does: aligner_in_prod = (cycle_count >= 6'd36) ? acc_abs : {16'd0, mul_prod_reg};
-
-    expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+    if support_shared:
+        shared_exp = scale_a + scale_b - 254
+        acc_abs = abs(expected_acc)
+        acc_sign = 1 if expected_acc < 0 else 0
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
+    else:
+        expected_final = expected_acc
 
     # Cycle 37-40: Output Serialized Result
     actual_acc = 0
@@ -270,6 +285,12 @@ async def test_mxfp8_mac_e5m2(dut):
 
 @cocotb.test()
 async def test_rounding_modes(dut):
+    # Check if advanced rounding is supported
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    if not support_adv:
+        dut._log.info("Skipping Rounding Modes Test (SUPPORT_ADV_ROUNDING=0)")
+        return
+
     dut._log.info("Start Rounding Modes Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -329,6 +350,12 @@ async def test_accumulator_saturation(dut):
 
 @cocotb.test()
 async def test_mixed_precision(dut):
+    # Check if mixed precision is supported
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    if not support_mixed:
+        dut._log.info("Skipping Mixed-Precision MAC Test (SUPPORT_MIXED_PRECISION=0)")
+        return
+
     dut._log.info("Start Mixed-Precision MAC Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -346,14 +373,24 @@ async def test_mixed_precision(dut):
 @cocotb.test()
 async def test_mxfp_mac_randomized(dut):
     import random
-    dut._log.info("Start Randomized MXFP MAC Test")
+
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+
+    dut._log.info(f"Start Randomized MXFP MAC Test (MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
+    allowed_formats = [0, 1, 5, 6]
+    if support_mxfp6: allowed_formats.extend([2, 3])
+    if support_mxfp4: allowed_formats.append(4)
+
     for i in range(50):
-        format_a = random.randint(0, 6)
-        format_b = random.randint(0, 6)
-        round_mode = random.randint(0, 3)
+        format_a = random.choice(allowed_formats)
+        format_b = random.choice(allowed_formats) if support_mixed else format_a
+        round_mode = random.randint(0, 3) if support_adv else random.choice([0, 3]) # Only TRN and RNE if no ADV
         overflow_wrap = random.randint(0, 1)
         scale_a = random.randint(110, 140) # Keep range reasonable for test
         scale_b = random.randint(110, 140)
@@ -381,6 +418,8 @@ async def test_fast_start_scale_compression(dut):
     # We can't use run_mac_test as is because it does a reset.
     # Manual protocol for fast start:
 
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
     await ClockCycles(dut.clk, 1)
@@ -396,10 +435,13 @@ async def test_fast_start_scale_compression(dut):
         prod = align_product_model(a, b, format_a, format_b)
         expected_acc += prod
 
-    shared_exp = scale_a + scale_b - 254
-    acc_abs = abs(expected_acc)
-    acc_sign = 1 if expected_acc < 0 else 0
-    expected_final = align_model(acc_abs, shared_exp + 5, acc_sign)
+    if support_shared:
+        shared_exp = scale_a + scale_b - 254
+        acc_abs = abs(expected_acc)
+        acc_sign = 1 if expected_acc < 0 else 0
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign)
+    else:
+        expected_final = expected_acc
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]

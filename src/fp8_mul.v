@@ -1,6 +1,9 @@
 `default_nettype none
 
-module fp8_mul (
+module fp8_mul #(
+    parameter SUPPORT_MXFP6 = 1,
+    parameter SUPPORT_MXFP4 = 1
+)(
     input  wire [7:0] a,
     input  wire [7:0] b,
     input  wire [2:0] format_a,
@@ -62,21 +65,21 @@ module fp8_mul (
                 bias_a = 6'sd15;
                 zero_a = (ea == 5'd0);
             end
-            FMT_E3M2: begin
+            FMT_E3M2: if (SUPPORT_MXFP6) begin
                 sign_a = a[5];
                 ea = {2'b0, a[4:2]};
                 ma = {4'b0, 1'b1, a[1:0], 1'b0};
                 bias_a = 6'sd3;
                 zero_a = (ea == 5'd0);
             end
-            FMT_E2M3: begin
+            FMT_E2M3: if (SUPPORT_MXFP6) begin
                 sign_a = a[5];
                 ea = {3'b0, a[4:3]};
                 ma = {4'b0, 1'b1, a[2:0]};
                 bias_a = 6'sd1;
                 zero_a = (ea == 5'd0);
             end
-            FMT_E2M1: begin
+            FMT_E2M1: if (SUPPORT_MXFP4) begin
                 sign_a = a[3];
                 ea = {3'b0, a[2:1]};
                 ma = {4'b0, 1'b1, a[0], 2'b0};
@@ -122,21 +125,21 @@ module fp8_mul (
                 bias_b = 6'sd15;
                 zero_b = (eb == 5'd0);
             end
-            FMT_E3M2: begin
+            FMT_E3M2: if (SUPPORT_MXFP6) begin
                 sign_b = b[5];
                 eb = {2'b0, b[4:2]};
                 mb = {4'b0, 1'b1, b[1:0], 1'b0};
                 bias_b = 6'sd3;
                 zero_b = (eb == 5'd0);
             end
-            FMT_E2M3: begin
+            FMT_E2M3: if (SUPPORT_MXFP6) begin
                 sign_b = b[5];
                 eb = {3'b0, b[4:3]};
                 mb = {4'b0, 1'b1, b[2:0]};
                 bias_b = 6'sd1;
                 zero_b = (eb == 5'd0);
             end
-            FMT_E2M1: begin
+            FMT_E2M1: if (SUPPORT_MXFP4) begin
                 sign_b = b[3];
                 eb = {3'b0, b[2:1]};
                 mb = {4'b0, 1'b1, b[0], 2'b0};

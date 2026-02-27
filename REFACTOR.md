@@ -78,3 +78,14 @@ jobs:
 The cocotb testbench (`test/test.py`) should be updated to:
 1. Detect enabled features (e.g., via a register read or a dedicated `VERSION` parameter).
 2. Dynamically skip test cases that rely on disabled formats or rounding modes.
+
+## 5. Refactoring Progress
+
+- [x] Parameterize Multiplier Core (`SUPPORT_MXFP6`, `SUPPORT_MXFP4`)
+- [x] Parameterize Product Aligner (`SUPPORT_ADV_ROUNDING`, `ALIGNER_WIDTH`)
+- [x] Parameterize Top-Level (`ENABLE_SHARED_SCALING`, `SUPPORT_MIXED_PRECISION`)
+- [x] Update `test/Makefile` for parameter injection
+- [x] Update `test/test.py` for dynamic test skipping
+- [x] Verify **Full** Variant
+- [x] Verify **Lite** Variant
+- [x] Verify **Tiny** Variant
