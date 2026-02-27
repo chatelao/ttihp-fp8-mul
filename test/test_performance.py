@@ -38,16 +38,16 @@ async def performance_sweep(dut):
         dut.uio_in.value = 127
         await ClockCycles(dut.clk, 1)
 
-        # STREAM: 32 elements
+        # STREAM: 32 elements (Cycles 3-34)
         for i in range(32):
             dut.ui_in.value = random.randint(0, 255)
             dut.uio_in.value = random.randint(0, 255)
             await ClockCycles(dut.clk, 1)
 
-        # PIPELINE: 6 cycles
-        await ClockCycles(dut.clk, 6)
+        # PIPELINE: 5 cycles (Cycles 35-39)
+        await ClockCycles(dut.clk, 5)
 
-        # OUTPUT: 4 cycles
+        # OUTPUT: 4 cycles (Cycles 40-43)
         await ClockCycles(dut.clk, 4)
 
     end_time = time.time()

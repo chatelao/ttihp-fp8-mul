@@ -16,14 +16,14 @@ module fp8_aligner (
 
     wire signed [10:0] shift_amt_full = $signed(exp_sum) - 11'sd5;
 
-    // Clamp shift amount to reduce shifter area
+    // Area Optimization: Shift amount clamping
     reg signed [6:0] shift_amt;
     reg huge_left;
     reg huge_right;
 
     always @(*) begin
-        if (shift_amt_full >= 11'sd40) begin
-            shift_amt = 7'sd40;
+        if (shift_amt_full >= 11'sd32) begin
+            shift_amt = 7'sd32;
             huge_left = 1'b1;
             huge_right = 1'b0;
         end else if (shift_amt_full <= -11'sd40) begin
@@ -65,7 +65,7 @@ module fp8_aligner (
         end
 
         if (shift_amt >= 0) begin
-            // Left shift (0 to 40)
+            // Left shift (0 to 32)
             rounded = (prod != 32'd0) ? (shifted << shift_amt[5:0]) : 40'd0;
             magnitude_overflow = (prod != 32'd0 && (huge_left || |rounded[39:31]));
             sticky = 1'b0;

@@ -171,13 +171,13 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 3)
 
-    # Cycle 38: Absolute Accumulator Register Capture
+    # Cycle 38: Absolute Accumulator Register Capture (acc_abs_reg)
     await ClockCycles(dut.clk, 1)
 
-    # Cycle 39: Shared Scaling Aligner Input -> Result ready for capture
+    # Cycle 39: Shared Scaling Aligner Input -> Register (aligned_res_reg)
     await ClockCycles(dut.clk, 1)
 
-    # Now at Cycle 40. Verilog is showing Byte 3.
+    # Now at Cycle 40. Verilog is showing Byte 3 on uo_out.
     # Calculate expected final result after shared scaling
     shared_exp = scale_a + scale_b - 254
     acc_abs = abs(expected_acc)
@@ -371,7 +371,7 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 5) # Pipeline Flush + Scaling pipeline
+    await ClockCycles(dut.clk, 6) # Pipeline Flush + Scaling pipeline to reach Cycle 40
 
     actual_acc = 0
     for i in range(4):

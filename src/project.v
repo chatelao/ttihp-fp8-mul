@@ -83,7 +83,7 @@ module tt_um_chatelao_fp8_multiplier (
                              scale_b  <= uio_in;
                              format_b <= ui_in[1:0];
                            end
-                    6'd39: state   <= STATE_OUTPUT;
+                    6'd40: state   <= STATE_OUTPUT;
                     6'd43: state   <= STATE_IDLE;
                     default: ;
                 endcase
@@ -147,7 +147,8 @@ module tt_um_chatelao_fp8_multiplier (
     end
 
     // Shift aligner inputs due to pipelining
-    // acc_abs_reg captures at end of cycle 37, so it is ready for aligner during cycle 38.
+    // Elements: in at 3-34, mul_reg at 4-35.
+    // Shared scale: acc_abs_reg ready for aligner during cycle 38.
     wire [31:0] aligner_in_prod = (cycle_count >= 6'd38) ? acc_abs_reg : {16'd0, mul_prod_reg};
     wire signed [9:0] aligner_in_exp  = (cycle_count >= 6'd38) ? (shared_exp + 10'sd5) : {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg};
     wire aligner_in_sign = (cycle_count >= 6'd38) ? acc_sign_reg : mul_sign_reg;
@@ -171,10 +172,10 @@ module tt_um_chatelao_fp8_multiplier (
 
     // 4. Accumulator Control
     // Elements arrive at cycles 3-34.
-    // Element 0: in at 3, mul_reg at 4, align_reg at 5, added to acc at end of cycle 5 (edge 5->6).
-    // Element 31: in at 34, mul_reg at 35, align_reg at 36, added to acc at end of cycle 36 (edge 36->37).
-    wire acc_en    = (cycle_count >= 6'd5 && cycle_count <= 6'd36) && (state == STATE_STREAM || state == STATE_OUTPUT);
-    wire acc_clear = (cycle_count <= 6'd4) && (state != STATE_STREAM);
+    // Element 0: in at 3, mul_reg at 4, align_reg at 5, reaches Acc at 6.
+    // Element 31: in at 34, mul_reg at 35, align_reg at 36, reaches Acc at 37.
+    wire acc_en    = (cycle_count >= 6'd6 && cycle_count <= 6'd37) && (state == STATE_STREAM || state == STATE_OUTPUT);
+    wire acc_clear = (cycle_count <= 6'd5) && (state != STATE_STREAM);
 
     accumulator acc_inst (
         .clk(clk),
@@ -187,15 +188,12 @@ module tt_um_chatelao_fp8_multiplier (
     );
 
     // 5. Output Serialization Register
-    // acc_out is final at cycle 37.
-    // acc_abs_reg captures at end of 37 (ready in 38).
-    // aligned_res_reg captures at end of 38 (ready in 39).
-    // scaled_acc_reg captures at end of 39 (ready in 40).
+    // Capture the fully scaled result at cycle 40 (aligned_res_reg captures at end of 39).
     reg [31:0] scaled_acc_reg;
     always @(posedge clk) begin
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
-        end else if (ena && cycle_count == 6'd39) begin
+        end else if (ena && cycle_count == 6'd40) begin
             scaled_acc_reg <= aligned_res_reg;
         end
     end
@@ -242,7 +240,7 @@ module tt_um_chatelao_fp8_multiplier (
                 case ($past(cycle_count))
                     6'd0:  assert(state == STATE_LOAD_SCALE);
                     6'd2:  assert(state == STATE_STREAM);
-                    6'd39: assert(state == STATE_OUTPUT);
+                    6'd40: assert(state == STATE_OUTPUT);
                     6'd43: assert(state == STATE_IDLE);
                     default: assert(state == $past(state));
                 endcase
