@@ -17,7 +17,7 @@ The following diagram illustrates the high-level architecture and data flow betw
 | Rank | Sub-module | Component | Complexity | Estimated Gates |
 |---|---|---|---|---|
 | 1 | 🧩 `fp8_aligner` | 40-bit Barrel Shifter | Left/Right shift for elements + shared scales | ~800 |
-| 2 | 🧩 `fp8_mul` | Operand Decoders (A/B) | 7-format support (E4M3, E5M2, FP6, FP4, INT8) | ~400 |
+| 2 | 🧩 `fp8_mul` | Operand Decoders (A/B) | 8-format support (E4M3, E5M2, FP6, FP4, INT8) | ~400 |
 | 3 | ✅ `fp8_mul` | 8x8 Combinatorial Multiplier | Mantissa product + signed integer mult | ~350 |
 | 4 | ✅ `tt_um_top` | Pipeline & Config Registers | ~100 DFFs for pipelining, scale/format storage | ~800 (eq) |
 | 5 | ✅ `fp8_aligner` | Sticky/Round-Bit Gen | 40-bit OR-reduction and muxing | ~250 |
@@ -59,6 +59,14 @@ MXFP6 provides a middle ground between FP8 and FP4, but requires two additional 
 - **Speed/Precision**:
     - **Precision**: **Functional loss** of 6-bit floating point capabilities.
     - **Speed**: **Improved** timing slack in the multiplier stage.
+
+### Optimization 3c: Prune E5M2 Format (Status: **COMPLETED**)
+E5M2 is a standard FP8 format, but can be pruned to save logic if only E4M3 or other formats are needed.
+- **Change**: Controlled via `SUPPORT_E5M2` parameter.
+- **Impact**: Saves logic in the operand decoders and exponent arithmetic.
+- **Speed/Precision**:
+    - **Precision**: **Functional loss** of one FP8 format.
+    - **Speed**: **Improved** timing slack.
 
 ### Optimization 3b: Prune MXFP4 Formats (E2M1) (Status: **COMPLETED**)
 MXFP4 is the most aggressive quantization format in OCP MX, with very limited range/precision.
@@ -107,6 +115,7 @@ The following table shows the measured gate impact of each feature flag, obtaine
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
 | **Baseline (Full)** | All features enabled | 3439 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 3420 | -19 |
 | `SUPPORT_MXFP6` | Disable MXFP6 (E3M2, E2M3) | 3420 | -19 |
 | `SUPPORT_MXFP4` | Disable MXFP4 (E2M1) | 3440 | +1* |
 | `SUPPORT_ADV_ROUNDING` | Disable CEIL/FLOOR rounding | 3189 | -250 |

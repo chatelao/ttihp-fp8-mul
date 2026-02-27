@@ -133,8 +133,10 @@ def get_param(handle, default=1):
         return default
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_mxfp6=1, support_mxfp4=1):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1):
     # Fallback for unsupported formats in hardware
+    if not support_e5m2 and format_a == 1: return 0
+    if not support_e5m2 and format_b == 1: return 0
     if not support_mxfp6 and format_a in [2, 3]: return 0
     if not support_mxfp6 and format_b in [2, 3]: return 0
     if not support_mxfp4 and format_a == 4: return 0
@@ -178,6 +180,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
 
@@ -197,7 +200,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_mxfp6, support_mxfp4)
+                                   support_e5m2, support_mxfp6, support_mxfp4)
 
         acc_32 = expected_acc & 0xFFFFFFFF
         prod_32 = prod & 0xFFFFFFFF
@@ -385,16 +388,18 @@ async def test_mixed_precision(dut):
 async def test_mxfp_mac_randomized(dut):
     import random
 
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
     support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
 
-    dut._log.info(f"Start Randomized MXFP MAC Test (MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
+    dut._log.info(f"Start Randomized MXFP MAC Test (E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    allowed_formats = [0, 1, 5, 6]
+    allowed_formats = [0, 5, 6]
+    if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
 
@@ -440,9 +445,10 @@ async def test_fast_start_scale_compression(dut):
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
 
     expected_acc = 0
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
         expected_acc += prod
 
     if support_shared:
