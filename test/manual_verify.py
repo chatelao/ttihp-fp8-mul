@@ -52,30 +52,32 @@ def test_formats():
     print("Format decoding tests passed!")
 
 def align_reference(prod, exp_sum, sign):
-    # exp_sum is signed 7-bit
-    if exp_sum >= 64:
-        exp_sum_val = exp_sum - 128
-    else:
-        exp_sum_val = exp_sum
-
-    # Mathematical value
-    # value = (prod / 64.0) * (2.0 ** (exp_sum_val - 7))
-    # fixed_point = value * 256
-    # fixed_point = (prod / 64.0) * (2.0 ** (exp_sum_val - 7)) * 256
-    # fixed_point = prod * 2^-6 * 2^(exp_sum_val - 7) * 2^8
-    # fixed_point = prod * 2^(exp_sum_val - 6 - 7 + 8) = prod * 2^(exp_sum_val - 5)
+    # exp_sum is signed 10-bit in current design
+    exp_sum_val = exp_sum
+    if exp_sum_val > 511: exp_sum_val -= 1024
 
     shift_amt = exp_sum_val - 5
+
     if shift_amt >= 0:
         res = prod << shift_amt
+        magnitude_overflow = (res >= 0x80000000)
     else:
-        res = prod >> (-shift_amt)
+        n = -shift_amt
+        res = prod >> n
+        magnitude_overflow = (res >= 0x80000000) # Should not happen for right shift of 32-bit prod unless it was large
 
-    mask = 0xFFFFFFFF
     if sign:
-        return (-res) & mask
+        # Saturation to -2^31
+        if magnitude_overflow and res > 0x80000000:
+            return 0x80000000
+        else:
+            return (-res) & 0xFFFFFFFF
     else:
-        return res & mask
+        # Saturation to 2^31-1
+        if magnitude_overflow:
+            return 0x7FFFFFFF
+        else:
+            return res & 0xFFFFFFFF
 
 def test():
     cases = [
@@ -83,7 +85,11 @@ def test():
         (64, 7, 1, 0xFFFFFF00), # -1.0
         (64, 13, 0, 16384), # 1.0 * 2^6 = 64.0 (0x4000)
         (225, 21, 0, 225 << 16), # max * max
-        (1, 1, 0, 1 >> 4), # subnormal small
+        (1, 1, 0, 0), # subnormal small
+        (0x80000000, 5, 1, 0x80000000), # Exact -2^31
+        (0x80000001, 5, 1, 0x80000000), # Saturation to -2^31
+        (0x7FFFFFFF, 5, 0, 0x7FFFFFFF), # Exact 2^31-1
+        (0x80000000, 5, 0, 0x7FFFFFFF), # Saturation to 2^31-1
     ]
 
     for prod, exp_sum, sign, expected in cases:

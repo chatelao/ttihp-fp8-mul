@@ -78,9 +78,8 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
             aligned = base
 
     if sign:
-        # Check saturation for negative
         # Magnitude > 2^31 saturates to -2^31
-        if not overflow_wrap and (aligned > 0x80000000 or (aligned == 0x80000000 and shifted_out != 0)):
+        if not overflow_wrap and (aligned > 0x80000000):
             res = -0x80000000
         else:
             res = -aligned
@@ -167,29 +166,23 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Cycle 35: Pipeline flush (multiplier)
+    # Cycles 35-37: Multiplier, Aligner, Accumulator Pipeline Flush
     dut.ui_in.value = 0
     dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 3)
+
+    # Cycle 38: Absolute Accumulator Register Capture
     await ClockCycles(dut.clk, 1)
 
-    # Cycle 36: Pipeline flush (aligner)
+    # Cycle 39: Shared Scaling Aligner Input -> Result ready for capture
     await ClockCycles(dut.clk, 1)
 
-    # Cycle 37: Pipeline flush (acc_abs_reg)
-    await ClockCycles(dut.clk, 1)
-
-    # Cycle 38: Shared scaling alignment
-    await ClockCycles(dut.clk, 1)
-
-    # Cycle 39: Shared scaling aligner register output
-    await ClockCycles(dut.clk, 1)
-
+    # Now at Cycle 40. Verilog is showing Byte 3.
     # Calculate expected final result after shared scaling
     shared_exp = scale_a + scale_b - 254
     acc_abs = abs(expected_acc)
     acc_sign = 1 if expected_acc < 0 else 0
 
-    # The aligner gets input at Cycle 38, results in aligned_res_reg at Cycle 39
     expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
 
     # Cycle 40-43: Output Serialized Result
@@ -363,11 +356,6 @@ async def test_fast_start_scale_compression(dut):
     await ClockCycles(dut.clk, 1)
 
     # Now at Cycle 3
-    expected_acc = 32 * 256 * 2 # (1.0 * 1.0 * 2^1) in fixed point = 2.0. 2 * 256 = 512. Wait.
-    # 1.0 * 1.0 * 2^1 = 2.0.
-    # Bit 8 = 2^0, so 2.0 is 2.0 * 256 = 512.
-    # Oh, wait. In run_mac_test, expected_final is calculated.
-
     expected_acc = 0
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b)
@@ -383,7 +371,7 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 5) # Flush + Shared Scale (extra cycles for pipelining)
+    await ClockCycles(dut.clk, 5) # Pipeline Flush + Scaling pipeline
 
     actual_acc = 0
     for i in range(4):

@@ -44,8 +44,8 @@ async def performance_sweep(dut):
             dut.uio_in.value = random.randint(0, 255)
             await ClockCycles(dut.clk, 1)
 
-        # PIPELINE: 2 cycles
-        await ClockCycles(dut.clk, 2)
+        # PIPELINE: 6 cycles
+        await ClockCycles(dut.clk, 6)
 
         # OUTPUT: 4 cycles
         await ClockCycles(dut.clk, 4)
@@ -53,12 +53,12 @@ async def performance_sweep(dut):
     end_time = time.time()
     elapsed = end_time - start_time
 
-    total_cycles = num_blocks * 41
+    total_cycles = num_blocks * 44
     total_ops = num_blocks * 32 # 32 MAC operations
 
     dut._log.info(f"Processed {num_blocks} blocks ({total_ops} MAC ops) in {elapsed:.4f}s (simulated time: {total_cycles * 10}ns)")
-    dut._log.info(f"Cycles per block: 41")
-    dut._log.info(f"Throughput: {32/41:.4f} MACs/cycle")
+    dut._log.info(f"Cycles per block: 44")
+    dut._log.info(f"Throughput: {32/44:.4f} MACs/cycle")
 
 @cocotb.test()
 async def high_switching_activity(dut):
@@ -82,14 +82,10 @@ async def high_switching_activity(dut):
             dut.uio_in.value = 0x55 if (i % 2 == 0) else 0xAA
             await ClockCycles(dut.clk, 1)
 
-        # We need to let it transition through OUTPUT to get back to IDLE or just keep ui_in[7] high?
-        # The FSM goes STREAM -> OUTPUT (at cycle 36) -> IDLE (at cycle 40)
-        # To maximize activity, we just follow the protocol.
+        # Cycle 35-39 (PIPELINE)
+        await ClockCycles(dut.clk, 5)
 
-        # Cycle 35-36 (PIPELINE)
-        await ClockCycles(dut.clk, 2)
-
-        # Cycle 37-40 (OUTPUT)
+        # Cycle 40-43 (OUTPUT)
         await ClockCycles(dut.clk, 4)
 
         # Back to IDLE (Cycle 0), trigger Fast Start again
