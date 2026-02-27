@@ -36,9 +36,9 @@ jobs:
           cd test
           make clean
           if [ "${{ matrix.config }}" == "Lite" ]; then
-            export EXTRA_ARGS="-P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0"
+            export COMPILE_ARGS="-P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0"
           elif [ "${{ matrix.config }}" == "Tiny" ]; then
-            export EXTRA_ARGS="-P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0"
+            export COMPILE_ARGS="-P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0"
           fi
           make
           # make will return success even if the test fails, so check for failure in the results.xml
