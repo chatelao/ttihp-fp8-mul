@@ -1,0 +1,54 @@
+digraph G {
+    rankdir=LR;
+    node [shape=box, style=filled, fontname="Arial"];
+    compound=true;
+
+    subgraph cluster_top {
+        label = "OCP MXFP8 Streaming MAC Unit (tt_um_top)";
+        color = "#A8DADC";
+        bgcolor = "#F8F9FA";
+
+        // External Inputs
+        ui_in [label="ui_in[7:0]\n(Elements A / Scale A)", shape=invhouse, style=filled, fillcolor="#E9ECEF"];
+        uio_in [label="uio_in[7:0]\n(Elements B / Scale B / Config)", shape=invhouse, style=filled, fillcolor="#E9ECEF"];
+
+        // Control Logic
+        control [label="Control FSM\n(44-cycle Protocol)", fillcolor="#A8DADC"];
+
+        // Multiplier
+        multiplier [label="Multiplier (fp8_mul)\n8x8 Pipelined", fillcolor="#E63946", fontcolor="white"];
+
+        // Aligner
+        aligner [label="Aligner (fp8_aligner)\n40-bit Barrel Shifter & Rounding", fillcolor="#F1FAEE"];
+
+        // Accumulator
+        accumulator [label="Accumulator (accumulator)\n32-bit Signed Accumulation", fillcolor="#457B9D", fontcolor="white"];
+
+        // Output Serialization
+        serialization [label="Output Serialization\n(4-byte Serializer)", fillcolor="#A8DADC"];
+
+        // Connections
+        ui_in -> control [label="Cycle 1-2"];
+        uio_in -> control [label="Cycle 1-2"];
+
+        ui_in -> multiplier [label="Elements A (C3-34)"];
+        uio_in -> multiplier [label="Elements B (C3-34)"];
+
+        control -> multiplier [label="Format Config"];
+        control -> aligner [label="Rounding/Overflow"];
+
+        multiplier -> aligner [label="Product\n(16-bit)"];
+
+        aligner -> accumulator [label="Aligned Product\n(32-bit)"];
+
+        // Feedback loop for Shared Scaling
+        accumulator -> aligner [label="Abs(Acc) for\nScaling (C36)", style=dashed, color="#457B9D"];
+
+        aligner -> serialization [label="Scaled Result\n(32-bit)"];
+
+        serialization -> uo_out [label="Cycle 37-40"];
+    }
+
+    // External Output
+    uo_out [label="uo_out[7:0]\n(Result Bytes)", shape=house, style=filled, fillcolor="#E9ECEF"];
+}
