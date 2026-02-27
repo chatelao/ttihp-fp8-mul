@@ -167,12 +167,21 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Cycle 35: Pipeline flush for last element
+    # Cycle 35: Pipeline flush (multiplier)
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 1)
 
-    # Cycle 36: Shared scaling alignment
+    # Cycle 36: Pipeline flush (aligner)
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 37: Pipeline flush (acc_abs_reg)
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 38: Shared scaling alignment
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 39: Shared scaling aligner register output
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
@@ -180,13 +189,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     acc_abs = abs(expected_acc)
     acc_sign = 1 if expected_acc < 0 else 0
 
-    # In Cycle 36, the aligner gets acc_abs as prod, shared_exp + 5 as exp_sum, acc_sign as sign
-    # But wait, acc_abs is 32-bit. align_model takes prod.
-    # The RTL does: aligner_in_prod = (cycle_count >= 6'd36) ? acc_abs : {16'd0, mul_prod_reg};
-
+    # The aligner gets input at Cycle 38, results in aligned_res_reg at Cycle 39
     expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
 
-    # Cycle 37-40: Output Serialized Result
+    # Cycle 40-43: Output Serialized Result
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
@@ -377,7 +383,7 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 2) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 5) # Flush + Shared Scale (extra cycles for pipelining)
 
     actual_acc = 0
     for i in range(4):

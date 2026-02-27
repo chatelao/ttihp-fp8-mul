@@ -62,26 +62,19 @@ module fp8_aligner (
                 base = shifted >> n;
                 round_bit = (n > 0) ? shifted[n-1] : 1'b0;
                 if (n > 1) begin
-                    // Efficient sticky bit calculation
-                    // Use a 40-bit mask to check bits [n-2:0]
-                    sticky = |(shifted & ((40'd1 << (n-1)) - 40'd1));
+                    // Balanced sticky bit check (avoid wide dynamic shift if possible, but 40-bit is okay)
+                    sticky = |(shifted & ~({40{1'b1}} << (n-1)));
                 end else begin
                     sticky = 1'b0;
                 end
             end
 
+            // Efficient Rounding logic
             case (round_mode)
                 R_TRN: rounded = base;
                 R_CEL: rounded = (!sign && (round_bit || sticky)) ? base + 40'd1 : base;
                 R_FLR: rounded = (sign && (round_bit || sticky)) ? base + 40'd1 : base;
-                R_RNE: begin
-                    if (round_bit) begin
-                        if (sticky || base[0]) rounded = base + 40'd1;
-                        else rounded = base;
-                    end else begin
-                        rounded = base;
-                    end
-                end
+                R_RNE: rounded = (round_bit && (sticky || base[0])) ? base + 40'd1 : base;
                 default: rounded = base;
             endcase
         end

@@ -50,7 +50,7 @@ All formats are aligned to the lower bits of the 8-bit input wires during the `S
 ## 3. Architecture: Operand Streaming
 To fit within the ~320 D-Flip-Flop (DFF) budget of a 1x1 tile, the design employs **Temporal Multiplexing (Operand Streaming)**.
 
-### 3.1. I/O Protocol (41-Cycle Sequence)
+### 3.1. I/O Protocol (44-Cycle Sequence)
 The unit communicates with a host using a strictly timed protocol:
 
 | Phase | Cycles | Input (`ui_in`) | Input (`uio_in`) | Output (`uo_out`) |
@@ -59,8 +59,8 @@ The unit communicates with a host using a strictly timed protocol:
 | **LOAD_SCALE** | 1 | Scale $X_A$ | Format/NC | 0 |
 | **LOAD_SCALE** | 2 | - | Scale $X_B$ | 0 |
 | **STREAM** | 3-34 | Element $A_i$ | Element $B_i$ | 0 |
-| **PIPELINE** | 35-36 | - | - | 0 |
-| **OUTPUT** | 37-40 | - | - | Accumulator[byte] |
+| **PIPELINE** | 35-39 | - | - | 0 |
+| **OUTPUT** | 40-43 | - | - | Accumulator[byte] |
 
 #### Detailed I/O Bit Mapping
 
@@ -71,8 +71,8 @@ The unit communicates with a host using a strictly timed protocol:
 | **LOAD_SCALE** | 1 | `X_A[7:0]` | **Scale A** | Shared UE8M0 scale for Tensor A. |
 | **LOAD_SCALE** | 2 | `XXXXXXXX` | N/A | |
 | **STREAM** | 3-34 | `A_i[7:0]` | **Element A** | MXFP8 element (E4M3/E5M2). |
-| **PIPELINE** | 35-36 | `XXXXXXXX` | N/A | |
-| **OUTPUT** | 37-40 | `XXXXXXXX` | N/A | |
+| **PIPELINE** | 35-39 | `XXXXXXXX` | N/A | |
+| **OUTPUT** | 40-43 | `XXXXXXXX` | N/A | |
 
 **Table 2: Input `uio_in` (Bidirectional)**
 | Phase | Cycles | Bits [7:0] | Function | Description |
@@ -81,8 +81,8 @@ The unit communicates with a host using a strictly timed protocol:
 | **LOAD_SCALE** | 1 | `XXOWWxFF` | **Format/NC** | Bits [1:0]: Format, [4:3]: Rounding, [5]: Overflow. |
 | **LOAD_SCALE** | 2 | `X_B[7:0]` | **Scale B** | Shared UE8M0 scale for Tensor B. |
 | **STREAM** | 3-34 | `B_i[7:0]` | **Element B** | MX element (aligned to lower bits). |
-| **PIPELINE** | 35 | `XXXXXXXX` | Isolated | |
-| **OUTPUT** | 36-39 | `XXXXXXXX` | Isolated | |
+| **PIPELINE** | 35-39 | `XXXXXXXX` | Isolated | |
+| **OUTPUT** | 40-43 | `XXXXXXXX` | Isolated | |
 
 #### Table 4: Supported Formats
 | Format ID (`FF`) | Name | Type | Bits | Sign | Exponent | Mantissa | Bias |
@@ -102,10 +102,10 @@ The unit communicates with a host using a strictly timed protocol:
 **Table 3: Output `uo_out` (Accumulator Serialization)**
 | Phase | Cycle | Bits [7:0] | Content |
 |-------|-------|------------|---------|
-| **OUTPUT** | 37 | `Acc[31:24]` | Byte 3 (MSB) |
-| **OUTPUT** | 38 | `Acc[23:16]` | Byte 2 |
-| **OUTPUT** | 39 | `Acc[15:8]` | Byte 1 |
-| **OUTPUT** | 40 | `Acc[7:0]` | Byte 0 (LSB) |
+| **OUTPUT** | 40 | `Acc[31:24]` | Byte 3 (MSB) |
+| **OUTPUT** | 41 | `Acc[23:16]` | Byte 2 |
+| **OUTPUT** | 42 | `Acc[15:8]` | Byte 1 |
+| **OUTPUT** | 43 | `Acc[7:0]` | Byte 0 (LSB) |
 
 ### 3.2. Hardware/Software Co-Design
 The hardware computes the dot product of the scaled elements but factors out the shared scales to minimize gate count:

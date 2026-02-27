@@ -24,7 +24,7 @@ def main():
         print(f"Synthesized Gate Count (Total Cells): {gate_count}")
 
     # Architecture params
-    CYCLES_PER_BLOCK = 41
+    CYCLES_PER_BLOCK = 44
     MAC_OPS_PER_BLOCK = 32
 
     # Theoretical Throughput

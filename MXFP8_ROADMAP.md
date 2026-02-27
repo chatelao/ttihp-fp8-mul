@@ -6,7 +6,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 
 ### Step 1: Protocol Skeleton & FSM (Status: **COMPLETED**)
 - **Goal**: Establish the 41-cycle operational protocol.
-- **Details**: Implemented a 6-bit cycle counter and FSM (IDLE, LOAD_SCALE, STREAM, OUTPUT). Updated to 40 cycles to support pipelined datapath.
+- **Details**: Implemented a 6-bit cycle counter and FSM (IDLE, LOAD_SCALE, STREAM, OUTPUT). Updated to 44 cycles to support deeper pipelined datapath and timing closure for Gowin.
 - **Verification**: Cocotb tests verify state transitions and I/O timing.
 
 ### Step 2: MXFP8 Multiplier Core (Status: **COMPLETED**)
@@ -68,7 +68,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 - **Details**:
   - Decoupled format selection logic for A and B.
   - Implemented unified exponent sum formula to handle mixed FP/INT precision.
-  - Updated 41-cycle protocol to sample `format_a` (Cycle 1) and `format_b` (Cycle 2).
+  - Updated 44-cycle protocol to sample `format_a` (Cycle 1) and `format_b` (Cycle 2).
 - **Verification**: New mixed-precision and randomized test cases in `test/test.py`.
 
 ### Step 11: Hardware-Accelerated Shared Scaling (Status: **COMPLETED**)
@@ -81,8 +81,8 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 ### Step 12: Throughput Optimization & Scale Compression (Status: **COMPLETED**)
 - **Goal**: Maximize performance and efficiency.
 - **Details**:
-  - Implemented a pipeline stage after the multiplier to break the critical path to the aligner/accumulator.
-  - Updated the operational protocol to 41 cycles (0-40) to accommodate the pipeline flush while maintaining registered outputs.
+  - Implemented pipeline stages after the multiplier, aligner, and for intermediate calculations (like `acc_abs_reg`).
+  - Updated the operational protocol to 44 cycles (0-43) to accommodate the deeper pipeline flush for timing closure on FPGA targets (27MHz).
   - Implemented "Fast Start" (Scale Compression) allowing the reuse of previous scales/formats by jumping from IDLE to STREAM.
 - **Verification**: Updated Python reference model and protocol verification script.
 
@@ -109,7 +109,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
 ### Step 15: Power & Performance Characterization (Status: **COMPLETED**)
 - **Goal**: Evaluate the MAC unit's efficiency.
 - **Details**:
-  - Achieved a throughput of 0.7805 MACs/cycle (32 MACs per 41-cycle block).
+  - Achieved a throughput of 0.7273 MACs/cycle (32 MACs per 44-cycle block).
   - Synthesized cell count: 3784 cells (approx. 104k cells/mm² in 1x2 tile).
   - Theoretical performance: 42.15 MFLOPS @ 27MHz, 156.10 MFLOPS @ 100MHz.
   - Implemented high-switching activity test suite for power signature analysis.
