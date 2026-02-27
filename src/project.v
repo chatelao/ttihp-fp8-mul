@@ -170,9 +170,11 @@ module tt_um_chatelao_fp8_multiplier (
     end
 
     // 4. Accumulator Control
-    // Elements: 3-34, Mul: 4-35, Aligner: 5-36, reaches Acc: 6-37.
-    wire acc_en    = (cycle_count >= 6'd6 && cycle_count <= 6'd37) && (state == STATE_STREAM || state == STATE_OUTPUT);
-    wire acc_clear = (cycle_count <= 6'd5) && (state != STATE_STREAM);
+    // Elements arrive at cycles 3-34.
+    // Element 0: in at 3, mul_reg at 4, align_reg at 5, added to acc at end of cycle 5 (edge 5->6).
+    // Element 31: in at 34, mul_reg at 35, align_reg at 36, added to acc at end of cycle 36 (edge 36->37).
+    wire acc_en    = (cycle_count >= 6'd5 && cycle_count <= 6'd36) && (state == STATE_STREAM || state == STATE_OUTPUT);
+    wire acc_clear = (cycle_count <= 6'd4) && (state != STATE_STREAM);
 
     accumulator acc_inst (
         .clk(clk),
@@ -185,7 +187,10 @@ module tt_um_chatelao_fp8_multiplier (
     );
 
     // 5. Output Serialization Register
-    // Capture the fully scaled result at cycle 39 (aligned_res_reg captures at end of 38).
+    // acc_out is final at cycle 37.
+    // acc_abs_reg captures at end of 37 (ready in 38).
+    // aligned_res_reg captures at end of 38 (ready in 39).
+    // scaled_acc_reg captures at end of 39 (ready in 40).
     reg [31:0] scaled_acc_reg;
     always @(posedge clk) begin
         if (!rst_n) begin
