@@ -1,7 +1,8 @@
 `default_nettype none
 
 module fp8_aligner #(
-    parameter WIDTH = 40
+    parameter WIDTH = 40,
+    parameter SUPPORT_ADV_ROUNDING = 1
 )(
     input  wire [31:0] prod,     // Increased to 32-bit to support accumulator scaling
     input  wire signed [9:0] exp_sum,  // Increased to 10-bit signed for shared scales
@@ -78,8 +79,14 @@ module fp8_aligner #(
 
             case (round_mode)
                 R_TRN: rounded = base;
-                R_CEL: rounded = (!sign && (round_bit || sticky)) ? base + 1'b1 : base;
-                R_FLR: rounded = (sign && (round_bit || sticky)) ? base + 1'b1 : base;
+                R_CEL: if (SUPPORT_ADV_ROUNDING)
+                        rounded = (!sign && (round_bit || sticky)) ? base + 1'b1 : base;
+                       else
+                        rounded = base;
+                R_FLR: if (SUPPORT_ADV_ROUNDING)
+                        rounded = (sign && (round_bit || sticky)) ? base + 1'b1 : base;
+                       else
+                        rounded = base;
                 R_RNE: begin
                     if (round_bit) begin
                         if (sticky || base[0]) rounded = base + 1'b1;

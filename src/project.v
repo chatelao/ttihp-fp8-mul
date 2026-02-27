@@ -9,7 +9,12 @@
 `include "accumulator.v"
 
 module tt_um_chatelao_fp8_multiplier #(
-    parameter ALIGNER_WIDTH = 40
+    parameter ALIGNER_WIDTH = 40,
+    parameter SUPPORT_MXFP6 = 1,
+    parameter SUPPORT_MXFP4 = 1,
+    parameter SUPPORT_ADV_ROUNDING = 1,
+    parameter SUPPORT_MIXED_PRECISION = 1,
+    parameter ENABLE_SHARED_SCALING = 1
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
@@ -83,9 +88,9 @@ module tt_um_chatelao_fp8_multiplier #(
                     6'd2:  begin
                              state    <= STATE_STREAM;
                              scale_b  <= uio_in;
-                             format_b <= ui_in[2:0];
+                             format_b <= SUPPORT_MIXED_PRECISION ? ui_in[2:0] : format_a; // Use format_a if mixed disabled
                            end
-                    6'd36: state   <= STATE_OUTPUT;
+                    6'd36: state <= STATE_OUTPUT;
                     6'd40: state   <= STATE_IDLE;
                     default: ;
                 endcase
@@ -102,7 +107,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire signed [6:0] mul_exp_sum;
     wire mul_sign;
 
-    fp8_mul multiplier (
+    fp8_mul #(
+        .SUPPORT_MXFP6(SUPPORT_MXFP6),
+        .SUPPORT_MXFP4(SUPPORT_MXFP4)
+    ) multiplier (
         .a(ui_in),
         .b(uio_in),
         .format_a(format_a),
@@ -139,13 +147,14 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [31:0] acc_abs = acc_out[31] ? -acc_out : acc_out;
 
     // Shift aligner inputs by 1 cycle due to multiplier pipeline
-    wire [31:0] aligner_in_prod = (cycle_count >= 6'd36) ? acc_abs : {16'd0, mul_prod_reg};
-    wire signed [9:0] aligner_in_exp  = (cycle_count >= 6'd36) ? (shared_exp + 10'sd5) : {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg};
-    wire aligner_in_sign = (cycle_count >= 6'd36) ? acc_out[31] : mul_sign_reg;
+    wire [31:0] aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_abs : {16'd0, mul_prod_reg};
+    wire signed [9:0] aligner_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? (shared_exp + 10'sd5) : {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg};
+    wire aligner_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_out[31] : mul_sign_reg;
 
     wire [31:0] aligned_res;
     fp8_aligner #(
-        .WIDTH(ALIGNER_WIDTH)
+        .WIDTH(ALIGNER_WIDTH),
+        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
     ) aligner_inst (
         .prod(aligner_in_prod),
         .exp_sum(aligner_in_exp),
@@ -177,7 +186,7 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
         end else if (ena && cycle_count == 6'd36) begin
-            scaled_acc_reg <= aligned_res;
+            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res : acc_out;
         end
     end
 
