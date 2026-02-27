@@ -83,7 +83,7 @@ module tt_um_chatelao_fp8_multiplier (
                              scale_b  <= uio_in;
                              format_b <= ui_in[1:0];
                            end
-                    6'd40: state   <= STATE_OUTPUT;
+                    6'd39: state   <= STATE_OUTPUT;
                     6'd43: state   <= STATE_IDLE;
                     default: ;
                 endcase
@@ -118,7 +118,7 @@ module tt_um_chatelao_fp8_multiplier (
     always @(posedge clk) begin
         if (!rst_n) begin
             mul_prod_reg <= 16'd0;
-            mul_exp_sum_reg <= 7'd0;
+            mul_exp_sum_reg <= 7'sd0;
             mul_sign_reg <= 1'b0;
         end else if (ena) begin
             mul_prod_reg <= mul_prod;
@@ -147,8 +147,9 @@ module tt_um_chatelao_fp8_multiplier (
     end
 
     // Shift aligner inputs due to pipelining
-    // Elements: in at 3-34, mul_reg at 4-35.
-    // Shared scale: acc_abs_reg ready for aligner during cycle 38.
+    // Elements arrive at cycles 3-34, mul_reg ready Cycle 4-35.
+    // Aligner sees multiplier products during cycles 4-35.
+    // Aligner sees shared scaling input starting Cycle 38 (acc_abs_reg ready).
     wire [31:0] aligner_in_prod = (cycle_count >= 6'd38) ? acc_abs_reg : {16'd0, mul_prod_reg};
     wire signed [9:0] aligner_in_exp  = (cycle_count >= 6'd38) ? (shared_exp + 10'sd5) : {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg};
     wire aligner_in_sign = (cycle_count >= 6'd38) ? acc_sign_reg : mul_sign_reg;
@@ -171,11 +172,11 @@ module tt_um_chatelao_fp8_multiplier (
     end
 
     // 4. Accumulator Control
-    // Elements arrive at cycles 3-34.
-    // Element 0: in at 3, mul_reg at 4, align_reg at 5, reaches Acc at 6.
-    // Element 31: in at 34, mul_reg at 35, align_reg at 36, reaches Acc at 37.
-    wire acc_en    = (cycle_count >= 6'd6 && cycle_count <= 6'd37) && (state == STATE_STREAM || state == STATE_OUTPUT);
-    wire acc_clear = (cycle_count <= 6'd5) && (state != STATE_STREAM);
+    // Elements: in at 3-34, mul_reg at 4-35, align_reg at 5-36, reaches Acc at 5.
+    // Addition happens at posedge edges 6, 7, ..., 37.
+    // So acc_en must be high during cycles 5, 6, ..., 36.
+    wire acc_en    = (cycle_count >= 6'd5 && cycle_count <= 6'd36) && (state == STATE_STREAM || state == STATE_OUTPUT);
+    wire acc_clear = (cycle_count <= 6'd4) && (state != STATE_STREAM);
 
     accumulator acc_inst (
         .clk(clk),
@@ -188,12 +189,16 @@ module tt_um_chatelao_fp8_multiplier (
     );
 
     // 5. Output Serialization Register
-    // Capture the fully scaled result at cycle 40 (aligned_res_reg captures at end of 39).
+    // acc_out is final at Cycle 37.
+    // acc_abs_reg captures at end of Cycle 37 (edge 38).
+    // Aligner works during Cycle 38.
+    // aligned_res_reg captures at end of Cycle 38 (edge 39).
+    // scaled_acc_reg captures at end of Cycle 39 (edge 40).
     reg [31:0] scaled_acc_reg;
     always @(posedge clk) begin
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
-        end else if (ena && cycle_count == 6'd40) begin
+        end else if (ena && cycle_count == 6'd39) begin
             scaled_acc_reg <= aligned_res_reg;
         end
     end
@@ -203,10 +208,10 @@ module tt_um_chatelao_fp8_multiplier (
     always @(*) begin
         if (state == STATE_OUTPUT && cycle_count >= 6'd40) begin
             case (cycle_count)
-                6'd40: uo_out_reg = scaled_acc_reg[31:24]; // Byte 3 (MSB)
-                6'd41: uo_out_reg = scaled_acc_reg[23:16]; // Byte 2
-                6'd42: uo_out_reg = scaled_acc_reg[15:8];  // Byte 1
-                6'd43: uo_out_reg = scaled_acc_reg[7:0];   // Byte 0 (LSB)
+                40: uo_out_reg = scaled_acc_reg[31:24]; // Byte 3 (MSB)
+                41: uo_out_reg = scaled_acc_reg[23:16]; // Byte 2
+                42: uo_out_reg = scaled_acc_reg[15:8];  // Byte 1
+                43: uo_out_reg = scaled_acc_reg[7:0];   // Byte 0 (LSB)
                 default: uo_out_reg = 8'h00;
             endcase
         end else begin
@@ -240,7 +245,7 @@ module tt_um_chatelao_fp8_multiplier (
                 case ($past(cycle_count))
                     6'd0:  assert(state == STATE_LOAD_SCALE);
                     6'd2:  assert(state == STATE_STREAM);
-                    6'd40: assert(state == STATE_OUTPUT);
+                    6'd39: assert(state == STATE_OUTPUT);
                     6'd43: assert(state == STATE_IDLE);
                     default: assert(state == $past(state));
                 endcase

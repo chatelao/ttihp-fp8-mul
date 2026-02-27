@@ -166,18 +166,17 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    # Cycles 35-37: Multiplier, Aligner, Accumulator Pipeline Flush
+    # Now at Cycle 35.
+    # Elements: in at 3-34, reaches Acc at 5-36. Final Addition end of 36 (edge 37).
+    # Shared Scale: acc_abs captures at end of 37 (edge 38).
+    # Aligner works Cycle 38, results in aligned_res_reg at end of 38 (edge 39).
+    # scaled_acc_reg captures at end of 39 (edge 40).
+    # Serialization starts at Cycle 40.
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 3)
+    await ClockCycles(dut.clk, 5)
 
-    # Cycle 38: Absolute Accumulator Register Capture (acc_abs_reg)
-    await ClockCycles(dut.clk, 1)
-
-    # Cycle 39: Shared Scaling Aligner Input -> Register (aligned_res_reg)
-    await ClockCycles(dut.clk, 1)
-
-    # Now at Cycle 40. Verilog is showing Byte 3 on uo_out.
+    # Now at Cycle 40. read uo_out.
     # Calculate expected final result after shared scaling
     shared_exp = scale_a + scale_b - 254
     acc_abs = abs(expected_acc)
@@ -348,10 +347,7 @@ async def test_fast_start_scale_compression(dut):
     await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b)
 
     # 2. Fast Start (Reuse scales)
-    # We can't use run_mac_test as is because it does a reset.
     # Manual protocol for fast start:
-
-    # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
     await ClockCycles(dut.clk, 1)
 
@@ -371,7 +367,7 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 6) # Pipeline Flush + Scaling pipeline to reach Cycle 40
+    await ClockCycles(dut.clk, 5) # wait for Cycles 35-39
 
     actual_acc = 0
     for i in range(4):
