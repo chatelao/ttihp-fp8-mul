@@ -5,8 +5,7 @@
 This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible with the OCP Microscaling Formats (MX) Specification (v1.0). It is designed to fit within a single 1x1 Tiny Tapeout tile using the IHP SG13G2 PDK.
 
 - [Read the documentation for project](docs/info.md)
-- [Project Concept](MXFP8_CONCEPT.md)
-- [Project Roadmap](MXFP8_ROADMAP.md)
+- [Project Documentation (Concept, Roadmap, Testing)](MXFP8_CONCEPT.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
 ## OCP MX Feature Support
