@@ -40,13 +40,13 @@ module fp8_aligner (
         if (shift_amt >= 0) begin
             // Left shift
             if (prod != 32'd0) begin
-                if (shift_amt >= 11'sd31) begin
+                if (shift_amt >= 11'sd40) begin
                     huge = 1'b1;
-                    if (shift_amt < 11'sd40) rounded = shifted << shift_amt;
-                    else rounded = 40'd0;
+                    rounded = 40'd0;
                 end else begin
+                    // Check if any bits of shifted will be shifted out of the 40-bit window
+                    if (shift_amt > 0 && |(shifted >> (11'sd40 - shift_amt))) huge = 1'b1;
                     rounded = shifted << shift_amt;
-                    if (|rounded[39:31]) huge = 1'b1;
                 end
             end
             sticky = 1'b0;
