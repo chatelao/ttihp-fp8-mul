@@ -144,4 +144,7 @@ This roadmap outlines the incremental development of the OCP MXFP8 Streaming MAC
   - Implement `SUPPORT_MXFP6`, `SUPPORT_MXFP4`, and `SUPPORT_ADV_ROUNDING` to prune logic.
   - Implement `ENABLE_SHARED_SCALING` and `SUPPORT_MIXED_PRECISION` for architectural scaling.
   - Parameterize `ALIGNER_WIDTH` for datapath optimization.
-- **Verification**: Matrix testing of Full, Lite, and Tiny variants.
+- **Verification**:
+  - Validated the **Tiny** configuration (all optional features disabled) using the full cocotb test suite.
+  - Characterized gate count impact using Yosys-based automated analysis for all feature combinations.
+  - Verified matrix testing of Full, Lite, and Tiny variants.

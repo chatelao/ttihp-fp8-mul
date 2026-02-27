@@ -44,26 +44,26 @@ The aligner has been downsized to a **40-bit** internal path to handle both 16x3
     - **Precision**: **No loss**. A 40-bit window is sufficient to represent a 32-bit result plus 8 bits for guard, round, and sticky bits.
     - **Speed**: **Slight improvement**. Shorter carry chains in the rounding adder and fewer stages in the barrel shifter improve timing slack.
 
-### Optimization 2: Offload Shared Scaling to Software
+### Optimization 2: Offload Shared Scaling to Software (Status: **COMPLETED**)
 Hardware-accelerated shared scaling (Cycle 36) applies $2^{(X_A+X_B-254)}$ in hardware, requiring 32-bit absolute value logic and a full 32-bit shifter.
-- **Change**: Revert to the original concept (Section 3.2 of `MXFP8_CONCEPT.md`) where the host software applies the shared scale to the 32-bit result.
-- **Impact**: Removes the absolute value logic and simplifies the shifter, saving ~300 gates.
+- **Change**: Controlled via `ENABLE_SHARED_SCALING` parameter. When disabled, the host software applies the shared scale to the 32-bit result.
+- **Impact**: Removes the absolute value logic and simplifies the shifter, saving ~270 gates.
 - **Speed/Precision**:
     - **Precision**: **No loss**. Software can perform the power-of-two scaling bit-exactly.
     - **Speed**: **Significant decrease**. System-level throughput drops as the host CPU/controller must perform post-processing on every 32-element block result.
 
-### Optimization 3a: Prune MXFP6 Formats (E3M2, E2M3)
+### Optimization 3a: Prune MXFP6 Formats (E3M2, E2M3) (Status: **COMPLETED**)
 MXFP6 provides a middle ground between FP8 and FP4, but requires two additional decoding paths per operand.
-- **Change**: Remove support for E3M2 (Bias 3) and E2M3 (Bias 1).
-- **Impact**: Saves **~170 gates** by simplifying the operand muxes and exponent arithmetic logic in `fp8_mul`.
+- **Change**: Controlled via `SUPPORT_MXFP6` parameter.
+- **Impact**: Saves logic by simplifying the operand muxes and exponent arithmetic logic in `fp8_mul`.
 - **Speed/Precision**:
     - **Precision**: **Functional loss** of 6-bit floating point capabilities.
     - **Speed**: **Improved** timing slack in the multiplier stage.
 
-### Optimization 3b: Prune MXFP4 Formats (E2M1)
+### Optimization 3b: Prune MXFP4 Formats (E2M1) (Status: **COMPLETED**)
 MXFP4 is the most aggressive quantization format in OCP MX, with very limited range/precision.
-- **Change**: Remove support for E2M1 (Bias 1).
-- **Impact**: Saves **~80 gates**.
+- **Change**: Controlled via `SUPPORT_MXFP4` parameter.
+- **Impact**: Saves logic in the multiplier stage.
 - **Speed/Precision**:
     - **Precision**: **Functional loss** of the 4-bit format.
     - **Speed**: **Minor improvement** in combinatorial delay.
@@ -72,36 +72,33 @@ MXFP4 is the most aggressive quantization format in OCP MX, with very limited ra
 **Pruning MXFP4 (Optimization 3b) is recommended first.**
 While pruning MXFP6 saves more area, **MXFP4 is significantly less common** in practice due to its extremely low precision (1-bit mantissa). MXFP6 remains more useful for various neural network layers. If the area target is extremely tight (e.g., fitting in a 1x1 tile), **pruning both** is the standard approach to further reduce control signal bit-widths and configuration registers.
 
-### Optimization 4: Simplify Rounding Modes
-- **Change**: Support only **Round-to-Nearest-Ties-to-Even (RNE)** and **Truncate (TRN)**.
-- **Impact**: Eliminates the CEIL and FLOOR muxing logic and simplifies the rounding bit generation, saving ~100 gates.
+### Optimization 4: Simplify Rounding Modes (Status: **COMPLETED**)
+- **Change**: Controlled via `SUPPORT_ADV_ROUNDING` parameter. If disabled, supports only **Round-to-Nearest-Ties-to-Even (RNE)** and **Truncate (TRN)**.
+- **Impact**: Eliminates the CEIL and FLOOR muxing logic and simplifies the rounding bit generation, saving ~250 gates.
 - **Speed/Precision**:
     - **Precision**: **Loss of flexibility**. Loss of directed rounding modes (CEIL/FLOOR) which may be required for specific quantization or interval arithmetic tasks.
     - **Speed**: **Minor improvement**. Removing muxes from the rounding logic slightly reduces the combinational delay of the aligner.
 
-### Optimization 5: Remove Mixed-Precision Support
+### Optimization 5: Remove Mixed-Precision Support (Status: **COMPLETED**)
 The current implementation allows independent format selection for `format_a` and `format_b`.
-- **Change**: Force both operands to share a single format configuration sampled at Cycle 1.
-- **Impact**: Eliminates the `format_b` register and one set of format decoders, saving ~150 gates.
+- **Change**: Controlled via `SUPPORT_MIXED_PRECISION` parameter. If disabled, both operands share a single format configuration sampled at Cycle 1.
+- **Impact**: Eliminates the `format_b` register logic and simplifies format decoders.
 - **Speed/Precision**:
     - **Precision**: **Functional loss**. The unit can no longer perform mixed-precision operations (e.g., E4M3 * E5M2).
     - **Speed**: **Minor improvement**. Reduced fan-out on format control signals improves timing slack.
 
-### Optimization Summary for 1x1 Tile
+### Optimization Summary for Small Builds
 
-| Component | Current Gates | Optimized Gates | Reduction |
+| Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| Aligner (Shifter/Adder) | ~1250 | ~650 | 48% |
-| Multiplier (Decoders/Mult) | ~750 | ~350*** | 53% |
-| Registers (DFFs) | ~800 | ~200* | 75% |
-| Control & Misc | ~630 | ~150** | 76% |
-| **Total** | **~3430** | **~1350** | **~60%** |
+| **Full** | All features enabled, WIDTH=40 | 3439 | 1x2 |
+| **Lite** | ADV_ROUND=0, MIX_PREC=0, WIDTH=40 | ~3100 | 1x2 |
+| **Tiny** | All optional features disabled, WIDTH=40 | 2864 | 1x2 |
+| **Ultra-Tiny** | All disabled, WIDTH=32 | 2692 | 1x2 |
 
-*\*Reducing the number of supported formats and removing shared scaling registers saves significant DFF count.*
-*\*\*Simplifying the FSM by removing cycles and config registers.*
-*\*\*\*Includes Optimization 5 (Removal of mixed-precision decoders).*
+*Note: While the Tiny build is significantly smaller than the Full baseline, it still exceeds the ~1500 gate target for a 1x1 tile. Further reduction would require more aggressive bit-width pruning or removing the accumulator (moving all summation to software).*
 
-By implementing these optimizations, the OCP MXFP8 MAC unit can fit comfortably into a **1x1 Tiny Tapeout tile** while maintaining its core functionality for the most important MX formats.
+By implementing these optimizations as parameters, the OCP MXFP8 MAC unit can be tailored to the available die area while maintaining its core functionality for the most important MX formats.
 
 ## 3. Automated Gate Impact Analysis
 
