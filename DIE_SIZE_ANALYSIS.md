@@ -102,3 +102,19 @@ The current implementation allows independent format selection for `format_a` an
 *\*\*\*Includes Optimization 5 (Removal of mixed-precision decoders).*
 
 By implementing these optimizations, the OCP MXFP8 MAC unit can fit comfortably into a **1x1 Tiny Tapeout tile** while maintaining its core functionality for the most important MX formats.
+
+## 3. Automated Gate Impact Analysis
+
+The following table shows the measured gate impact of each feature flag, obtained by synthesizing the design with Yosys and disabling one feature at a time from the "Full" baseline.
+
+| Feature Flag | Configuration | Total Cells | Delta (vs Full) |
+|---|---|---|---|
+| **Baseline (Full)** | All features enabled | 3439 | 0 |
+| `SUPPORT_MXFP6` | Disable MXFP6 (E3M2, E2M3) | 3420 | -19 |
+| `SUPPORT_MXFP4` | Disable MXFP4 (E2M1) | 3440 | +1* |
+| `SUPPORT_ADV_ROUNDING` | Disable CEIL/FLOOR rounding | 3189 | -250 |
+| `SUPPORT_MIXED_PRECISION` | Disable mixed-precision | 3439 | 0 |
+| `ENABLE_SHARED_SCALING` | Disable hardware shared scaling | 3167 | -272 |
+| **Tiny (All Disabled)** | All optional features disabled | 2864 | -575 |
+
+*\*Small increases in cell count can occur due to synthesis tool heuristics when logic paths are modified.*
