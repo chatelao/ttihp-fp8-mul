@@ -31,7 +31,7 @@ module tb ();
   parameter ENABLE_SHARED_SCALING = 1;
 
   tt_um_chatelao_fp8_multiplier
-`ifndef GL_TEST
+`ifdef RTL
   #(
       .ALIGNER_WIDTH(ALIGNER_WIDTH),
       .SUPPORT_MXFP6(SUPPORT_MXFP6),
