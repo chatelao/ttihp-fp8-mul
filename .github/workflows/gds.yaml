@@ -44,9 +44,10 @@ jobs:
         uses: TinyTapeout/tt-gds-action/gl_test@ttihp26a
 
   viewer:
-    needs: gds
+    needs: [gds, precheck, gl_test]
     runs-on: ubuntu-24.04
     permissions:
+      contents: read
       pages: write # to deploy to Pages
       id-token: write # to verify the deployment originates from an appropriate source
     steps:
@@ -73,4 +74,6 @@ jobs:
           name: gds_colored_zones
           path: gds_colored_zones.png
 
-      - uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
+      - name: GitHub Pages Deployment
+        if: github.ref == 'refs/heads/main'
+        uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
