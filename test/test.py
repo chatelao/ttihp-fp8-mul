@@ -135,7 +135,7 @@ def get_param(handle, default=1):
         return default
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -158,7 +158,21 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
 
     if use_lns:
         if inta or intb: return 0 # No INT8 support in LNS mode
-        m_sum = ma + mb
+        if use_lns_precise:
+            # Precise LNS LUT logic
+            lut = [
+                0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+                0x1, 0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x8,
+                0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0x9,
+                0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa,
+                0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa, 0xb,
+                0x5, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb, 0xc,
+                0x6, 0x8, 0x9, 0xa, 0xa, 0xb, 0xc, 0xd,
+                0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe
+            ]
+            m_sum = lut[(ma & 0x7) * 8 + (mb & 0x7)]
+        else:
+            m_sum = (ma & 0x7) + (mb & 0x7)
         carry = m_sum >> 3
         m_res = m_sum & 0x7
         prod = (8 + m_res) << 3
@@ -201,6 +215,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
     support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
     use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
+    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), 0)
     acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), 32)
 
     await reset_dut(dut)
@@ -219,7 +234,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns)
+                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -463,6 +478,7 @@ async def test_fast_start_scale_compression(dut):
 
     support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
     support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
+    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
@@ -477,7 +493,7 @@ async def test_fast_start_scale_compression(dut):
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns)
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise)
         expected_acc += prod
 
     if support_shared:
@@ -527,6 +543,7 @@ async def test_yaml_cases(dut):
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
     support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
     use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
+    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), 0)
 
     for case in cases:
         inputs = case['inputs']
