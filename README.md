@@ -4,7 +4,7 @@
 
 This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible with the OCP Microscaling Formats (MX) Specification (v1.0). It is designed to fit within a single 1x1 Tiny Tapeout tile using the IHP SG13G2 PDK.
 
-- [Read the documentation for project](docs/info.md)
+- [Read the documentation for project](documentation/INFO.md)
 - [Project Concept & Roadmap](MXFP8_CONCEPT.md)
 - [MX+ Implementation Roadmap](MX_PLUS.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
@@ -49,7 +49,7 @@ To learn more and get started, visit https://tinytapeout.com.
 
 1. Add your Verilog files to the `src` folder.
 2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/info.md](docs/info.md) and add a description of your project.
+3. Edit [documentation/INFO.md](documentation/INFO.md) and add a description of your project.
 4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
 
 The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
