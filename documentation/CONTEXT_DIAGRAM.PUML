@@ -13,9 +13,9 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(config_regs, "Config Registers", "Registers", "Stores scales, formats, and rounding modes.")
         Component(fast_start, "Fast Start Logic", "Logic", "Handles scale compression (Cycle 0).")
 
-        Rel(fast_start, counter, "Override", "Cycle 3")
-        Rel(counter, fsm_logic, "Count", "6-bit")
-        Rel(fsm_logic, config_regs, "Load", "Enable")
+        Rel_D(fast_start, counter, "Override", "Cycle 3")
+        Rel_D(counter, fsm_logic, "Count", "6-bit")
+        Rel_D(fsm_logic, config_regs, "Load", "Enable")
     }
 
     Container_Boundary(mul_block, "FP8 Multiplier") {
@@ -25,12 +25,12 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(sign_logic, "Sign Logic", "XOR", "Result sign calculation.")
         Component(mul_regs, "Pipeline Registers", "Registers", "Stores multiplier output (1 cycle latency).")
 
-        Rel(decoders, m_mul, "Mantissas", "8-bit")
-        Rel(decoders, exp_arith, "Exponents", "5-bit")
-        Rel(decoders, sign_logic, "Signs", "1-bit")
-        Rel(m_mul, mul_regs, "Prod", "16-bit")
-        Rel(exp_arith, mul_regs, "Exp", "7-bit")
-        Rel(sign_logic, mul_regs, "Sign", "1-bit")
+        Rel_D(decoders, m_mul, "Mantissas", "8-bit")
+        Rel_D(decoders, exp_arith, "Exponents", "5-bit")
+        Rel_D(decoders, sign_logic, "Signs", "1-bit")
+        Rel_D(m_mul, mul_regs, "Prod", "16-bit")
+        Rel_D(exp_arith, mul_regs, "Exp", "7-bit")
+        Rel_D(sign_logic, mul_regs, "Sign", "1-bit")
     }
 
     Container_Boundary(align_block, "Aligner & Scaler") {
@@ -39,10 +39,10 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(sticky_gen, "Sticky Bit Gen", "OR-reduction", "Accurate rounding for right-shifts.")
         Component(sat_logic, "Saturation Logic", "Clamping", "Handles overflow and 32-bit clamping.")
 
-        Rel(shifter, sticky_gen, "LSBs", "Masked")
-        Rel(shifter, round_unit, "Base", "WIDTH-bit")
-        Rel(sticky_gen, round_unit, "Sticky", "1-bit")
-        Rel(round_unit, sat_logic, "Rounded", "WIDTH-bit")
+        Rel_R(shifter, sticky_gen, "LSBs", "Masked")
+        Rel_D(shifter, round_unit, "Base", "WIDTH-bit")
+        Rel_D(sticky_gen, round_unit, "Sticky", "1-bit")
+        Rel_D(round_unit, sat_logic, "Rounded", "WIDTH-bit")
     }
 
     Container_Boundary(acc_block, "Accumulator") {
@@ -50,30 +50,30 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(ovf_det, "Overflow Detector", "Logic", "SAT/WRAP logic based on config.")
         Component(acc_reg, "Accumulation Reg", "Register", "Stores the running 32-bit sum.")
 
-        Rel(adder, ovf_det, "Sum", "WIDTH+1-bit")
-        Rel(ovf_det, acc_reg, "Sum/Sat", "WIDTH-bit")
-        Rel(acc_reg, adder, "Feedback", "32-bit")
+        Rel_D(adder, ovf_det, "Sum", "WIDTH+1-bit")
+        Rel_D(ovf_det, acc_reg, "Sum/Sat", "WIDTH-bit")
+        Rel_U(acc_reg, adder, "Feedback", "32-bit")
     }
 
     Container_Boundary(serial_block, "Output Serializer") {
         Component(serial_reg, "Scaled Result Reg", "Register", "32-bit Scaled Result Register (scaled_acc_reg).")
         Component(byte_mux, "Byte Multiplexer", "Verilog", "Selects 8-bit chunk from 32-bit result.")
 
-        Rel(serial_reg, byte_mux, "32-bit", "Internal")
+        Rel_D(serial_reg, byte_mux, "32-bit", "Internal")
     }
 }
 
-Rel(host, fsm_logic, "Control & Config", "clk, rst_n, ena, ui_in, uio_in")
-Rel(host, decoders, "Streaming Elements", "ui_in, uio_in (Cycles 3-34)")
+Rel_D(host, fsm_logic, "Control & Config", "clk, rst_n, ena, ui_in, uio_in")
+Rel_D(host, decoders, "Streaming Elements", "ui_in, uio_in (Cycles 3-34)")
 
-Rel(config_regs, decoders, "Format A/B", "3-bit indices")
-Rel(config_regs, round_unit, "Rounding Mode", "2-bit")
-Rel(fsm_logic, acc_reg, "Ctrl", "en, clear")
+Rel_R(config_regs, decoders, "Format A/B", "3-bit indices")
+Rel_D(config_regs, round_unit, "Rounding Mode", "2-bit")
+Rel_D(fsm_logic, acc_reg, "Ctrl", "en, clear")
 
-Rel(mul_regs, shifter, "Partial Product", "16-bit Mantissa, 7-bit Exp")
-Rel(sat_logic, adder, "Aligned Data", "Internal Datapath")
-Rel(acc_reg, shifter, "Feedback", "Shared Scaling Path (Cycle 36)")
-Rel(sat_logic, serial_reg, "Result", "32-bit Scaled")
-Rel(byte_mux, host, "Result Byte", "uo_out (Cycles 37-40)")
+Rel_D(mul_regs, shifter, "Partial Product", "16-bit Mantissa, 7-bit Exp")
+Rel_D(sat_logic, adder, "Aligned Data", "Internal Datapath")
+Rel_U(acc_reg, shifter, "Feedback", "Shared Scaling Path (Cycle 36)")
+Rel_D(sat_logic, serial_reg, "Result", "32-bit Scaled")
+Rel_U(byte_mux, host, "Result Byte", "uo_out (Cycles 37-40)")
 
 @enduml
