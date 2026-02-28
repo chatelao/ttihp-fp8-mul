@@ -56,6 +56,54 @@ If `ui_in[7]` is set to `1` during **STATE_IDLE** (Cycle 0), the unit immediatel
 - [Local Setup Guide (WSL2)](LOCAL_SETUP.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
+### MicroPython Example (TT DevKit)
+
+You can run a single MAC operation on the Tiny Tapeout DevKit using the onboard RP2040 with MicroPython. The following script performs a 32-element dot product of $1.0 \times 1.0$ with no scaling.
+
+```python
+import machine
+import time
+
+# Pin Mapping for TT DevKit RP2040
+UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(8)]
+UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(8, 16)]
+UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(16, 24)]
+CLK, RST_N, ENA = machine.Pin(24, machine.Pin.OUT), machine.Pin(25, machine.Pin.OUT), machine.Pin(26, machine.Pin.OUT)
+
+def clock_step():
+    CLK.value(1); time.sleep_us(10); CLK.value(0); time.sleep_us(10)
+
+def run_mac():
+    ENA.value(1); RST_N.value(0); CLK.value(0); time.sleep_ms(10); RST_N.value(1)
+
+    clock_step() # Cycle 0 -> 1
+    # Cycle 1: Scale A (127=1.0) & Config (0x00=E4M3)
+    for i in range(8): UI_IN[i].value((127 >> i) & 1); UIO[i].value(0)
+    clock_step()
+    # Cycle 2: Scale B (127=1.0) & Format B (0x00=E4M3)
+    for i in range(8): UI_IN[i].value((127 >> i) & 1); UIO[i].value(0)
+    clock_step()
+    # Cycle 3-34: Stream 32 elements (0x38=1.0 in E4M3)
+    for i in range(8): UI_IN[i].value((0x38 >> i) & 1); UIO[i].value((0x38 >> i) & 1)
+    for _ in range(32): clock_step()
+    # Cycle 35-36: Flush and Scale
+    for i in range(8): UI_IN[i].value(0); UIO[i].value(0)
+    clock_step(); clock_step()
+    # Cycle 37-40: Read 32-bit Result (MSB first)
+    res = 0
+    for _ in range(4):
+        byte = 0
+        for i in range(8):
+            if UO_OUT[i].value(): byte |= (1 << i)
+        res = (res << 8) | byte
+        clock_step()
+    print(f"Result: {res} (Fixed-point), {res/256.0} (Float)")
+
+run_mac()
+```
+
+*For the full script and advanced usage, see [test/TT_MAC_RUN.PY](test/TT_MAC_RUN.PY).*
+
 ## OCP MX Feature Support
 
 This implementation follows the **OCP Microscaling Formats (MX) Specification (v1.0)**.
