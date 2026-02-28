@@ -176,9 +176,20 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ACCUMULATOR_WIDTH-1:0] acc_abs = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
 
     // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
-    wire [31:0] aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ?
-                                    (ACCUMULATOR_WIDTH > 32 ? acc_abs[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs}) :
-                                    {16'd0, SUPPORT_PIPELINING ? mul_prod_reg : mul_prod};
+    reg [31:0] aligner_in_prod_reg;
+    always @(*) begin
+        if (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) begin
+            if (ACCUMULATOR_WIDTH > 32)
+                aligner_in_prod_reg = acc_abs[31:0];
+            else if (ACCUMULATOR_WIDTH == 32)
+                aligner_in_prod_reg = acc_abs;
+            else
+                aligner_in_prod_reg = {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs};
+        end else begin
+            aligner_in_prod_reg = {16'd0, SUPPORT_PIPELINING ? mul_prod_reg : mul_prod};
+        end
+    end
+    wire [31:0] aligner_in_prod = aligner_in_prod_reg;
     wire signed [9:0] aligner_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? (shared_exp + 10'sd5) :
                                     (SUPPORT_PIPELINING ? {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg} : {{3{mul_exp_sum[6]}}, mul_exp_sum});
     wire aligner_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_out[ACCUMULATOR_WIDTH-1] : (SUPPORT_PIPELINING ? mul_sign_reg : mul_sign);
@@ -223,8 +234,16 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
         end else if (ena && cycle_count == 6'd36) begin
-            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res :
-                              (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
+            if (ENABLE_SHARED_SCALING) begin
+                scaled_acc_reg <= aligned_res;
+            end else begin
+                if (ACCUMULATOR_WIDTH > 32)
+                    scaled_acc_reg <= acc_out[31:0];
+                else if (ACCUMULATOR_WIDTH == 32)
+                    scaled_acc_reg <= acc_out;
+                else
+                    scaled_acc_reg <= {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
+            end
         end
     end
 

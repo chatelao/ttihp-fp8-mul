@@ -1,4 +1,9 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
+[![GDS Status](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gds.yaml/badge.svg)](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gds.yaml)
+[![Docs Status](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/docs.yaml/badge.svg)](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/docs.yaml)
+[![Test Status](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/test.yaml/badge.svg)](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/test.yaml)
+[![FPGA Status](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/fpga.yaml/badge.svg)](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/fpga.yaml)
+[![Gowin Status](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gowin.yaml/badge.svg)](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gowin.yaml)
+[![Diagram Status](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/diagram.yaml/badge.svg)](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/diagram.yaml)
 
 # Tiny Tapeout IHP 26a - OCP MXFP8 Streaming MAC Unit
 

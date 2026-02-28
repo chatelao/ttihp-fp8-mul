@@ -1,5 +1,8 @@
 `default_nettype none
 
+`ifndef __FP8_MUL_LNS_V__
+`define __FP8_MUL_LNS_V__
+
 // This file implements an FP8 multiplier using Logarithmic Number System (LNS).
 // It replaces the 4x4/8x8 multiplier with a simple adder or LUT.
 module fp8_mul_lns #(
@@ -228,3 +231,5 @@ module fp8_mul_lns #(
     assign exp_sum = exp_sum_res;
 
 endmodule
+
+`endif

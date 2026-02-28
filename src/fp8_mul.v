@@ -1,5 +1,8 @@
 `default_nettype none
 
+`ifndef __FP8_MUL_V__
+`define __FP8_MUL_V__
+
 // This file contains logic derived from fp8_mul by Clive Chan (https://github.com/cchan/fp8_mul)
 module fp8_mul #(
     parameter SUPPORT_E5M2  = 1,
@@ -186,3 +189,5 @@ module fp8_mul #(
     assign exp_sum = exp_sum_res;
 
 endmodule
+
+`endif

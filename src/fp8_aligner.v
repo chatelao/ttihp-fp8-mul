@@ -1,5 +1,8 @@
 `default_nettype none
 
+`ifndef __FP8_ALIGNER_V__
+`define __FP8_ALIGNER_V__
+
 module fp8_aligner #(
     parameter WIDTH = 40,
     parameter SUPPORT_ADV_ROUNDING = 1
@@ -118,3 +121,5 @@ module fp8_aligner #(
     end
 
 endmodule
+
+`endif
