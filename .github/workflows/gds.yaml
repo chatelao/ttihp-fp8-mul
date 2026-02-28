@@ -65,7 +65,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y xvfb
           pip install klayout
-          xvfb-run python3 gds_colorizer.py
+          xvfb-run python3 scripts/GDS_COLORIZER.PY
 
       - name: Upload Colored Visualization
         uses: actions/upload-artifact@v4

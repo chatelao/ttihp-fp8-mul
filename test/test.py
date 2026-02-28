@@ -500,7 +500,7 @@ async def test_yaml_cases(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    yaml_path = os.path.join(os.getcwd(), "..", "TEST_MX_E2E.YAML")
+    yaml_path = os.path.join(os.getcwd(), "TEST_MX_E2E.YAML")
     if not os.path.exists(yaml_path):
         dut._log.error(f"YAML file not found at {yaml_path}")
         return
