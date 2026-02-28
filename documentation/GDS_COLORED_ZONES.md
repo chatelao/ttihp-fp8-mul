@@ -24,7 +24,7 @@ To distinguish submodules, the following color scheme is proposed for the layout
 ## 4. Visualization Methodology
 The visualization is automated using a Python script interacting with the **KLayout** API. The script processes the GDS, identifies instances by their hierarchical names, and generates an annotated image by creating unique visualization layers for each submodule category.
 
-### 4.1. Implementation Script (`gds_colorizer.py`)
+### 4.1. Implementation Script (`scripts/gds_colorizer.py`)
 
 ```python
 import klayout.db as db
@@ -133,7 +133,7 @@ The `viewer` job in the `.github/workflows/gds.yaml` pipeline can be enhanced to
         run: |
           sudo apt-get install -y xvfb
           pip install klayout
-          xvfb-run python3 gds_colorizer.py
+          xvfb-run python3 scripts/gds_colorizer.py
 ```
 
 This allows for immediate visual confirmation of physical floorplan changes across different commits, ensuring that critical arithmetic components are optimally placed.

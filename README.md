@@ -11,9 +11,9 @@ This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible wi
 *Source: [documentation/CONTEXT_DIAGRAM.PUML](documentation/CONTEXT_DIAGRAM.PUML)*
 
 - [Read the documentation for project](documentation/INFO.md)
-- [Project Concept & Roadmap](MXFP8_CONCEPT.md)
-- [MX+ Implementation Roadmap](MX_PLUS.md)
-- [Local Setup Guide (WSL2)](LOCAL_SETUP.md)
+- [Project Concept & Roadmap](documentation/MXFP8_CONCEPT.md)
+- [MX+ Implementation Roadmap](documentation/MX_PLUS.md)
+- [Local Setup Guide (WSL2)](documentation/LOCAL_SETUP.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
 ## OCP MX Feature Support
