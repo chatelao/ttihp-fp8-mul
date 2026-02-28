@@ -4,6 +4,8 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
+import yaml
+import os
 
 def decode_format(bits, format_val):
     if format_val == 0: # E4M3
@@ -175,7 +177,7 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None):
     # Enforce parameter constraints in model
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
     if not support_mixed:
@@ -266,6 +268,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
+
+    if expected_override is not None:
+        expected_final = expected_override
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
@@ -488,3 +493,69 @@ async def test_fast_start_scale_compression(dut):
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final
+
+@cocotb.test()
+async def test_yaml_cases(dut):
+    dut._log.info("Start YAML E2E Test Cases")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    yaml_path = os.path.join(os.getcwd(), "..", "TEST_MX_E2E.YAML")
+    if not os.path.exists(yaml_path):
+        dut._log.error(f"YAML file not found at {yaml_path}")
+        return
+
+    with open(yaml_path, 'r') as f:
+        cases = yaml.safe_load(f)
+
+    # Detect hardware support
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+
+    for case in cases:
+        inputs = case['inputs']
+        expected = case['expected_output']
+        comment = case.get('comment', '')
+
+        # Skip cases based on hardware support
+        fmt_a = inputs['format_a']
+        fmt_b = inputs.get('format_b', fmt_a)
+
+        if not support_e5m2 and (fmt_a == 1 or fmt_b == 1):
+            dut._log.info(f"Skipping Case {case['test_case']}: E5M2 not supported")
+            continue
+        if not support_mxfp6 and (fmt_a in [2, 3] or fmt_b in [2, 3]):
+            dut._log.info(f"Skipping Case {case['test_case']}: MXFP6 not supported")
+            continue
+        if not support_mxfp4 and (fmt_a == 4 or fmt_b == 4):
+            dut._log.info(f"Skipping Case {case['test_case']}: MXFP4 not supported")
+            continue
+        if not support_int8 and (fmt_a in [5, 6] or fmt_b in [5, 6]):
+            dut._log.info(f"Skipping Case {case['test_case']}: INT8 not supported")
+            continue
+        if not support_mixed and (fmt_a != fmt_b):
+            dut._log.info(f"Skipping Case {case['test_case']}: Mixed Precision not supported")
+            continue
+        if not support_shared and (inputs.get('scale_a', 127) != 127 or inputs.get('scale_b', 127) != 127):
+            dut._log.info(f"Skipping Case {case['test_case']}: Shared Scaling not supported")
+            continue
+        if not support_adv and inputs.get('round_mode', 0) in [1, 2]:
+            dut._log.info(f"Skipping Case {case['test_case']}: Advanced Rounding not supported")
+            continue
+
+        dut._log.info(f"Running Case {case['test_case']}: {comment}")
+        await run_mac_test(dut,
+                           format_a=fmt_a,
+                           format_b=fmt_b,
+                           a_elements=inputs['a_elements'],
+                           b_elements=inputs['b_elements'],
+                           scale_a=inputs.get('scale_a', 127),
+                           scale_b=inputs.get('scale_b', 127),
+                           round_mode=inputs.get('round_mode', 0),
+                           overflow_wrap=inputs.get('overflow_mode', 0),
+                           expected_override=expected)
