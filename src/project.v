@@ -50,10 +50,12 @@ module tt_um_chatelao_fp8_multiplier #(
     initial begin
         state = STATE_IDLE;
         cycle_count = 6'd0;
-        scale_a = 8'd0;
-        scale_b = 8'd0;
+        if (ENABLE_SHARED_SCALING) begin
+            scale_a = 8'd0;
+            scale_b = 8'd0;
+        end
         format_a = 3'd0;
-        format_b = 3'd0;
+        if (SUPPORT_MIXED_PRECISION) format_b = 3'd0;
         round_mode = 2'd0;
         overflow_wrap = 1'b0;
     end
@@ -67,10 +69,12 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             cycle_count <= 6'd0;
             state <= STATE_IDLE;
-            scale_a <= 8'd0;
-            scale_b <= 8'd0;
+            if (ENABLE_SHARED_SCALING) begin
+                scale_a <= 8'd0;
+                scale_b <= 8'd0;
+            end
             format_a <= 3'd0;
-            format_b <= 3'd0;
+            if (SUPPORT_MIXED_PRECISION) format_b <= 3'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
         end else if (ena) begin
@@ -84,15 +88,15 @@ module tt_um_chatelao_fp8_multiplier #(
                 case (cycle_count)
                     6'd0:  state <= STATE_LOAD_SCALE;
                     6'd1:  begin
-                             scale_a       <= ui_in;
+                             if (ENABLE_SHARED_SCALING) scale_a <= ui_in;
                              format_a      <= uio_in[2:0];
                              round_mode    <= uio_in[4:3];
                              overflow_wrap <= uio_in[5];
                            end
                     6'd2:  begin
                              state    <= STATE_STREAM;
-                             scale_b  <= uio_in;
-                             format_b <= SUPPORT_MIXED_PRECISION ? ui_in[2:0] : format_a; // Use format_a if mixed disabled
+                             if (ENABLE_SHARED_SCALING) scale_b  <= uio_in;
+                             if (SUPPORT_MIXED_PRECISION) format_b <= ui_in[2:0];
                            end
                     6'd36: state <= STATE_OUTPUT;
                     6'd40: state   <= STATE_IDLE;
@@ -115,12 +119,13 @@ module tt_um_chatelao_fp8_multiplier #(
         .SUPPORT_E5M2(SUPPORT_E5M2),
         .SUPPORT_MXFP6(SUPPORT_MXFP6),
         .SUPPORT_MXFP4(SUPPORT_MXFP4),
-        .SUPPORT_INT8(SUPPORT_INT8)
+        .SUPPORT_INT8(SUPPORT_INT8),
+        .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION)
     ) multiplier (
         .a(ui_in),
         .b(uio_in),
         .format_a(format_a),
-        .format_b(format_b),
+        .format_b(SUPPORT_MIXED_PRECISION ? format_b : format_a),
         .prod(mul_prod),
         .exp_sum(mul_exp_sum),
         .sign(mul_sign)
@@ -145,7 +150,9 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 2. Shared Scale Calculation
     // S = XA + XB - 254. UE8M0 has bias 127.
-    wire signed [9:0] shared_exp = $signed({2'b0, scale_a}) + $signed({2'b0, scale_b}) - 10'sd254;
+    wire [7:0] sa = ENABLE_SHARED_SCALING ? scale_a : 8'd127;
+    wire [7:0] sb = ENABLE_SHARED_SCALING ? scale_b : 8'd127;
+    wire signed [9:0] shared_exp = $signed({2'b0, sa}) + $signed({2'b0, sb}) - 10'sd254;
 
     // 3. Aligner Multiplexing
     // We reuse the fp8_aligner for both element alignment and final shared scaling.
