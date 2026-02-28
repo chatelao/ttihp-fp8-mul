@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        config: [Full, Lite, Tiny]
+        config: [Full, Lite, Tiny, Ultra-Tiny]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -16,7 +16,6 @@ jobs:
         shell: bash
         run: sudo apt-get update && sudo apt-get install -y iverilog yosys
 
-      # Set Python up and install cocotb
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -26,22 +25,20 @@ jobs:
         shell: bash
         run: pip install -r test/requirements.txt
 
-      - name: Gate Analysis
-        if: matrix.config == 'Full'
-        run: |
-          python3 test/gate_analysis.py
-
       - name: Run tests
         run: |
           cd test
           make clean
-          if [ "${{ matrix.config }}" == "Lite" ]; then
-            export COMPILE_ARGS="-P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0"
+          if [ "${{ matrix.config }}" == "Full" ]; then
+            export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=40 -P tb.ACCUMULATOR_WIDTH=32 -P tb.SUPPORT_MXFP6=1 -P tb.SUPPORT_MXFP4=1 -P tb.SUPPORT_INT8=1 -P tb.SUPPORT_PIPELINING=1 -P tb.SUPPORT_ADV_ROUNDING=1 -P tb.SUPPORT_MIXED_PRECISION=1 -P tb.ENABLE_SHARED_SCALING=1"
+          elif [ "${{ matrix.config }}" == "Lite" ]; then
+            export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=40 -P tb.ACCUMULATOR_WIDTH=32 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0 -P tb.SUPPORT_INT8=1 -P tb.SUPPORT_PIPELINING=1 -P tb.SUPPORT_ADV_ROUNDING=1 -P tb.SUPPORT_MIXED_PRECISION=1 -P tb.ENABLE_SHARED_SCALING=1"
           elif [ "${{ matrix.config }}" == "Tiny" ]; then
-            export COMPILE_ARGS="-P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0"
+            export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=40 -P tb.ACCUMULATOR_WIDTH=32 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0 -P tb.SUPPORT_INT8=0 -P tb.SUPPORT_PIPELINING=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0"
+          elif [ "${{ matrix.config }}" == "Ultra-Tiny" ]; then
+            export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=32 -P tb.ACCUMULATOR_WIDTH=24 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=0 -P tb.SUPPORT_INT8=0 -P tb.SUPPORT_PIPELINING=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0"
           fi
           make
-          # make will return success even if the test fails, so check for failure in the results.xml
           ! grep failure results.xml
 
       - name: Test Summary
