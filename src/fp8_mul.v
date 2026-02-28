@@ -1,5 +1,6 @@
 `default_nettype none
 
+// This file contains logic derived from fp8_mul by Clive Chan (https://github.com/cchan/fp8_mul)
 module fp8_mul #(
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
