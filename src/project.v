@@ -43,20 +43,53 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [5:0] cycle_count;
 
     // MXFP Registers
-    reg [7:0] scale_a;
-    reg [7:0] scale_b;
+    wire [7:0] scale_a;
+    wire [7:0] scale_b;
+    generate
+        if (ENABLE_SHARED_SCALING) begin : scaling_reg_gen
+            reg [7:0] scale_a_reg;
+            reg [7:0] scale_b_reg;
+            assign scale_a = scale_a_reg;
+            assign scale_b = scale_b_reg;
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    scale_a_reg <= 8'd0;
+                    scale_b_reg <= 8'd0;
+                end else if (ena) begin
+                    if (cycle_count == 6'd1) scale_a_reg <= ui_in;
+                    if (cycle_count == 6'd2) scale_b_reg <= ui_in;
+                end
+            end
+        end else begin : no_scaling_reg_gen
+            assign scale_a = 8'd0;
+            assign scale_b = 8'd0;
+        end
+    endgenerate
+
     reg [2:0] format_a;
-    reg [2:0] format_b;
+    wire [2:0] format_b;
+    generate
+        if (SUPPORT_MIXED_PRECISION) begin : fmt_b_gen
+            reg [2:0] format_b_reg;
+            assign format_b = format_b_reg;
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    format_b_reg <= 3'd0;
+                end else if (ena) begin
+                    if (cycle_count == 6'd2) format_b_reg <= uio_in[2:0];
+                end
+            end
+        end else begin : no_fmt_b_gen
+            assign format_b = format_a;
+        end
+    endgenerate
     reg [1:0] round_mode;
     reg       overflow_wrap;
 
     initial begin
         state = STATE_IDLE;
         cycle_count = 6'd0;
-        scale_a = 8'd0;
-        scale_b = 8'd0;
         format_a = 3'd0;
-        format_b = 3'd0;
         round_mode = 2'd0;
         overflow_wrap = 1'b0;
     end
@@ -70,10 +103,7 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             cycle_count <= 6'd0;
             state <= STATE_IDLE;
-            scale_a <= 8'd0;
-            scale_b <= 8'd0;
             format_a <= 3'd0;
-            format_b <= 3'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
         end else if (ena) begin
@@ -87,15 +117,12 @@ module tt_um_chatelao_fp8_multiplier #(
                 case (cycle_count)
                     6'd0:  state <= STATE_LOAD_SCALE;
                     6'd1:  begin
-                             scale_a       <= ui_in;
                              format_a      <= uio_in[2:0];
                              round_mode    <= uio_in[4:3];
                              overflow_wrap <= uio_in[5];
                            end
                     6'd2:  begin
                              state    <= STATE_STREAM;
-                             scale_b  <= ui_in;
-                             format_b <= SUPPORT_MIXED_PRECISION ? uio_in[2:0] : format_a; // Use format_a if mixed disabled
                            end
                     6'd36: state <= STATE_OUTPUT;
                     6'd40: state   <= STATE_IDLE;
@@ -121,6 +148,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
                 .SUPPORT_INT8(SUPPORT_INT8),
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
                 .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
             ) multiplier (
                 .a(ui_in),
@@ -136,7 +164,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
-                .SUPPORT_INT8(SUPPORT_INT8)
+                .SUPPORT_INT8(SUPPORT_INT8),
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION)
             ) multiplier (
                 .a(ui_in),
                 .b(uio_in),

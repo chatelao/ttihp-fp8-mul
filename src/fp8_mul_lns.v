@@ -7,6 +7,7 @@ module fp8_mul_lns #(
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
     parameter SUPPORT_INT8  = 1,
+    parameter SUPPORT_MIXED_PRECISION = 1,
     parameter USE_LNS_MUL_PRECISE = 0
 )(
     input  wire [7:0] a,
@@ -37,6 +38,85 @@ module fp8_mul_lns #(
     reg signed [6:0] exp_sum_res;
     reg sign_res;
     reg [3:0] m_sum;
+
+    task automatic decode_operand;
+        input [7:0] bits;
+        input [2:0] fmt;
+        output s;
+        output [4:0] e;
+        output [7:0] m;
+        output signed [5:0] b;
+        output z;
+        output is_i;
+        begin
+            s = 1'b0;
+            e = 5'd0;
+            m = 8'd0;
+            b = 6'sd0;
+            z = 1'b1;
+            is_i = 1'b0;
+            case (fmt)
+                FMT_E4M3: begin
+                    s = bits[7];
+                    e = {1'b0, bits[6:3]};
+                    m = {4'b0, 1'b1, bits[2:0]};
+                    b = 6'sd7;
+                    z = (e == 5'd0);
+                end
+                FMT_E5M2: if (SUPPORT_E5M2) begin
+                    s = bits[7];
+                    e = bits[6:2];
+                    m = {4'b0, 1'b1, bits[1:0], 1'b0};
+                    b = 6'sd15;
+                    z = (e == 5'd0);
+                end
+                FMT_E3M2: if (SUPPORT_MXFP6) begin
+                    s = bits[5];
+                    e = {2'b0, bits[4:2]};
+                    m = {4'b0, 1'b1, bits[1:0], 1'b0};
+                    b = 6'sd3;
+                    z = (e == 5'd0);
+                end
+                FMT_E2M3: if (SUPPORT_MXFP6) begin
+                    s = bits[5];
+                    e = {3'b0, bits[4:3]};
+                    m = {4'b0, 1'b1, bits[2:0]};
+                    b = 6'sd1;
+                    z = (e == 5'd0);
+                end
+                FMT_E2M1: if (SUPPORT_MXFP4) begin
+                    s = bits[3];
+                    e = {3'b0, bits[2:1]};
+                    m = {4'b0, 1'b1, bits[0], 2'b0};
+                    b = 6'sd1;
+                    z = (e == 5'd0);
+                end
+                FMT_INT8: if (SUPPORT_INT8) begin
+                    s = bits[7];
+                    m = bits[7] ? -bits : bits;
+                    e = 5'd0;
+                    b = 6'sd3;
+                    z = (bits == 8'd0);
+                    is_i = 1'b1;
+                end
+                FMT_INT8_SYM: if (SUPPORT_INT8) begin
+                    s = bits[7];
+                    m = (bits == 8'h80) ? 8'd127 : (bits[7] ? -bits : bits);
+                    e = 5'd0;
+                    b = 6'sd3;
+                    z = (bits == 8'd0);
+                    is_i = 1'b1;
+                end
+                default: begin
+                    s = bits[7];
+                    e = {1'b0, bits[6:3]};
+                    m = {4'b0, 1'b1, bits[2:0]};
+                    b = 6'sd7;
+                    z = (e == 5'd0);
+                end
+            endcase
+        end
+    endtask
 
     // Precise LNS LUT: 64x4 (3 bits M_res, 1 bit carry)
     // Mapping: {ma[2:0], mb[2:0]} -> {carry, m_res[2:0]}
@@ -73,129 +153,9 @@ module fp8_mul_lns #(
         sign_res = 1'b0;
         m_sum = 4'd0;
 
-        // Operand A Decoding (Same as fp8_mul.v)
-        case (format_a)
-            FMT_E4M3: begin
-                sign_a = a[7];
-                ea = {1'b0, a[6:3]};
-                ma = {4'b0, 1'b1, a[2:0]};
-                bias_a = 6'sd7;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E5M2: if (SUPPORT_E5M2) begin
-                sign_a = a[7];
-                ea = a[6:2];
-                ma = {4'b0, 1'b1, a[1:0], 1'b0};
-                bias_a = 6'sd15;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E3M2: if (SUPPORT_MXFP6) begin
-                sign_a = a[5];
-                ea = {2'b0, a[4:2]};
-                ma = {4'b0, 1'b1, a[1:0], 1'b0};
-                bias_a = 6'sd3;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E2M3: if (SUPPORT_MXFP6) begin
-                sign_a = a[5];
-                ea = {3'b0, a[4:3]};
-                ma = {4'b0, 1'b1, a[2:0]};
-                bias_a = 6'sd1;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E2M1: if (SUPPORT_MXFP4) begin
-                sign_a = a[3];
-                ea = {3'b0, a[2:1]};
-                ma = {4'b0, 1'b1, a[0], 2'b0};
-                bias_a = 6'sd1;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_INT8: if (SUPPORT_INT8) begin
-                sign_a = a[7];
-                ma = a[7] ? -a : a;
-                ea = 5'd0;
-                bias_a = 6'sd3;
-                zero_a = (a == 8'd0);
-                is_inta = 1'b1;
-            end
-            FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                sign_a = a[7];
-                ma = (a == 8'h80) ? 8'd127 : (a[7] ? -a : a);
-                ea = 5'd0;
-                bias_a = 6'sd3;
-                zero_a = (a == 8'd0);
-                is_inta = 1'b1;
-            end
-            default: begin
-                sign_a = a[7];
-                ea = {1'b0, a[6:3]};
-                ma = {4'b0, 1'b1, a[2:0]};
-                bias_a = 6'sd7;
-                zero_a = (ea == 5'd0);
-            end
-        endcase
-
-        // Operand B Decoding (Same as fp8_mul.v)
-        case (format_b)
-            FMT_E4M3: begin
-                sign_b = b[7];
-                eb = {1'b0, b[6:3]};
-                mb = {4'b0, 1'b1, b[2:0]};
-                bias_b = 6'sd7;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E5M2: if (SUPPORT_E5M2) begin
-                sign_b = b[7];
-                eb = b[6:2];
-                mb = {4'b0, 1'b1, b[1:0], 1'b0};
-                bias_b = 6'sd15;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E3M2: if (SUPPORT_MXFP6) begin
-                sign_b = b[5];
-                eb = {2'b0, b[4:2]};
-                mb = {4'b0, 1'b1, b[1:0], 1'b0};
-                bias_b = 6'sd3;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E2M3: if (SUPPORT_MXFP6) begin
-                sign_b = b[5];
-                eb = {3'b0, b[4:3]};
-                mb = {4'b0, 1'b1, b[2:0]};
-                bias_b = 6'sd1;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E2M1: if (SUPPORT_MXFP4) begin
-                sign_b = b[3];
-                eb = {3'b0, b[2:1]};
-                mb = {4'b0, 1'b1, b[0], 2'b0};
-                bias_b = 6'sd1;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_INT8: if (SUPPORT_INT8) begin
-                sign_b = b[7];
-                mb = b[7] ? -b : b;
-                eb = 5'd0;
-                bias_b = 6'sd3;
-                zero_b = (b == 8'd0);
-                is_intb = 1'b1;
-            end
-            FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                sign_b = b[7];
-                mb = (b == 8'h80) ? 8'd127 : (b[7] ? -b : b);
-                eb = 5'd0;
-                bias_b = 6'sd3;
-                zero_b = (b == 8'd0);
-                is_intb = 1'b1;
-            end
-            default: begin
-                sign_b = b[7];
-                eb = {1'b0, b[6:3]};
-                mb = {4'b0, 1'b1, b[2:0]};
-                bias_b = 6'sd7;
-                zero_b = (eb == 5'd0);
-            end
-        endcase
+        // Shared Operand Decoders
+        decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a, is_inta);
+        decode_operand(b, SUPPORT_MIXED_PRECISION ? format_b : format_a, sign_b, eb, mb, bias_b, zero_b, is_intb);
 
         // Combined Log-Adder (Mitchell or Precise)
         if (is_inta || is_intb) begin
