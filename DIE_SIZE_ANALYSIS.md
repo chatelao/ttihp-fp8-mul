@@ -66,19 +66,40 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3048 | 1x1* |
-| **Tiny** | All optional features disabled | 1823 | 1x1 |
-| **Ultra-Tiny** | Reduced widths (32/24) | 1588 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 3418 | 1x1* |
+| **Tiny** | All optional features disabled | 2272 | 1x1 |
+| **Ultra-Tiny** | Reduced widths (32/24) | 2010 | 1x1 |
 
-*\*The "Full" build now approaches the 1x1 tile limit (~1500-2000 gates) thanks to the register reuse and FSM optimizations.*
+*\*The "Full" build now approaches the 1x1 tile limit (~2000-3500 gates) thanks to the register reuse and FSM optimizations.*
+
+### Variant Feature Comparison Matrix
+
+| Feature / Parameter | Full | Tiny | Ultra-Tiny |
+|---|:---:|:---:|:---:|
+| `SUPPORT_E5M2` | ✅ | ❌ | ❌ |
+| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ |
+| `SUPPORT_MXFP4` | ✅ | ❌ | ❌ |
+| `SUPPORT_INT8` | ✅ | ❌ | ❌ |
+| `SUPPORT_PIPELINING` | ✅ | ❌ | ❌ |
+| `SUPPORT_ADV_ROUNDING` | ✅ | ❌ | ❌ |
+| `SUPPORT_MIXED_PRECISION` | ✅ | ❌ | ❌ |
+| `ENABLE_SHARED_SCALING` | ✅ | ❌ | ❌ |
+| `ALIGNER_WIDTH` | **40** | **40** | **32** |
+| `ACCUMULATOR_WIDTH` | **32** | **32** | **24** |
 
 ## 3. Automated Gate Impact Analysis (Post-Optimization)
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3048 | 0 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 3033 | -15 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2628 | -420 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 2358 | -690 |
-| **Tiny (All Disabled)** | All features disabled | 1823 | -1225 |
-| **Ultra-Tiny** | Reduced internal widths | 1588 | -1460 |
+| **Baseline (Full)** | All features enabled | 3418 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 3395 | -23 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 3402 | -16 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 3419 | +1 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2950 | -468 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 3392 | -26 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3168 | -250 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3418 | 0 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3166 | -252 |
+| **Tiny (All Disabled)** | All features disabled | 2272 | -1146 |
+| **Ultra-Tiny** | Reduced internal widths | 2010 | -1408 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1691 | -1727 |
