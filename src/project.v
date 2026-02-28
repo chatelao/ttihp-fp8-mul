@@ -10,9 +10,12 @@
 
 module tt_um_chatelao_fp8_multiplier #(
     parameter ALIGNER_WIDTH = 40,
+    parameter ACCUMULATOR_WIDTH = 32,
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
+    parameter SUPPORT_INT8  = 1,
+    parameter SUPPORT_PIPELINING = 1,
     parameter SUPPORT_ADV_ROUNDING = 1,
     parameter SUPPORT_MIXED_PRECISION = 1,
     parameter ENABLE_SHARED_SCALING = 1
@@ -111,7 +114,8 @@ module tt_um_chatelao_fp8_multiplier #(
     fp8_mul #(
         .SUPPORT_E5M2(SUPPORT_E5M2),
         .SUPPORT_MXFP6(SUPPORT_MXFP6),
-        .SUPPORT_MXFP4(SUPPORT_MXFP4)
+        .SUPPORT_MXFP4(SUPPORT_MXFP4),
+        .SUPPORT_INT8(SUPPORT_INT8)
     ) multiplier (
         .a(ui_in),
         .b(uio_in),
@@ -145,13 +149,16 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 3. Aligner Multiplexing
     // We reuse the fp8_aligner for both element alignment and final shared scaling.
-    wire [31:0] acc_out;
-    wire [31:0] acc_abs = acc_out[31] ? -acc_out : acc_out;
+    wire [ACCUMULATOR_WIDTH-1:0] acc_out;
+    wire [ACCUMULATOR_WIDTH-1:0] acc_abs = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
 
-    // Shift aligner inputs by 1 cycle due to multiplier pipeline
-    wire [31:0] aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_abs : {16'd0, mul_prod_reg};
-    wire signed [9:0] aligner_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? (shared_exp + 10'sd5) : {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg};
-    wire aligner_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_out[31] : mul_sign_reg;
+    // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
+    wire [31:0] aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ?
+                                    (ACCUMULATOR_WIDTH > 32 ? acc_abs[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs}) :
+                                    {16'd0, SUPPORT_PIPELINING ? mul_prod_reg : mul_prod};
+    wire signed [9:0] aligner_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? (shared_exp + 10'sd5) :
+                                    (SUPPORT_PIPELINING ? {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg} : {{3{mul_exp_sum[6]}}, mul_exp_sum});
+    wire aligner_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_out[ACCUMULATOR_WIDTH-1] : (SUPPORT_PIPELINING ? mul_sign_reg : mul_sign);
 
     wire [31:0] aligned_res;
     fp8_aligner #(
@@ -168,16 +175,21 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 4. Accumulator Control
     // With multiplier pipelining, aligned products are ready at cycles 4 to 35.
-    wire acc_en    = (cycle_count >= 6'd4 && cycle_count <= 6'd35) && (state == STATE_STREAM || state == STATE_OUTPUT);
+    // Without pipelining, they are ready at cycles 3 to 34.
+    wire acc_en    = SUPPORT_PIPELINING ?
+                     ((cycle_count >= 6'd4 && cycle_count <= 6'd35) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     ((cycle_count >= 6'd3 && cycle_count <= 6'd34) && (state == STATE_STREAM));
     wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
 
-    accumulator acc_inst (
+    accumulator #(
+        .WIDTH(ACCUMULATOR_WIDTH)
+    ) acc_inst (
         .clk(clk),
         .rst_n(rst_n),
         .clear(acc_clear),
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
-        .data_in(aligned_res),
+        .data_in(aligned_res[ACCUMULATOR_WIDTH-1:0]),
         .data_out(acc_out)
     );
 
@@ -188,7 +200,8 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
         end else if (ena && cycle_count == 6'd36) begin
-            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res : acc_out;
+            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res :
+                              (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
         end
     end
 

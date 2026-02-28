@@ -24,9 +24,12 @@ module tb ();
   wire [7:0] uio_oe;
 
   parameter ALIGNER_WIDTH = 40;
+  parameter ACCUMULATOR_WIDTH = 32;
   parameter SUPPORT_E5M2 = 1;
   parameter SUPPORT_MXFP6 = 1;
   parameter SUPPORT_MXFP4 = 1;
+  parameter SUPPORT_INT8 = 1;
+  parameter SUPPORT_PIPELINING = 1;
   parameter SUPPORT_ADV_ROUNDING = 1;
   parameter SUPPORT_MIXED_PRECISION = 1;
   parameter ENABLE_SHARED_SCALING = 1;
@@ -47,9 +50,12 @@ module tb ();
   // RTL simulation instantiation (with parameters)
   tt_um_chatelao_fp8_multiplier #(
       .ALIGNER_WIDTH(ALIGNER_WIDTH),
+      .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
       .SUPPORT_E5M2(SUPPORT_E5M2),
       .SUPPORT_MXFP6(SUPPORT_MXFP6),
       .SUPPORT_MXFP4(SUPPORT_MXFP4),
+      .SUPPORT_INT8(SUPPORT_INT8),
+      .SUPPORT_PIPELINING(SUPPORT_PIPELINING),
       .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
       .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
       .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING)

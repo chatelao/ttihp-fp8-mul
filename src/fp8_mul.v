@@ -3,7 +3,8 @@
 module fp8_mul #(
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
-    parameter SUPPORT_MXFP4 = 1
+    parameter SUPPORT_MXFP4 = 1,
+    parameter SUPPORT_INT8  = 1
 )(
     input  wire [7:0] a,
     input  wire [7:0] b,
@@ -87,14 +88,14 @@ module fp8_mul #(
                 bias_a = 6'sd1;
                 zero_a = (ea == 5'd0);
             end
-            FMT_INT8: begin
+            FMT_INT8: if (SUPPORT_INT8) begin
                 sign_a = a[7];
                 ma = a[7] ? -a : a;
                 ea = 5'd0;
                 bias_a = 6'sd3;
                 zero_a = (a == 8'd0);
             end
-            FMT_INT8_SYM: begin
+            FMT_INT8_SYM: if (SUPPORT_INT8) begin
                 sign_a = a[7];
                 ma = (a == 8'h80) ? 8'd127 : (a[7] ? -a : a);
                 ea = 5'd0;
@@ -147,14 +148,14 @@ module fp8_mul #(
                 bias_b = 6'sd1;
                 zero_b = (eb == 5'd0);
             end
-            FMT_INT8: begin
+            FMT_INT8: if (SUPPORT_INT8) begin
                 sign_b = b[7];
                 mb = b[7] ? -b : b;
                 eb = 5'd0;
                 bias_b = 6'sd3;
                 zero_b = (b == 8'd0);
             end
-            FMT_INT8_SYM: begin
+            FMT_INT8_SYM: if (SUPPORT_INT8) begin
                 sign_b = b[7];
                 mb = (b == 8'h80) ? 8'd127 : (b[7] ? -b : b);
                 eb = 5'd0;
@@ -170,8 +171,11 @@ module fp8_mul #(
             end
         endcase
 
-        // 8x8 Multiplier
-        p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
+        // 8x8 or 4x4 Multiplier
+        if (SUPPORT_INT8)
+            p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
+        else
+            p_res = (zero_a || zero_b) ? 16'd0 : {8'd0, ma[3:0] * mb[3:0]};
         sign_res = sign_a ^ sign_b;
         exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
     end
