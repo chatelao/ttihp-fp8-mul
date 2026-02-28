@@ -33,6 +33,7 @@ module tb ();
   parameter SUPPORT_ADV_ROUNDING = 1;
   parameter SUPPORT_MIXED_PRECISION = 1;
   parameter ENABLE_SHARED_SCALING = 1;
+  parameter USE_LNS_MUL = 0;
 
 `ifdef GL_TEST
   // Gate-level simulation instantiation (no parameters)
@@ -58,7 +59,8 @@ module tb ();
       .SUPPORT_PIPELINING(SUPPORT_PIPELINING),
       .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
       .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
-      .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING)
+      .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
+      .USE_LNS_MUL(USE_LNS_MUL)
   ) user_project (
       .ui_in  (ui_in),    // Dedicated inputs
       .uo_out (uo_out),   // Dedicated outputs
