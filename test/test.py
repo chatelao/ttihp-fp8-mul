@@ -165,20 +165,25 @@ async def reset_dut(dut):
     await ClockCycles(dut.clk, 1)
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0):
-    # Retrieve parameters from hardware, use tb values if available
-    support_mixed = get_param(getattr(dut, "SUPPORT_MIXED_PRECISION", None), 1)
+    # Determine the location of parameters based on simulation type (RTL vs GL)
+    if hasattr(dut, "user_project"):
+        target = dut.user_project
+    else:
+        target = dut
+
+    support_mixed = get_param(getattr(target, "SUPPORT_MIXED_PRECISION", None), 1)
     if not support_mixed: format_b = format_a
 
-    support_adv = get_param(getattr(dut, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_adv = get_param(getattr(target, "SUPPORT_ADV_ROUNDING", None), 1)
     if not support_adv:
         if round_mode in [1, 2]: round_mode = 0
 
-    support_e5m2 = get_param(getattr(dut, "SUPPORT_E5M2", None), 1)
-    support_mxfp6 = get_param(getattr(dut, "SUPPORT_MXFP6", None), 1)
-    support_mxfp4 = get_param(getattr(dut, "SUPPORT_MXFP4", None), 1)
-    support_int8 = get_param(getattr(dut, "SUPPORT_INT8", None), 1)
-    aligner_width = get_param(getattr(dut, "ALIGNER_WIDTH", None), 40)
-    acc_width = get_param(getattr(dut, "ACCUMULATOR_WIDTH", None), 32)
+    support_e5m2 = get_param(getattr(target, "SUPPORT_E5M2", None), 1)
+    support_mxfp6 = get_param(getattr(target, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(target, "SUPPORT_MXFP4", None), 1)
+    support_int8 = get_param(getattr(target, "SUPPORT_INT8", None), 1)
+    aligner_width = get_param(getattr(target, "ALIGNER_WIDTH", None), 40)
+    acc_width = get_param(getattr(target, "ACCUMULATOR_WIDTH", None), 32)
 
     await reset_dut(dut)
 
@@ -214,7 +219,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     await ClockCycles(dut.clk, 2)
 
-    support_shared = get_param(getattr(dut, "ENABLE_SHARED_SCALING", None), 1)
+    support_shared = get_param(getattr(target, "ENABLE_SHARED_SCALING", None), 1)
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
@@ -259,7 +264,9 @@ async def test_mxfp8_mac_e5m2(dut):
 
 @cocotb.test()
 async def test_rounding_modes(dut):
-    support_adv = get_param(getattr(dut, "SUPPORT_ADV_ROUNDING", None), 1)
+    if hasattr(dut, "user_project"): target = dut.user_project
+    else: target = dut
+    support_adv = get_param(getattr(target, "SUPPORT_ADV_ROUNDING", None), 1)
     if not support_adv: return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -290,7 +297,9 @@ async def test_accumulator_saturation(dut):
 
 @cocotb.test()
 async def test_mixed_precision(dut):
-    support_mixed = get_param(getattr(dut, "SUPPORT_MIXED_PRECISION", None), 1)
+    if hasattr(dut, "user_project"): target = dut.user_project
+    else: target = dut
+    support_mixed = get_param(getattr(target, "SUPPORT_MIXED_PRECISION", None), 1)
     if not support_mixed: return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -301,12 +310,14 @@ async def test_mixed_precision(dut):
 @cocotb.test()
 async def test_mxfp_mac_randomized(dut):
     import random
-    support_e5m2 = get_param(getattr(dut, "SUPPORT_E5M2", None), 1)
-    support_mxfp6 = get_param(getattr(dut, "SUPPORT_MXFP6", None), 1)
-    support_mxfp4 = get_param(getattr(dut, "SUPPORT_MXFP4", None), 1)
-    support_adv = get_param(getattr(dut, "SUPPORT_ADV_ROUNDING", None), 1)
-    support_mixed = get_param(getattr(dut, "SUPPORT_MIXED_PRECISION", None), 1)
-    support_int8 = get_param(getattr(dut, "SUPPORT_INT8", None), 1)
+    if hasattr(dut, "user_project"): target = dut.user_project
+    else: target = dut
+    support_e5m2 = get_param(getattr(target, "SUPPORT_E5M2", None), 1)
+    support_mxfp6 = get_param(getattr(target, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(target, "SUPPORT_MXFP4", None), 1)
+    support_adv = get_param(getattr(target, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_mixed = get_param(getattr(target, "SUPPORT_MIXED_PRECISION", None), 1)
+    support_int8 = get_param(getattr(target, "SUPPORT_INT8", None), 1)
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
     allowed_formats = [0]
@@ -332,9 +343,11 @@ async def test_fast_start_scale_compression(dut):
     scale_a, scale_b = 128, 127
     a_elements, b_elements = [0x38] * 32, [0x38] * 32
     await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b)
-    support_shared = get_param(getattr(dut, "ENABLE_SHARED_SCALING", None), 1)
-    aligner_width = get_param(getattr(dut, "ALIGNER_WIDTH", None), 40)
-    acc_width = get_param(getattr(dut, "ACCUMULATOR_WIDTH", None), 32)
+    if hasattr(dut, "user_project"): target = dut.user_project
+    else: target = dut
+    support_shared = get_param(getattr(target, "ENABLE_SHARED_SCALING", None), 1)
+    aligner_width = get_param(getattr(target, "ALIGNER_WIDTH", None), 40)
+    acc_width = get_param(getattr(target, "ACCUMULATOR_WIDTH", None), 32)
     dut.ui_in.value = 0x80
     await ClockCycles(dut.clk, 1)
     expected_acc = 0
