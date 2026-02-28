@@ -12,6 +12,10 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(fsm_logic, "State Machine", "Verilog", "IDLE, LOAD, STREAM, OUTPUT transitions.")
         Component(config_regs, "Config Registers", "Registers", "Stores scales, formats, and rounding modes.")
         Component(fast_start, "Fast Start Logic", "Logic", "Handles scale compression (Cycle 0).")
+
+        Rel(fast_start, counter, "Override", "Cycle 3")
+        Rel(counter, fsm_logic, "Count", "6-bit")
+        Rel(fsm_logic, config_regs, "Load", "Enable")
     }
 
     Container_Boundary(mul_block, "FP8 Multiplier") {
@@ -19,6 +23,10 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(m_mul, "Mantissa Multiplier", "8x8 or 4x4", "Signed or approximate (LNS) multiplication.")
         Component(exp_arith, "Exponent Arithmetic", "Logic", "Summation and bias adjustment.")
         Component(sign_logic, "Sign Logic", "XOR", "Result sign calculation.")
+
+        Rel(decoders, m_mul, "Mantissas", "8-bit")
+        Rel(decoders, exp_arith, "Exponents", "5-bit")
+        Rel(decoders, sign_logic, "Signs", "1-bit")
     }
 
     Container_Boundary(align_block, "Aligner & Scaler") {
@@ -26,17 +34,28 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Component(round_unit, "Rounding Unit", "Logic", "Implements RNE, TRN, CEL, FLR.")
         Component(sticky_gen, "Sticky Bit Gen", "OR-reduction", "Accurate rounding for right-shifts.")
         Component(sat_logic, "Saturation Logic", "Clamping", "Handles overflow and 32-bit clamping.")
+
+        Rel(shifter, sticky_gen, "LSBs", "Masked")
+        Rel(shifter, round_unit, "Base", "WIDTH-bit")
+        Rel(sticky_gen, round_unit, "Sticky", "1-bit")
+        Rel(round_unit, sat_logic, "Rounded", "WIDTH-bit")
     }
 
     Container_Boundary(acc_block, "Accumulator") {
         Component(adder, "32-bit Signed Adder", "accumulator.v", "Core summation logic.")
         Component(ovf_det, "Overflow Detector", "Logic", "SAT/WRAP logic based on config.")
         Component(acc_reg, "Accumulation Reg", "Register", "Stores the running 32-bit sum.")
+
+        Rel(adder, ovf_det, "Sum", "WIDTH+1-bit")
+        Rel(ovf_det, acc_reg, "Sum/Sat", "WIDTH-bit")
+        Rel(acc_reg, adder, "Feedback", "32-bit")
     }
 
     Container_Boundary(serial_block, "Output Serializer") {
         Component(byte_mux, "Byte Multiplexer", "Verilog", "Selects 8-bit chunk from 32-bit result.")
         Component(serial_reg, "Serialization Reg", "Register", "Pipelined output buffering (Cycle 37-40).")
+
+        Rel(byte_mux, serial_reg, "Byte", "8-bit")
     }
 }
 
