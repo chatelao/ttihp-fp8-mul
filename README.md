@@ -6,7 +6,12 @@ This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible wi
 
 ## Attributions
 
-This project incorporates logic and concepts from the [fp8_mul](https://github.com/cchan/fp8_mul) project by Clive Chan. We gratefully acknowledge his contributions to the open-source hardware community.
+This project incorporates logic and concepts from several open-source resources:
+- [fp8_mul](https://github.com/cchan/fp8_mul) by Clive Chan (Arithmetic logic).
+- [Tiny Tapeout Verilog Template](https://github.com/tinytapeout/tt-verilog-template) (Project structure).
+- [OCP Microscaling Formats (MX) Specification v1.0](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) (Numerical and Protocol Specification).
+
+We gratefully acknowledge these contributions to the open-source hardware and AI communities.
 
 ## System Context
 
