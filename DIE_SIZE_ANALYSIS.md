@@ -67,25 +67,26 @@ The implementation has been refactored to support aggressive area optimizations,
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
 | **Baseline (Full)** | All features enabled, 40/32 width | 3418 | 1x1* |
+| **Lite** | Disable MXFP6/4 | 3365 | 1x1* |
 | **Tiny** | All optional features disabled | 2272 | 1x1 |
-| **Ultra-Tiny** | Reduced widths (32/24) | 2010 | 1x1 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2010 | 1x1 |
 
-*\*The "Full" build now approaches the 1x1 tile limit (~2000-3500 gates) thanks to the register reuse and FSM optimizations.*
+*\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
 ### Variant Feature Comparison Matrix
 
-| Feature / Parameter | Full | Tiny | Ultra-Tiny |
-|---|:---:|:---:|:---:|
-| `SUPPORT_E5M2` | ✅ | ❌ | ❌ |
-| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ |
-| `SUPPORT_MXFP4` | ✅ | ❌ | ❌ |
-| `SUPPORT_INT8` | ✅ | ❌ | ❌ |
-| `SUPPORT_PIPELINING` | ✅ | ❌ | ❌ |
-| `SUPPORT_ADV_ROUNDING` | ✅ | ❌ | ❌ |
-| `SUPPORT_MIXED_PRECISION` | ✅ | ❌ | ❌ |
-| `ENABLE_SHARED_SCALING` | ✅ | ❌ | ❌ |
-| `ALIGNER_WIDTH` | **40** | **40** | **32** |
-| `ACCUMULATOR_WIDTH` | **32** | **32** | **24** |
+| Feature / Parameter | Full | Lite | Tiny | Ultra-Tiny |
+|---|:---:|:---:|:---:|:---:|
+| `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ |
+| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP4` | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ |
+| `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ |
+| `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
+| `SUPPORT_MIXED_PRECISION` | ✅ | ✅ | ❌ | ❌ |
+| `ENABLE_SHARED_SCALING` | ✅ | ✅ | ❌ | ❌ |
+| `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** |
+| `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** |
 
 ## 3. Automated Gate Impact Analysis (Post-Optimization)
 
