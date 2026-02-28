@@ -10,16 +10,16 @@
 `include "accumulator.v"
 
 module tt_um_chatelao_fp8_multiplier #(
-    parameter ALIGNER_WIDTH = 40,
-    parameter ACCUMULATOR_WIDTH = 32,
-    parameter SUPPORT_E5M2  = 1,
-    parameter SUPPORT_MXFP6 = 1,
-    parameter SUPPORT_MXFP4 = 1,
-    parameter SUPPORT_INT8  = 1,
-    parameter SUPPORT_PIPELINING = 1,
-    parameter SUPPORT_ADV_ROUNDING = 1,
-    parameter SUPPORT_MIXED_PRECISION = 1,
-    parameter ENABLE_SHARED_SCALING = 1,
+    parameter ALIGNER_WIDTH = 32,
+    parameter ACCUMULATOR_WIDTH = 24,
+    parameter SUPPORT_E5M2  = 0,
+    parameter SUPPORT_MXFP6 = 0,
+    parameter SUPPORT_MXFP4 = 0,
+    parameter SUPPORT_INT8  = 0,
+    parameter SUPPORT_PIPELINING = 0,
+    parameter SUPPORT_ADV_ROUNDING = 0,
+    parameter SUPPORT_MIXED_PRECISION = 0,
+    parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
