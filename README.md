@@ -12,6 +12,37 @@ This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible wi
 
 - [Read the documentation for project](documentation/INFO.md)
 - [Project Concept & Roadmap](MXFP8_CONCEPT.md)
+
+## Protocol Description (MCU to TT/FPGA)
+
+The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to process a block of 32 elements.
+
+### Operational Sequence
+
+| Cycle | Input `ui_in[7:0]` | Input `uio_in[7:0]` | Output `uo_out[7:0]` | Description |
+|-------|--------------------|---------------------|----------------------|-------------|
+| 0     | -                  | -                   | 0x00                 | **IDLE**: Waiting for start. |
+| 1     | **Scale A**        | **Config Byte**     | 0x00                 | Load Scale A and Operation Mode. |
+| 2     | **Format B**       | **Scale B**         | 0x00                 | Load Scale B and Format B. |
+| 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements. |
+| 35    | -                  | -                   | 0x00                 | Pipeline flush. |
+| 36    | -                  | -                   | 0x00                 | Final Shared Scaling calculation. |
+| 37    | -                  | -                   | **Result [31:24]**   | Output Byte 3 (MSB). |
+| 38    | -                  | -                   | **Result [23:16]**   | Output Byte 2. |
+| 39    | -                  | -                   | **Result [15:8]**    | Output Byte 1. |
+| 40    | -                  | -                   | **Result [7:0]**     | Output Byte 0 (LSB). |
+
+### Configuration Byte (Cycle 1, `uio_in`)
+- `[2:0]`: **Format A** (0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM)
+- `[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
+- `[5]`: **Overflow Mode** (0: SAT, 1: WRAP)
+
+### Format B Byte (Cycle 2, `ui_in`)
+- `[2:0]`: **Format B** (Same encoding as Format A)
+
+### Fast Start (Scale Compression)
+If `ui_in[7]` is set to `1` during **STATE_IDLE** (Cycle 0), the unit immediately jumps to **Cycle 3**. It reuses the **Scales**, **Formats**, and **Rounding Modes** from the previous operation, saving 3 clock cycles.
+
 - [MX+ Implementation Roadmap](MX_PLUS.md)
 - [Local Setup Guide (WSL2)](LOCAL_SETUP.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
