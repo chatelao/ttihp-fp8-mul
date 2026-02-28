@@ -220,7 +220,7 @@ module tt_um_chatelao_fp8_multiplier #(
         .clear(acc_clear),
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
-        .data_in(aligned_res[ACCUMULATOR_WIDTH-1:0]),
+        .data_in(acc_en ? aligned_res[ACCUMULATOR_WIDTH-1:0] : {ACCUMULATOR_WIDTH{1'b0}}),
         .data_out(acc_out)
     );
 
