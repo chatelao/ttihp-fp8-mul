@@ -15,6 +15,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~80 |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~100 |
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~150 |
+| `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~400 |
 | `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~200 (if 64->40) |
 | `USE_LNS_MUL` | `0` | Replaces the multiplier with an LNS adder. | ~400 |
 | `USE_LNS_MUL_PRECISE` | `0` | Uses a 64x4 LUT for more accurate LNS multiplication. | ~350 |
@@ -97,10 +98,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3418 | 1x1* |
-| **Lite** | Disable MXFP6/4 | 3365 | 1x1* |
-| **Tiny** | All optional features disabled | 2272 | 1x1 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2010 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 3442 | 1x1* |
+| **Lite** | Disable MXFP6/4 | 3138 | 1x1* |
+| **Tiny** | All optional features disabled | 2267 | 1x1 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2004 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -116,6 +117,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_MIXED_PRECISION` | ✅ | ✅ | ❌ | ❌ |
 | `ENABLE_SHARED_SCALING` | ✅ | ✅ | ❌ | ❌ |
+| `USE_LNS_MUL` | ❌ | ❌ | ❌ | ❌ |
 | `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** |
 | `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** |
 

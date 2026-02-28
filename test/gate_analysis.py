@@ -33,10 +33,12 @@ def main():
         "SUPPORT_PIPELINING",
         "SUPPORT_ADV_ROUNDING",
         "SUPPORT_MIXED_PRECISION",
-        "ENABLE_SHARED_SCALING"
+        "ENABLE_SHARED_SCALING",
+        "USE_LNS_MUL"
     ]
 
     baseline_params = {f: 1 for f in features}
+    baseline_params["USE_LNS_MUL"] = 0 # Baseline is standard multiplier
     baseline_params["ALIGNER_WIDTH"] = 40
     baseline_params["ACCUMULATOR_WIDTH"] = 32
     baseline_params["USE_LNS_MUL"] = 0
@@ -56,13 +58,19 @@ def main():
 
     for feature in features:
         params = baseline_params.copy()
-        params[feature] = 0
+        if feature == "USE_LNS_MUL":
+            params[feature] = 1
+            label = "Enable " + feature
+        else:
+            params[feature] = 0
+            label = "Disable " + feature
+
         gates = get_yosys_stats(params)
         if gates is not None:
             delta = gates - baseline_gates
-            print(f"{'Disable ' + feature:<30} | {gates:<10} | {delta:<10}")
+            print(f"{label:<30} | {gates:<10} | {delta:<10}")
         else:
-            print(f"{'Disable ' + feature:<30} | {'FAILED':<10} | {'N/A':<10}")
+            print(f"{label:<30} | {'FAILED':<10} | {'N/A':<10}")
 
     tiny_params = {f: 0 for f in features}
     tiny_params["ALIGNER_WIDTH"] = 40
