@@ -135,7 +135,7 @@ def get_param(handle, default=1):
         return default
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -156,15 +156,23 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if (inta and a_bits == 0) or (intb and b_bits == 0):
         return 0
 
-    real_ma = (8 + ma) if not inta else ma
-    real_mb = (8 + mb) if not intb else mb
+    if use_lns:
+        if inta or intb: return 0 # No INT8 support in LNS mode
+        m_sum = ma + mb
+        carry = m_sum >> 3
+        m_res = m_sum & 0x7
+        prod = (8 + m_res) << 3
+        exp_sum = ea + eb - (ba + bb - 7) + carry
+    else:
+        real_ma = (8 + ma) if not inta else ma
+        real_mb = (8 + mb) if not intb else mb
 
-    if not support_int8:
-        real_ma = real_ma & 0xF
-        real_mb = real_mb & 0xF
+        if not support_int8:
+            real_ma = real_ma & 0xF
+            real_mb = real_mb & 0xF
 
-    prod = real_ma * real_mb
-    exp_sum = ea + eb - (ba + bb - 7)
+        prod = real_ma * real_mb
+        exp_sum = ea + eb - (ba + bb - 7)
 
     return align_model(prod, exp_sum, sign, round_mode, overflow_wrap)
 
@@ -192,6 +200,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
     support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
+    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
     acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), 32)
 
     await reset_dut(dut)
@@ -202,15 +211,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     # Cycle 2: Load Scale B and Format B
-    dut.ui_in.value = format_b
-    dut.uio_in.value = scale_b
+    dut.ui_in.value = scale_b
+    dut.uio_in.value = format_b
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8)
+                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -462,12 +471,13 @@ async def test_fast_start_scale_compression(dut):
     # Now at Cycle 3
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
+    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
 
     expected_acc = 0
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8)
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns)
         expected_acc += prod
 
     if support_shared:
@@ -516,6 +526,7 @@ async def test_yaml_cases(dut):
     support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
     support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
 
     for case in cases:
         inputs = case['inputs']
@@ -537,6 +548,9 @@ async def test_yaml_cases(dut):
             continue
         if not support_int8 and (fmt_a in [5, 6] or fmt_b in [5, 6]):
             dut._log.info(f"Skipping Case {case['test_case']}: INT8 not supported")
+            continue
+        if use_lns and (fmt_a in [5, 6] or fmt_b in [5, 6]):
+            dut._log.info(f"Skipping Case {case['test_case']}: INT8 not supported in LNS mode")
             continue
         if not support_mixed and (fmt_a != fmt_b):
             dut._log.info(f"Skipping Case {case['test_case']}: Mixed Precision not supported")
