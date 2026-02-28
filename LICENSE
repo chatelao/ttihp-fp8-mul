@@ -199,3 +199,6 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+---
+Parts of this project are derived from fp8_mul (https://github.com/cchan/fp8_mul) by Clive Chan, which is licensed under the Apache License, Version 2.0.
