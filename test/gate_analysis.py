@@ -26,6 +26,7 @@ def get_yosys_stats(params):
 
 def main():
     features = [
+        "SUPPORT_E5M2",
         "SUPPORT_MXFP6",
         "SUPPORT_MXFP4",
         "SUPPORT_INT8",

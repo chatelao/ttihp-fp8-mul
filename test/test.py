@@ -133,7 +133,7 @@ def get_param(handle, default=1):
         return default
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -141,6 +141,8 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if not support_mxfp6 and format_b in [2, 3]: return 0
     if not support_mxfp4 and format_a == 4: return 0
     if not support_mxfp4 and format_b == 4: return 0
+    if not support_int8 and format_a in [5, 6]: return 0
+    if not support_int8 and format_b in [5, 6]: return 0
 
     sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
     sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
@@ -154,6 +156,10 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
 
     real_ma = (8 + ma) if not inta else ma
     real_mb = (8 + mb) if not intb else mb
+
+    if not support_int8:
+        real_ma = real_ma & 0xF
+        real_mb = real_mb & 0xF
 
     prod = real_ma * real_mb
     exp_sum = ea + eb - (ba + bb - 7)
@@ -183,6 +189,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
+    acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), 32)
 
     await reset_dut(dut)
 
@@ -200,24 +208,25 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4)
+                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8)
 
-        acc_32 = expected_acc & 0xFFFFFFFF
-        prod_32 = prod & 0xFFFFFFFF
-        sum_32 = (acc_32 + prod_32) & 0xFFFFFFFF
+        mask = (1 << acc_width) - 1
+        acc_masked = expected_acc & mask
+        prod_masked = prod & mask
+        sum_masked = (acc_masked + prod_masked) & mask
 
         # Signed overflow check
-        s_acc = (acc_32 >> 31) & 1
-        s_prod = (prod_32 >> 31) & 1
-        s_res = (sum_32 >> 31) & 1
+        s_acc = (acc_masked >> (acc_width - 1)) & 1
+        s_prod = (prod_masked >> (acc_width - 1)) & 1
+        s_res = (sum_masked >> (acc_width - 1)) & 1
 
         if not overflow_wrap and (s_acc == s_prod) and (s_acc != s_res):
-            expected_acc_raw = 0x80000000 if s_acc == 1 else 0x7FFFFFFF
+            expected_acc_raw = (1 << (acc_width - 1)) if s_acc == 1 else (1 << (acc_width - 1)) - 1
         else:
-            expected_acc_raw = sum_32
+            expected_acc_raw = sum_masked
 
-        if expected_acc_raw & 0x80000000:
-            expected_acc = expected_acc_raw - 0x100000000
+        if expected_acc_raw & (1 << (acc_width - 1)):
+            expected_acc = expected_acc_raw - (1 << acc_width)
         else:
             expected_acc = expected_acc_raw
 
@@ -242,7 +251,11 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         acc_sign = 1 if expected_acc < 0 else 0
         expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
     else:
-        expected_final = expected_acc
+        # If no shared scaling, the result is sign-extended to 32-bit in hardware
+        if expected_acc < 0:
+            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
+        else:
+            expected_final = expected_acc
 
     # Cycle 37-40: Output Serialized Result
     actual_acc = 0
@@ -435,6 +448,7 @@ async def test_fast_start_scale_compression(dut):
     # Manual protocol for fast start:
 
     support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
@@ -448,7 +462,7 @@ async def test_fast_start_scale_compression(dut):
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8)
         expected_acc += prod
 
     if support_shared:
