@@ -6,24 +6,51 @@ LAYOUT_WITH_LEGEND()
 Person(host, "Host System", "FPGA, Microcontroller, or Testbench")
 
 Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
-    Component(fsm, "FSM & Control", "Verilog", "Manages 41-cycle protocol, scales, and formats.")
-    Component(mul, "FP8 Multiplier", "fp8_mul.v", "Signed arithmetic with multi-format decoding (E5M2, E4M3, etc.).")
-    Component(aligner, "Aligner & Scaler", "fp8_aligner.v", "Parameterized 32-bit alignment and hardware-accelerated shared scaling.")
-    Component(acc, "Accumulator", "accumulator.v", "32-bit signed storage with configurable overflow (SAT/WRAP).")
-    Component(serial, "Output Serializer", "Verilog", "Pipelined serialization of the 32-bit result into 8-bit chunks.")
+
+    Container_Boundary(fsm_block, "FSM & Control") {
+        Component(counter, "Cycle Counter", "6-bit", "Tracks 41-cycle protocol.")
+        Component(fsm_logic, "State Machine", "Verilog", "IDLE, LOAD, STREAM, OUTPUT transitions.")
+        Component(config_regs, "Config Registers", "Registers", "Stores scales, formats, and rounding modes.")
+        Component(fast_start, "Fast Start Logic", "Logic", "Handles scale compression (Cycle 0).")
+    }
+
+    Container_Boundary(mul_block, "FP8 Multiplier") {
+        Component(decoders, "Operand Decoders", "fp8_mul.v", "Supports E5M2, E4M3, MXFP6, MXFP4, INT8.")
+        Component(m_mul, "Mantissa Multiplier", "8x8 or 4x4", "Signed or approximate (LNS) multiplication.")
+        Component(exp_arith, "Exponent Arithmetic", "Logic", "Summation and bias adjustment.")
+        Component(sign_logic, "Sign Logic", "XOR", "Result sign calculation.")
+    }
+
+    Container_Boundary(align_block, "Aligner & Scaler") {
+        Component(shifter, "Barrel Shifter", "fp8_aligner.v", "Parameterized (WIDTH) alignment.")
+        Component(round_unit, "Rounding Unit", "Logic", "Implements RNE, TRN, CEL, FLR.")
+        Component(sticky_gen, "Sticky Bit Gen", "OR-reduction", "Accurate rounding for right-shifts.")
+        Component(sat_logic, "Saturation Logic", "Clamping", "Handles overflow and 32-bit clamping.")
+    }
+
+    Container_Boundary(acc_block, "Accumulator") {
+        Component(adder, "32-bit Signed Adder", "accumulator.v", "Core summation logic.")
+        Component(ovf_det, "Overflow Detector", "Logic", "SAT/WRAP logic based on config.")
+        Component(acc_reg, "Accumulation Reg", "Register", "Stores the running 32-bit sum.")
+    }
+
+    Container_Boundary(serial_block, "Output Serializer") {
+        Component(byte_mux, "Byte Multiplexer", "Verilog", "Selects 8-bit chunk from 32-bit result.")
+        Component(serial_reg, "Serialization Reg", "Register", "Pipelined output buffering (Cycle 37-40).")
+    }
 }
 
-Rel(host, fsm, "Control & Config", "clk, rst_n, ena, ui_in, uio_in")
-Rel(host, mul, "Streaming Elements", "ui_in, uio_in (Cycles 3-34)")
+Rel(host, fsm_logic, "Control & Config", "clk, rst_n, ena, ui_in, uio_in")
+Rel(host, decoders, "Streaming Elements", "ui_in, uio_in (Cycles 3-34)")
 
-Rel(fsm, mul, "Format A/B", "3-bit indices")
-Rel(fsm, aligner, "Rounding & Scale", "round_mode, shared_exp")
-Rel(fsm, acc, "Ctrl", "en, clear")
+Rel(config_regs, decoders, "Format A/B", "3-bit indices")
+Rel(config_regs, round_unit, "Rounding Mode", "2-bit")
+Rel(fsm_logic, acc_reg, "Ctrl", "en, clear")
 
-Rel(mul, aligner, "Partial Product", "16-bit Mantissa, 7-bit Exp")
-Rel(aligner, acc, "Aligned Data", "Internal Datapath")
-Rel(acc, aligner, "Feedback", "Shared Scaling Path (Cycle 36)")
-Rel(aligner, serial, "Result", "32-bit Scaled")
-Rel(serial, host, "Result Byte", "uo_out (Cycles 37-40)")
+Rel(mul_block, align_block, "Partial Product", "16-bit Mantissa, 7-bit Exp")
+Rel(align_block, acc_block, "Aligned Data", "Internal Datapath")
+Rel(acc_block, align_block, "Feedback", "Shared Scaling Path (Cycle 36)")
+Rel(align_block, serial_block, "Result", "32-bit Scaled")
+Rel(serial_block, host, "Result Byte", "uo_out (Cycles 37-40)")
 
 @enduml
