@@ -13,5 +13,10 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Prepare docs for TT action
+        run: |
+          mkdir docs
+          cp documentation/INFO.md docs/info.md
+
       - name: Build docs
         uses: TinyTapeout/tt-gds-action/docs@ttihp26a
