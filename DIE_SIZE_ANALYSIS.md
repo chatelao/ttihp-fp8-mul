@@ -1,8 +1,39 @@
-# Die Size Analysis: OCP MXFP8 MAC Unit
+# Die Size Analysis & Refactoring: OCP MXFP8 MAC Unit
 
-This document analyzes the die size (gate/area) of the current OCP MXFP8 Streaming MAC Unit and proposes an optimized architecture to fit within a **1x1 Tiny Tapeout tile** (~167x108 µm).
+This document analyzes the die size (gate/area) of the OCP MXFP8 Streaming MAC Unit and details the refactoring strategy used to achieve a modular, scalable architecture that fits within a **1x1 Tiny Tapeout tile** (~167x108 µm).
 
-## 1. Current Die Size Analysis (Optimized Architecture)
+## 1. Refactoring Strategy: Parameterized Architecture
+
+To make the design modular and scalable, Verilog parameters were introduced. This allows the design to be reconfigured for different Tiny Tapeout tile sizes by enabling or disabling specific features.
+
+### 1.1. Configurable Parameters
+
+| Parameter | Default | Description | Estimated Gate Savings |
+|---|---|---|---|
+| `ENABLE_SHARED_SCALING` | `1` | Enables hardware-accelerated shared scaling in Cycle 36. | ~300 |
+| `SUPPORT_MXFP6` | `1` | Enables decoding for E3M2 and E2M3 formats. | ~170 |
+| `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~80 |
+| `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~100 |
+| `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~150 |
+| `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~200 (if 64->40) |
+
+### 1.2. Recommended Refactorings
+
+#### Multiplier Core (`fp8_mul.v`)
+- [x] **Conditional Decoding**: Use logic pruning based on `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
+- [x] **Bias Simplification**: Bias logic is simplified based on supported formats.
+- [ ] **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
+
+#### Product Aligner (`fp8_aligner.v`)
+- [x] **Configurable Rounding**: Logic for `R_CEL` and `R_FLR` is pruned if `SUPPORT_ADV_ROUNDING` is disabled.
+- [x] **Internal Bit-width**: Fully parameterize the internal registers using `ALIGNER_WIDTH`.
+
+#### Top-Level Integration (`project.v`)
+- [x] **FSM Guarding**: Shared scaling logic is conditionally enabled via `ENABLE_SHARED_SCALING`.
+- [ ] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b` and `scale_b`.
+- [x] **Fast Start Logic**: Verified correctness with all parameter variants.
+
+## 2. Die Size Analysis (Optimized Architecture)
 
 The implementation has been refactored to support aggressive area optimizations, allowing even the "Full" configuration to approach or fit within a **1x1 Tiny Tapeout tile** (~1500-2500 equivalent gates).
 
@@ -22,9 +53,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | 10 | ✅ `fp8_aligner` | Saturation & Overflow | 32-bit signed clamping | ~100 |
 | **Total** | | | | **~2590** |
 
----
-
-## 2. Implemented Optimizations for 1x1 Tile
+## 3. Implemented Optimizations for 1x1 Tile
 
 ### Optimization 1: Downsize the Aligner Path (Status: **COMPLETED**)
 - **Change**: Narrowed the internal datapath via the `ALIGNER_WIDTH` parameter.
@@ -88,7 +117,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** |
 | `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** |
 
-## 3. Automated Gate Impact Analysis (Post-Optimization)
+## 4. Automated Gate Impact Analysis (Post-Optimization)
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
@@ -104,3 +133,32 @@ The implementation has been refactored to support aggressive area optimizations,
 | **Tiny (All Disabled)** | All features disabled | 2272 | -1146 |
 | **Ultra-Tiny** | Reduced internal widths | 2010 | -1408 |
 | **1x1 Tile Target (Min)**| Min. widths (24/20) | 1691 | -1727 |
+
+## 5. Deployment & CI/CD Progress
+
+### Deployment Variants
+
+| Variant | Tile Size | Parameters |
+|---|---|---|
+| **Full** | 1x2 | All features enabled. |
+| **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_MXFP4=0`, `SUPPORT_ADV_ROUNDING=0`. |
+| **Tiny** | 1x1 | `Lite` + `ENABLE_SHARED_SCALING=0`, `SUPPORT_MIXED_PRECISION=0`. |
+
+### CI/CD Progress: Matrix Testing
+
+To ensure the integrity of all variants, the CI/CD pipeline is updated to test multiple configurations on every build.
+
+- [x] **Parameter Injection**: Support parameter overrides via `COMPILE_ARGS` in the CI pipeline.
+- [x] **GitHub Actions Matrix**: Updated `.github/workflows/test.yaml` to include Full, Lite, and Tiny variants.
+- [x] **Testbench Adaptations**: Updated `test/test.py` to dynamically detect and skip tests based on hardware parameters.
+
+### Refactoring Progress Checklist
+
+- [x] Parameterize Multiplier Core (`SUPPORT_MXFP6`, `SUPPORT_MXFP4`)
+- [x] Parameterize Product Aligner (`SUPPORT_ADV_ROUNDING`, `ALIGNER_WIDTH`)
+- [x] Parameterize Top-Level (`ENABLE_SHARED_SCALING`, `SUPPORT_MIXED_PRECISION`)
+- [x] Update CI pipeline for parameter injection
+- [x] Update `test/test.py` for dynamic test skipping
+- [x] Verify **Full** Variant
+- [x] Verify **Lite** Variant
+- [x] Verify **Tiny** Variant
