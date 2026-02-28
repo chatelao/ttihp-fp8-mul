@@ -202,8 +202,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     # Cycle 2: Load Scale B and Format B
-    dut.ui_in.value = format_b
-    dut.uio_in.value = scale_b
+    dut.ui_in.value = scale_b
+    dut.uio_in.value = format_b
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
