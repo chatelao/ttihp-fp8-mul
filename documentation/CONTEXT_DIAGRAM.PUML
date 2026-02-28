@@ -1,14 +1,32 @@
 @startuml CONTEXT_DIAGRAM
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
 
 LAYOUT_WITH_LEGEND()
 
 Person(host, "Host System", "FPGA, Microcontroller, or Testbench providing data and control signals.")
-System(mac_unit, "OCP MXFP8 Streaming MAC Unit", "Tiny Tapeout 1x2 ASIC tile implementing OCP Microscaling Formats (MX) Specification (v1.0).")
 
-Rel(host, mac_unit, "Element A & Scale A (8-bit)", "ui_in")
-Rel(host, mac_unit, "Element B & Scale B (8-bit)", "uio_in")
-Rel(host, mac_unit, "Control (clk, rst_n, ena)", "Dedicated Pins")
-Rel(mac_unit, host, "Serialized 32-bit Result (8-bit)", "uo_out")
+System_Boundary(mac_system, "OCP MXFP8 Streaming MAC Unit") {
+    Container(fsm, "Control FSM", "Verilog", "Manages 41-cycle protocol, captures scales (XA, XB) and formats.")
+    Container(mul, "FP8 Multiplier", "Verilog (fp8_mul)", "Decodes operands and performs 8x8/4x4 mantissa multiplication.")
+    Container(align, "FP8 Aligner", "Verilog (fp8_aligner)", "Aligns elements to fixed-point, performs rounding, and handles shared scaling.")
+    Container(acc, "Accumulator", "Verilog (accumulator)", "32-bit fixed-point accumulation of aligned products.")
+    Container(serializer, "Output Serializer", "Verilog", "Captures scaled result and serializes into 4 bytes.")
+}
+
+Rel(host, fsm, "Control (clk, rst_n, ena)", "Dedicated Pins")
+Rel(host, fsm, "Load Scales/Formats (Cycles 0-2)", "ui_in, uio_in")
+Rel(host, mul, "Stream Elements (Cycles 3-34)", "ui_in, uio_in")
+
+Rel(fsm, mul, "Format Selection", "format_a, format_b")
+Rel(fsm, align, "Rounding & Scaling Control", "round_mode, shared_exp")
+Rel(fsm, serializer, "Capture Result", "cycle_count == 36")
+
+Rel(mul, align, "Product & Exponent Sum", "mul_prod, mul_exp")
+Rel(align, acc, "Aligned Element", "aligned_res")
+Rel(acc, align, "Final Sum for Scaling (Cycle 36)", "acc_out")
+Rel(align, serializer, "Scaled Result", "aligned_res")
+
+Rel(serializer, host, "Serialized 32-bit Result (Cycles 37-40)", "uo_out")
 
 @enduml
