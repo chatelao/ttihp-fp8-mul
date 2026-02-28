@@ -96,6 +96,22 @@ This project incorporates logic and concepts from the [fp8_mul](https://github.c
 - [Join the community](https://tinytapeout.com/discord)
 - [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
 
+## Glossary
+
+- **OCP MX**: Open Compute Project Microscaling Formats, a specification for block-based scaling in deep learning.
+- **MXFP8 / MXFP6 / MXFP4**: 8-bit, 6-bit, and 4-bit floating-point formats defined under the OCP MX specification.
+- **Shared Scale**: A single scaling factor applied to a block of elements to reduce memory bandwidth.
+- **UE8M0**: An 8-bit unsigned biased exponent format (Bias 127) used for shared scaling factors.
+- **Fast Start (Scale Compression)**: A protocol optimization that allows the reuse of previously loaded scales and formats to increase throughput.
+- **RNE (Round-to-Nearest-Ties-to-Even)**: A rounding mode that rounds to the nearest value, breaking ties by rounding to the nearest even number.
+- **SAT (Saturation)**: An overflow handling method that clamps out-of-range values to the maximum or minimum representable values.
+- **Block Size (k)**: The number of elements that share a single scaling factor (fixed at 32 in this design).
+- **BM (Block Max)**: The element with the largest magnitude in a block, whose exponent determines the shared scale.
+- **MX+**: An extension to OCP MX that repurposes the exponent bits of the Block Max element for additional mantissa precision.
+- **Tiny Tapeout**: An educational project that facilitates low-cost ASIC manufacturing.
+- **IHP SG13G2**: A 130nm BiCMOS Open Source PDK used for the ASIC implementation.
+- **Streaming MAC**: A Multiply-Accumulate unit that processes elements sequentially over a timed protocol.
+
 ## What next?
 
 - [Submit your design to the next shuttle](https://app.tinytapeout.com/).
