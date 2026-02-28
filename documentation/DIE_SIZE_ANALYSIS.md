@@ -15,6 +15,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~80 |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~100 |
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~150 |
+| `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~400 |
 | `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~200 (if 64->40) |
 
 ### 1.2. Recommended Refactorings
@@ -95,10 +96,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3418 | 1x1* |
-| **Lite** | Disable MXFP6/4 | 3365 | 1x1* |
-| **Tiny** | All optional features disabled | 2272 | 1x1 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2010 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 3442 | 1x1* |
+| **Lite** | Disable MXFP6/4 | 3138 | 1x1* |
+| **Tiny** | All optional features disabled | 2267 | 1x1 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2004 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -114,6 +115,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_MIXED_PRECISION` | ✅ | ✅ | ❌ | ❌ |
 | `ENABLE_SHARED_SCALING` | ✅ | ✅ | ❌ | ❌ |
+| `USE_LNS_MUL` | ❌ | ❌ | ❌ | ❌ |
 | `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** |
 | `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** |
 
@@ -121,18 +123,19 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3418 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 3395 | -23 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 3402 | -16 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 3419 | +1 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2950 | -468 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 3392 | -26 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3168 | -250 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3418 | 0 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3166 | -252 |
-| **Tiny (All Disabled)** | All features disabled | 2272 | -1146 |
-| **Ultra-Tiny** | Reduced internal widths | 2010 | -1408 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1691 | -1727 |
+| **Baseline (Full)** | All features enabled | 3442 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 3408 | -34 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 3417 | -25 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 3444 | +2 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2970 | -472 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 3418 | -24 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3192 | -250 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3442 | 0 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3170 | -272 |
+| `USE_LNS_MUL` | Enable LNS Multiplier | 3024 | -418 |
+| **Tiny (All Disabled)** | All features disabled | 2267 | -1175 |
+| **Ultra-Tiny** | Reduced internal widths | 2004 | -1438 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1681 | -1761 |
 
 ## 5. Deployment & CI/CD Progress
 
