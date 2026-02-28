@@ -1,14 +1,29 @@
 @startuml CONTEXT_DIAGRAM
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 LAYOUT_WITH_LEGEND()
 
-Person(host, "Host System", "FPGA, Microcontroller, or Testbench providing data and control signals.")
-System(mac_unit, "OCP MXFP8 Streaming MAC Unit", "Tiny Tapeout 1x2 ASIC tile implementing OCP Microscaling Formats (MX) Specification (v1.0).")
+Person(host, "Host System", "FPGA, Microcontroller, or Testbench")
 
-Rel(host, mac_unit, "Element A & Scale A (8-bit)", "ui_in")
-Rel(host, mac_unit, "Element B & Scale B (8-bit)", "uio_in")
-Rel(host, mac_unit, "Control (clk, rst_n, ena)", "Dedicated Pins")
-Rel(mac_unit, host, "Serialized 32-bit Result (8-bit)", "uo_out")
+Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
+    Component(fsm, "FSM & Control", "Verilog", "Manages 41-cycle protocol, scales, and formats.")
+    Component(mul, "FP8 Multiplier", "fp8_mul.v", "Signed arithmetic with multi-format decoding (E5M2, E4M3, etc.).")
+    Component(aligner, "Aligner & Scaler", "fp8_aligner.v", "Parameterized 32-bit alignment and hardware-accelerated shared scaling.")
+    Component(acc, "Accumulator", "accumulator.v", "32-bit signed storage with configurable overflow (SAT/WRAP).")
+    Component(serial, "Output Serializer", "Verilog", "Pipelined serialization of the 32-bit result into 8-bit chunks.")
+}
+
+Rel(host, fsm, "Control & Config", "clk, rst_n, ena, ui_in, uio_in")
+Rel(host, mul, "Streaming Elements", "ui_in, uio_in (Cycles 3-34)")
+
+Rel(fsm, mul, "Format A/B", "3-bit indices")
+Rel(fsm, aligner, "Rounding & Scale", "round_mode, shared_exp")
+Rel(fsm, acc, "Ctrl", "en, clear")
+
+Rel(mul, aligner, "Partial Product", "16-bit Mantissa, 7-bit Exp")
+Rel(aligner, acc, "Aligned Data", "Internal Datapath")
+Rel(acc, aligner, "Feedback", "Shared Scaling Path (Cycle 36)")
+Rel(aligner, serial, "Result", "32-bit Scaled")
+Rel(serial, host, "Result Byte", "uo_out (Cycles 37-40)")
 
 @enduml
