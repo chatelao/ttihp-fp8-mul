@@ -35,6 +35,7 @@ module fp8_mul_lns #(
     reg [15:0] p_res;
     reg signed [6:0] exp_sum_res;
     reg sign_res;
+    reg [3:0] m_sum;
 
     always @(*) begin
         // Defaults to avoid latches
@@ -195,7 +196,6 @@ module fp8_mul_lns #(
             end else begin
                 // ma[2:0] are the fractional bits (M)
                 // (1 + Ma) * (1 + Mb) \approx 1 + Ma + Mb
-                reg [3:0] m_sum;
                 m_sum = ma[2:0] + mb[2:0];
                 p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
                 exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7) + $signed({6'b0, m_sum[3]});
