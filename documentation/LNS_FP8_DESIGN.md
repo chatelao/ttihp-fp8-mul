@@ -68,6 +68,25 @@ Mitchell's approximation introduces a deterministic error. The maximum relative 
 However, for many Deep Learning applications (e.g., LLM inference), this approximation error is often acceptable or can be compensated for during quantization-aware training (QAT).
 
 ## 6. Integration Roadmap
-1. Implement `src/fp8_mul_lns.v`.
-2. Create a test bench to compare LNS results with the exact Python model.
-3. Add a Verilog parameter `USE_LNS_MUL` to `src/project.v` to allow switching between exact and approximate multiplication.
+
+### 6.1. FSM & Control
+- **Parameterization**: Propagate the `USE_LNS_MUL` parameter from `src/project.v` to the top-level configuration.
+- **Protocol Stability**: Ensure that the 41-cycle FSM correctly manages the pipeline stages when the LNS multiplier is selected, maintaining cycle-accurate synchronization with `ui_in` and `uio_in`.
+- **Mode Switching**: Validate that the configuration byte (Cycle 1) remains compatible with the LNS logic path.
+
+### 6.2. FP8 Multiplier
+- **Core Implementation**: Develop `src/fp8_mul_lns.v` implementing the combined log-adder logic.
+- **Sign Logic**: Implement the XOR-based sign bit determination for the product.
+- **Format Support**: Ensure that the LNS core correctly handles the multiple OCP MX formats (E4M3, E5M2, etc.) by adjusting the "Log-Adder" bias based on `format_a` and `format_b`.
+
+### 6.3. Aligner & Scaler
+- **Interface Verification**: Verify that the 16-bit `prod` and 7-bit `exp_sum` outputs from the LNS core are correctly interpreted by the `fp8_aligner.v`.
+- **Precision Check**: Ensure the barrel shifter handles the approximate LNS mantissa without additional bit-loss, maintaining the bit-accurate alignment required for the 40-bit internal datapath.
+
+### 6.4. Accumulator
+- **Dynamic Range**: Confirm that the 32-bit signed accumulator provides sufficient headroom for the LNS-approximated products across all 32 elements in a block.
+- **Saturation Logic**: Verify that the SAT/WRAP overflow modes behave correctly with the modified multiplier output range.
+
+### 6.5. Output Serializer
+- **Data Integrity**: Ensure the 32-bit result is correctly captured and serialized over Cycles 37-40.
+- **Verification**: Utilize cocotb tests to compare the serialized LNS result against the expected approximate values derived from the Python model.
