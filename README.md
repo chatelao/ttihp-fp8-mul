@@ -32,7 +32,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 |-------|--------------------|---------------------|----------------------|-------------|
 | 0     | -                  | -                   | 0x00                 | **IDLE**: Waiting for start. |
 | 1     | **Scale A**        | **Config Byte**     | 0x00                 | Load Scale A and Operation Mode. |
-| 2     | **Format B**       | **Scale B**         | 0x00                 | Load Scale B and Format B. |
+| 2     | **Scale B**        | **Format B**        | 0x00                 | Load Scale B and Format B. |
 | 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements. |
 | 35    | -                  | -                   | 0x00                 | Pipeline flush. |
 | 36    | -                  | -                   | 0x00                 | Final Shared Scaling calculation. |
@@ -46,7 +46,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 - `[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
 - `[5]`: **Overflow Mode** (0: SAT, 1: WRAP)
 
-### Format B Byte (Cycle 2, `ui_in`)
+### Format B Byte (Cycle 2, `uio_in`)
 - `[2:0]`: **Format B** (Same encoding as Format A)
 
 ### Fast Start (Scale Compression)

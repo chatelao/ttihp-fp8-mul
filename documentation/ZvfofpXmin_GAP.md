@@ -28,7 +28,7 @@ This document analyzes the architectural and functional gaps between the current
 ## 3. Numerical & Protocol Gaps
 
 ### 3.1. Block Scaling Management
-- **Streaming MAC**: Explicitly loads Scale A and Scale B in Cycles 1 and 2. It supports "Fast Start" to reuse scales.
+- **Streaming MAC**: Explicitly loads Scale A (Cycle 1) and Scale B (Cycle 2). It supports "Fast Start" to reuse scales.
 - **ZvfofpXmin**: OCP MX scales are likely handled as metadata associated with vector registers or stored in specific scale-vector registers. A significant gap exists in how the ISA handles the "shared" nature of the scale across a vector block.
 
 ### 3.2. Subnormal Handling

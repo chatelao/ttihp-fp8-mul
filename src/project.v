@@ -91,8 +91,8 @@ module tt_um_chatelao_fp8_multiplier #(
                            end
                     6'd2:  begin
                              state    <= STATE_STREAM;
-                             scale_b  <= uio_in;
-                             format_b <= SUPPORT_MIXED_PRECISION ? ui_in[2:0] : format_a; // Use format_a if mixed disabled
+                             scale_b  <= ui_in;
+                             format_b <= SUPPORT_MIXED_PRECISION ? uio_in[2:0] : format_a; // Use format_a if mixed disabled
                            end
                     6'd36: state <= STATE_OUTPUT;
                     6'd40: state   <= STATE_IDLE;
