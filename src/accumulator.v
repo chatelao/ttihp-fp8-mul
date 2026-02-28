@@ -1,4 +1,7 @@
+`ifndef __ACCUMULATOR_V__
+`define __ACCUMULATOR_V__
 `default_nettype none
+
 
 module accumulator #(
     parameter WIDTH = 32
@@ -36,3 +39,7 @@ module accumulator #(
     end
 
 endmodule
+
+
+
+`endif

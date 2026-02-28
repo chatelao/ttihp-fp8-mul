@@ -1,4 +1,7 @@
+`ifndef __FP8_ALIGNER_V__
+`define __FP8_ALIGNER_V__
 `default_nettype none
+
 
 module fp8_aligner #(
     parameter WIDTH = 40,
@@ -118,3 +121,7 @@ module fp8_aligner #(
     end
 
 endmodule
+
+
+
+`endif

@@ -173,9 +173,19 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ACCUMULATOR_WIDTH-1:0] acc_out;
     wire [ACCUMULATOR_WIDTH-1:0] acc_abs = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
 
+    // Padding logic to avoid zero-width replications
+    wire [31:0] acc_abs_padded;
+    if (ACCUMULATOR_WIDTH > 32) begin : acc_trunc
+        assign acc_abs_padded = acc_abs[31:0];
+    end else if (ACCUMULATOR_WIDTH < 32) begin : acc_pad
+        assign acc_abs_padded = {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs};
+    end else begin : acc_direct
+        assign acc_abs_padded = acc_abs;
+    end
+
     // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
     wire [31:0] aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ?
-                                    (ACCUMULATOR_WIDTH > 32 ? acc_abs[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs}) :
+                                    acc_abs_padded :
                                     {16'd0, SUPPORT_PIPELINING ? mul_prod_reg : mul_prod};
     wire signed [9:0] aligner_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? (shared_exp + 10'sd5) :
                                     (SUPPORT_PIPELINING ? {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg} : {{3{mul_exp_sum[6]}}, mul_exp_sum});
@@ -214,6 +224,16 @@ module tt_um_chatelao_fp8_multiplier #(
         .data_out(acc_out)
     );
 
+    // Padding/Truncation for output register
+    wire [31:0] acc_out_resized;
+    if (ACCUMULATOR_WIDTH > 32) begin : res_trunc
+        assign acc_out_resized = acc_out[31:0];
+    end else if (ACCUMULATOR_WIDTH < 32) begin : res_pad
+        assign acc_out_resized = {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
+    end else begin : res_direct
+        assign acc_out_resized = acc_out;
+    end
+
     // 5. Output Serialization Register
     // Capture the fully scaled result at cycle 36 (last cycle before output)
     reg [31:0] scaled_acc_reg;
@@ -221,8 +241,7 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
         end else if (ena && cycle_count == 6'd36) begin
-            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res :
-                              (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
+            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res : acc_out_resized;
         end
     end
 
