@@ -1,0 +1,14 @@
+@startuml CONTEXT_DIAGRAM
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+Person(host, "Host System", "FPGA, Microcontroller, or Testbench providing data and control signals.")
+System(mac_unit, "OCP MXFP8 Streaming MAC Unit", "Tiny Tapeout 1x2 ASIC tile implementing OCP Microscaling Formats (MX) Specification (v1.0).")
+
+Rel(host, mac_unit, "Element A & Scale A (8-bit)", "ui_in")
+Rel(host, mac_unit, "Element B & Scale B (8-bit)", "uio_in")
+Rel(host, mac_unit, "Control (clk, rst_n, ena)", "Dedicated Pins")
+Rel(mac_unit, host, "Serialized 32-bit Result (8-bit)", "uo_out")
+
+@enduml
