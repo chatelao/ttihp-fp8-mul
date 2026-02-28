@@ -22,7 +22,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 #### Multiplier Core (`fp8_mul.v`)
 - [x] **Conditional Decoding**: Use logic pruning based on `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
 - [x] **Bias Simplification**: Bias logic is simplified based on supported formats.
-- [x] **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
+- [ ] **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
 
 #### Product Aligner (`fp8_aligner.v`)
 - [x] **Configurable Rounding**: Logic for `R_CEL` and `R_FLR` is pruned if `SUPPORT_ADV_ROUNDING` is disabled.
@@ -30,7 +30,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 
 #### Top-Level Integration (`project.v`)
 - [x] **FSM Guarding**: Shared scaling logic is conditionally enabled via `ENABLE_SHARED_SCALING`.
-- [x] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b`, `scale_a`, and `scale_b`.
+- [ ] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b` and `scale_b`.
 - [x] **Fast Start Logic**: Verified correctness with all parameter variants.
 
 ## 2. Die Size Analysis (Optimized Architecture)
@@ -128,10 +128,10 @@ The implementation has been refactored to support aggressive area optimizations,
 | `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2950 | -468 |
 | `SUPPORT_PIPELINING` | Disable Pipelining | 3392 | -26 |
 | `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3168 | -250 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3379 | -43 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3167 | -255 |
-| **Tiny (All Disabled)** | All features disabled | 2244 | -1178 |
-| **Ultra-Tiny** | Reduced internal widths | 1978 | -1444 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3418 | 0 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3166 | -252 |
+| **Tiny (All Disabled)** | All features disabled | 2272 | -1146 |
+| **Ultra-Tiny** | Reduced internal widths | 2010 | -1408 |
 | **1x1 Tile Target (Min)**| Min. widths (24/20) | 1691 | -1727 |
 
 ## 5. Deployment & CI/CD Progress
