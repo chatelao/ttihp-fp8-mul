@@ -5,6 +5,7 @@
  */
 
 `include "fp8_mul.v"
+`include "fp8_mul_lns.v"
 `include "fp8_aligner.v"
 `include "accumulator.v"
 
@@ -18,7 +19,8 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_PIPELINING = 1,
     parameter SUPPORT_ADV_ROUNDING = 1,
     parameter SUPPORT_MIXED_PRECISION = 1,
-    parameter ENABLE_SHARED_SCALING = 1
+    parameter ENABLE_SHARED_SCALING = 1,
+    parameter USE_LNS_MUL = 0
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
@@ -111,20 +113,39 @@ module tt_um_chatelao_fp8_multiplier #(
     wire signed [6:0] mul_exp_sum;
     wire mul_sign;
 
-    fp8_mul #(
-        .SUPPORT_E5M2(SUPPORT_E5M2),
-        .SUPPORT_MXFP6(SUPPORT_MXFP6),
-        .SUPPORT_MXFP4(SUPPORT_MXFP4),
-        .SUPPORT_INT8(SUPPORT_INT8)
-    ) multiplier (
-        .a(ui_in),
-        .b(uio_in),
-        .format_a(format_a),
-        .format_b(format_b),
-        .prod(mul_prod),
-        .exp_sum(mul_exp_sum),
-        .sign(mul_sign)
-    );
+    generate
+        if (USE_LNS_MUL) begin : lns_gen
+            fp8_mul_lns #(
+                .SUPPORT_E5M2(SUPPORT_E5M2),
+                .SUPPORT_MXFP6(SUPPORT_MXFP6),
+                .SUPPORT_MXFP4(SUPPORT_MXFP4),
+                .SUPPORT_INT8(SUPPORT_INT8)
+            ) multiplier (
+                .a(ui_in),
+                .b(uio_in),
+                .format_a(format_a),
+                .format_b(format_b),
+                .prod(mul_prod),
+                .exp_sum(mul_exp_sum),
+                .sign(mul_sign)
+            );
+        end else begin : std_gen
+            fp8_mul #(
+                .SUPPORT_E5M2(SUPPORT_E5M2),
+                .SUPPORT_MXFP6(SUPPORT_MXFP6),
+                .SUPPORT_MXFP4(SUPPORT_MXFP4),
+                .SUPPORT_INT8(SUPPORT_INT8)
+            ) multiplier (
+                .a(ui_in),
+                .b(uio_in),
+                .format_a(format_a),
+                .format_b(format_b),
+                .prod(mul_prod),
+                .exp_sum(mul_exp_sum),
+                .sign(mul_sign)
+            );
+        end
+    endgenerate
 
     // Pipeline registers for multiplier output
     reg [15:0] mul_prod_reg;
