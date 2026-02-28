@@ -157,7 +157,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [31:0] aligner_in_prod;
     generate
         if (ACCUMULATOR_WIDTH >= 32)
-            assign aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs[ACCUMULATOR_WIDTH-1:0]} : {16'd0, mul_prod_stage};
+            assign aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_abs[31:0] : {16'd0, mul_prod_stage};
         else
             assign aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs} : {16'd0, mul_prod_stage};
     endgenerate
@@ -193,12 +193,8 @@ module tt_um_chatelao_fp8_multiplier #(
     always @(posedge clk) begin
         if (!rst_n) begin
             scaled_acc_reg <= 32'd0;
-        end else if (ena) begin
-            if (cycle_count == 6'd36) begin
-                scaled_acc_reg <= {{ (32-ACCUMULATOR_WIDTH){(ENABLE_SHARED_SCALING ? aligned_res[ACCUMULATOR_WIDTH-1] : acc_out[ACCUMULATOR_WIDTH-1])} }, (ENABLE_SHARED_SCALING ? aligned_res : acc_out)};
-            end else if (state == STATE_OUTPUT && cycle_count >= 6'd37) begin
-                scaled_acc_reg <= {scaled_acc_reg[23:0], 8'd0};
-            end
+        end else if (ena && cycle_count == 6'd36) begin
+            scaled_acc_reg <= {{ (32-ACCUMULATOR_WIDTH){(ENABLE_SHARED_SCALING ? aligned_res[ACCUMULATOR_WIDTH-1] : acc_out[ACCUMULATOR_WIDTH-1])} }, (ENABLE_SHARED_SCALING ? aligned_res : acc_out)};
         end
     end
 
@@ -215,6 +211,20 @@ module tt_um_chatelao_fp8_multiplier #(
         .data_out(acc_out)
     );
 
-    assign uo_out = (state == STATE_OUTPUT && cycle_count >= 6'd37) ? scaled_acc_reg[31:24] : 8'd0;
+    reg [7:0] uo_out_reg;
+    always @(*) begin
+        if (state == STATE_OUTPUT && cycle_count >= 6'd37) begin
+            case (cycle_count)
+                6'd37: uo_out_reg = scaled_acc_reg[31:24];
+                6'd38: uo_out_reg = scaled_acc_reg[23:16];
+                6'd39: uo_out_reg = scaled_acc_reg[15:8];
+                6'd40: uo_out_reg = scaled_acc_reg[7:0];
+                default: uo_out_reg = 8'h00;
+            endcase
+        end else begin
+            uo_out_reg = 8'h00;
+        end
+    end
+    assign uo_out = uo_out_reg;
 
 endmodule
