@@ -14,7 +14,7 @@ jobs:
 
       - name: Install Tools (iverilog, yosys)
         shell: bash
-        run: sudo apt-get update && sudo apt-get install -y iverilog yosys
+        run: sudo apt-get update && sudo apt-get install -y iverilog yosys gtkwave
 
       # Set Python up and install cocotb
       - name: Setup python
@@ -44,6 +44,11 @@ jobs:
           # make will return success even if the test fails, so check for failure in the results.xml
           ! grep failure results.xml
 
+      - name: Convert FST to VCD
+        if: always()
+        run: |
+          fst2vcd -f test/tb.fst -o test/tb.vcd
+
       - name: Test Summary
         uses: test-summary/action@v2.3
         with:
@@ -57,5 +62,6 @@ jobs:
           name: test-results-${{ matrix.config }}
           path: |
             test/tb.fst
+            test/tb.vcd
             test/results.xml
             test/output/*
