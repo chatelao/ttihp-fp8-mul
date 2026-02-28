@@ -508,14 +508,50 @@ async def test_yaml_cases(dut):
     with open(yaml_path, 'r') as f:
         cases = yaml.safe_load(f)
 
+    # Detect hardware support
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+
     for case in cases:
         inputs = case['inputs']
         expected = case['expected_output']
         comment = case.get('comment', '')
+
+        # Skip cases based on hardware support
+        fmt_a = inputs['format_a']
+        fmt_b = inputs.get('format_b', fmt_a)
+
+        if not support_e5m2 and (fmt_a == 1 or fmt_b == 1):
+            dut._log.info(f"Skipping Case {case['test_case']}: E5M2 not supported")
+            continue
+        if not support_mxfp6 and (fmt_a in [2, 3] or fmt_b in [2, 3]):
+            dut._log.info(f"Skipping Case {case['test_case']}: MXFP6 not supported")
+            continue
+        if not support_mxfp4 and (fmt_a == 4 or fmt_b == 4):
+            dut._log.info(f"Skipping Case {case['test_case']}: MXFP4 not supported")
+            continue
+        if not support_int8 and (fmt_a in [5, 6] or fmt_b in [5, 6]):
+            dut._log.info(f"Skipping Case {case['test_case']}: INT8 not supported")
+            continue
+        if not support_mixed and (fmt_a != fmt_b):
+            dut._log.info(f"Skipping Case {case['test_case']}: Mixed Precision not supported")
+            continue
+        if not support_shared and (inputs.get('scale_a', 127) != 127 or inputs.get('scale_b', 127) != 127):
+            dut._log.info(f"Skipping Case {case['test_case']}: Shared Scaling not supported")
+            continue
+        if not support_adv and inputs.get('round_mode', 0) in [1, 2]:
+            dut._log.info(f"Skipping Case {case['test_case']}: Advanced Rounding not supported")
+            continue
+
         dut._log.info(f"Running Case {case['test_case']}: {comment}")
         await run_mac_test(dut,
-                           format_a=inputs['format_a'],
-                           format_b=inputs.get('format_b', inputs['format_a']),
+                           format_a=fmt_a,
+                           format_b=fmt_b,
                            a_elements=inputs['a_elements'],
                            b_elements=inputs['b_elements'],
                            scale_a=inputs.get('scale_a', 127),
