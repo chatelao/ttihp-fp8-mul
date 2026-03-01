@@ -1,0 +1,50 @@
+@startuml BLACKWELL_TENSOR_CORE
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title NVIDIA 5th Gen Tensor Core (Blackwell) - Hierarchy & Dataflow
+
+Container_Boundary(tensor_core, "Tensor Core (32 DPEs)") {
+
+    Container_Boundary(octet_0, "Octet (8 DPEs)") {
+
+        Container_Boundary(threadgroup_0, "Threadgroup (4 DPEs)") {
+
+            Component(dpe_0, "Dot Product Engine (DPE)", "Compute", "Vector Multiplier & Adder Tree")
+            Component(dpe_1, "Dot Product Engine (DPE)", "Compute")
+            Component(dpe_2, "Dot Product Engine (DPE)", "Compute")
+            Component(dpe_3, "Dot Product Engine (DPE)", "Compute")
+        }
+
+        Container_Boundary(threadgroup_1, "Threadgroup (4 DPEs)") {
+            Component(dpe_4, "Dot Product Engine (DPE)", "Compute")
+            Component(dpe_n, "...", "Compute")
+        }
+    }
+
+    Container_Boundary(octet_1, "Octet") {
+        Component(octet_n, "...", "Subdivision")
+    }
+}
+
+Component(rf, "Register File", "Storage", "Fragments for A, B, C, D")
+Component(buffers, "Intermediate Buffers", "SRAM", "Operand staging")
+Component(acc, "Accumulator", "Logic", "FP32 Summation")
+Component(norm, "Normalization & Conversion", "Logic", "Format adjustment")
+
+Rel_D(rf, buffers, "Load Matrix Fragments", "Warp Threads")
+Rel_D(buffers, dpe_0, "MXFP4/FP8 Operands", "16 pairs/cycle")
+Rel_D(buffers, dpe_1, "Operands")
+Rel_D(buffers, dpe_2, "Operands")
+Rel_D(buffers, dpe_3, "Operands")
+
+Rel_D(dpe_0, acc, "Partial Product")
+Rel_D(dpe_1, acc, "Partial Product")
+Rel_D(dpe_2, acc, "Partial Product")
+Rel_D(dpe_3, acc, "Partial Product")
+
+Rel_D(acc, norm, "Accumulated Sum")
+Rel_D(norm, rf, "Write-back", "Matrix D")
+
+@enduml
