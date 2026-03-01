@@ -23,10 +23,10 @@ The shared scale is determined by the BM element's magnitude. For MXFP4 (E2M1), 
 
 | Index | BF16 Value | Standard MXFP4 ($X=2.0$) | MXFP4+ ($X=2.0$) |
 | :--- | :--- | :--- | :--- |
-| 0 | -0.39 | 0.0 | 0.0 |
-| **1 (BM)** | **-9.84** | **-8.0** | **-10.0** |
-| 2 | -0.20 | 0.0 | 0.0 |
-| 3 | 0.99 | 1.0 | 1.0 |
+| 0 | -0.39 | 0.0 (`0b1000`) | 0.0 (`0b1000`) |
+| **1 (BM)** | **-9.84** | **-8.0** (`0b1110`) | **-10.0** (`0b1010`) |
+| 2 | -0.20 | 0.0 (`0b1000`) | 0.0 (`0b1000`) |
+| 3 | 0.99 | 1.0 (`0b0001`) | 1.0 (`0b0001`) |
 
 **Numerical Analysis**:
 - **Standard MXFP4**: The BM element uses standard E2M1 ($P_i \in \{4.0, 6.0\}$ after scaling). Nearest value to $9.84/2.0 = 4.92$ is $4.0$, resulting in $X \cdot P_i = -8.0$. **Error = 1.84**.
