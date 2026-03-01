@@ -21,7 +21,8 @@ def decode_format(bits, format_val):
         bias = 7
         is_int = False
         nan = (bits & 0x7F) == 0x7F
-        return sign, exp, mant, bias, is_int, nan, inf
+        zero = (bits & 0x7F) == 0
+        return sign, exp, mant, bias, is_int, nan, inf, zero
     elif format_val == 1: # E5M2
         sign = (bits >> 7) & 1
         exp_field = (bits >> 2) & 0x1F
@@ -35,7 +36,8 @@ def decode_format(bits, format_val):
         is_int = False
         inf = (exp_field == 0x1F and mant_field == 0)
         nan = (exp_field == 0x1F and mant_field != 0)
-        return sign, exp, mant, bias, is_int, nan, inf
+        zero = (bits & 0x7F) == 0
+        return sign, exp, mant, bias, is_int, nan, inf, zero
     elif format_val == 2: # E3M2
         sign = (bits >> 5) & 1
         exp_field = (bits >> 2) & 0x7
@@ -47,7 +49,8 @@ def decode_format(bits, format_val):
         mant <<= 1 # Align to 4 bits
         bias = 3
         is_int = False
-        return sign, exp, mant, bias, is_int, nan, inf
+        zero = (bits & 0x1F) == 0
+        return sign, exp, mant, bias, is_int, nan, inf, zero
     elif format_val == 3: # E2M3
         sign = (bits >> 5) & 1
         exp_field = (bits >> 3) & 0x3
@@ -58,7 +61,8 @@ def decode_format(bits, format_val):
         mant = (implicit_bit << 3) | mant_field
         bias = 1
         is_int = False
-        return sign, exp, mant, bias, is_int, nan, inf
+        zero = (bits & 0x1F) == 0
+        return sign, exp, mant, bias, is_int, nan, inf, zero
     elif format_val == 4: # E2M1
         sign = (bits >> 3) & 1
         exp_field = (bits >> 1) & 0x3
@@ -70,7 +74,8 @@ def decode_format(bits, format_val):
         mant <<= 2 # Align to 4 bits
         bias = 1
         is_int = False
-        return sign, exp, mant, bias, is_int, nan, inf
+        zero = (bits & 0x07) == 0
+        return sign, exp, mant, bias, is_int, nan, inf, zero
     elif format_val == 5: # INT8
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -78,6 +83,7 @@ def decode_format(bits, format_val):
         exp = 0
         bias = 3
         is_int = True
+        zero = (bits == 0)
     elif format_val == 6: # INT8_SYM
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -86,10 +92,11 @@ def decode_format(bits, format_val):
         exp = 0
         bias = 3
         is_int = True
+        zero = (bits == 0)
     else: # Default E4M3
         return decode_format(bits, 0)
 
-    return sign, exp, mant, bias, is_int, nan, inf
+    return sign, exp, mant, bias, is_int, nan, inf, zero
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, nan=False, inf=False):
     shift_amt = exp_sum - 5
@@ -208,12 +215,10 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if not support_int8 and format_a in [5, 6]: return 0
     if not support_int8 and format_b in [5, 6]: return 0
 
-    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a)
-    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b)
+    sa, ea, ma, ba, inta, nana, infa, zeroa = decode_format(a_bits, format_a)
+    sb, eb, mb, bb, intb, nanb, infb, zerob = decode_format(b_bits, format_b)
 
     sign = sa ^ sb
-    zeroa = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a_bits == 0)
-    zerob = (not intb and eb == 0 and (mb & 0x7) == 0) or (intb and b_bits == 0)
 
     nan_res = nana or nanb or (infa and zerob) or (infb and zeroa)
     inf_res = (infa or infb) and not nan_res
@@ -365,10 +370,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         # In hardware, NaN is sticky across the block
         any_nan_in_block = False
         for a, b in zip(a_elements, b_elements):
-            _, _, _, _, _, nana, infa = decode_format(a, format_a)
-            _, _, _, _, _, nanb, infb = decode_format(b, format_b)
-            zeroa = (a == 0) # Simplified for test
-            zerob = (b == 0)
+            _, _, _, _, _, nana, infa, zeroa = decode_format(a, format_a)
+            _, _, _, _, _, nanb, infb, zerob = decode_format(b, format_b)
             if nana or nanb or (infa and zerob) or (infb and zeroa):
                 any_nan_in_block = True
                 break
