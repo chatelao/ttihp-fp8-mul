@@ -181,12 +181,15 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
         return res_32 - 0x100000000
     return res_32
 
-def get_param(handle, name, default=1):
-    # 1. Try to get from cocotb handle
-    try:
-        return int(handle.value)
-    except Exception:
-        pass
+def get_param(dut, name, default=1):
+    # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
+    for obj in [getattr(dut, "user_project", None), dut]:
+        if obj is None: continue
+        try:
+            handle = getattr(obj, name)
+            return int(handle.value)
+        except Exception:
+            pass
 
     # 2. Try to get from COMPILE_ARGS environment variable
     compile_args = os.environ.get("COMPILE_ARGS", "")
@@ -288,29 +291,29 @@ async def reset_dut(dut):
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0):
     # Enforce parameter constraints in model
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
         format_b = format_a
 
-    support_mxplus = get_param(getattr(dut.user_project, "SUPPORT_MX_PLUS", None), "SUPPORT_MX_PLUS", 0)
-    support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
-    support_serial = get_param(getattr(dut.user_project, "SUPPORT_PACKED_SERIAL", None), "SUPPORT_PACKED_SERIAL", 0)
+    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    support_packing = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
+    support_serial = get_param(dut, "SUPPORT_PACKED_SERIAL", 0)
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
     actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
     if not support_adv:
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
-    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
-    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
-    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
-    acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), "ACCUMULATOR_WIDTH", 32)
-    aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
+    use_lns = get_param(dut, "USE_LNS_MUL", 0)
+    use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
+    acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
+    aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
@@ -339,11 +342,6 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     for i, (a, b) in enumerate(zip(a_elements, b_elements)):
         is_bm_a_cur = (i == bm_index_a)
         is_bm_b_cur = (i == bm_index_b)
-        if actual_packed:
-             # In packed mode, we need to map i to the correct element index
-             # i goes 0 to 31.
-             is_bm_a_cur = (i == bm_index_a)
-             is_bm_b_cur = (i == bm_index_b)
 
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
                                    support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
@@ -701,16 +699,15 @@ async def run_yaml_file(dut, filename):
         return
 
     # Detect hardware support
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
-    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
-    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
-    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
-
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 1)
+    use_lns = get_param(dut, "USE_LNS_MUL", 0)
+    use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     for case in cases:
         if case.get('disabled', False):
             dut._log.info(f"Skipping Case {case.get('test_case', 'unknown')}: Disabled in YAML")
@@ -774,6 +771,13 @@ async def test_mx_fp4_yaml(dut):
 
 @cocotb.test()
 async def test_mxplus_yaml(dut):
+    if os.environ.get("GATES") == "yes":
+        dut._log.info("Skipping MX+ YAML Test in Gate-Level Simulation")
+        return
+    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    if not support_mxplus:
+        dut._log.info("Skipping MX+ YAML Test (SUPPORT_MX_PLUS=0)")
+        return
     await run_yaml_file(dut, "TEST_MXPLUS.yaml")
 
 @cocotb.test()
