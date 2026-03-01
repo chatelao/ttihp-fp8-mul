@@ -20,6 +20,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_ADV_ROUNDING = 0,
     parameter SUPPORT_MIXED_PRECISION = 0,
     parameter SUPPORT_VECTOR_PACKING = 0,
+    parameter SUPPORT_PACKED_SERIAL = 0,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
@@ -88,7 +89,8 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    wire actual_packed_mode = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [5:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
     wire [5:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
     wire [5:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
@@ -145,8 +147,21 @@ module tt_um_chatelao_fp8_multiplier #(
     wire signed [6:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
 
-    wire [7:0] a_lane0 = actual_packed_mode ? {4'd0, ui_in[3:0]}  : ui_in;
-    wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} : uio_in;
+    reg [3:0] packed_a_buf, packed_b_buf;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            packed_a_buf <= 4'd0;
+            packed_b_buf <= 4'd0;
+        end else if (ena && actual_packed_serial && cycle_count[0]) begin
+            packed_a_buf <= ui_in[7:4];
+            packed_b_buf <= uio_in[7:4];
+        end
+    end
+
+    wire [7:0] a_lane0 = actual_packed_mode ? {4'd0, ui_in[3:0]} :
+                        (actual_packed_serial ? (cycle_count[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in);
+    wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
+                        (actual_packed_serial ? (cycle_count[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in);
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
 

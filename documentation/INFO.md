@@ -16,13 +16,14 @@ The unit supports both **E4M3** and **E5M2** element formats:
 - **E4M3**: 1-bit sign, 4-bit exponent (Bias 7), 3-bit mantissa.
 - **E5M2**: 1-bit sign, 5-bit exponent (Bias 15), 2-bit mantissa.
 
-### Operational Protocol (40-Cycle Standard / 24-Cycle Packed)
+### Operational Protocol (41-Cycle Standard / 25-Cycle Packed)
 To minimize resource usage, operands are streamed into the unit over a fixed sequence:
 1. **Cycle 1**: Load Scale A ($X_A$ on `ui_in`) and Configuration (on `uio_in`).
 2. **Cycle 2**: Load Scale B ($X_B$ on `ui_in`) and Format B (on `uio_in`).
 3. **Streaming Phase**:
    - **Standard Mode**: Cycles 3-34 (32 pairs of elements).
-   - **Packed Mode (FP4)**: Cycles 3-18 (16 pairs of packed elements, `uio_in[6]=1`).
+   - **Packed Lane Mode (FP4)**: Cycles 3-18 (16 cycles, 2 elements/cycle, dual-lane).
+   - **Packed Serial Mode (FP4)**: Cycles 3-34 (32 cycles, packed byte every odd cycle, single-lane).
 4. **Flush/Scale**: 2 cycles after the streaming phase ends.
 5. **Output**: 4 cycles to shift out the 32-bit result on `uo_out`.
 
@@ -34,7 +35,8 @@ The design uses a clocked FSM. To test:
 3. On Cycle 2, provide Scale B on `ui_in` and Format B on `uio_in`.
 4. Stream elements $A_i$ and $B_i$:
    - **Standard**: 32 cycles.
-   - **Packed**: 16 cycles (two 4-bit elements per cycle: `[7:4]=E_i+1`, `[3:0]=E_i`).
+   - **Packed Lane**: 16 cycles (two 4-bit elements per cycle: `[7:4]=E_i+1`, `[3:0]=E_i`).
+   - **Packed Serial**: 32 cycles. Load a packed byte on odd cycles (3, 5...); Hardware waits on even cycles (4, 6...).
 5. Wait 2 cycles for internal pipeline synchronization and shared scaling.
 6. Read the 32-bit result from `uo_out` over 4 cycles (Byte 3 to Byte 0).
 

@@ -14,6 +14,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_MXFP6` | `1` | Enables decoding for E3M2 and E2M3 formats. | ~17 |
 | `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~13 (Incr.) |
 | `SUPPORT_VECTOR_PACKING` | `1` | Enables dual-lane processing for FP4 (E2M1) inputs. | ~2908 |
+| `SUPPORT_PACKED_SERIAL` | `0` | Enables serial processing of packed FP4 elements. | ~100 |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~250 |
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~53 |
 | `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~403 |
@@ -98,6 +99,10 @@ The implementation has been refactored to support aggressive area optimizations,
 ### Optimization 10: Disable Vector Packing (Status: **COMPLETED**)
 - **Change**: `SUPPORT_VECTOR_PACKING` parameter.
 - **Impact**: Removes the second multiplier/aligner lane. Saves ~2908 gates at the cost of processing speed for FP4.
+
+### Optimization 11: Serial Vector Packing (Status: **COMPLETED**)
+- **Change**: `SUPPORT_PACKED_SERIAL` parameter.
+- **Impact**: Provides a low-area alternative to dual-lane packing by reusing a single multiplier lane with an input buffer. Adds only ~100 gates while maintaining 4-bit input density.
 
 ### Optimization Summary for 1x1 Tile Support
 

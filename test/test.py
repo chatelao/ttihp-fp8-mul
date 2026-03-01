@@ -155,6 +155,7 @@ def get_param(handle, name, default=1):
         "SUPPORT_ADV_ROUNDING": 0,
         "SUPPORT_MIXED_PRECISION": 0,
     "SUPPORT_VECTOR_PACKING": 0,
+    "SUPPORT_PACKED_SERIAL": 0,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 0
@@ -233,7 +234,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         format_b = format_a
 
     support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
+    support_serial = get_param(getattr(dut.user_project, "SUPPORT_PACKED_SERIAL", None), "SUPPORT_PACKED_SERIAL", 0)
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
+    actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
     support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
     if not support_adv:
@@ -291,6 +294,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         for i in range(16):
             dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
             dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
+            await ClockCycles(dut.clk, 1)
+    elif actual_serial:
+        for i in range(16):
+            # Odd cycle: send packed byte
+            dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
+            dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
+            await ClockCycles(dut.clk, 1)
+            # Even cycle: wait (hardware uses buffer)
+            # ui_in/uio_in can be anything, they are ignored
             await ClockCycles(dut.clk, 1)
     else:
         for i in range(32):
@@ -440,6 +452,23 @@ async def test_accumulator_saturation(dut):
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
     # Accumulator Wrap
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
+
+@cocotb.test()
+async def test_mxfp4_packed_serial(dut):
+    # Check if serial vector packing is supported
+    support_serial = get_param(getattr(dut.user_project, "SUPPORT_PACKED_SERIAL", None), "SUPPORT_PACKED_SERIAL", 0)
+    if not support_serial:
+        dut._log.info("Skipping Serial Packed FP4 Test (SUPPORT_PACKED_SERIAL=0)")
+        return
+
+    dut._log.info("Start Serial Packed FP4 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x04] * 32 # 1.0 in E2M1
+    b_elements = [0x04] * 32
+    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
+    await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
 @cocotb.test()
 async def test_mxfp4_packed(dut):
