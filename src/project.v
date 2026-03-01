@@ -281,11 +281,19 @@ module tt_um_chatelao_fp8_multiplier #(
     // 3. Aligner Multiplexing
     // We reuse the fp8_aligner for both element alignment and final shared scaling.
     wire [ACCUMULATOR_WIDTH-1:0] acc_out;
-    wire [ACCUMULATOR_WIDTH-1:0] acc_abs = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
+
+    wire [ACCUMULATOR_WIDTH-1:0] acc_abs_val;
+    generate
+        if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
+            assign acc_abs_val = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
+        end else begin : gen_no_acc_abs
+            assign acc_abs_val = {ACCUMULATOR_WIDTH{1'b0}};
+        end
+    endgenerate
 
     // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
     wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ?
-                                    (ACCUMULATOR_WIDTH > 32 ? acc_abs[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs}) :
+                                    (ACCUMULATOR_WIDTH > 32 ? acc_abs_val[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val}) :
                                     {16'd0, mul_prod_lane0_val};
     wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? (shared_exp + 10'sd5) :
                                     {{3{mul_exp_sum_lane0_val[6]}}, mul_exp_sum_lane0_val};

@@ -32,7 +32,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 - [x] **Internal Bit-width**: Fully parameterize the internal registers using `ALIGNER_WIDTH`.
 
 #### Top-Level Integration (`project.v`)
-- [x] **FSM Guarding**: Shared scaling logic is conditionally enabled via `ENABLE_SHARED_SCALING`.
+- [x] **FSM Guarding**: Shared scaling logic and absolute value logic (`acc_abs_val`) are conditionally enabled via `ENABLE_SHARED_SCALING`.
 - [x] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b`, `scale_b`, and multiplier pipeline.
 - [x] **Fast Start Logic**: Verified correctness with all parameter variants.
 - [x] **FSM State Register Elimination**: The `state` register was removed and replaced with combinatorial logic derived from `cycle_count`.
