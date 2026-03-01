@@ -40,7 +40,6 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam STATE_STREAM     = 2'b10;
     localparam STATE_OUTPUT     = 2'b11;
 
-    reg [1:0] state;
     reg [5:0] cycle_count;
 
     // MXFP Registers
@@ -94,8 +93,12 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [5:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
     wire [5:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
 
+    wire [1:0] state = (cycle_count == 6'd0) ? STATE_IDLE :
+                       (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
+                       (cycle_count <= capture_cycle) ? STATE_STREAM :
+                       STATE_OUTPUT;
+
     initial begin
-        state = STATE_IDLE;
         cycle_count = 6'd0;
         format_a = 3'd0;
         round_mode = 2'd0;
@@ -111,7 +114,6 @@ module tt_um_chatelao_fp8_multiplier #(
     always @(posedge clk) begin
         if (!rst_n) begin
             cycle_count <= 6'd0;
-            state <= STATE_IDLE;
             format_a <= 3'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
@@ -120,30 +122,16 @@ module tt_um_chatelao_fp8_multiplier #(
             // Fast Start (Scale Compression)
             if (state == STATE_IDLE && ui_in[7]) begin
                 cycle_count <= 6'd3;
-                state <= STATE_STREAM;
                 packed_mode <= ui_in[6]; // Capture packed mode from compressed start if needed
             end else begin
                 cycle_count <= (cycle_count == last_cycle) ? 6'd0 : cycle_count + 6'd1;
 
-                case (cycle_count)
-                    6'd0:  state <= STATE_LOAD_SCALE;
-                    6'd1:  begin
-                             format_a      <= uio_in[2:0];
-                             round_mode    <= uio_in[4:3];
-                             overflow_wrap <= uio_in[5];
-                             packed_mode   <= uio_in[6];
-                           end
-                    6'd2:  begin
-                             state    <= STATE_STREAM;
-                           end
-                    default: begin
-                        if (cycle_count == last_stream_cycle + 2'd2) begin
-                             state <= STATE_OUTPUT;
-                        end else if (cycle_count == last_cycle) begin
-                             state <= STATE_IDLE;
-                        end
-                    end
-                endcase
+                if (cycle_count == 6'd1) begin
+                    format_a      <= uio_in[2:0];
+                    round_mode    <= uio_in[4:3];
+                    overflow_wrap <= uio_in[5];
+                    packed_mode   <= uio_in[6];
+                end
             end
         end
     end
@@ -417,22 +405,17 @@ module tt_um_chatelao_fp8_multiplier #(
             if ($past(state) == STATE_IDLE && $past(ui_in[7])) begin
                 assert(cycle_count == 6'd3);
                 assert(state == STATE_STREAM);
-            end else if ($past(cycle_count) == 6'd40) begin
+            end else if ($past(cycle_count) == last_cycle) begin
                 assert(cycle_count == 6'd0);
             end else begin
                 assert(cycle_count == $past(cycle_count) + 1'b1);
             end
 
-            // State progression
-            if (!($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
-                case ($past(cycle_count))
-                    6'd0:  assert(state == STATE_LOAD_SCALE);
-                    6'd2:  assert(state == STATE_STREAM);
-                    6'd36: assert(state == STATE_OUTPUT);
-                    6'd40: assert(state == STATE_IDLE);
-                    default: assert(state == $past(state));
-                endcase
-            end
+            // State progression (verified by combinatorial definition)
+            assert(state == ((cycle_count == 6'd0) ? STATE_IDLE :
+                             (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
+                             (cycle_count <= capture_cycle) ? STATE_STREAM :
+                             STATE_OUTPUT));
         end
     end
 
@@ -451,14 +434,15 @@ module tt_um_chatelao_fp8_multiplier #(
     // 6. Output Gating & Serialization
     always @(*) begin
         if (rst_n) begin
-            if (state != STATE_OUTPUT || cycle_count < 6'd37) begin
+            if (state != STATE_OUTPUT) begin
                 assert(uo_out == 8'd0);
             end else begin
-                case (cycle_count)
-                    6'd37: assert(uo_out == scaled_acc_reg[31:24]);
-                    6'd38: assert(uo_out == scaled_acc_reg[23:16]);
-                    6'd39: assert(uo_out == scaled_acc_reg[15:8]);
-                    6'd40: assert(uo_out == scaled_acc_reg[7:0]);
+                case (cycle_count - capture_cycle)
+                    6'd1: assert(uo_out == scaled_acc_reg[31:24]);
+                    6'd2: assert(uo_out == scaled_acc_reg[23:16]);
+                    6'd3: assert(uo_out == scaled_acc_reg[15:8]);
+                    6'd4: assert(uo_out == scaled_acc_reg[7:0]);
+                    default: assert(uo_out == 8'd0);
                 endcase
             end
         end
