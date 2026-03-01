@@ -13,6 +13,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `ENABLE_SHARED_SCALING` | `1` | Enables hardware-accelerated shared scaling in Cycle 36. | ~273 |
 | `SUPPORT_MXFP6` | `1` | Enables decoding for E3M2 and E2M3 formats. | ~17 |
 | `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~13 (Incr.) |
+| `SUPPORT_VECTOR_PACKING` | `1` | Enables dual-lane processing for FP4 (E2M1) inputs. | ~2908 |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~250 |
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~53 |
 | `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~403 |
@@ -93,12 +94,16 @@ The implementation has been refactored to support aggressive area optimizations,
 - **Change**: Parameterized `ACCUMULATOR_WIDTH`.
 - **Impact**: Reducing accumulation to 24-bit fits the design into the most restricted 1x1 tile targets.
 
+### Optimization 10: Disable Vector Packing (Status: **COMPLETED**)
+- **Change**: `SUPPORT_VECTOR_PACKING` parameter.
+- **Impact**: Removes the second multiplier/aligner lane. Saves ~2908 gates at the cost of processing speed for FP4.
+
 ### Optimization Summary for 1x1 Tile Support
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
 | **Baseline (Full)** | All features enabled, 40/32 width | 6347 | 1x1* |
-| **Lite** | Disable MXFP6/4/Adv/VP | 3136 | 1x1* |
+| **Lite** | Disable MXFP6/Adv/VP | 3136 | 1x1* |
 | **Tiny** | All optional features disabled | 2288 | 1x1 |
 | **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2026 | 1x1 |
 
@@ -111,6 +116,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ |
 | `SUPPORT_MXFP4` | ✅ | ✅ | ✅ | ✅ |
+| `SUPPORT_VECTOR_PACKING` | ✅ | ❌ | ❌ | ❌ |
 | `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
