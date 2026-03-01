@@ -404,6 +404,13 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     elif pos_inf_sticky or neg_inf_sticky:
         expected_final = 0xFF800000 if neg_inf_sticky else 0x7F800000
 
+    # Ensure expected_final is treated as a 32-bit signed integer
+    expected_final_32 = expected_final & 0xFFFFFFFF
+    if expected_final_32 & 0x80000000:
+        expected_final_signed = expected_final_32 - 0x100000000
+    else:
+        expected_final_signed = expected_final_32
+
     # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0
     for i in range(4):
@@ -413,11 +420,6 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
-
-    if expected_final & 0x80000000:
-        expected_final_signed = expected_final - 0x100000000
-    else:
-        expected_final_signed = expected_final
 
     if expected_override is not None:
         expected_final_signed = expected_override
