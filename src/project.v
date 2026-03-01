@@ -43,20 +43,56 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [5:0] cycle_count;
 
     // MXFP Registers
-    reg [7:0] scale_a;
-    reg [7:0] scale_b;
     reg [2:0] format_a;
-    reg [2:0] format_b;
     reg [1:0] round_mode;
     reg       overflow_wrap;
+
+    // Register Pruning for scale_a, scale_b, format_b
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [7:0] scale_a_val;
+    wire [7:0] scale_b_val;
+    wire [2:0] format_b_val;
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    generate
+        if (ENABLE_SHARED_SCALING) begin : gen_scale_a
+            reg [7:0] scale_a;
+            always @(posedge clk) begin
+                if (!rst_n) scale_a <= 8'd0;
+                else if (ena && cycle_count == 6'd1) scale_a <= ui_in;
+            end
+            assign scale_a_val = scale_a;
+        end else begin : gen_no_scale_a
+            assign scale_a_val = 8'd0;
+        end
+
+        if (ENABLE_SHARED_SCALING) begin : gen_scale_b
+            reg [7:0] scale_b;
+            always @(posedge clk) begin
+                if (!rst_n) scale_b <= 8'd0;
+                else if (ena && cycle_count == 6'd2) scale_b <= ui_in;
+            end
+            assign scale_b_val = scale_b;
+        end else begin : gen_no_scale_b
+            assign scale_b_val = 8'd0;
+        end
+
+        if (SUPPORT_MIXED_PRECISION) begin : gen_format_b
+            reg [2:0] format_b;
+            always @(posedge clk) begin
+                if (!rst_n) format_b <= 3'd0;
+                else if (ena && cycle_count == 6'd2) format_b <= uio_in[2:0];
+            end
+            assign format_b_val = format_b;
+        end else begin : gen_no_format_b
+            assign format_b_val = format_a;
+        end
+    endgenerate
 
     initial begin
         state = STATE_IDLE;
         cycle_count = 6'd0;
-        scale_a = 8'd0;
-        scale_b = 8'd0;
         format_a = 3'd0;
-        format_b = 3'd0;
         round_mode = 2'd0;
         overflow_wrap = 1'b0;
     end
@@ -70,10 +106,7 @@ module tt_um_chatelao_fp8_multiplier #(
         if (!rst_n) begin
             cycle_count <= 6'd0;
             state <= STATE_IDLE;
-            scale_a <= 8'd0;
-            scale_b <= 8'd0;
             format_a <= 3'd0;
-            format_b <= 3'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
         end else if (ena) begin
@@ -87,15 +120,12 @@ module tt_um_chatelao_fp8_multiplier #(
                 case (cycle_count)
                     6'd0:  state <= STATE_LOAD_SCALE;
                     6'd1:  begin
-                             scale_a       <= ui_in;
                              format_a      <= uio_in[2:0];
                              round_mode    <= uio_in[4:3];
                              overflow_wrap <= uio_in[5];
                            end
                     6'd2:  begin
                              state    <= STATE_STREAM;
-                             scale_b  <= ui_in;
-                             format_b <= SUPPORT_MIXED_PRECISION ? uio_in[2:0] : format_a; // Use format_a if mixed disabled
                            end
                     6'd36: state <= STATE_OUTPUT;
                     6'd40: state   <= STATE_IDLE;
@@ -126,7 +156,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .a(ui_in),
                 .b(uio_in),
                 .format_a(format_a),
-                .format_b(format_b),
+                .format_b(format_b_val),
                 .prod(mul_prod),
                 .exp_sum(mul_exp_sum),
                 .sign(mul_sign)
@@ -141,7 +171,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .a(ui_in),
                 .b(uio_in),
                 .format_a(format_a),
-                .format_b(format_b),
+                .format_b(format_b_val),
                 .prod(mul_prod),
                 .exp_sum(mul_exp_sum),
                 .sign(mul_sign)
@@ -168,7 +198,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 2. Shared Scale Calculation
     // S = XA + XB - 254. UE8M0 has bias 127.
-    wire signed [9:0] shared_exp = $signed({2'b0, scale_a}) + $signed({2'b0, scale_b}) - 10'sd254;
+    wire signed [9:0] shared_exp = $signed({2'b0, scale_a_val}) + $signed({2'b0, scale_b_val}) - 10'sd254;
 
     // 3. Aligner Multiplexing
     // We reuse the fp8_aligner for both element alignment and final shared scaling.
@@ -297,17 +327,11 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Register Stability
     always @(posedge clk) begin
         if (f_past_valid && $past(rst_n) && rst_n) begin
-            // scale_a, format_a, round_mode, overflow_wrap loaded at cycle 1
+            // format_a, round_mode, overflow_wrap loaded at cycle 1
             if ($past(cycle_count) != 6'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
-                assert(scale_a       == $past(scale_a));
                 assert(format_a      == $past(format_a));
                 assert(round_mode    == $past(round_mode));
                 assert(overflow_wrap == $past(overflow_wrap));
-            end
-            // scale_b, format_b loaded at cycle 2
-            if ($past(cycle_count) != 6'd2 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
-                assert(scale_b  == $past(scale_b));
-                assert(format_b == $past(format_b));
             end
         end
     end

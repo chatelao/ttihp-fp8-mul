@@ -34,143 +34,90 @@ module fp8_mul #(
     reg signed [6:0] exp_sum_res;
     reg sign_res;
 
+    task automatic decode_operand(
+        input [7:0] data,
+        input [2:0] fmt,
+        output reg sign_out,
+        output reg [4:0] exp_out,
+        output reg [7:0] mant_out,
+        output reg signed [5:0] bias_out,
+        output reg zero_out
+    );
+        begin
+            // Defaults for unsupported formats
+            sign_out = 1'b0;
+            exp_out = 5'd0;
+            mant_out = 8'd0;
+            bias_out = 6'sd0;
+            zero_out = 1'b1;
+
+            case (fmt)
+                FMT_E4M3: begin
+                    sign_out = data[7];
+                    exp_out = {1'b0, data[6:3]};
+                    mant_out = {4'b0, 1'b1, data[2:0]};
+                    bias_out = 6'sd7;
+                    zero_out = (exp_out == 5'd0);
+                end
+                FMT_E5M2: if (SUPPORT_E5M2) begin
+                    sign_out = data[7];
+                    exp_out = data[6:2];
+                    mant_out = {4'b0, 1'b1, data[1:0], 1'b0};
+                    bias_out = 6'sd15;
+                    zero_out = (exp_out == 5'd0);
+                end
+                FMT_E3M2: if (SUPPORT_MXFP6) begin
+                    sign_out = data[5];
+                    exp_out = {2'b0, data[4:2]};
+                    mant_out = {4'b0, 1'b1, data[1:0], 1'b0};
+                    bias_out = 6'sd3;
+                    zero_out = (exp_out == 5'd0);
+                end
+                FMT_E2M3: if (SUPPORT_MXFP6) begin
+                    sign_out = data[5];
+                    exp_out = {3'b0, data[4:3]};
+                    mant_out = {4'b0, 1'b1, data[2:0]};
+                    bias_out = 6'sd1;
+                    zero_out = (exp_out == 5'd0);
+                end
+                FMT_E2M1: if (SUPPORT_MXFP4) begin
+                    sign_out = data[3];
+                    exp_out = {3'b0, data[2:1]};
+                    mant_out = {4'b0, 1'b1, data[0], 2'b0};
+                    bias_out = 6'sd1;
+                    zero_out = (exp_out == 5'd0);
+                end
+                FMT_INT8: if (SUPPORT_INT8) begin
+                    sign_out = data[7];
+                    mant_out = data[7] ? -data : data;
+                    exp_out = 5'd0;
+                    bias_out = 6'sd3;
+                    zero_out = (data == 8'd0);
+                end
+                FMT_INT8_SYM: if (SUPPORT_INT8) begin
+                    sign_out = data[7];
+                    mant_out = (data == 8'h80) ? 8'd127 : (data[7] ? -data : data);
+                    exp_out = 5'd0;
+                    bias_out = 6'sd3;
+                    zero_out = (data == 8'd0);
+                end
+                default: begin
+                    sign_out = data[7];
+                    exp_out = {1'b0, data[6:3]};
+                    mant_out = {4'b0, 1'b1, data[2:0]};
+                    bias_out = 6'sd7;
+                    zero_out = (exp_out == 5'd0);
+                end
+            endcase
+        end
+    endtask
+
     always @(*) begin
-        // Defaults to avoid latches
-        sign_a = 1'b0;
-        ea = 5'd0;
-        ma = 8'd0;
-        bias_a = 6'sd0;
-        zero_a = 1'b1;
-
-        sign_b = 1'b0;
-        eb = 5'd0;
-        mb = 8'd0;
-        bias_b = 6'sd0;
-        zero_b = 1'b1;
-
-        p_res = 16'd0;
-        exp_sum_res = 7'sd0;
-        sign_res = 1'b0;
-
         // Operand A Decoding
-        case (format_a)
-            FMT_E4M3: begin
-                sign_a = a[7];
-                ea = {1'b0, a[6:3]};
-                ma = {4'b0, 1'b1, a[2:0]};
-                bias_a = 6'sd7;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E5M2: if (SUPPORT_E5M2) begin
-                sign_a = a[7];
-                ea = a[6:2];
-                ma = {4'b0, 1'b1, a[1:0], 1'b0};
-                bias_a = 6'sd15;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E3M2: if (SUPPORT_MXFP6) begin
-                sign_a = a[5];
-                ea = {2'b0, a[4:2]};
-                ma = {4'b0, 1'b1, a[1:0], 1'b0};
-                bias_a = 6'sd3;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E2M3: if (SUPPORT_MXFP6) begin
-                sign_a = a[5];
-                ea = {3'b0, a[4:3]};
-                ma = {4'b0, 1'b1, a[2:0]};
-                bias_a = 6'sd1;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_E2M1: if (SUPPORT_MXFP4) begin
-                sign_a = a[3];
-                ea = {3'b0, a[2:1]};
-                ma = {4'b0, 1'b1, a[0], 2'b0};
-                bias_a = 6'sd1;
-                zero_a = (ea == 5'd0);
-            end
-            FMT_INT8: if (SUPPORT_INT8) begin
-                sign_a = a[7];
-                ma = a[7] ? -a : a;
-                ea = 5'd0;
-                bias_a = 6'sd3;
-                zero_a = (a == 8'd0);
-            end
-            FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                sign_a = a[7];
-                ma = (a == 8'h80) ? 8'd127 : (a[7] ? -a : a);
-                ea = 5'd0;
-                bias_a = 6'sd3;
-                zero_a = (a == 8'd0);
-            end
-            default: begin
-                sign_a = a[7];
-                ea = {1'b0, a[6:3]};
-                ma = {4'b0, 1'b1, a[2:0]};
-                bias_a = 6'sd7;
-                zero_a = (ea == 5'd0);
-            end
-        endcase
+        decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a);
 
         // Operand B Decoding
-        case (format_b)
-            FMT_E4M3: begin
-                sign_b = b[7];
-                eb = {1'b0, b[6:3]};
-                mb = {4'b0, 1'b1, b[2:0]};
-                bias_b = 6'sd7;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E5M2: if (SUPPORT_E5M2) begin
-                sign_b = b[7];
-                eb = b[6:2];
-                mb = {4'b0, 1'b1, b[1:0], 1'b0};
-                bias_b = 6'sd15;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E3M2: if (SUPPORT_MXFP6) begin
-                sign_b = b[5];
-                eb = {2'b0, b[4:2]};
-                mb = {4'b0, 1'b1, b[1:0], 1'b0};
-                bias_b = 6'sd3;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E2M3: if (SUPPORT_MXFP6) begin
-                sign_b = b[5];
-                eb = {3'b0, b[4:3]};
-                mb = {4'b0, 1'b1, b[2:0]};
-                bias_b = 6'sd1;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_E2M1: if (SUPPORT_MXFP4) begin
-                sign_b = b[3];
-                eb = {3'b0, b[2:1]};
-                mb = {4'b0, 1'b1, b[0], 2'b0};
-                bias_b = 6'sd1;
-                zero_b = (eb == 5'd0);
-            end
-            FMT_INT8: if (SUPPORT_INT8) begin
-                sign_b = b[7];
-                mb = b[7] ? -b : b;
-                eb = 5'd0;
-                bias_b = 6'sd3;
-                zero_b = (b == 8'd0);
-            end
-            FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                sign_b = b[7];
-                mb = (b == 8'h80) ? 8'd127 : (b[7] ? -b : b);
-                eb = 5'd0;
-                bias_b = 6'sd3;
-                zero_b = (b == 8'd0);
-            end
-            default: begin
-                sign_b = b[7];
-                eb = {1'b0, b[6:3]};
-                mb = {4'b0, 1'b1, b[2:0]};
-                bias_b = 6'sd7;
-                zero_b = (eb == 5'd0);
-            end
-        endcase
+        decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b);
 
         // 8x8 or 4x4 Multiplier
         if (SUPPORT_INT8)
