@@ -120,8 +120,7 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, na
                 if (prod >> (WIDTH - shift_amt)) != 0: huge = True
     else:
         n = -shift_amt
-        huge = False
-        if n >= WIDTH:
+        if n >= WIDTH or huge:
             base = 0
             sticky = 1 if prod != 0 else 0
             shifted_out = prod
@@ -372,6 +371,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         for a, b in zip(a_elements, b_elements):
             _, _, _, _, _, nana, infa, zeroa = decode_format(a, format_a)
             _, _, _, _, _, nanb, infb, zerob = decode_format(b, format_b)
+            # Mixed types: decode_format correctly handles the zero flags for both operands.
+            # NaN is produced if:
+            # 1. Either operand is already NaN
+            # 2. 0 * Inf (either way)
             if nana or nanb or (infa and zerob) or (infb and zeroa):
                 any_nan_in_block = True
                 break
