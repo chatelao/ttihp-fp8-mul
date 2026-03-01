@@ -91,3 +91,27 @@ In standard MX formats, the exponent of the largest magnitude value in a block (
 - **Tasks**:
   - Run `test/gate_analysis.py` to measure the gate count delta of the MX+ extension.
   - Analyze timing impact on the 27MHz/100MHz targets.
+
+---
+
+## Phase 6: Vector Packing for FP4 (Throughput Optimization)
+
+### Step 10: Packed Protocol Definition
+- **Goal**: Optimize the streaming protocol for 4-bit elements.
+- **Tasks**:
+  - Define a "Packed Mode" bit in the `Config Byte` (Cycle 1).
+  - Modify the FSM to transition through 16 `STREAM` cycles (3-18) when Packed Mode is active.
+  - Specify the bit layout for packed elements: `ui_in[7:4] = A[i+1]`, `ui_in[3:0] = A[i]`.
+
+### Step 11: Dual-Lane Multiplier Integration
+- **Goal**: Implement parallel processing of packed elements.
+- **Tasks**:
+  - Instantiate a second FP8/FP4 multiplier unit.
+  - Update the accumulator logic to perform two parallel additions per cycle ($Acc = Acc + Prod_i + Prod_{i+1}$).
+  - Evaluate the area impact; use `generate` blocks to make the second lane optional (`SUPPORT_DUAL_LANE`).
+
+### Step 12: Buffering & Duty Cycle Reduction (Alternative)
+- **Goal**: Reduce I/O activity without increasing multiplier area.
+- **Tasks**:
+  - Implement an 8x8-bit (16-element) FIFO to buffer packed FP4 elements.
+  - Load packed data in 16 cycles, then process at 1 element/cycle while the I/O pins remain idle.
