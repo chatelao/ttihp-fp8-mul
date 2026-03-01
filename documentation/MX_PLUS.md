@@ -40,19 +40,23 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ### Step 1: Protocol Update for BM Indices
 - **Goal**: Load the position of the BM element for both Operand A and Operand B.
-- **Tasks**:
-  - Extend the 41-cycle operational protocol to include a metadata loading phase.
-  - **Selected Approach**: Repurpose bits in existing `LOAD_SCALE` cycles (Cycles 1-2) or utilize unused cycles in the `LOAD_SCALE` phase to maintain the 41-cycle total.
-- **Metadata Format**: 8 bits total per tensor:
-  - `[4:0]`: **BM Index** (0-31), identifying which of the 32 elements is the outlier.
-  - `[7:5]`: **Reserved bits** (used for MX++ in Phase 4).
+- **Preparation**:
+  - Audit `uio_in` usage in Cycles 1 and 2 of the FSM.
+  - Define the bit-mapping for the 5-bit index and 3-bit reserved field within the 41-cycle protocol.
+- **Variant Analysis**:
+  - **Variant A (Extended Protocol)**: Increase protocol length to 43 cycles, adding two dedicated metadata cycles after scaling.
+  - **Variant B (Metadata Multiplexing)**: Utilize unused bits in `uio_in` during Cycle 2 (where `scale_b` is loaded on `ui_in`).
+- **Reasoning**: **Variant B** is selected. It maintains the 41-cycle standard protocol, ensuring backward compatibility with existing software drivers and minimizing the latency impact of the extension.
 
 ### Step 2: Internal Storage & Parameterization
 - **Goal**: Add parameterized hardware support for MX+.
-- **Tasks**:
-  - Introduce the `SUPPORT_MX_PLUS` parameter to `src/project.v`.
-  - Add registers `bm_index_a`, `bm_index_b`, and `mx_metadata_a/b` to the top-level FSM.
-  - **Register Pruning**: Utilize Verilog `generate` blocks to ensure these registers are completely removed by synthesis when `SUPPORT_MX_PLUS=0`.
+- **Preparation**:
+  - Define `bm_index_a` and `bm_index_b` registers in `src/project.v`.
+  - Implement a `SUPPORT_MX_PLUS` feature flag.
+- **Variant Analysis**:
+  - **Variant A (Shared Metadata Register)**: Use a single 16-bit register for all MX+ metadata (indices + offsets).
+  - **Variant B (Split Gated Registers)**: Separate registers for `bm_index` and `nbm_offset`, each guarded by its own `generate` block.
+- **Reasoning**: **Variant B** is chosen to enable modular register pruning. If only basic MX+ is needed (Phase 2) without MX++ (Phase 4), the offset registers can be pruned independently, saving area on the Tiny Tapeout tile.
 
 ---
 
@@ -60,21 +64,22 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ### Step 3: Outlier Identification in Multiplier
 - **Goal**: Detect when the current streaming element is the designated Block Max.
-- **Tasks**:
-  - Pass `bm_index_a` and `bm_index_b` to the `multiplier` module in `src/fp8_mul.v`.
-  - Derive the current element index from the FSM's `cycle_count` (Index = `cycle_count - 3`).
-  - Create `is_bm_a` and `is_bm_b` signals.
+- **Preparation**:
+  - Update `fp8_mul` module interface to accept outlier metadata.
+  - Synchronize internal `index_counter` with the FSM `cycle_count`.
+- **Variant Analysis**:
+  - **Variant A (Distributed Comparators)**: Pass the 5-bit `bm_index` into each multiplier lane; each lane performs its own `count == bm_index` check.
+  - **Variant B (Centralized Flagging)**: Perform the comparison in the top-level FSM (`project.v`) and pass a single `is_bm` wire to the multiplier lanes.
+- **Reasoning**: **Variant B** is selected. Centralizing the comparison logic reduces the total gate count by removing redundant 5-bit magnitude comparators from the multiplier lanes, which is critical for the "Ultra-Tiny" configuration.
 
 ### Step 4: Exponent Repurposing Logic
 - **Goal**: Implement the MX+ numerical semantics within the shared decoders.
-- **Tasks**:
-  - Modify the `task automatic decode_operand` in `src/fp8_mul.v` (and `src/fp8_mul_lns.v`).
-  - **Numerical Logic**:
-    - If `is_bm` is active:
-      - Treat the exponent bits as additional mantissa bits (e.g., MXFP4 E2M1 becomes E0M3).
-      - Hardwire the internal exponent to the format's $e_{max}$ (e.g., 2 for FP4).
-    - If `is_bm` is inactive: Use standard OCP MX decoding.
-  - **Shared Exponent Zero (SEZ)**: Implement the "Shared Exponent Zero" rule from the paper. If the shared scale is zero, flush the entire block to zero regardless of element values.
+- **Preparation**:
+  - Refactor the `task automatic decode_operand` in `src/fp8_mul.v` to accept an `is_bm` boolean.
+- **Variant Analysis**:
+  - **Variant A (Dual Decoders)**: Instantiate a separate "MX+ Decoder" and a "Standard Decoder" for each lane, using a MUX to select the output.
+  - **Variant B (Conditional Override)**: Modify the existing decoder logic to conditionally hardwire the exponent to `e_max` and treat exponent bits as mantissa when `is_bm` is high.
+- **Reasoning**: **Variant B** is chosen for area efficiency. It reuses the existing mantissa shift and normalization logic with minimal additional logic gates.
 
 ---
 
@@ -82,11 +87,13 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ### Step 5: Handling Variable Mantissa Width
 - **Goal**: Support the wider product generated by BM elements.
-- **Tasks**:
-  - **Multiplier Dependency**: MXFP6+ and MXFP8+ generate products that exceed the capacity of a 4x4 multiplier. Support for these formats requires the 8x8 multiplier enabled by `SUPPORT_INT8=1`.
-  - Update the internal multiplier in `fp8_mul.v` to handle the extended mantissa bits from BM elements.
-  - Ensure the `exp_sum` logic correctly accounts for the fixed $e_{max}$ of BM elements.
-  - Verify that the `fp8_aligner` correctly handles the resulting product/exponent pair.
+- **Preparation**:
+  - Audit the bit-width of the `mul_prod` signal (currently 16-bit).
+  - Ensure the aligner can handle the increased mantissa precision.
+- **Variant Analysis**:
+  - **Variant A (Fixed 8x8 Multiplier)**: Always use an 8x8 multiplier for all formats when `SUPPORT_MX_PLUS=1`.
+  - **Variant B (Parameterized Multiplier)**: Use `generate` blocks to scale the multiplier width (4x4 or 8x8) based on both format (MXFP4/6/8) and the MX+ support flag.
+- **Reasoning**: **Variant B** is selected to preserve the "Ultra-Tiny" footprint for users who only require standard MXFP4. The 8x8 multiplier is only instantiated if required for MXFP8+ or high-precision INT8 modes.
 
 ---
 
@@ -94,30 +101,43 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ### Step 6: Decoupled Shared Scaling
 - **Goal**: Implement **MX++**, which allows Non-Block Max (NBM) elements to use a finer quantization grid.
-- **Tasks**:
-  - Repurpose the 3 reserved metadata bits as a **Shared Exponent Offset** for NBM elements.
-  - During the `STREAM` phase, if the element is NOT the BM, apply the offset to the shared scale logic.
-  - Update `fp8_aligner` to conditionally shift NBM products by this offset.
+- **Preparation**:
+  - Implement a 3-bit subtractor to calculate the `shared_exp_nbm = shared_exp - offset`.
+- **Variant Analysis**:
+  - **Variant A (Datapath Barrel Shifter)**: Add a dedicated shifter after the multiplier to apply the offset.
+  - **Variant B (Aligner Exponent Offset)**: Subtract the offset from the `exp_sum` before it enters the `fp8_aligner`.
+- **Reasoning**: **Variant B** is preferred as it leverages the existing alignment hardware. Modifying the exponent input to the aligner is significantly cheaper in terms of area than adding a second barrel shifter to the datapath.
 
 ---
 
 ## Phase 5: Verification & Benchmarking
 
 ### Step 7: Reference Model Synchronization
-- **Tasks**:
-  - Update the Python reference model in `test/test.py` to implement the `output_i` formula from Section 5 of the paper.
-  - Implement the specific bit-layouts for MXFP4+, MXFP6+, and MXFP8+.
+- **Goal**: Update the Python reference model for bit-accuracy.
+- **Preparation**:
+  - Implement the `E0Mx` layout in the `test/test.py` decoding logic.
+- **Variant Analysis**:
+  - **Variant A (Numerical Model)**: Use floating-point math to approximate MX+ behavior.
+  - **Variant B (Bit-Level Model)**: Implement the exact bit-masking and shifting logic found in the Verilog RTL.
+- **Reasoning**: **Variant B** is essential for verification. Bit-level accuracy ensures that quantization edge cases (like rounding near 0.5 LSB) are handled identically by the hardware and the software testbench.
 
 ### Step 8: Comprehensive Test Suite
-- **Tasks**:
-  - Add test cases targeting outlier preservation.
-  - Verify bit-accurate results for various BM index positions.
-  - Test MX++ scaling offsets.
+- **Goal**: Add test cases targeting outlier preservation.
+- **Preparation**:
+  - Define specific test vectors in `test/TEST_MX_E2E.YAML`.
+- **Variant Analysis**:
+  - **Variant A (Random Fuzzing)**: Generate random input blocks and check against the model.
+  - **Variant B (Directed Corner Cases)**: Specifically test blocks where the BM is at index 0, 15, or 31, and cases where the shared scale is zero (SEZ rule).
+- **Reasoning**: **Variant B** is prioritized for the initial implementation to ensure the FSM and indexing logic are robust, followed by Variant A for general coverage.
 
 ### Step 9: Physical Impact Analysis
-- **Tasks**:
-  - Run `test/gate_analysis.py` to measure the gate count delta of the MX+ extension.
-  - Analyze timing impact on the 27MHz/100MHz targets.
+- **Goal**: Measure the gate count delta.
+- **Preparation**:
+  - Integrate `SUPPORT_MX_PLUS` into the `test/gate_analysis.py` matrix.
+- **Variant Analysis**:
+  - **Variant A (Top-Level Synthesis)**: Synthesize the entire MAC unit to see the real-world area impact.
+  - **Variant B (Module-Only Synthesis)**: Synthesize only the `fp8_mul` module to isolate the cost of decoding logic.
+- **Reasoning**: Both are used. Variant A provides the final "gate budget" for the Tiny Tapeout tile, while Variant B helps optimize the decoder architecture during Phase 2.
 
 ---
 
@@ -125,20 +145,27 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ### Step 10: Packed Protocol Definition (Status: **COMPLETED**)
 - **Goal**: Optimize the streaming protocol for 4-bit elements.
-- **Implementation**:
-  - Defined a "Packed Mode" bit in the `Config Byte` (Cycle 1, `uio_in[6]`).
-  - Modified the FSM to transition through 16 `STREAM` cycles (3-18) when Packed Mode is active, resulting in a **25-cycle protocol**.
-  - Specified the bit layout for packed elements: `ui_in[7:4] = A[i+1]`, `ui_in[3:0] = A[i]`.
+- **Preparation**:
+  - Reserve bit 6 of the Config Byte (`uio_in` at Cycle 1) to toggle Packed Mode.
+- **Variant Analysis**:
+  - **Variant A (Implicit Packing)**: Automatically pack all 4-bit formats into 16 cycles.
+  - **Variant B (Explicit Packed Mode)**: Use a control bit to choose between standard 32-cycle and packed 16-cycle streaming.
+- **Reasoning**: **Variant B** was chosen. This allows the hardware to remain compliant with standard OCP drivers that do not support packed data layouts, while offering a high-performance "opt-in" for specialized accelerators.
 
 ### Step 11: Dual-Lane Multiplier Integration (Status: **COMPLETED**)
 - **Goal**: Implement parallel processing of packed elements.
-- **Implementation**:
-  - Instantiated a second FP8/FP4 multiplier unit.
-  - Updated the accumulator logic to perform two parallel additions per cycle ($Acc = Acc + Prod_i + Prod_{i+1}$).
-  - Parameterized via `SUPPORT_VECTOR_PACKING` (defaults to `0` in Ultra-Tiny to save area).
+- **Preparation**:
+  - Instantiate a second `fp8_mul` and `fp8_aligner` unit.
+- **Variant Analysis**:
+  - **Variant A (Temporal Parallelism)**: Run a single multiplier at 2x clock frequency.
+  - **Variant B (Spatial Parallelism)**: Instantiate two parallel multiplier lanes.
+- **Reasoning**: **Variant B** was selected. Given the Tiny Tapeout constraints (10MHz typical, 100MHz peak), spatial parallelism is more robust for timing closure and avoids complex clock-domain-crossing logic required for temporal parallelism.
 
 ### Step 12: Buffering & Duty Cycle Reduction (Alternative)
 - **Goal**: Reduce I/O activity without increasing multiplier area.
-- **Tasks**:
-  - Implement an 8x8-bit (16-element) FIFO to buffer packed FP4 elements.
-  - Load packed data in 16 cycles, then process at 1 element/cycle while the I/O pins remain idle.
+- **Preparation**:
+  - Design an 8-bit wide, 16-entry FIFO for activation buffering.
+- **Variant Analysis**:
+  - **Variant A (Input Buffering)**: Load packed data in 16 cycles, then process at 1 element/cycle while the I/O pins remain idle.
+  - **Variant B (Output Buffering)**: Process at full speed and buffer the final 32-bit results.
+- **Reasoning**: **Variant A** is preferred for duty cycle reduction. It allows the system to burst-load activations and then potentially enter a low-power state or free the bus for other devices while the MAC unit processes the block.
