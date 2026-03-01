@@ -174,6 +174,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     wire signed [6:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
+    wire mul_nan_lane0, mul_nan_lane1;
+    wire mul_inf_lane0, mul_inf_lane1;
 
     reg [3:0] packed_a_buf, packed_b_buf;
     always @(posedge clk) begin
@@ -220,7 +222,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0)
+                .sign(mul_sign_lane0),
+                .nan(mul_nan_lane0),
+                .inf(mul_inf_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul_lns #(
@@ -239,12 +243,16 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1)
+                    .sign(mul_sign_lane1),
+                    .nan(mul_nan_lane1),
+                    .inf(mul_inf_lane1)
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
                 assign mul_exp_sum_lane1 = 7'd0;
                 assign mul_sign_lane1 = 1'b0;
+                assign mul_nan_lane1 = 1'b0;
+                assign mul_inf_lane1 = 1'b0;
             end
         end else begin : std_gen
             fp8_mul #(
@@ -262,7 +270,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0)
+                .sign(mul_sign_lane0),
+                .nan(mul_nan_lane0),
+                .inf(mul_inf_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul #(
@@ -280,12 +290,16 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1)
+                    .sign(mul_sign_lane1),
+                    .nan(mul_nan_lane1),
+                    .inf(mul_inf_lane1)
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
                 assign mul_exp_sum_lane1 = 7'd0;
                 assign mul_sign_lane1 = 1'b0;
+                assign mul_nan_lane1 = 1'b0;
+                assign mul_inf_lane1 = 1'b0;
             end
         end
     endgenerate
@@ -294,59 +308,83 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
     wire signed [6:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
     wire mul_sign_lane0_val, mul_sign_lane1_val;
+    wire mul_nan_lane0_val, mul_nan_lane1_val;
+    wire mul_inf_lane0_val, mul_inf_lane1_val;
 
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
             reg [15:0] mul_prod_lane0_reg;
             reg signed [6:0] mul_exp_sum_lane0_reg;
             reg mul_sign_lane0_reg;
+            reg mul_nan_lane0_reg;
+            reg mul_inf_lane0_reg;
 
             always @(posedge clk) begin
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
                     mul_exp_sum_lane0_reg <= 7'd0;
                     mul_sign_lane0_reg <= 1'b0;
+                    mul_nan_lane0_reg <= 1'b0;
+                    mul_inf_lane0_reg <= 1'b0;
                 end else if (ena) begin
                     mul_prod_lane0_reg <= mul_prod_lane0;
                     mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
                     mul_sign_lane0_reg <= mul_sign_lane0;
+                    mul_nan_lane0_reg <= mul_nan_lane0;
+                    mul_inf_lane0_reg <= mul_inf_lane0;
                 end
             end
             assign mul_prod_lane0_val = mul_prod_lane0_reg;
             assign mul_exp_sum_lane0_val = mul_exp_sum_lane0_reg;
             assign mul_sign_lane0_val = mul_sign_lane0_reg;
+            assign mul_nan_lane0_val = mul_nan_lane0_reg;
+            assign mul_inf_lane0_val = mul_inf_lane0_reg;
 
             if (SUPPORT_VECTOR_PACKING) begin : gen_pipeline_lane1
                 reg [15:0] mul_prod_lane1_reg;
                 reg signed [6:0] mul_exp_sum_lane1_reg;
                 reg mul_sign_lane1_reg;
+                reg mul_nan_lane1_reg;
+                reg mul_inf_lane1_reg;
 
                 always @(posedge clk) begin
                     if (!rst_n) begin
                         mul_prod_lane1_reg <= 16'd0;
                         mul_exp_sum_lane1_reg <= 7'd0;
                         mul_sign_lane1_reg <= 1'b0;
+                        mul_nan_lane1_reg <= 1'b0;
+                        mul_inf_lane1_reg <= 1'b0;
                     end else if (ena) begin
                         mul_prod_lane1_reg <= mul_prod_lane1;
                         mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
                         mul_sign_lane1_reg <= mul_sign_lane1;
+                        mul_nan_lane1_reg <= mul_nan_lane1;
+                        mul_inf_lane1_reg <= mul_inf_lane1;
                     end
                 end
                 assign mul_prod_lane1_val = mul_prod_lane1_reg;
                 assign mul_exp_sum_lane1_val = mul_exp_sum_lane1_reg;
                 assign mul_sign_lane1_val = mul_sign_lane1_reg;
+                assign mul_nan_lane1_val = mul_nan_lane1_reg;
+                assign mul_inf_lane1_val = mul_inf_lane1_reg;
             end else begin : gen_no_pipeline_lane1
                 assign mul_prod_lane1_val = 16'd0;
                 assign mul_exp_sum_lane1_val = 7'd0;
                 assign mul_sign_lane1_val = 1'b0;
+                assign mul_nan_lane1_val = 1'b0;
+                assign mul_inf_lane1_val = 1'b0;
             end
         end else begin : gen_no_pipeline
             assign mul_prod_lane0_val = mul_prod_lane0;
             assign mul_exp_sum_lane0_val = mul_exp_sum_lane0;
             assign mul_sign_lane0_val = mul_sign_lane0;
+            assign mul_nan_lane0_val = mul_nan_lane0;
+            assign mul_inf_lane0_val = mul_inf_lane0;
             assign mul_prod_lane1_val = mul_prod_lane1;
             assign mul_exp_sum_lane1_val = mul_exp_sum_lane1;
             assign mul_sign_lane1_val = mul_sign_lane1;
+            assign mul_nan_lane1_val = mul_nan_lane1;
+            assign mul_inf_lane1_val = mul_inf_lane1;
         end
     endgenerate
 
@@ -410,6 +448,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // 4. Combined Lane Result
     wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
 
+    // NaN/Inf Logic for Accumulator
+    // If one is +Inf and other is -Inf, the result is NaN
+    wire inf_sign_conflict = mul_inf_lane0_val && mul_inf_lane1_val && (mul_sign_lane0_val != mul_sign_lane1_val);
+    wire nan_combined = mul_nan_lane0_val || mul_nan_lane1_val || inf_sign_conflict;
+    wire inf_combined = (mul_inf_lane0_val || mul_inf_lane1_val) && !inf_sign_conflict;
+    wire sign_combined = mul_inf_lane1_val ? mul_sign_lane1_val : mul_sign_lane0_val; // Simple sign selection
+
     // 5. Accumulator Control
     // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
@@ -419,8 +464,15 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res :
+    wire nan_sticky, inf_sticky, sign_sticky;
+
+    wire [31:0] final_scaled_result_raw = ENABLE_SHARED_SCALING ? aligned_lane0_res :
                                      (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
+
+    // Force NaN/Inf for output
+    wire [31:0] final_scaled_result = nan_sticky ? 32'h7FC00000 :
+                                      (inf_sticky ? (sign_sticky ? 32'hFF800000 : 32'h7F800000) :
+                                      final_scaled_result_raw);
 
     accumulator #(
         .WIDTH(ACCUMULATOR_WIDTH)
@@ -431,9 +483,15 @@ module tt_um_chatelao_fp8_multiplier #(
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
         .data_in(aligned_combined),
+        .nan_in(nan_combined),
+        .inf_in(inf_combined),
+        .sign_in(sign_combined),
         .load_en(ena && cycle_count == capture_cycle),
         .load_data(final_scaled_result),
         .shift_en(ena && state == STATE_OUTPUT && cycle_count > capture_cycle && cycle_count < last_cycle),
+        .nan_out(nan_sticky),
+        .inf_out(inf_sticky),
+        .sign_out(sign_sticky),
         .shift_out(acc_shift_out),
         .data_out(acc_out)
     );

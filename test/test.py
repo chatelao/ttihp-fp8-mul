@@ -8,6 +8,8 @@ import yaml
 import os
 
 def decode_format(bits, format_val):
+    nan = False
+    inf = False
     if format_val == 0: # E4M3
         sign = (bits >> 7) & 1
         exp_field = (bits >> 3) & 0xF
@@ -18,7 +20,8 @@ def decode_format(bits, format_val):
         mant = (implicit_bit << 3) | (bits & 0x7)
         bias = 7
         is_int = False
-        return sign, exp, mant, bias, is_int
+        nan = (bits & 0x7F) == 0x7F
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 1: # E5M2
         sign = (bits >> 7) & 1
         exp_field = (bits >> 2) & 0x1F
@@ -30,7 +33,9 @@ def decode_format(bits, format_val):
         mant <<= 1 # Align to 4 bits
         bias = 15
         is_int = False
-        return sign, exp, mant, bias, is_int
+        nan = (exp_field == 0x1F and mant_field != 0)
+        inf = (exp_field == 0x1F and mant_field == 0)
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 2: # E3M2
         sign = (bits >> 5) & 1
         exp_field = (bits >> 2) & 0x7
@@ -42,7 +47,7 @@ def decode_format(bits, format_val):
         mant <<= 1 # Align to 4 bits
         bias = 3
         is_int = False
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 3: # E2M3
         sign = (bits >> 5) & 1
         exp_field = (bits >> 3) & 0x3
@@ -53,7 +58,7 @@ def decode_format(bits, format_val):
         mant = (implicit_bit << 3) | mant_field
         bias = 1
         is_int = False
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 4: # E2M1
         sign = (bits >> 3) & 1
         exp_field = (bits >> 1) & 0x3
@@ -65,7 +70,7 @@ def decode_format(bits, format_val):
         mant <<= 2 # Align to 4 bits
         bias = 1
         is_int = False
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 5: # INT8
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -84,7 +89,7 @@ def decode_format(bits, format_val):
     else: # Default E4M3
         return decode_format(bits, 0)
 
-    return sign, exp, mant, bias, is_int
+    return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum - 5
@@ -194,28 +199,33 @@ def get_param(handle, name, default=1):
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40):
     # Fallback for unsupported formats in hardware
-    if not support_e5m2 and format_a == 1: return 0
-    if not support_e5m2 and format_b == 1: return 0
-    if not support_mxfp6 and format_a in [2, 3]: return 0
-    if not support_mxfp6 and format_b in [2, 3]: return 0
-    if not support_mxfp4 and format_a == 4: return 0
-    if not support_mxfp4 and format_b == 4: return 0
-    if not support_int8 and format_a in [5, 6]: return 0
-    if not support_int8 and format_b in [5, 6]: return 0
+    if not support_e5m2 and format_a == 1: return 0, False, False, 0
+    if not support_e5m2 and format_b == 1: return 0, False, False, 0
+    if not support_mxfp6 and format_a in [2, 3]: return 0, False, False, 0
+    if not support_mxfp6 and format_b in [2, 3]: return 0, False, False, 0
+    if not support_mxfp4 and format_a == 4: return 0, False, False, 0
+    if not support_mxfp4 and format_b == 4: return 0, False, False, 0
+    if not support_int8 and format_a in [5, 6]: return 0, False, False, 0
+    if not support_int8 and format_b in [5, 6]: return 0, False, False, 0
 
-    sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
-    sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
+    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b)
 
     sign = sa ^ sb
 
     # Updated: zero check now correctly handles subnormals
-    if (not inta and ea == 0 and (ma & 0x7) == 0) or (not intb and eb == 0 and (mb & 0x7) == 0):
-        return 0
-    if (inta and a_bits == 0) or (intb and b_bits == 0):
-        return 0
+    za = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a_bits == 0)
+    zb = (not intb and eb == 0 and (mb & 0x7) == 0) or (intb and b_bits == 0)
+
+    # NaN/Inf Propagation logic (matching hardware)
+    nan_res = nana or nanb or (infa and zb) or (infb and za)
+    inf_res = (infa or infb) and not nan_res
+
+    if za or zb or nan_res or inf_res:
+        return 0, nan_res, inf_res, sign
 
     if use_lns:
-        if inta or intb: return 0 # No INT8 support in LNS mode
+        if inta or intb: return 0, False, False, sign # No INT8 support in LNS mode
         if use_lns_precise:
             # Precise LNS LUT logic
             lut = [
@@ -246,7 +256,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7)
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width), nan_res, inf_res, sign
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -306,10 +316,25 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
+    nan_sticky = False
+    pos_inf_sticky = False
+    neg_inf_sticky = False
+
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
+        prod, nan_res, inf_res, sign_res = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
                                    support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width)
+
+        # Sticky flag update
+        if nan_res:
+            nan_sticky = True
+        elif inf_res:
+            if sign_res:
+                if pos_inf_sticky: nan_sticky = True
+                else: neg_inf_sticky = True
+            else:
+                if neg_inf_sticky: nan_sticky = True
+                else: pos_inf_sticky = True
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -373,6 +398,12 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         else:
             expected_final = expected_acc
 
+    # Final result override for NaN/Inf
+    if nan_sticky:
+        expected_final = 0x7FC00000
+    elif pos_inf_sticky or neg_inf_sticky:
+        expected_final = 0xFF800000 if neg_inf_sticky else 0x7F800000
+
     # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0
     for i in range(4):
@@ -383,14 +414,19 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
 
+    if expected_final & 0x80000000:
+        expected_final_signed = expected_final - 0x100000000
+    else:
+        expected_final_signed = expected_final
+
     if expected_override is not None:
-        expected_final = expected_override
+        expected_final_signed = expected_override
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
-    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
-    assert actual_acc == expected_final
+    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final_signed}, Actual: {actual_acc}")
+    assert actual_acc == expected_final_signed
 
 @cocotb.test()
 async def test_mxfp8_mac_shared_scale(dut):
@@ -617,7 +653,7 @@ async def test_fast_start_scale_compression(dut):
     expected_acc = 0
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_a, format_b,
+        prod, _, _, _ = align_product_model(a, b, format_a, format_b,
                                    support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
         expected_acc += prod
 
@@ -756,3 +792,37 @@ async def test_mxfp8_subnormals(dut):
     b_elements = [0x38] * 32
 
     await run_mac_test(dut, 0, 0, a_elements, b_elements)
+
+@cocotb.test()
+async def test_mxfp8_nan_propagation(dut):
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    if not support_e5m2:
+        dut._log.info("Skipping NaN Propagation Test (E5M2 not supported)")
+        return
+
+    dut._log.info("Start MXFP8 NaN Propagation Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # E5M2 NaN: Exp=31, Mant!=0. E.g., 0x7E
+    a_elements = [0x3C] * 32 # 1.0
+    b_elements = [0x3C] * 31 + [0x7E] # 31x 1.0, 1x NaN
+
+    await run_mac_test(dut, 1, 1, a_elements, b_elements)
+
+@cocotb.test()
+async def test_mxfp8_inf_propagation(dut):
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    if not support_e5m2:
+        dut._log.info("Skipping Inf Propagation Test (E5M2 not supported)")
+        return
+
+    dut._log.info("Start MXFP8 Inf Propagation Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # E5M2 Inf: Exp=31, Mant=0. E.g., 0x7C
+    a_elements = [0x3C] * 32 # 1.0
+    b_elements = [0x3C] * 31 + [0x7C] # 31x 1.0, 1x Inf
+
+    await run_mac_test(dut, 1, 1, a_elements, b_elements)
