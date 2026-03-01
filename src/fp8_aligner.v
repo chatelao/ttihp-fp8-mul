@@ -9,6 +9,8 @@ module fp8_aligner #(
     input  wire        sign,     // Sign bit
     input  wire [1:0]  round_mode,
     input  wire        overflow_wrap,
+    input  wire        nan,
+    input  wire        inf,
     output reg  [31:0] aligned   // 32-bit fixed point (bit 8 = 2^0)
 );
 
@@ -44,6 +46,8 @@ module fp8_aligner #(
         n = 11'd0;
         aligned = 32'd0;
         mask = {WIDTH{1'b0}};
+
+        huge = nan | inf;
 
         if (shift_amt >= 0) begin
             // Left shift

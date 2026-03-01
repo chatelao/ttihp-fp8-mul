@@ -16,7 +16,9 @@ module fp8_mul_lns #(
     input  wire [2:0] format_b,
     output wire [15:0] prod,    // Mantissa product
     output wire signed [6:0] exp_sum, // Combined exponent (biased)
-    output wire       sign
+    output wire       sign,
+    output wire       nan,
+    output wire       inf
 );
     // Format Selection
     localparam FMT_E4M3 = 3'b000;
@@ -33,10 +35,12 @@ module fp8_mul_lns #(
     reg signed [5:0] bias_a, bias_b;
     reg zero_a, zero_b;
     reg is_inta, is_intb;
+    reg nan_a, inf_a, nan_b, inf_b;
 
     reg [15:0] p_res;
     reg signed [6:0] exp_sum_res;
     reg sign_res;
+    reg nan_res, inf_res;
     reg [3:0] m_sum;
 
     // Precise LNS LUT: 64x4 (3 bits M_res, 1 bit carry)
@@ -61,7 +65,9 @@ module fp8_mul_lns #(
         output reg [7:0] mant_out,
         output reg signed [5:0] bias_out,
         output reg zero_out,
-        output reg is_int_out
+        output reg is_int_out,
+        output reg nan_out,
+        output reg inf_out
     );
         begin
             // Defaults for unsupported formats
@@ -71,6 +77,8 @@ module fp8_mul_lns #(
             bias_out = 6'sd0;
             zero_out = 1'b1;
             is_int_out = 1'b0;
+            nan_out = 1'b0;
+            inf_out = 1'b0;
 
             case (fmt)
                 FMT_E4M3: begin
@@ -79,6 +87,7 @@ module fp8_mul_lns #(
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 6'sd7;
                     zero_out = (data[6:0] == 7'd0);
+                    nan_out = (data[6:0] == 7'b1111111);
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
                     sign_out = data[7];
@@ -86,6 +95,8 @@ module fp8_mul_lns #(
                     mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                     bias_out = 6'sd15;
                     zero_out = (data[6:0] == 7'd0);
+                    inf_out = (data[6:2] == 5'b11111 && data[1:0] == 2'b00);
+                    nan_out = (data[6:2] == 5'b11111 && data[1:0] != 2'b00);
                 end
                 FMT_E3M2: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
@@ -137,14 +148,14 @@ module fp8_mul_lns #(
 
     always @(*) begin
         // Operand A Decoding
-        decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a, is_inta);
+        decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a, is_inta, nan_a, inf_a);
 
         // Operand B Decoding
         if (SUPPORT_MIXED_PRECISION) begin
-            decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b, is_intb);
+            decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b, is_intb, nan_b, inf_b);
         end else begin
             // Use format_a for both operands to allow hardware sharing
-            decode_operand(b, format_a, sign_b, eb, mb, bias_b, zero_b, is_intb);
+            decode_operand(b, format_a, sign_b, eb, mb, bias_b, zero_b, is_intb, nan_b, inf_b);
         end
 
         // Combined Log-Adder (Mitchell or Precise)
@@ -171,10 +182,14 @@ module fp8_mul_lns #(
             end
         end
         sign_res = sign_a ^ sign_b;
+        nan_res = nan_a | nan_b | (inf_a & zero_b) | (inf_b & zero_a);
+        inf_res = (inf_a | inf_b) & ~nan_res;
     end
 
     assign sign = sign_res;
     assign prod = p_res;
     assign exp_sum = exp_sum_res;
+    assign nan = nan_res;
+    assign inf = inf_res;
 
 endmodule

@@ -131,11 +131,10 @@ This implementation follows the **OCP Microscaling Formats (MX) Specification (v
 - **Efficiency**: 41-cycle pipelined streaming protocol with **Fast Start** (Scale Compression) to reuse scales/formats across consecutive blocks.
 
 ### Omitted Features & Deviations
-- **Subnormal Support**: Subnormal elements are **flushed to zero** (Denormals-Are-Zero) to reduce hardware area.
 - **Fixed Block Size**: The unit is hard-coded for a block size of **$k=32$** elements.
 - **NaN/Infinity Handling**:
-  - **E5M2** fully supports IEEE-754 style Infinities and NaNs.
-  - For other formats, the unit prioritizes **saturation** for out-of-range values, consistent with OCP MX "Saturation-only" modes for narrower formats.
+  - **Two-Level NaN Propagation**: The unit supports OCP MX v1.0 NaN semantics. If a shared scale is NaN (`0xFF`), the entire block is treated as NaN. Individual elements can also encode NaN/Inf (e.g., in E5M2 or E4M3), which propagate through the MAC pipeline.
+  - For narrower formats without reserved NaN encodings, the unit prioritizes **saturation** for out-of-range values, consistent with the OCP specification.
 - **Accumulator Precision**: A **32-bit signed fixed-point accumulator** is used, providing sufficient range for 32-element dot products of all supported formats.
 
 ## What is Tiny Tapeout?
