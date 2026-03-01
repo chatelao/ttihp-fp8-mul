@@ -32,6 +32,18 @@ The TPU v7 TensorCore is organized into a nested hierarchy to manage complexity 
     - Contains the **MX+ Decoder**, a 4-bit/8-bit multiplier core, a high-precision aligner, and a 32-bit local accumulator.
     - The PE is capable of dynamically switching between standard OCP MX and MX+ modes based on the Block Max index metadata.
 
+## Vector Processing Unit (VPU)
+The **Vector Processing Unit (VPU)** is a high-performance SIMD engine within the TPU v7 Core designed to handle non-linear operations that are not suited for the systolic MXU. While the MXU excels at matrix-matrix multiplication, the VPU provides the flexibility required for the diverse set of vector operations found in modern Transformer architectures.
+
+### Key Responsibilities:
+-   **Activation Functions**: Implementation of computationally expensive non-linearities such as **GeLU**, **ReLU**, **SwiGLU**, and **Softmax**.
+-   **Normalization**: Performs high-precision **LayerNorm** and **RMSNorm** operations. It typically operates on 32-bit intermediate results to maintain numerical stability before requantizing to MX formats.
+-   **Element-wise & Vector Operations**: Supports vector-vector addition, multiplication, and scaling, which are critical for residual connections and attention mask application.
+-   **Transposition & Permutation**: Handles data layout transformations required between different layers or attention heads.
+
+### Integration with MX+ Pipeline:
+The VPU acts as the "post-processor" for the MXU's systolic grid. Once the 32-bit partial sums are reduced and finalized (including the high-precision MX+ Block Max contributions), they are streamed into the VPU. The VPU applies the necessary shared scaling factors, performs the activation or normalization, and then uses a high-speed hardware quantizer to convert the results back into OCP MX (MXFP4/6/8) formats for storage in HBM or for use as activations in the next layer.
+
 ## Dataflow
 The TPU v7 utilizes a **Weight-Stationary** systolic dataflow optimized for the MX protocol:
 
