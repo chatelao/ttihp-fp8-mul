@@ -34,7 +34,8 @@ def main():
         "SUPPORT_ADV_ROUNDING",
         "SUPPORT_MIXED_PRECISION",
         "ENABLE_SHARED_SCALING",
-        "USE_LNS_MUL"
+        "USE_LNS_MUL",
+        "SUPPORT_VECTOR_PACKING"
     ]
 
     baseline_params = {f: 1 for f in features}
