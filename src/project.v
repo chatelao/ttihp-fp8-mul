@@ -120,8 +120,12 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [5:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    wire [5:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
-    wire [5:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
+    wire [5:0] capture_cycle     = actual_packed_mode ?
+                                    (SUPPORT_PIPELINING ? 6'd21 : 6'd20) :
+                                    (SUPPORT_PIPELINING ? 6'd37 : 6'd36);
+    wire [5:0] last_cycle        = actual_packed_mode ?
+                                    (SUPPORT_PIPELINING ? 6'd25 : 6'd24) :
+                                    (SUPPORT_PIPELINING ? 6'd41 : 6'd40);
 
     wire [1:0] state = (cycle_count == 6'd0) ? STATE_IDLE :
                        (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
@@ -457,11 +461,32 @@ module tt_um_chatelao_fp8_multiplier #(
     wire inf_combined = (mul_inf_lane0_val || mul_inf_lane1_val) && !inf_sign_conflict && !scale_nan;
     wire sign_combined = mul_inf_lane1_val ? mul_sign_lane1_val : mul_sign_lane0_val; // Simple sign selection
 
+    // Optional Pipeline Stage for Aligner/Combiner
+    reg [ACCUMULATOR_WIDTH-1:0] aligned_combined_reg;
+    reg nan_combined_reg, inf_combined_reg, sign_combined_reg;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            aligned_combined_reg <= {ACCUMULATOR_WIDTH{1'b0}};
+            nan_combined_reg <= 1'b0;
+            inf_combined_reg <= 1'b0;
+            sign_combined_reg <= 1'b0;
+        end else if (ena) begin
+            aligned_combined_reg <= aligned_combined;
+            nan_combined_reg <= nan_combined;
+            inf_combined_reg <= inf_combined;
+            sign_combined_reg <= sign_combined;
+        end
+    end
+
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined_val = SUPPORT_PIPELINING ? aligned_combined_reg : aligned_combined;
+    wire nan_combined_val = SUPPORT_PIPELINING ? nan_combined_reg : nan_combined;
+    wire inf_combined_val = SUPPORT_PIPELINING ? inf_combined_reg : inf_combined;
+    wire sign_combined_val = SUPPORT_PIPELINING ? sign_combined_reg : sign_combined;
+
     // 5. Accumulator Control
-    // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
-    // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
+    // With 2nd pipeline stage (aligned_combined_reg), accumulation starts at cycle 5.
     wire acc_en    = SUPPORT_PIPELINING ?
-                     ((cycle_count >= 6'd4 && cycle_count <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     ((cycle_count >= 6'd5 && cycle_count <= last_stream_cycle + 6'd2) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((cycle_count >= 6'd3 && cycle_count <= last_stream_cycle) && (state == STATE_STREAM));
     wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
 
@@ -484,10 +509,10 @@ module tt_um_chatelao_fp8_multiplier #(
         .clear(acc_clear),
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
-        .data_in(aligned_combined),
-        .nan_in(nan_combined),
-        .inf_in(inf_combined),
-        .sign_in(sign_combined),
+        .data_in(aligned_combined_val),
+        .nan_in(nan_combined_val),
+        .inf_in(inf_combined_val),
+        .sign_in(sign_combined_val),
         .load_en(ena && cycle_count == capture_cycle),
         .load_data(final_scaled_result),
         .shift_en(ena && state == STATE_OUTPUT && cycle_count > capture_cycle && cycle_count < last_cycle),

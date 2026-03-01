@@ -8,7 +8,7 @@ from cocotb_coverage.coverage import coverage_db, CoverCross, CoverPoint, covera
 import random
 
 # Reuse the model from test.py
-from test import decode_format, align_model, align_product_model, reset_dut
+from test import decode_format, align_model, align_product_model
 
 def get_operand_class(bits, format_val):
     sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val)

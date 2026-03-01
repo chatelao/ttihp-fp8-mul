@@ -376,6 +376,11 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 1)
 
+    # Aligner pipeline stage (added for timing)
+    support_pipe = get_param(getattr(dut.user_project, "SUPPORT_PIPELINING", None), "SUPPORT_PIPELINING", 0)
+    if support_pipe:
+        await ClockCycles(dut.clk, 1)
+
     # Shared scaling alignment
     await ClockCycles(dut.clk, 1)
 

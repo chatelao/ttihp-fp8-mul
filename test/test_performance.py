@@ -6,6 +6,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
 import random
 import time
+from test import get_param
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -44,8 +45,10 @@ async def performance_sweep(dut):
             dut.uio_in.value = random.randint(0, 255)
             await ClockCycles(dut.clk, 1)
 
-        # PIPELINE: 2 cycles
-        await ClockCycles(dut.clk, 2)
+        # PIPELINE: wait for results
+        support_pipe = get_param(getattr(dut.user_project, "SUPPORT_PIPELINING", None), "SUPPORT_PIPELINING", 0)
+        pipeline_cycles = 3 if support_pipe else 2
+        await ClockCycles(dut.clk, pipeline_cycles)
 
         # OUTPUT: 4 cycles
         await ClockCycles(dut.clk, 4)
@@ -86,8 +89,10 @@ async def high_switching_activity(dut):
         # The FSM goes STREAM -> OUTPUT (at cycle 36) -> IDLE (at cycle 40)
         # To maximize activity, we just follow the protocol.
 
-        # Cycle 35-36 (PIPELINE)
-        await ClockCycles(dut.clk, 2)
+        # Cycle 35-37 (PIPELINE)
+        support_pipe = get_param(getattr(dut.user_project, "SUPPORT_PIPELINING", None), "SUPPORT_PIPELINING", 0)
+        pipeline_cycles = 3 if support_pipe else 2
+        await ClockCycles(dut.clk, pipeline_cycles)
 
         # Cycle 37-40 (OUTPUT)
         await ClockCycles(dut.clk, 4)
