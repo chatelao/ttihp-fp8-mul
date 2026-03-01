@@ -5,6 +5,12 @@ The **Google TPU v7 TensorCore** (introduced in 2026) is the primary compute eng
 
 A defining feature of the v7 architecture is its native hardware support for the **OCP Microscaling (MX) Formats (v1.0)** and the **MX+ extension**. This allows the TensorCore to process ultra-low precision data (e.g., 4-bit MXFP4) while maintaining high model accuracy by providing extended mantissa precision for "Block Max" (BM) outlier elements.
 
+## Architecture Diagram
+
+![Google TPU v7 TensorCore Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/documentation/GOOGLE_V7_TPU_TENSORCORE.PUML)
+
+*Source: [documentation/GOOGLE_V7_TPU_TENSORCORE.PUML](GOOGLE_V7_TPU_TENSORCORE.PUML)*
+
 ## 4-Level Circuit Hierarchy
 The TPU v7 TensorCore is organized into a nested hierarchy to manage complexity and data distribution:
 
