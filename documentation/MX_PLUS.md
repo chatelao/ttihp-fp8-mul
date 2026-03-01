@@ -78,7 +78,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (Scan-Chain Tagging)**: Tag the BM element in a shadow register during the load phase and shift the tag alongside the data.
 - **Reasoning**: **Variant B** is selected. Centralizing the comparison logic reduces the total gate count by removing redundant 5-bit magnitude comparators from the multiplier lanes, which is critical for the "Ultra-Tiny" configuration.
 
-### Step 4: Exponent Repurposing Logic
+### Step 4: Exponent Repurposing Logic (Status: **COMPLETED**)
 - **Goal**: Implement the MX+ numerical semantics within the shared decoders.
 - **Preparation**:
   - Refactor the `task automatic decode_operand` in `src/fp8_mul.v` to accept an `is_bm` boolean.
