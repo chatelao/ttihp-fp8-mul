@@ -604,19 +604,22 @@ async def test_fast_start_scale_compression(dut):
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final
 
-@cocotb.test()
-async def test_yaml_cases(dut):
-    dut._log.info("Start YAML E2E Test Cases")
+async def run_yaml_file(dut, filename):
+    dut._log.info(f"Start YAML Test Cases from {filename}")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    yaml_path = os.path.join(os.path.dirname(__file__), "TEST_MX_E2E.YAML")
+    yaml_path = os.path.join(os.path.dirname(__file__), filename)
     if not os.path.exists(yaml_path):
         dut._log.error(f"YAML file not found at {yaml_path}")
         return
 
     with open(yaml_path, 'r') as f:
         cases = yaml.safe_load(f)
+
+    if not cases:
+        dut._log.warning(f"No test cases found in {filename}")
+        return
 
     # Detect hardware support
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
@@ -630,6 +633,10 @@ async def test_yaml_cases(dut):
     use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
 
     for case in cases:
+        if case.get('disabled', False):
+            dut._log.info(f"Skipping Case {case.get('test_case', 'unknown')}: Disabled in YAML")
+            continue
+
         inputs = case['inputs']
         expected = case['expected_output']
         comment = case.get('comment', '')
@@ -673,4 +680,17 @@ async def test_yaml_cases(dut):
                            scale_b=inputs.get('scale_b', 127),
                            round_mode=inputs.get('round_mode', 0),
                            overflow_wrap=inputs.get('overflow_mode', 0),
-                           expected_override=expected)
+                           expected_override=expected,
+                           packed_mode=inputs.get('packed_mode', 0))
+
+@cocotb.test()
+async def test_yaml_cases(dut):
+    await run_yaml_file(dut, "TEST_MX_E2E.YAML")
+
+@cocotb.test()
+async def test_mx_fp4_yaml(dut):
+    await run_yaml_file(dut, "TEST_MX_FP4.yaml")
+
+@cocotb.test()
+async def test_mxplus_yaml(dut):
+    await run_yaml_file(dut, "TEST_MXPLUS.yaml")
