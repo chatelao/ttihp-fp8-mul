@@ -5,7 +5,8 @@ module fp8_mul #(
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
-    parameter SUPPORT_INT8  = 1
+    parameter SUPPORT_INT8  = 1,
+    parameter SUPPORT_MIXED_PRECISION = 1
 )(
     input  wire [7:0] a,
     input  wire [7:0] b,
@@ -117,7 +118,12 @@ module fp8_mul #(
         decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a);
 
         // Operand B Decoding
-        decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b);
+        if (SUPPORT_MIXED_PRECISION) begin
+            decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b);
+        end else begin
+            // Use format_a for both operands to allow hardware sharing
+            decode_operand(b, format_a, sign_b, eb, mb, bias_b, zero_b);
+        end
 
         // 8x8 or 4x4 Multiplier
         if (SUPPORT_INT8)

@@ -48,11 +48,9 @@ module tt_um_chatelao_fp8_multiplier #(
     reg       overflow_wrap;
 
     // Register Pruning for scale_a, scale_b, format_b
-    /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] scale_a_val;
     wire [7:0] scale_b_val;
     wire [2:0] format_b_val;
-    /* verilator lint_on UNUSEDSIGNAL */
 
     generate
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
@@ -151,6 +149,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
                 .SUPPORT_INT8(SUPPORT_INT8),
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
                 .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
             ) multiplier (
                 .a(ui_in),
@@ -166,7 +165,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
-                .SUPPORT_INT8(SUPPORT_INT8)
+                .SUPPORT_INT8(SUPPORT_INT8),
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION)
             ) multiplier (
                 .a(ui_in),
                 .b(uio_in),
@@ -180,21 +180,36 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // Pipeline registers for multiplier output
-    reg [15:0] mul_prod_reg;
-    reg signed [6:0] mul_exp_sum_reg;
-    reg mul_sign_reg;
+    wire [15:0] mul_prod_val;
+    wire signed [6:0] mul_exp_sum_val;
+    wire mul_sign_val;
 
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            mul_prod_reg <= 16'd0;
-            mul_exp_sum_reg <= 7'd0;
-            mul_sign_reg <= 1'b0;
-        end else if (ena) begin
-            mul_prod_reg <= mul_prod;
-            mul_exp_sum_reg <= mul_exp_sum;
-            mul_sign_reg <= mul_sign;
+    generate
+        if (SUPPORT_PIPELINING) begin : gen_pipeline
+            reg [15:0] mul_prod_reg;
+            reg signed [6:0] mul_exp_sum_reg;
+            reg mul_sign_reg;
+
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    mul_prod_reg <= 16'd0;
+                    mul_exp_sum_reg <= 7'd0;
+                    mul_sign_reg <= 1'b0;
+                end else if (ena) begin
+                    mul_prod_reg <= mul_prod;
+                    mul_exp_sum_reg <= mul_exp_sum;
+                    mul_sign_reg <= mul_sign;
+                end
+            end
+            assign mul_prod_val = mul_prod_reg;
+            assign mul_exp_sum_val = mul_exp_sum_reg;
+            assign mul_sign_val = mul_sign_reg;
+        end else begin : gen_no_pipeline
+            assign mul_prod_val = mul_prod;
+            assign mul_exp_sum_val = mul_exp_sum;
+            assign mul_sign_val = mul_sign;
         end
-    end
+    endgenerate
 
     // 2. Shared Scale Calculation
     // S = XA + XB - 254. UE8M0 has bias 127.
@@ -208,10 +223,10 @@ module tt_um_chatelao_fp8_multiplier #(
     // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
     wire [31:0] aligner_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ?
                                     (ACCUMULATOR_WIDTH > 32 ? acc_abs[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs}) :
-                                    {16'd0, SUPPORT_PIPELINING ? mul_prod_reg : mul_prod};
+                                    {16'd0, mul_prod_val};
     wire signed [9:0] aligner_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? (shared_exp + 10'sd5) :
-                                    (SUPPORT_PIPELINING ? {{3{mul_exp_sum_reg[6]}}, mul_exp_sum_reg} : {{3{mul_exp_sum[6]}}, mul_exp_sum});
-    wire aligner_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_out[ACCUMULATOR_WIDTH-1] : (SUPPORT_PIPELINING ? mul_sign_reg : mul_sign);
+                                    {{3{mul_exp_sum_val[6]}}, mul_exp_sum_val};
+    wire aligner_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= 6'd36) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_val;
 
     wire [31:0] aligned_res;
     fp8_aligner #(
