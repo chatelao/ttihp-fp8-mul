@@ -67,6 +67,13 @@ All formats are aligned to the lower bits of the 8-bit input wires during the `S
 - **Subnormals**: Flushed to zero (E=0).
 - **Special Values**: The unit prioritizes saturation for out-of-range values. E5M2 supports IEEE-style Infinities and NaNs, while other formats utilize the full range for finite numbers or specialized NaN encodings as per OCP MX v1.0.
 
+### 2.1. Optimization: FP4 Vector Packing
+For the 4-bit **MXFP4** format, the 8-bit input wires (`ui_in`, `uio_in`) can technically carry **two elements per cycle** (Vector Packing).
+- **Feasibility**: Yes, loading two FP4 values per input is possible.
+- **Cycle Reduction**: If implemented, the `STREAM` phase could be reduced from 32 cycles to 16 cycles.
+- **Hardware Impact**: Achieving a $2\times$ throughput increase requires a second parallel multiplier-accumulator path, which significantly increases area. Alternatively, packing can be used to reduce the I/O duty cycle by buffering elements internally.
+- **Compliance**: The OCP MX v1.0 specification requires a block size ($k$) of 32. As long as the unit processes 32 elements per block, it remains fully compliant. The transmission protocol (packed vs. unpacked) is an implementation choice.
+
 ## 3. Architecture: Operand Streaming
 To fit within the ~320 D-Flip-Flop (DFF) budget of a 1x1 tile, the design employs **Temporal Multiplexing (Operand Streaming)**.
 
