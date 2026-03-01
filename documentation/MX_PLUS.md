@@ -38,7 +38,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ## Phase 1: Metadata & Protocol Extension
 
-### Step 1: Protocol Update for BM Indices
+### Step 1: Protocol Update for BM Indices (Status: **COMPLETED**)
 - **Goal**: Load the position of the BM element for both Operand A and Operand B.
 - **Preparation**:
   - Audit `uio_in` usage in Cycles 1 and 2 of the FSM.

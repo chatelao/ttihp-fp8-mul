@@ -34,6 +34,7 @@ def main():
         "SUPPORT_PIPELINING",
         "SUPPORT_ADV_ROUNDING",
         "SUPPORT_MIXED_PRECISION",
+        "SUPPORT_MX_PLUS",
         "ENABLE_SHARED_SCALING",
         "USE_LNS_MUL"
     ]

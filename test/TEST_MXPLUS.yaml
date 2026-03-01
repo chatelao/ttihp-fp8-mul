@@ -1,6 +1,6 @@
 - test_case: 1
-  comment: "MXFP4+ (E2M1) basic outlier preservation. Placeholder disabled until implementation."
-  disabled: true
+  comment: "MXFP4+ (E2M1) basic outlier preservation. Placeholder enabled for Step 1 verification."
+  disabled: false
   inputs:
     format_a: 4 # E2M1
     format_b: 4 # E2M1
@@ -13,8 +13,8 @@
   expected_output: 8192
 
 - test_case: 2
-  comment: "MXFP6+ (E3M2) outlier preservation. Placeholder disabled until implementation."
-  disabled: true
+  comment: "MXFP6+ (E3M2) outlier preservation. Placeholder enabled for Step 1 verification."
+  disabled: false
   inputs:
     format_a: 2 # E3M2
     format_b: 2 # E3M2

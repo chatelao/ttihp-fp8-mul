@@ -21,6 +21,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MIXED_PRECISION = 0,
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
+    parameter SUPPORT_MX_PLUS = 0,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
@@ -48,6 +49,33 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [1:0] round_mode;
     reg       overflow_wrap;
     reg       packed_mode;
+
+    // MX+ Registers
+    wire [4:0] bm_index_a_val;
+    wire [4:0] bm_index_b_val;
+
+    generate
+        if (SUPPORT_MX_PLUS) begin : gen_mx_plus
+            reg [4:0] bm_index_a;
+            reg [4:0] bm_index_b;
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    bm_index_a <= 5'd0;
+                    bm_index_b <= 5'd0;
+                end else if (ena) begin
+                    if (cycle_count == 6'd0 && !ui_in[7])
+                        bm_index_a <= uio_in[4:0];
+                    if (cycle_count == 6'd2)
+                        bm_index_b <= uio_in[7:3];
+                end
+            end
+            assign bm_index_a_val = bm_index_a;
+            assign bm_index_b_val = bm_index_b;
+        end else begin : gen_no_mx_plus
+            assign bm_index_a_val = 5'd0;
+            assign bm_index_b_val = 5'd0;
+        end
+    endgenerate
 
     // Register Pruning for scale_a, scale_b, format_b
     wire [7:0] scale_a_val;
@@ -455,6 +483,15 @@ module tt_um_chatelao_fp8_multiplier #(
                 assert(format_a      == $past(format_a));
                 assert(round_mode    == $past(round_mode));
                 assert(overflow_wrap == $past(overflow_wrap));
+            end
+
+            if (SUPPORT_MX_PLUS) begin
+                if ($past(cycle_count) != 6'd0 || ($past(cycle_count) == 6'd0 && $past(ui_in[7]))) begin
+                    assert(bm_index_a_val == $past(bm_index_a_val));
+                end
+                if ($past(cycle_count) != 6'd2) begin
+                    assert(bm_index_b_val == $past(bm_index_b_val));
+                end
             end
         end
     end
