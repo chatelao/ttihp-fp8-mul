@@ -7,6 +7,7 @@ module fp8_mul_lns #(
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
     parameter SUPPORT_INT8  = 1,
+    parameter SUPPORT_MIXED_PRECISION = 1,
     parameter USE_LNS_MUL_PRECISE = 0
 )(
     input  wire [7:0] a,
@@ -139,7 +140,12 @@ module fp8_mul_lns #(
         decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a, is_inta);
 
         // Operand B Decoding
-        decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b, is_intb);
+        if (SUPPORT_MIXED_PRECISION) begin
+            decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b, is_intb);
+        end else begin
+            // Use format_a for both operands to allow hardware sharing
+            decode_operand(b, format_a, sign_b, eb, mb, bias_b, zero_b, is_intb);
+        end
 
         // Combined Log-Adder (Mitchell or Precise)
         if (is_inta || is_intb) begin

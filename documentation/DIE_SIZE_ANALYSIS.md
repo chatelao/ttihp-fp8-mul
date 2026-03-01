@@ -25,7 +25,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 #### Multiplier Core (`fp8_mul.v`)
 - [x] **Conditional Decoding**: Use logic pruning based on `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
 - [x] **Bias Simplification**: Bias logic is simplified based on supported formats.
-- [ ] **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
+- [x] **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
 
 #### Product Aligner (`fp8_aligner.v`)
 - [x] **Configurable Rounding**: Logic for `R_CEL` and `R_FLR` is pruned if `SUPPORT_ADV_ROUNDING` is disabled.
@@ -33,7 +33,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 
 #### Top-Level Integration (`project.v`)
 - [x] **FSM Guarding**: Shared scaling logic is conditionally enabled via `ENABLE_SHARED_SCALING`.
-- [ ] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b` and `scale_b`.
+- [x] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b`, `scale_b`, and multiplier pipeline.
 - [x] **Fast Start Logic**: Verified correctness with all parameter variants.
 
 ## 2. Die Size Analysis (Optimized Architecture)
