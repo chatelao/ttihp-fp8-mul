@@ -64,7 +64,7 @@ All formats are aligned to the lower bits of the 8-bit input wires during the `S
 - **Mathematical Formula**:
   - **FP Formats**: $V_i = (-1)^{S_i} \times 2^{E_i - \text{Bias}} \times (1 + M_i) \times 2^{X-127}$
   - **INT Formats**: $V_i = (\text{Integer}_i \times 2^{-6}) \times 2^{X-127}$ (As per OCP MX v1.0, INT8 has an implicit $2^{-6}$ scale).
-- **Subnormals**: Flushed to zero (E=0).
+- **Subnormals**: Supported in all floating-point element types per OCP MX v1.0.
 - **Special Values**: The unit prioritizes saturation for out-of-range values. E5M2 supports IEEE-style Infinities and NaNs, while other formats utilize the full range for finite numbers or specialized NaN encodings as per OCP MX v1.0.
 
 ### 2.1. Optimization: FP4 Vector Packing (Status: **IMPLEMENTED**)

@@ -6,7 +6,7 @@ This document summarizes the research into area-optimized Multiply-Accumulate (M
 
 | Implementation | Size (Gates/Area) | Source Location | Similarities / Differences | Potential Improvements / Learnings |
 |---|---|---|---|---|
-| **OCP MXFP8 MAC (This Project - Ultra-Tiny)** | ~2,026 Gates | `src/` | Current baseline. Uses temporal (streaming) processing. | Already optimized via register pruning and shared decoders. |
+| **OCP MXFP8 MAC (This Project - Ultra-Tiny)** | ~2,026 Gates | `src/` | Current baseline. Uses temporal (streaming) processing. Uses individual exponents ($E_i$) and a shared scale ($X$): $V_i = (-1)^{S_i} \times 2^{E_i - \text{Bias}} \times (1 + M_i) \times 2^{X-127}$. | Already optimized via register pruning and shared decoders. |
 | **Microsoft Floating Point (MSFP)** | Comparable to MXFP4 | Rouhani et al. (2020) | Uses single-level shared exponents for a block. No individual exponents. | Simpler element decoding; explores coarser scaling. |
 | **Shared Microexponents (SMX)** | Comparable to MXFP4 | Rouhani et al. (2023) | Multi-level scaling with sub-group microexponents. | Sub-block scaling improves dynamic range for outliers. |
 | **Clive Chan's `fp8_mul`** | Unknown (Sub-component) | [GitHub](https://github.com/cchan/fp8_mul) | Core arithmetic logic source for this project. | Highly optimized combinatorial path for FP8. |
