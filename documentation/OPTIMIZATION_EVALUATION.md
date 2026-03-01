@@ -24,7 +24,7 @@ This document evaluates the potential impact of advanced FP8 optimizations (from
 
 | Optimization | Size (Area) | Performance | Quality | Recommendation |
 |:---|:---|:---|:---|:---|
-| **CSR Mapping** | 🟡 Moderate Increase | ⚪ Neutral | 🟢 Software Sync | **Required**: For RISC-V (ZvfofpXmin) integration. |
+| **CSR Mapping** | 🟡 Moderate Increase | ⚪ Neutral | 🟢 Software Sync | **Required**: See [CSR_MAPPING.md](CSR_MAPPING.md). |
 | **Principal Dimension Awareness**| ⚪ Neutral (SW) | 🟢 Optimized | ⚪ Neutral | **Documentation**: Ensure drivers understand OCP MX data layouts. |
 | **Format Converters** | 🔴 Moderate Increase | 🟡 Pipelined | 🟢 Flexibility | **Future Phase**: Important for system-level data ingestion. |
 
