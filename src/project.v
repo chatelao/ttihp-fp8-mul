@@ -193,6 +193,15 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
 
+    // MX+ Centralized Flagging (Step 3)
+    wire [4:0] element_index_lane0 = actual_packed_mode ? { (cycle_count[4:0] - 5'd3), 1'b0 } : (cycle_count[4:0] - 5'd3);
+    wire [4:0] element_index_lane1 = actual_packed_mode ? { (cycle_count[4:0] - 5'd3), 1'b1 } : 5'd0;
+
+    wire is_bm_a_lane0 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && (element_index_lane0 == bm_index_a_val);
+    wire is_bm_b_lane0 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && (element_index_lane0 == bm_index_b_val);
+    wire is_bm_a_lane1 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_a_val);
+    wire is_bm_b_lane1 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_b_val);
+
     generate
         if (USE_LNS_MUL) begin : lns_gen
             fp8_mul_lns #(
@@ -207,6 +216,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .b(b_lane0),
                 .format_a(format_a),
                 .format_b(format_b_val),
+                .is_bm_a(is_bm_a_lane0),
+                .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
                 .sign(mul_sign_lane0)
@@ -224,6 +235,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .b(b_lane1),
                     .format_a(format_a),
                     .format_b(format_b_val),
+                    .is_bm_a(is_bm_a_lane1),
+                    .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
                     .sign(mul_sign_lane1)
@@ -245,6 +258,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .b(b_lane0),
                 .format_a(format_a),
                 .format_b(format_b_val),
+                .is_bm_a(is_bm_a_lane0),
+                .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
                 .sign(mul_sign_lane0)
@@ -261,6 +276,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .b(b_lane1),
                     .format_a(format_a),
                     .format_b(format_b_val),
+                    .is_bm_a(is_bm_a_lane1),
+                    .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
                     .sign(mul_sign_lane1)
@@ -509,6 +526,28 @@ module tt_um_chatelao_fp8_multiplier #(
                     6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
                     default: assert(uo_out == 8'd0);
                 endcase
+            end
+        end
+    end
+
+    // 7. MX+ Block Max Detection
+    always @(posedge clk) begin
+        if (rst_n && SUPPORT_MX_PLUS && state == STATE_STREAM) begin
+            if (element_index_lane0 == bm_index_a_val) assert(is_bm_a_lane0);
+            else assert(!is_bm_a_lane0);
+
+            if (element_index_lane0 == bm_index_b_val) assert(is_bm_b_lane0);
+            else assert(!is_bm_b_lane0);
+
+            if (actual_packed_mode) begin
+                if (element_index_lane1 == bm_index_a_val) assert(is_bm_a_lane1);
+                else assert(!is_bm_a_lane1);
+
+                if (element_index_lane1 == bm_index_b_val) assert(is_bm_b_lane1);
+                else assert(!is_bm_b_lane1);
+            end else begin
+                assert(!is_bm_a_lane1);
+                assert(!is_bm_b_lane1);
             end
         end
     end
