@@ -10,15 +10,14 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 
 | Parameter | Default | Description | Estimated Gate Savings |
 |---|---|---|---|
-| `ENABLE_SHARED_SCALING` | `1` | Enables hardware-accelerated shared scaling in Cycle 36. | ~300 |
-| `SUPPORT_MXFP6` | `1` | Enables decoding for E3M2 and E2M3 formats. | ~170 |
-| `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~80 |
-| `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~100 |
-| `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~150 |
-| `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~400 |
-| `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~200 (if 64->40) |
-| `USE_LNS_MUL` | `0` | Replaces the multiplier with an LNS adder. | ~400 |
-| `USE_LNS_MUL_PRECISE` | `0` | Uses a 64x4 LUT for more accurate LNS multiplication. | ~350 |
+| `ENABLE_SHARED_SCALING` | `1` | Enables hardware-accelerated shared scaling in Cycle 36. | ~273 |
+| `SUPPORT_MXFP6` | `1` | Enables decoding for E3M2 and E2M3 formats. | ~17 |
+| `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~13 (Incr.) |
+| `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~250 |
+| `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~53 |
+| `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~403 |
+| `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~259 (Ultra-Tiny) |
+| `USE_LNS_MUL_PRECISE` | `0` | Uses a 64x4 LUT for more accurate LNS multiplication. | ~349 |
 
 ### 1.2. Recommended Refactorings
 
@@ -98,10 +97,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3442 | 1x1* |
-| **Lite** | Disable MXFP6/4 | 3138 | 1x1* |
-| **Tiny** | All optional features disabled | 2267 | 1x1 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2004 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 3435 | 1x1* |
+| **Lite** | Disable MXFP6/4/Adv_Round | 3132 | 1x1* |
+| **Tiny** | All optional features disabled | 2236 | 1x1 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1977 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -125,20 +124,20 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3422 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 3394 | -28 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 3403 | -19 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 3432 | +10 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2953 | -469 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 3393 | -29 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3172 | -250 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3422 | 0 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3166 | -256 |
-| **Tiny (All Disabled)** | All features disabled | 2263 | -1159 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2001 | -1421 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1683 | -1739 |
-| **LNS Multiplier (Mitchell)** | Replaces multiplier with Mitchell adder | 3018 | -404 |
-| **LNS Multiplier (Precise)** | Replaces multiplier with LNS LUT | 3074 | -348 |
+| **Baseline (Full)** | All features enabled | 3435 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 3408 | -27 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 3418 | -17 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 3448 | +13 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2969 | -466 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 3390 | -45 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3185 | -250 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3382 | -53 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3162 | -273 |
+| **Tiny (All Disabled)** | All features disabled | 2236 | -1199 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1977 | -1458 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1658 | -1777 |
+| **LNS Multiplier (Mitchell)** | Replaces multiplier with Mitchell adder | 3032 | -403 |
+| **LNS Multiplier (Precise)** | Replaces multiplier with LNS LUT | 3086 | -349 |
 
 ## 5. Deployment & CI/CD Progress
 
