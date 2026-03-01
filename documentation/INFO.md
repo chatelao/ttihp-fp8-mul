@@ -12,9 +12,9 @@ You can also include images in this folder and reference them in the markdown. E
 The project implements a **Streaming MXFP8 Multiply-Accumulate (MAC) Unit** based on the OCP Microscaling Formats (MX) Specification. It processes blocks of 32 elements using a shared 8-bit scale factor (UE8M0).
 
 ### Numerical Representation
-The unit supports both **E4M3** and **E5M2** element formats:
+The unit supports multiple element formats (depending on build configuration). The default **Ultra-Tiny** build supports:
 - **E4M3**: 1-bit sign, 4-bit exponent (Bias 7), 3-bit mantissa.
-- **E5M2**: 1-bit sign, 5-bit exponent (Bias 15), 2-bit mantissa.
+- **MXINT8**: 8-bit signed integers (Standard and Symmetric).
 
 ### Operational Protocol (40-Cycle Sequence)
 To minimize resource usage, operands are streamed into the unit over 40 clock cycles (0-39):

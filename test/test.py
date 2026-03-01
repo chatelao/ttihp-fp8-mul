@@ -399,7 +399,7 @@ async def test_mxfp_mac_randomized(dut):
     dut._log.info(f"Start Randomized MXFP MAC Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-    allowed_formats = [0]
+    allowed_formats = [0, 5, 6]
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)

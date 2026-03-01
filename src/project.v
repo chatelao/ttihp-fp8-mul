@@ -249,14 +249,24 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Output Serialization Register
     // Capture the fully scaled result at cycle 36 (last cycle before output)
     reg [31:0] scaled_acc_reg;
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            scaled_acc_reg <= 32'd0;
-        end else if (ena && cycle_count == 6'd36) begin
-            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_res :
-                              (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
+    generate
+        if (ENABLE_SHARED_SCALING) begin : gen_scaled_out_shared
+            always @(posedge clk) begin
+                if (!rst_n) scaled_acc_reg <= 32'd0;
+                else if (ena && cycle_count == 6'd36) scaled_acc_reg <= aligned_res;
+            end
+        end else begin : gen_scaled_out_no_shared
+            always @(posedge clk) begin
+                if (!rst_n) scaled_acc_reg <= 32'd0;
+                else if (ena && cycle_count == 6'd36) begin
+                    if (ACCUMULATOR_WIDTH >= 32)
+                        scaled_acc_reg <= acc_out[31:0];
+                    else
+                        scaled_acc_reg <= {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
+                end
+            end
         end
-    end
+    endgenerate
 
     // Output logic: Serialize 32-bit scaled result during OUTPUT phase
     reg [7:0] uo_out_reg;
