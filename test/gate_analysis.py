@@ -29,6 +29,7 @@ def main():
         "SUPPORT_E5M2",
         "SUPPORT_MXFP6",
         "SUPPORT_MXFP4",
+        "SUPPORT_VECTOR_PACKING",
         "SUPPORT_INT8",
         "SUPPORT_PIPELINING",
         "SUPPORT_ADV_ROUNDING",
@@ -86,6 +87,15 @@ def main():
     ultra_tiny_gates = get_yosys_stats(ultra_tiny_params)
     ultra_tiny_delta = ultra_tiny_gates - baseline_gates
     print(f"{'Ultra-Tiny (Red. Width)':<30} | {ultra_tiny_gates:<10} | {ultra_tiny_delta:<10}")
+
+    lite_params = baseline_params.copy()
+    lite_params["SUPPORT_MXFP6"] = 0
+    lite_params["SUPPORT_MXFP4"] = 0
+    lite_params["SUPPORT_VECTOR_PACKING"] = 0
+    lite_params["SUPPORT_ADV_ROUNDING"] = 0
+    lite_gates = get_yosys_stats(lite_params)
+    lite_delta = lite_gates - baseline_gates
+    print(f"{'Lite (MXFP6/4/Adv/VP Off)':<30} | {lite_gates:<10} | {lite_delta:<10}")
 
     one_tile_target = ultra_tiny_params.copy()
     one_tile_target["ALIGNER_WIDTH"] = 24

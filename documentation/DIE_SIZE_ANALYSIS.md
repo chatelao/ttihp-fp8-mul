@@ -97,10 +97,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3416 | 1x1* |
-| **Lite** | Disable MXFP6/Adv_Round | 3149 | 1x1* |
-| **Tiny** | All optional features disabled | 2302 | 1x1 |
-| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2040 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6347 | 1x1* |
+| **Lite** | Disable MXFP6/4/Adv/VP | 3136 | 1x1* |
+| **Tiny** | All optional features disabled | 2288 | 1x1 |
+| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2026 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -124,20 +124,21 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3416 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 3389 | -27 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 3399 | -17 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 3429 | +13 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 3001 | -415 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 3411 | -5 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3166 | -250 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3362 | -54 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3164 | -252 |
-| **Tiny (All Disabled)** | All features disabled | 2299 | -1117 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2038 | -1378 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1719 | -1697 |
-| **LNS Multiplier (Mitchell)** | Replaces multiplier with Mitchell adder | 3032 | -403 |
-| **LNS Multiplier (Precise)** | Replaces multiplier with LNS LUT | 3086 | -349 |
+| **Baseline (Full)** | All features enabled | 6347 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 6290 | -57 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 6311 | -36 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 6370 | +23 |
+| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3439 | -2908 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 5515 | -832 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 6309 | -38 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 5847 | -500 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6230 | -117 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6079 | -268 |
+| **Tiny (All Disabled)** | All features disabled | 2288 | -4059 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2026 | -4321 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1707 | -4640 |
+| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 5541 | -806 |
+| **LNS Multiplier (Precise)** | Precise LNS multiplier | 5649 | -698 |
 
 ## 5. Deployment & CI/CD Progress
 
