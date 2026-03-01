@@ -342,6 +342,10 @@ module tt_um_chatelao_fp8_multiplier #(
                      ((cycle_count >= 6'd3 && cycle_count <= last_stream_cycle) && (state == STATE_STREAM));
     wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
 
+    wire [7:0] acc_shift_out;
+    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res :
+                                     (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
+
     accumulator #(
         .WIDTH(ACCUMULATOR_WIDTH)
     ) acc_inst (
@@ -351,39 +355,24 @@ module tt_um_chatelao_fp8_multiplier #(
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
         .data_in(aligned_combined),
+        .load_en(ena && cycle_count == capture_cycle),
+        .load_data(final_scaled_result),
+        .shift_en(ena && state == STATE_OUTPUT && cycle_count > capture_cycle && cycle_count < last_cycle),
+        .shift_out(acc_shift_out),
         .data_out(acc_out)
     );
 
-    // 6. Output Serialization Register
-    // Capture the fully scaled result at capture_cycle (last cycle before output)
-    reg [31:0] scaled_acc_reg;
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            scaled_acc_reg <= 32'd0;
-        end else if (ena && cycle_count == capture_cycle) begin
-            scaled_acc_reg <= ENABLE_SHARED_SCALING ? aligned_lane0_res :
-                              (ACCUMULATOR_WIDTH > 32 ? acc_out[31:0] : {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out});
-        end
-    end
-
-    // Output logic: Serialize 32-bit scaled result during OUTPUT phase
-    reg [7:0] uo_out_reg;
-    always @(*) begin
-        if (state == STATE_OUTPUT && cycle_count > capture_cycle) begin
-            case (cycle_count - capture_cycle)
-                6'd1: uo_out_reg = scaled_acc_reg[31:24]; // Byte 3 (MSB)
-                6'd2: uo_out_reg = scaled_acc_reg[23:16]; // Byte 2
-                6'd3: uo_out_reg = scaled_acc_reg[15:8];  // Byte 1
-                6'd4: uo_out_reg = scaled_acc_reg[7:0];   // Byte 0 (LSB)
-                default: uo_out_reg = 8'h00;
-            endcase
-        end else begin
-            uo_out_reg = 8'h00;
-        end
-    end
-    assign uo_out = uo_out_reg;
+    // 6. Output Logic
+    assign uo_out = (state == STATE_OUTPUT && cycle_count > capture_cycle) ? acc_shift_out : 8'h00;
 
 `ifdef FORMAL
+    // 0. Formal-only capture register for serialization verification
+    reg [31:0] f_scaled_acc_reg;
+    always @(posedge clk) begin
+        if (!rst_n) f_scaled_acc_reg <= 32'd0;
+        else if (ena && cycle_count == capture_cycle) f_scaled_acc_reg <= final_scaled_result;
+    end
+
     // 1. Reset and Clock assumptions
     reg f_past_valid = 1'b0;
     always @(posedge clk) f_past_valid <= 1'b1;
@@ -446,10 +435,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 assert(uo_out == 8'd0);
             end else begin
                 case (cycle_count - capture_cycle)
-                    6'd1: assert(uo_out == scaled_acc_reg[31:24]);
-                    6'd2: assert(uo_out == scaled_acc_reg[23:16]);
-                    6'd3: assert(uo_out == scaled_acc_reg[15:8]);
-                    6'd4: assert(uo_out == scaled_acc_reg[7:0]);
+                    6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
+                    6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
+                    6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
+                    6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
                     default: assert(uo_out == 8'd0);
                 endcase
             end
