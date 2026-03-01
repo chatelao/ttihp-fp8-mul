@@ -8,7 +8,7 @@ jobs:
   fpga:
     runs-on: ubuntu-24.04
     env:
-      TT_FPGA_FREQ: 10
+      TT_FPGA_FREQ: 5
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
