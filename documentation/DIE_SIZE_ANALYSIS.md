@@ -1,6 +1,6 @@
 # Die Size Analysis & Refactoring: OCP MXFP8 MAC Unit
 
-This document analyzes the die size (gate/area) of the OCP MXFP8 Streaming MAC Unit and details the refactoring strategy used to achieve a modular, scalable architecture that fits within a **1x1 Tiny Tapeout tile** (~167x108 µm).
+This document analyzes the die size (gate/area) of the OCP MXFP8 Streaming MAC Unit and details the refactoring strategy used to achieve a modular, scalable architecture that fits within a **1x1 or 1x2 Tiny Tapeout tile** (~167x108 µm per tile).
 
 ## 1. Refactoring Strategy: Parameterized Architecture
 
@@ -97,8 +97,8 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 6347 | 1x1* |
-| **Lite** | Disable MXFP6/4/Adv/VP | 3136 | 1x1* |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6347 | 1x2 |
+| **Lite** | Disable MXFP6/4/Adv/VP | 3136 | 1x2 |
 | **Tiny** | All optional features disabled | 2288 | 1x1 |
 | **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2026 | 1x1 |
 
@@ -148,8 +148,8 @@ The implementation has been refactored to support aggressive area optimizations,
 |---|---|---|
 | **Ultra-Tiny (Default)** | 1x1 | All features disabled, 32/24 bit widths. |
 | **Tiny** | 1x1 | All features disabled, 40/32 bit widths. |
-| **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_ADV_ROUNDING=0`. |
-| **Full** | 1x1 | All features enabled. |
+| **Lite** | 1x2 | `SUPPORT_MXFP6=0`, `SUPPORT_ADV_ROUNDING=0`. |
+| **Full** | 1x2 | All features enabled. |
 
 ### CI/CD Progress: Matrix Testing
 

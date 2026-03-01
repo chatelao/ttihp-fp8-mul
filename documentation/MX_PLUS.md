@@ -23,10 +23,24 @@ The shared scale is determined by the BM element's magnitude. For MXFP4 (E2M1), 
 
 | Index | BF16 Value | Standard MXFP4 ($X=2.0$) | MXFP4+ ($X=2.0$) |
 | :--- | :--- | :--- | :--- |
-| 0 | -0.39 | 0.0 | 0.0 |
-| **1 (BM)** | **-9.84** | **-8.0** | **-10.0** |
-| 2 | -0.20 | 0.0 | 0.0 |
-| 3 | 0.99 | 1.0 | 1.0 |
+| 0 | -0.39 | 0.0 (`0b1000`) | 0.0 (`0b1000`) |
+| **1 (BM)** | **-9.84** | **-8.0** (`0b1110`) | **-10.0** (`0b1010`) |
+| 2 | -0.20 | 0.0 (`0b1000`) | 0.0 (`0b1000`) |
+| 3 | 0.99 | 1.0 (`0b0001`) | 1.0 (`0b0001`) |
+
+### Bit-Level Visualization: 'Seeing' the Values
+To understand how MX+ achieves higher precision, we can decompose the 4-bit elements (at shared scale $X=2.0$, bias 1):
+
+*   **Standard MXFP4 (E2M1)**: Layout is `[S, E1, E0, M0]`.
+    *   **Value -8.0 (`0b1110`)**: Sign `1`, Exp `3`, Mant `0`.
+    *   $P_i = (-1)^1 \times 2^{(3-1)} \times (1 + 0/2) = \mathbf{-4.0}$.
+    *   Final: $X \times P_i = 2.0 \times -4.0 = \mathbf{-8.0}$.
+*   **MXFP4+ (BM Element)**: Layout is `[S, M2, M1, M0]`. It repurposes the exponent bits as an extended 3-bit mantissa, with a fixed internal exponent of $e_{max}=3$.
+    *   **Value -10.0 (`0b1010`)**: Sign `1`, Mantissa `010` (decimal 2).
+    *   $P_i = (-1)^1 \times 2^{(3-1)} \times (1 + 2/8) = \mathbf{-5.0}$.
+    *   Final: $X \times P_i = 2.0 \times -5.0 = \mathbf{-10.0}$.
+
+By using the "redundant" exponent bits of the BM element, MX+ effectively turns an E2M1 format into E2M3 (where $E$ is hardwired to 3), providing the extra resolution needed to represent the value -10.0 exactly.
 
 **Numerical Analysis**:
 - **Standard MXFP4**: The BM element uses standard E2M1 ($P_i \in \{4.0, 6.0\}$ after scaling). Nearest value to $9.84/2.0 = 4.92$ is $4.0$, resulting in $X \cdot P_i = -8.0$. **Error = 1.84**.
