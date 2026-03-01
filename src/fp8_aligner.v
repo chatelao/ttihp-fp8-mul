@@ -25,6 +25,7 @@ module fp8_aligner #(
         reg [WIDTH-1:0] shifted;
         reg [WIDTH-1:0] base;
         reg [WIDTH-1:0] rounded;
+        reg do_inc;
         reg sticky;
         reg round_bit;
         reg signed [10:0] n;
@@ -37,6 +38,7 @@ module fp8_aligner #(
         base = {WIDTH{1'b0}};
         rounded = {WIDTH{1'b0}};
         huge = 1'b0;
+        do_inc = 1'b0;
         sticky = 1'b0;
         round_bit = 1'b0;
         n = 11'd0;
@@ -78,25 +80,19 @@ module fp8_aligner #(
             end
 
             case (round_mode)
-                R_TRN: rounded = base;
+                R_TRN: do_inc = 1'b0;
                 R_CEL: if (SUPPORT_ADV_ROUNDING)
-                        rounded = (!sign && (round_bit || sticky)) ? base + 1'b1 : base;
-                       else
-                        rounded = base;
+                        do_inc = (!sign && (round_bit || sticky));
                 R_FLR: if (SUPPORT_ADV_ROUNDING)
-                        rounded = (sign && (round_bit || sticky)) ? base + 1'b1 : base;
-                       else
-                        rounded = base;
+                        do_inc = (sign && (round_bit || sticky));
                 R_RNE: begin
                     if (round_bit) begin
-                        if (sticky || base[0]) rounded = base + 1'b1;
-                        else rounded = base;
-                    end else begin
-                        rounded = base;
+                        if (sticky || base[0]) do_inc = 1'b1;
                     end
                 end
-                default: rounded = base;
+                default: do_inc = 1'b0;
             endcase
+            rounded = base + do_inc;
         end
 
         // Saturation check using bits above the 32-bit window
