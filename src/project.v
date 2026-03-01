@@ -21,6 +21,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MIXED_PRECISION = 0,
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
+    parameter SUPPORT_MX_PLUS = 0,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
@@ -48,6 +49,31 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [1:0] round_mode;
     reg       overflow_wrap;
     reg       packed_mode;
+
+    // MX+ Metadata
+    wire [4:0] bm_index_a;
+    wire [4:0] bm_index_b;
+
+    generate
+        if (SUPPORT_MX_PLUS) begin : gen_mx_plus
+            reg [4:0] bm_index_a_reg;
+            reg [4:0] bm_index_b_reg;
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    bm_index_a_reg <= 5'd0;
+                    bm_index_b_reg <= 5'd0;
+                end else if (ena) begin
+                    if (cycle_count == 6'd0) bm_index_a_reg <= uio_in[4:0];
+                    if (cycle_count == 6'd2) bm_index_b_reg <= uio_in[7:3];
+                end
+            end
+            assign bm_index_a = bm_index_a_reg;
+            assign bm_index_b = bm_index_b_reg;
+        end else begin : gen_no_mx_plus
+            assign bm_index_a = 5'd0;
+            assign bm_index_b = 5'd0;
+        end
+    endgenerate
 
     // Register Pruning for scale_a, scale_b, format_b
     wire [7:0] scale_a_val;

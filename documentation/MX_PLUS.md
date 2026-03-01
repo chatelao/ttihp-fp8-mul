@@ -38,7 +38,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ## Phase 1: Metadata & Protocol Extension
 
-### Step 1: Protocol Update for BM Indices
+### Step 1: Protocol Update for BM Indices (Status: **COMPLETED**)
 - **Goal**: Load the position of the BM element for both Operand A and Operand B.
 - **Preparation**:
   - Audit `uio_in` usage in Cycles 1 and 2 of the FSM.
@@ -50,7 +50,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (Header Cycle Extension)**: Add a dedicated "Metadata Cycle" (Cycle 0) before Scale A.
 - **Reasoning**: **Variant B** is selected. It maintains the 41-cycle standard protocol, ensuring backward compatibility with existing software drivers and minimizing the latency impact of the extension.
 
-### Step 2: Internal Storage & Parameterization
+### Step 2: Internal Storage & Parameterization (Status: **COMPLETED**)
 - **Goal**: Add parameterized hardware support for MX+.
 - **Preparation**:
   - Define `bm_index_a` and `bm_index_b` registers in `src/project.v`.

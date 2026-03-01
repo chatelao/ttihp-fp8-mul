@@ -156,6 +156,7 @@ def get_param(handle, name, default=1):
         "SUPPORT_MIXED_PRECISION": 0,
     "SUPPORT_VECTOR_PACKING": 0,
     "SUPPORT_PACKED_SERIAL": 0,
+    "SUPPORT_MX_PLUS": 0,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 0
@@ -218,16 +219,17 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
 
     return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
 
-async def reset_dut(dut):
+async def reset_dut(dut, uio_in=0):
     dut.ena.value = 1
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
+    dut.uio_in.value = uio_in
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0):
     # Enforce parameter constraints in model
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
@@ -235,6 +237,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
     support_serial = get_param(getattr(dut.user_project, "SUPPORT_PACKED_SERIAL", None), "SUPPORT_PACKED_SERIAL", 0)
+    support_mx_plus = get_param(getattr(dut.user_project, "SUPPORT_MX_PLUS", None), "SUPPORT_MX_PLUS", 0)
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
     actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
@@ -252,7 +255,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), "ACCUMULATOR_WIDTH", 32)
     aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
 
-    await reset_dut(dut)
+    await reset_dut(dut, uio_in=bm_index_a if support_mx_plus else 0)
 
     # Cycle 1: Load Scale A and Format/Numerical Control
     dut.ui_in.value = scale_a
@@ -261,7 +264,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Cycle 2: Load Scale B and Format B
     dut.ui_in.value = scale_b
-    dut.uio_in.value = format_b
+    dut.uio_in.value = format_b | (bm_index_b << 3 if support_mx_plus else 0)
     await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
@@ -603,6 +606,36 @@ async def test_fast_start_scale_compression(dut):
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final
+
+@cocotb.test()
+async def test_mx_plus_metadata(dut):
+    # Check if MX+ is supported
+    support_mx_plus = get_param(getattr(dut.user_project, "SUPPORT_MX_PLUS", None), "SUPPORT_MX_PLUS", 0)
+    if not support_mx_plus:
+        dut._log.info("Skipping MX+ Metadata Test (SUPPORT_MX_PLUS=0)")
+        return
+
+    dut._log.info("Start MX+ Metadata Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # Test indices
+    bm_a = 0x15 # 21
+    bm_b = 0x07 # 7
+
+    a_elements = [0] * 32
+    b_elements = [0] * 32
+
+    # Load metadata via run_mac_test protocol
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, bm_index_a=bm_a, bm_index_b=bm_b)
+
+    # Verify captured registers via DUT handle
+    captured_a = int(dut.user_project.gen_mx_plus.bm_index_a_reg.value)
+    captured_b = int(dut.user_project.gen_mx_plus.bm_index_b_reg.value)
+
+    dut._log.info(f"MX+ Captured: A={captured_a}, B={captured_b}")
+    assert captured_a == bm_a
+    assert captured_b == bm_b
 
 @cocotb.test()
 async def test_yaml_cases(dut):

@@ -15,6 +15,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~13 (Incr.) |
 | `SUPPORT_VECTOR_PACKING` | `1` | Enables dual-lane processing for FP4 (E2M1) inputs. | ~2908 |
 | `SUPPORT_PACKED_SERIAL` | `0` | Enables serial processing of packed FP4 elements. | ~100 |
+| `SUPPORT_MX_PLUS` | `0` | Enables capturing BM indices for MX+. | ~0 (Incr.) |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~250 |
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~53 |
 | `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~403 |
@@ -108,10 +109,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 6347 | 1x1* |
-| **Lite** | Disable MXFP6/Adv/VP | 3136 | 1x1* |
-| **Tiny** | All optional features disabled | 2288 | 1x1 |
-| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2026 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6291 | 1x1* |
+| **Lite** | Disable MXFP6/4/Adv/VP | 3066 | 1x1* |
+| **Tiny** | All optional features disabled | 2258 | 1x1 |
+| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2011 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -136,21 +137,22 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 6347 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 6290 | -57 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 6311 | -36 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 6370 | +23 |
-| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3439 | -2908 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 5515 | -832 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 6309 | -38 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 5847 | -500 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6230 | -117 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6079 | -268 |
-| **Tiny (All Disabled)** | All features disabled | 2288 | -4059 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2026 | -4321 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1707 | -4640 |
-| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 5541 | -806 |
-| **LNS Multiplier (Precise)** | Precise LNS multiplier | 5649 | -698 |
+| **Baseline (Full)** | All features enabled | 6291 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 6226 | -65 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 6254 | -37 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 6308 | +17 |
+| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3373 | -2918 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 5458 | -833 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 6244 | -47 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 5789 | -502 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6189 | -102 |
+| `SUPPORT_MX_PLUS` | Disable MX+ Metadata | 6291 | 0 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6036 | -255 |
+| **Tiny (All Disabled)** | All features disabled | 2258 | -4033 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2011 | -4280 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1704 | -4587 |
+| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 5476 | -815 |
+| **LNS Multiplier (Precise)** | Precise LNS multiplier | 5588 | -703 |
 
 ## 5. Deployment & CI/CD Progress
 
@@ -181,3 +183,8 @@ To ensure the integrity of all variants, the CI/CD pipeline is updated to test m
 - [x] Verify **Full** Variant
 - [x] Verify **Lite** Variant
 - [x] Verify **Tiny** Variant
+
+## 6. Optimization Checklist
+
+- [x] Optimization 11: Serial Vector Packing (Status: **COMPLETED**)
+- [x] Optimization 12: Metadata Capture (MX+) (Status: **COMPLETED**)
