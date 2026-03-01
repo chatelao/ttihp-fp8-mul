@@ -14,9 +14,9 @@ skinparam rectangle<<system_boundary>> {
 skinparam rectangle<<enterprise_boundary>> {
     FontSize 20
 }
-UpdateBoundaryStyle("container", $type="<size:20>container</size>")
-UpdateBoundaryStyle("system", $type="<size:20>system</size>")
-UpdateBoundaryStyle("enterprise", $type="<size:20>enterprise</size>")
+UpdateBoundaryStyle("container", $type="container")
+UpdateBoundaryStyle("system", $type="system")
+UpdateBoundaryStyle("enterprise", $type="enterprise")
 
 Person(host, "Host System", "FPGA, Microcontroller, or Testbench")
 
