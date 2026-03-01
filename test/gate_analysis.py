@@ -74,6 +74,7 @@ def main():
             print(f"{label:<30} | {'FAILED':<10} | {'N/A':<10}")
 
     tiny_params = {f: 0 for f in features}
+    tiny_params["SUPPORT_MXFP4"] = 1 # MXFP4 enabled in all variants
     tiny_params["ALIGNER_WIDTH"] = 40
     tiny_params["ACCUMULATOR_WIDTH"] = 32
     tiny_gates = get_yosys_stats(tiny_params)

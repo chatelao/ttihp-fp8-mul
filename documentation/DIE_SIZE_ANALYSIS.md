@@ -110,7 +110,7 @@ The implementation has been refactored to support aggressive area optimizations,
 |---|:---:|:---:|:---:|:---:|
 | `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ |
-| `SUPPORT_MXFP4` | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP4` | ✅ | ✅ | ✅ | ✅ |
 | `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
@@ -148,7 +148,7 @@ The implementation has been refactored to support aggressive area optimizations,
 |---|---|---|
 | **Ultra-Tiny (Default)** | 1x1 | All features disabled, 32/24 bit widths. |
 | **Tiny** | 1x1 | All features disabled, 40/32 bit widths. |
-| **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_MXFP4=0`, `SUPPORT_ADV_ROUNDING=0`. |
+| **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_ADV_ROUNDING=0`. |
 | **Full** | 1x1 | All features enabled. |
 
 ### CI/CD Progress: Matrix Testing
