@@ -112,3 +112,34 @@ The "RVV to MX Bridge" acts as the hardware shim between the RISC-V Vector Regis
 | **3.1: Dedicated OCP Opcode** | Define a new `vdot.mx` instruction in the custom-0/1 opcode space. | **Selected**: Cleanest ISA integration. Enables compiler optimizations and follows the standard RISC-V extension path. |
 | **3.2: CSR-Triggered Execution** | Writing to a specific control bit in `vmxfmt` starts the operation. | Non-standard; hard to pipeline in a superscalar or out-of-order core. |
 | **3.3: ALU Re-purposing** | Reuse `vdot.vv` with a specific state bit in `vtype`. | Causes confusion with standard floating-point operations; breaks IEEE-754 compatibility expectations. |
+
+---
+
+## 6. SERV CPU Integration Concept
+
+### 6.1. Architectural Challenge: The Bit-Serial Impedance Mismatch
+SERV is a bit-serial RISC-V CPU, meaning it processes 1 bit per cycle and takes 32 cycles for a standard 32-bit operation. The OCP MX Bridge, however, expects a byte-serial stream (8 bits per cycle) to drive the MAC unit's 41-cycle protocol. Integrating these two requires a transformation between bit-serial dataflow and the bridge's byte-oriented FSM.
+
+### 6.2. Evaluated Integration Variants
+
+| Variant | Description | Pros | Cons |
+|:---|:---|:---|:---|
+| **6.2.1: Wishbone-Attached Peripheral** | The Bridge/MAC unit is treated as a memory-mapped peripheral on the Wishbone bus. | Minimal CPU modification; standard software access. | High overhead (latency for bus arbitration); difficult to fit in 1x1 tile due to bus logic. |
+| **6.2.2: Extension-Interface (MDU-style)** | Leverages SERV's extension interface. The bridge captures instructions and serial data directly from the CPU's internal shift registers. | High efficiency; bypasses the bus; low gate count. | Requires modification of the CPU core to support the custom OCP opcode. |
+| **6.2.3: Shadow Shift-Register Bridge** | A separate 32-bit shift register snoops the CPU's write-back data. Once "full" (after 32 cycles), it parallelizes the byte for the MAC bridge. | No timing impact on CPU; asynchronous processing. | Duplicate registers (32-bit buffer) increase area, threatening the 1x1 tile limit. |
+
+### 6.3. Evaluation & Selection
+
+**Selection**: **Variant 6.2.2 (Extension-Interface)** is selected for the minimal implementation.
+
+**Justification**:
+- **Area Efficiency**: By hooking into the existing bit-serial datapath (similar to how the MDU/Multiplier unit is integrated), we avoid 32-bit parallel buffers. We can accumulate bits into an 8-bit shift-register (part of the Bridge) every 8 CPU cycles.
+- **Protocol Alignment**: Since SERV takes 32 cycles to "produce" a 32-bit register value, and the MAC unit expects 32 elements, the timing is naturally aligned for a low-gate-count implementation.
+- **1x1 Tile Target**: This variant minimizes "dead" silicon used for bus interconnects or large buffers, maximizing the area available for the MAC arithmetic logic.
+
+### 6.4. Dataflow for Minimal SERV Integration
+1. CPU executes `vdot.mx` (custom opcode).
+2. CPU shifts out `rs1` and `rs2` bit-by-bit over 32 cycles.
+3. Bridge collects bits into 8-bit chunks.
+4. Every 8 cycles, the Bridge feeds one element to the MAC unit.
+5. MAC Unit runs in parallel (pipelined) or stalls the CPU if protocol cycles > 32.
