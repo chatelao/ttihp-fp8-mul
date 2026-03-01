@@ -21,6 +21,11 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Apycula dependencies
+        run: |
+          # Use the python/pip from oss-cad-suite to avoid warnings and improve performance
+          pip install numpy fastcrc
+
       - name: Create build directory
         run: mkdir -p build
 
