@@ -20,16 +20,16 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_ADV_ROUNDING = 0,
     parameter SUPPORT_MIXED_PRECISION = 0,
     parameter ENABLE_SHARED_SCALING = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL = 0
 )(
-    input  wire [7:0] ui_in,    // Scale/Elements
-    output wire [7:0] uo_out,   // Result
-    input  wire [7:0] uio_in,   // Scale/Elements
-    output wire [7:0] uio_out,  // Unused
-    output wire [7:0] uio_oe,   // Set to 0 to make uio_in an input
-    (* keep *) input  wire       ena,
-    (* keep *) input  wire       clk,
-    (* keep *) input  wire       rst_n
+    input  wire [7:0] ui_in,
+    output wire [7:0] uo_out,
+    input  wire [7:0] uio_in,
+    output wire [7:0] uio_out,
+    output wire [7:0] uio_oe,
+    input  wire       ena,
+    input  wire       clk,
+    input  wire       rst_n
 );
 
     // FSM States
@@ -119,8 +119,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
-                .SUPPORT_INT8(SUPPORT_INT8),
-                .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+                .SUPPORT_INT8(SUPPORT_INT8)
             ) multiplier (
                 .a(ui_in),
                 .b(uio_in),

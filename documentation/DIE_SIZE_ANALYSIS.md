@@ -17,8 +17,6 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~150 |
 | `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~400 |
 | `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~200 (if 64->40) |
-| `USE_LNS_MUL` | `0` | Replaces the multiplier with an LNS adder. | ~400 |
-| `USE_LNS_MUL_PRECISE` | `0` | Uses a 64x4 LUT for more accurate LNS multiplication. | ~350 |
 
 ### 1.2. Recommended Refactorings
 
@@ -125,20 +123,19 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3422 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 3394 | -28 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 3403 | -19 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 3432 | +10 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2953 | -469 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 3393 | -29 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3172 | -250 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3422 | 0 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3166 | -256 |
-| **Tiny (All Disabled)** | All features disabled | 2263 | -1159 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2001 | -1421 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1683 | -1739 |
-| **LNS Multiplier (Mitchell)** | Replaces multiplier with Mitchell adder | 3018 | -404 |
-| **LNS Multiplier (Precise)** | Replaces multiplier with LNS LUT | 3074 | -348 |
+| **Baseline (Full)** | All features enabled | 3442 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 3408 | -34 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 3417 | -25 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 3444 | +2 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2970 | -472 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 3418 | -24 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3192 | -250 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3442 | 0 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3170 | -272 |
+| `USE_LNS_MUL` | Enable LNS Multiplier | 3024 | -418 |
+| **Tiny (All Disabled)** | All features disabled | 2267 | -1175 |
+| **Ultra-Tiny** | Reduced internal widths | 2004 | -1438 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1681 | -1761 |
 
 ## 5. Deployment & CI/CD Progress
 

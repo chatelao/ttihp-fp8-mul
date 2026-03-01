@@ -41,8 +41,6 @@ def main():
     baseline_params["USE_LNS_MUL"] = 0 # Baseline is standard multiplier
     baseline_params["ALIGNER_WIDTH"] = 40
     baseline_params["ACCUMULATOR_WIDTH"] = 32
-    baseline_params["USE_LNS_MUL"] = 0
-    baseline_params["USE_LNS_MUL_PRECISE"] = 0
 
     print("OCP MXFP8 MAC Unit Gate Impact Analysis (POST-OPTIMIZATION)")
     print("==========================================================")
@@ -92,20 +90,6 @@ def main():
     one_tile_gates = get_yosys_stats(one_tile_target)
     one_tile_delta = one_tile_gates - baseline_gates
     print(f"{'1x1 Tile Target (Min)':<30} | {one_tile_gates:<10} | {one_tile_delta:<10}")
-
-    lns_mitchell_params = baseline_params.copy()
-    lns_mitchell_params["USE_LNS_MUL"] = 1
-    lns_mitchell_params["USE_LNS_MUL_PRECISE"] = 0
-    lns_mitchell_gates = get_yosys_stats(lns_mitchell_params)
-    lns_mitchell_delta = lns_mitchell_gates - baseline_gates
-    print(f"{'LNS Multiplier (Mitchell)':<30} | {lns_mitchell_gates:<10} | {lns_mitchell_delta:<10}")
-
-    lns_precise_params = baseline_params.copy()
-    lns_precise_params["USE_LNS_MUL"] = 1
-    lns_precise_params["USE_LNS_MUL_PRECISE"] = 1
-    lns_precise_gates = get_yosys_stats(lns_precise_params)
-    lns_precise_delta = lns_precise_gates - baseline_gates
-    print(f"{'LNS Multiplier (Precise)':<30} | {lns_precise_gates:<10} | {lns_precise_delta:<10}")
 
 if __name__ == "__main__":
     main()
