@@ -154,6 +154,7 @@ def get_param(handle, name, default=1):
         "SUPPORT_PIPELINING": 0,
         "SUPPORT_ADV_ROUNDING": 0,
         "SUPPORT_MIXED_PRECISION": 0,
+    "SUPPORT_VECTOR_PACKING": 0,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 0
@@ -225,11 +226,14 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0):
     # Enforce parameter constraints in model
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
         format_b = format_a
+
+    support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
+    actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
     support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
     if not support_adv:
@@ -249,7 +253,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Cycle 1: Load Scale A and Format/Numerical Control
     dut.ui_in.value = scale_a
-    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5)
+    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6)
     await ClockCycles(dut.clk, 1)
 
     # Cycle 2: Load Scale B and Format B
@@ -283,17 +287,23 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         else:
             expected_acc = expected_acc_raw
 
-    for i in range(32):
-        dut.ui_in.value = a_elements[i]
-        dut.uio_in.value = b_elements[i]
-        await ClockCycles(dut.clk, 1)
+    if actual_packed:
+        for i in range(16):
+            dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
+            dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
+            await ClockCycles(dut.clk, 1)
+    else:
+        for i in range(32):
+            dut.ui_in.value = a_elements[i]
+            dut.uio_in.value = b_elements[i]
+            await ClockCycles(dut.clk, 1)
 
-    # Cycle 35: Pipeline flush for last element
+    # Pipeline flush for last element
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 1)
 
-    # Cycle 36: Shared scaling alignment
+    # Shared scaling alignment
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
@@ -310,7 +320,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         else:
             expected_final = expected_acc
 
-    # Cycle 37-40: Output Serialized Result
+    # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
@@ -430,6 +440,23 @@ async def test_accumulator_saturation(dut):
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
     # Accumulator Wrap
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
+
+@cocotb.test()
+async def test_mxfp4_packed(dut):
+    # Check if vector packing is supported
+    support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
+    if not support_packing:
+        dut._log.info("Skipping Packed FP4 Test (SUPPORT_VECTOR_PACKING=0)")
+        return
+
+    dut._log.info("Start Packed FP4 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x04] * 32 # 1.0 in E2M1
+    b_elements = [0x04] * 32
+    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
+    await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
 @cocotb.test()
 async def test_mixed_precision(dut):
