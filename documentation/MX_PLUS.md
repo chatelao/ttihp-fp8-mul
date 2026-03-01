@@ -46,6 +46,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Extended Protocol)**: Increase protocol length to 43 cycles, adding two dedicated metadata cycles after scaling.
   - **Variant B (Metadata Multiplexing)**: Utilize unused bits in `uio_in` during Cycle 2 (where `scale_b` is loaded on `ui_in`).
+  - **Variant C (Serial Shift-In)**: Use a dedicated 1-bit input to shift in the index over 5 cycles during the streaming phase.
+  - **Variant D (Header Cycle Extension)**: Add a dedicated "Metadata Cycle" (Cycle 0) before Scale A.
 - **Reasoning**: **Variant B** is selected. It maintains the 41-cycle standard protocol, ensuring backward compatibility with existing software drivers and minimizing the latency impact of the extension.
 
 ### Step 2: Internal Storage & Parameterization
@@ -56,6 +58,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Shared Metadata Register)**: Use a single 16-bit register for all MX+ metadata (indices + offsets).
   - **Variant B (Split Gated Registers)**: Separate registers for `bm_index` and `nbm_offset`, each guarded by its own `generate` block.
+  - **Variant C (LUT-Based Storage)**: Store indices in a small distributed RAM/LUT if available in the FPGA/ASIC library.
+  - **Variant D (FSM-Embedded Constants)**: Hardwire the BM index to a fixed value (e.g., index 0) to eliminate registers.
 - **Reasoning**: **Variant B** is chosen to enable modular register pruning. If only basic MX+ is needed (Phase 2) without MX++ (Phase 4), the offset registers can be pruned independently, saving area on the Tiny Tapeout tile.
 
 ---
@@ -70,6 +74,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Distributed Comparators)**: Pass the 5-bit `bm_index` into each multiplier lane; each lane performs its own `count == bm_index` check.
   - **Variant B (Centralized Flagging)**: Perform the comparison in the top-level FSM (`project.v`) and pass a single `is_bm` wire to the multiplier lanes.
+  - **Variant C (Address-Match Trigger)**: Use the `bm_index` to trigger a one-shot pulse from a global address decoder.
+  - **Variant D (Scan-Chain Tagging)**: Tag the BM element in a shadow register during the load phase and shift the tag alongside the data.
 - **Reasoning**: **Variant B** is selected. Centralizing the comparison logic reduces the total gate count by removing redundant 5-bit magnitude comparators from the multiplier lanes, which is critical for the "Ultra-Tiny" configuration.
 
 ### Step 4: Exponent Repurposing Logic
@@ -79,6 +85,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Dual Decoders)**: Instantiate a separate "MX+ Decoder" and a "Standard Decoder" for each lane, using a MUX to select the output.
   - **Variant B (Conditional Override)**: Modify the existing decoder logic to conditionally hardwire the exponent to `e_max` and treat exponent bits as mantissa when `is_bm` is high.
+  - **Variant C (Post-Decoder Override)**: Decode normally and then use a MUX to replace the exponent bits with `e_max` before normalization.
+  - **Variant D (Table-Based Decoding)**: Use a small ROM or PLA to map the 4/6/8-bit input directly to the internal format.
 - **Reasoning**: **Variant B** is chosen for area efficiency. It reuses the existing mantissa shift and normalization logic with minimal additional logic gates.
 
 ---
@@ -93,6 +101,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Fixed 8x8 Multiplier)**: Always use an 8x8 multiplier for all formats when `SUPPORT_MX_PLUS=1`.
   - **Variant B (Parameterized Multiplier)**: Use `generate` blocks to scale the multiplier width (4x4 or 8x8) based on both format (MXFP4/6/8) and the MX+ support flag.
+  - **Variant C (Bit-Serial Mantissa Expansion)**: Process the extra BM bits over two clock cycles in the multiplier.
+  - **Variant D (Logarithmic Multiplier)**: Use an LNS (Logarithmic Number System) multiplier which naturally handles varying precision.
 - **Reasoning**: **Variant B** is selected to preserve the "Ultra-Tiny" footprint for users who only require standard MXFP4. The 8x8 multiplier is only instantiated if required for MXFP8+ or high-precision INT8 modes.
 
 ---
@@ -106,6 +116,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Datapath Barrel Shifter)**: Add a dedicated shifter after the multiplier to apply the offset.
   - **Variant B (Aligner Exponent Offset)**: Subtract the offset from the `exp_sum` before it enters the `fp8_aligner`.
+  - **Variant C (Post-Accumulation Normalization)**: Apply the offset after the accumulator during the final result shift-out.
+  - **Variant D (Dual-Path Aligner)**: Instantiate a separate "NBM Aligner" and "BM Aligner" with fixed offsets.
 - **Reasoning**: **Variant B** is preferred as it leverages the existing alignment hardware. Modifying the exponent input to the aligner is significantly cheaper in terms of area than adding a second barrel shifter to the datapath.
 
 ---
@@ -119,6 +131,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Numerical Model)**: Use floating-point math to approximate MX+ behavior.
   - **Variant B (Bit-Level Model)**: Implement the exact bit-masking and shifting logic found in the Verilog RTL.
+  - **Variant C (Functional Wrapper)**: Use a high-level Python class that wraps a standard float with MX+ constraints.
+  - **Variant D (C++ Extension)**: Implement the model in C++ for performance and bind it to Python using pybind11.
 - **Reasoning**: **Variant B** is essential for verification. Bit-level accuracy ensures that quantization edge cases (like rounding near 0.5 LSB) are handled identically by the hardware and the software testbench.
 
 ### Step 8: Comprehensive Test Suite
@@ -127,7 +141,9 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - Define specific test vectors in `test/TEST_MX_E2E.YAML`.
 - **Variant Analysis**:
   - **Variant A (Random Fuzzing)**: Generate random input blocks and check against the model.
-  - **Variant B (Directed Corner Cases)**: Specifically test blocks where the BM is at index 0, 15, or 31, and cases where the shared scale is zero (SEZ rule).
+  - **Variant B (Directed Corner Cases)**: Specifically test blocks where the BM is at index 0, 15, or 31.
+  - **Variant C (Formal Verification)**: Use SVA (SystemVerilog Assertions) to formally prove the correctness of the BM detection.
+  - **Variant D (Power-Aware Simulation)**: Include switching activity analysis (VCD) in tests to measure the energy impact.
 - **Reasoning**: **Variant B** is prioritized for the initial implementation to ensure the FSM and indexing logic are robust, followed by Variant A for general coverage.
 
 ### Step 9: Physical Impact Analysis
@@ -137,6 +153,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Top-Level Synthesis)**: Synthesize the entire MAC unit to see the real-world area impact.
   - **Variant B (Module-Only Synthesis)**: Synthesize only the `fp8_mul` module to isolate the cost of decoding logic.
+  - **Variant C (Congestion-Aware Synthesis)**: Analyze routing density and pin placement constraints in the 1x2 tile.
+  - **Variant D (Thermal Profiling)**: Run gate-level power simulations to check for hotspots.
 - **Reasoning**: Both are used. Variant A provides the final "gate budget" for the Tiny Tapeout tile, while Variant B helps optimize the decoder architecture during Phase 2.
 
 ---
@@ -150,6 +168,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Implicit Packing)**: Automatically pack all 4-bit formats into 16 cycles.
   - **Variant B (Explicit Packed Mode)**: Use a control bit to choose between standard 32-cycle and packed 16-cycle streaming.
+  - **Variant C (Dynamic Packing)**: Detect 4-bit formats and automatically switch protocol length based on I/O activity.
+  - **Variant D (Sub-Cycle Interleaving)**: Load elements on both rising and falling edges of the clock (DDR-style).
 - **Reasoning**: **Variant B** was chosen. This allows the hardware to remain compliant with standard OCP drivers that do not support packed data layouts, while offering a high-performance "opt-in" for specialized accelerators.
 
 ### Step 11: Dual-Lane Multiplier Integration (Status: **COMPLETED**)
@@ -159,6 +179,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Variant Analysis**:
   - **Variant A (Temporal Parallelism)**: Run a single multiplier at 2x clock frequency.
   - **Variant B (Spatial Parallelism)**: Instantiate two parallel multiplier lanes.
+  - **Variant C (Temporal Interleaving)**: Use a single multiplier at 2x clock frequency with a bypass register.
+  - **Variant D (SIMD Vector Lane)**: Use a wide 8-bit multiplier that can be split into two 4-bit lanes.
 - **Reasoning**: **Variant B** was selected. Given the Tiny Tapeout constraints (10MHz typical, 100MHz peak), spatial parallelism is more robust for timing closure and avoids complex clock-domain-crossing logic required for temporal parallelism.
 
 ### Step 12: Buffering & Duty Cycle Reduction (Alternative)
@@ -166,6 +188,8 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 - **Preparation**:
   - Design an 8-bit wide, 16-entry FIFO for activation buffering.
 - **Variant Analysis**:
-  - **Variant A (Input Buffering)**: Load packed data in 16 cycles, then process at 1 element/cycle while the I/O pins remain idle.
+  - **Variant A (Input Buffering)**: Load packed data in 16 cycles, then process at 1 element/cycle.
   - **Variant B (Output Buffering)**: Process at full speed and buffer the final 32-bit results.
+  - **Variant C (Compressed Streaming)**: Use a simple RLE (Run Length Encoding) for the 4-bit elements.
+  - **Variant D (Circular Buffer)**: Use a dual-port RAM for simultaneous load and process.
 - **Reasoning**: **Variant A** is preferred for duty cycle reduction. It allows the system to burst-load activations and then potentially enter a low-power state or free the bus for other devices while the MAC unit processes the block.
