@@ -55,38 +55,38 @@ module fp8_mul #(
             case (fmt)
                 FMT_E4M3: begin
                     sign_out = data[7];
-                    exp_out = {1'b0, data[6:3]};
-                    mant_out = {4'b0, 1'b1, data[2:0]};
+                    exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                    mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 6'sd7;
-                    zero_out = (exp_out == 5'd0);
+                    zero_out = (data[6:0] == 7'd0);
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
                     sign_out = data[7];
-                    exp_out = data[6:2];
-                    mant_out = {4'b0, 1'b1, data[1:0], 1'b0};
+                    exp_out = (data[6:2] == 5'd0) ? 5'd1 : data[6:2];
+                    mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                     bias_out = 6'sd15;
-                    zero_out = (exp_out == 5'd0);
+                    zero_out = (data[6:0] == 7'd0);
                 end
                 FMT_E3M2: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
-                    exp_out = {2'b0, data[4:2]};
-                    mant_out = {4'b0, 1'b1, data[1:0], 1'b0};
+                    exp_out = (data[4:2] == 3'd0) ? 5'd1 : {2'b0, data[4:2]};
+                    mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
                     bias_out = 6'sd3;
-                    zero_out = (exp_out == 5'd0);
+                    zero_out = (data[4:0] == 5'd0);
                 end
                 FMT_E2M3: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
-                    exp_out = {3'b0, data[4:3]};
-                    mant_out = {4'b0, 1'b1, data[2:0]};
+                    exp_out = (data[4:3] == 2'd0) ? 5'd1 : {3'b0, data[4:3]};
+                    mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
                     bias_out = 6'sd1;
-                    zero_out = (exp_out == 5'd0);
+                    zero_out = (data[4:0] == 5'd0);
                 end
                 FMT_E2M1: if (SUPPORT_MXFP4) begin
                     sign_out = data[3];
-                    exp_out = {3'b0, data[2:1]};
-                    mant_out = {4'b0, 1'b1, data[0], 2'b0};
+                    exp_out = (data[2:1] == 2'd0) ? 5'd1 : {3'b0, data[2:1]};
+                    mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
                     bias_out = 6'sd1;
-                    zero_out = (exp_out == 5'd0);
+                    zero_out = (data[2:0] == 3'd0);
                 end
                 FMT_INT8: if (SUPPORT_INT8) begin
                     sign_out = data[7];
@@ -104,10 +104,10 @@ module fp8_mul #(
                 end
                 default: begin
                     sign_out = data[7];
-                    exp_out = {1'b0, data[6:3]};
-                    mant_out = {4'b0, 1'b1, data[2:0]};
+                    exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                    mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 6'sd7;
-                    zero_out = (exp_out == 5'd0);
+                    zero_out = (data[6:0] == 7'd0);
                 end
             endcase
         end

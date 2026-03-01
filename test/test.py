@@ -10,34 +10,62 @@ import os
 def decode_format(bits, format_val):
     if format_val == 0: # E4M3
         sign = (bits >> 7) & 1
-        exp = (bits >> 3) & 0xF
+        exp_field = (bits >> 3) & 0xF
         mant = (bits & 0x7)
+        is_subnormal = (exp_field == 0 and mant != 0)
+        exp = 1 if is_subnormal else exp_field
+        implicit_bit = 0 if (exp_field == 0) else 1
+        mant = (implicit_bit << 3) | (bits & 0x7)
         bias = 7
         is_int = False
+        return sign, exp, mant, bias, is_int
     elif format_val == 1: # E5M2
         sign = (bits >> 7) & 1
-        exp = (bits >> 2) & 0x1F
-        mant = (bits & 0x3) << 1
+        exp_field = (bits >> 2) & 0x1F
+        mant_field = (bits & 0x3)
+        is_subnormal = (exp_field == 0 and mant_field != 0)
+        exp = 1 if is_subnormal else exp_field
+        implicit_bit = 0 if (exp_field == 0) else 1
+        mant = (implicit_bit << 2) | mant_field
+        mant <<= 1 # Align to 4 bits
         bias = 15
         is_int = False
+        return sign, exp, mant, bias, is_int
     elif format_val == 2: # E3M2
         sign = (bits >> 5) & 1
-        exp = (bits >> 2) & 0x7
-        mant = (bits & 0x3) << 1
+        exp_field = (bits >> 2) & 0x7
+        mant_field = (bits & 0x3)
+        is_subnormal = (exp_field == 0 and mant_field != 0)
+        exp = 1 if is_subnormal else exp_field
+        implicit_bit = 0 if (exp_field == 0) else 1
+        mant = (implicit_bit << 2) | mant_field
+        mant <<= 1 # Align to 4 bits
         bias = 3
         is_int = False
+        return sign, exp, mant, bias, is_int
     elif format_val == 3: # E2M3
         sign = (bits >> 5) & 1
-        exp = (bits >> 3) & 0x3
-        mant = (bits & 0x7)
+        exp_field = (bits >> 3) & 0x3
+        mant_field = (bits & 0x7)
+        is_subnormal = (exp_field == 0 and mant_field != 0)
+        exp = 1 if is_subnormal else exp_field
+        implicit_bit = 0 if (exp_field == 0) else 1
+        mant = (implicit_bit << 3) | mant_field
         bias = 1
         is_int = False
+        return sign, exp, mant, bias, is_int
     elif format_val == 4: # E2M1
         sign = (bits >> 3) & 1
-        exp = (bits >> 1) & 0x3
-        mant = (bits & 0x1) << 2
+        exp_field = (bits >> 1) & 0x3
+        mant_field = (bits & 0x1)
+        is_subnormal = (exp_field == 0 and mant_field != 0)
+        exp = 1 if is_subnormal else exp_field
+        implicit_bit = 0 if (exp_field == 0) else 1
+        mant = (implicit_bit << 1) | mant_field
+        mant <<= 2 # Align to 4 bits
         bias = 1
         is_int = False
+        return sign, exp, mant, bias, is_int
     elif format_val == 5: # INT8
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -179,7 +207,8 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
 
     sign = sa ^ sb
 
-    if (not inta and ea == 0) or (not intb and eb == 0):
+    # Updated: zero check now correctly handles subnormals
+    if (not inta and ea == 0 and (ma & 0x7) == 0) or (not intb and eb == 0 and (mb & 0x7) == 0):
         return 0
     if (inta and a_bits == 0) or (intb and b_bits == 0):
         return 0
@@ -206,8 +235,8 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = (8 + m_res) << 3
         exp_sum = ea + eb - (ba + bb - 7) + carry
     else:
-        real_ma = (8 + ma) if not inta else ma
-        real_mb = (8 + mb) if not intb else mb
+        real_ma = ma if not inta else ma
+        real_mb = mb if not intb else mb
 
         if not support_int8:
             real_ma = real_ma & 0xF
@@ -694,3 +723,22 @@ async def test_mx_fp4_yaml(dut):
 @cocotb.test()
 async def test_mxplus_yaml(dut):
     await run_yaml_file(dut, "TEST_MXPLUS.yaml")
+
+@cocotb.test()
+async def test_mxfp8_subnormals(dut):
+    dut._log.info("Start MXFP8 Subnormals Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # E4M3: 0x01 is subnormal (2^-6 * 0.125)
+    # 0x38 is 1.0
+    # Expected product: 1.0 * (2^-6 * 0.125) = 2^-6 * 0.125
+    # Sum of 32 such products: 32 * 2^-6 * 0.125 = 2^5 * 2^-6 * 2^-3 = 2^-4 = 0.0625
+
+    # In our fixed-point model (bit 8 = 1.0):
+    # 0.0625 * 256 = 16
+
+    a_elements = [0x01] * 32
+    b_elements = [0x38] * 32
+
+    await run_mac_test(dut, 0, 0, a_elements, b_elements)
