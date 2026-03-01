@@ -177,20 +177,21 @@ def get_param(handle, name, default=1):
         return int(matches[-1]) # Use the last one if multiple
 
     # 3. Fallback to hardcoded defaults in tb.v
+    # These match the defaults in src/project.v (Full build)
     defaults = {
-        "ALIGNER_WIDTH": 32,
-        "ACCUMULATOR_WIDTH": 24,
-        "SUPPORT_E5M2": 0,
-        "SUPPORT_MXFP6": 0,
+        "ALIGNER_WIDTH": 40,
+        "ACCUMULATOR_WIDTH": 32,
+        "SUPPORT_E5M2": 1,
+        "SUPPORT_MXFP6": 1,
         "SUPPORT_MXFP4": 1,
-        "SUPPORT_INT8": 0,
-        "SUPPORT_PIPELINING": 0,
-        "SUPPORT_ADV_ROUNDING": 0,
-        "SUPPORT_MIXED_PRECISION": 0,
-        "SUPPORT_VECTOR_PACKING": 0,
+        "SUPPORT_INT8": 1,
+        "SUPPORT_PIPELINING": 1,
+        "SUPPORT_ADV_ROUNDING": 1,
+        "SUPPORT_MIXED_PRECISION": 1,
+        "SUPPORT_VECTOR_PACKING": 1,
         "SUPPORT_PACKED_SERIAL": 0,
-        "SUPPORT_MX_PLUS": 0,
-        "ENABLE_SHARED_SCALING": 0,
+        "SUPPORT_MX_PLUS": 1,
+        "ENABLE_SHARED_SCALING": 1,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 0
     }

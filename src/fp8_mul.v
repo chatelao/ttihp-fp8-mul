@@ -72,49 +72,97 @@ module fp8_mul #(
                     zero_out = (data[6:0] == 7'd0);
                     nan_out  = (data[6:0] == 7'h7F);
                 end
-                FMT_E5M2: if (SUPPORT_E5M2) begin
-                    sign_out = data[7];
-                    exp_out = (data[6:2] == 5'd0) ? 5'd1 : data[6:2];
-                    mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
-                    bias_out = 6'sd15;
-                    zero_out = (data[6:0] == 7'd0);
-                    nan_out  = (data[6:2] == 5'h1F) && (data[1:0] != 2'b00);
-                    inf_out  = (data[6:2] == 5'h1F) && (data[1:0] == 2'b00);
+                FMT_E5M2: begin
+                    if (SUPPORT_E5M2) begin
+                        sign_out = data[7];
+                        exp_out = (data[6:2] == 5'd0) ? 5'd1 : data[6:2];
+                        mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
+                        bias_out = 6'sd15;
+                        zero_out = (data[6:0] == 7'd0);
+                        nan_out  = (data[6:2] == 5'h1F) && (data[1:0] != 2'b00);
+                        inf_out  = (data[6:2] == 5'h1F) && (data[1:0] == 2'b00);
+                    end else begin
+                        sign_out = data[7];
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        bias_out = 6'sd7;
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
-                FMT_E3M2: if (SUPPORT_MXFP6) begin
-                    sign_out = data[5];
-                    exp_out = (data[4:2] == 3'd0) ? 5'd1 : {2'b0, data[4:2]};
-                    mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
-                    bias_out = 6'sd3;
-                    zero_out = (data[4:0] == 5'd0);
+                FMT_E3M2: begin
+                    if (SUPPORT_MXFP6) begin
+                        sign_out = data[5];
+                        exp_out = (data[4:2] == 3'd0) ? 5'd1 : {2'b0, data[4:2]};
+                        mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
+                        bias_out = 6'sd3;
+                        zero_out = (data[4:0] == 5'd0);
+                    end else begin
+                        sign_out = data[7];
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        bias_out = 6'sd7;
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
-                FMT_E2M3: if (SUPPORT_MXFP6) begin
-                    sign_out = data[5];
-                    exp_out = (data[4:3] == 2'd0) ? 5'd1 : {3'b0, data[4:3]};
-                    mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
-                    bias_out = 6'sd1;
-                    zero_out = (data[4:0] == 5'd0);
+                FMT_E2M3: begin
+                    if (SUPPORT_MXFP6) begin
+                        sign_out = data[5];
+                        exp_out = (data[4:3] == 2'd0) ? 5'd1 : {3'b0, data[4:3]};
+                        mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
+                        bias_out = 6'sd1;
+                        zero_out = (data[4:0] == 5'd0);
+                    end else begin
+                        sign_out = data[7];
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        bias_out = 6'sd7;
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
-                FMT_E2M1: if (SUPPORT_MXFP4) begin
-                    sign_out = data[3];
-                    exp_out = (data[2:1] == 2'd0) ? 5'd1 : {3'b0, data[2:1]};
-                    mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
-                    bias_out = 6'sd1;
-                    zero_out = (data[2:0] == 3'd0);
+                FMT_E2M1: begin
+                    if (SUPPORT_MXFP4) begin
+                        sign_out = data[3];
+                        exp_out = (data[2:1] == 2'd0) ? 5'd1 : {3'b0, data[2:1]};
+                        mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
+                        bias_out = 6'sd1;
+                        zero_out = (data[2:0] == 3'd0);
+                    end else begin
+                        sign_out = data[7];
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        bias_out = 6'sd7;
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
-                FMT_INT8: if (SUPPORT_INT8) begin
-                    sign_out = data[7];
-                    mant_out = data[7] ? -data : data;
-                    exp_out = 5'd0;
-                    bias_out = 6'sd3;
-                    zero_out = (data == 8'd0);
+                FMT_INT8: begin
+                    if (SUPPORT_INT8) begin
+                        sign_out = data[7];
+                        mant_out = data[7] ? -data : data;
+                        exp_out = 5'd0;
+                        bias_out = 6'sd3;
+                        zero_out = (data == 8'd0);
+                    end else begin
+                        sign_out = data[7];
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        bias_out = 6'sd7;
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
-                FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                    sign_out = data[7];
-                    mant_out = (data == 8'h80) ? 8'd127 : (data[7] ? -data : data);
-                    exp_out = 5'd0;
-                    bias_out = 6'sd3;
-                    zero_out = (data == 8'd0);
+                FMT_INT8_SYM: begin
+                    if (SUPPORT_INT8) begin
+                        sign_out = data[7];
+                        mant_out = (data == 8'h80) ? 8'd127 : (data[7] ? -data : data);
+                        exp_out = 5'd0;
+                        bias_out = 6'sd3;
+                        zero_out = (data == 8'd0);
+                    end else begin
+                        sign_out = data[7];
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        bias_out = 6'sd7;
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
                 default: begin
                     sign_out = data[7];
