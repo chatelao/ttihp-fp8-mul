@@ -1,6 +1,22 @@
 `default_nettype none
 
-module tt_gowin_top (
+module tt_gowin_top #(
+    parameter ALIGNER_WIDTH = 32,
+    parameter ACCUMULATOR_WIDTH = 24,
+    parameter SUPPORT_E5M2 = 0,
+    parameter SUPPORT_MXFP6 = 0,
+    parameter SUPPORT_MXFP4 = 1,
+    parameter SUPPORT_INT8 = 0,
+    parameter SUPPORT_PIPELINING = 0,
+    parameter SUPPORT_ADV_ROUNDING = 0,
+    parameter SUPPORT_MIXED_PRECISION = 0,
+    parameter SUPPORT_VECTOR_PACKING = 0,
+    parameter SUPPORT_PACKED_SERIAL = 0,
+    parameter SUPPORT_MX_PLUS = 0,
+    parameter ENABLE_SHARED_SCALING = 0,
+    parameter USE_LNS_MUL = 0,
+    parameter USE_LNS_MUL_PRECISE = 0
+)(
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
     inout  wire [7:0] uio,
@@ -20,7 +36,23 @@ module tt_gowin_top (
         end
     endgenerate
 
-    tt_um_chatelao_fp8_multiplier user_project (
+    tt_um_chatelao_fp8_multiplier #(
+        .ALIGNER_WIDTH(ALIGNER_WIDTH),
+        .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
+        .SUPPORT_E5M2(SUPPORT_E5M2),
+        .SUPPORT_MXFP6(SUPPORT_MXFP6),
+        .SUPPORT_MXFP4(SUPPORT_MXFP4),
+        .SUPPORT_INT8(SUPPORT_INT8),
+        .SUPPORT_PIPELINING(SUPPORT_PIPELINING),
+        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
+        .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+        .SUPPORT_VECTOR_PACKING(SUPPORT_VECTOR_PACKING),
+        .SUPPORT_PACKED_SERIAL(SUPPORT_PACKED_SERIAL),
+        .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+        .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
+        .USE_LNS_MUL(USE_LNS_MUL),
+        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+    ) user_project (
         .ui_in(ui_in),
         .uo_out(uo_out),
         .uio_in(uio_in),

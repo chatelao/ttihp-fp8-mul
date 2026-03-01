@@ -7,6 +7,9 @@ on:
 jobs:
   gowin:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        variant: [Full, Lite, Tiny, Ultra-Tiny]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -18,18 +21,37 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install Apycula dependencies
+        run: |
+          # Use the python/pip from oss-cad-suite to avoid warnings and improve performance
+          pip install numpy fastcrc
+
       - name: Create build directory
         run: mkdir -p build
 
-      - name: Debug toolchain
+      - name: Verify RTL
         run: |
-          echo "Toolchain path: $(dirname $(which yosys))"
-          ls -l $(dirname $(which yosys))/nextpnr*
-          ls -l $(dirname $(which yosys))/gowin*
+          python3 test/verify_rtl.py
+
+      - name: Set parameters
+        run: |
+          if [ "${{ matrix.variant }}" == "Full" ]; then
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1" >> $GITHUB_ENV
+          elif [ "${{ matrix.variant }}" == "Lite" ]; then
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 1" >> $GITHUB_ENV
+          elif [ "${{ matrix.variant }}" == "Tiny" ]; then
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0" >> $GITHUB_ENV
+          elif [ "${{ matrix.variant }}" == "Ultra-Tiny" ]; then
+            echo "PARAMS=" >> $GITHUB_ENV
+          fi
 
       - name: Synthesis
         run: |
-          yosys -p "read_verilog -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+          if [ -n "${PARAMS}" ]; then
+            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; chparam ${PARAMS} tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+          else
+            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+          fi
 
       - name: Place and Route
         run: |
@@ -58,7 +80,7 @@ jobs:
       - name: Pack bitstream
         run: |
           if command -v gowin_pack >/dev/null 2>&1; then
-            gowin_pack -d GW1N-9C -o build/tangnano9k.fs build/gowin_pnr.json
+            gowin_pack -d GW1N-9C -o build/tangnano9k_${{ matrix.variant }}.fs build/gowin_pnr.json
           else
             echo "Error: gowin_pack not found"
             exit 1
@@ -67,5 +89,5 @@ jobs:
       - name: Upload bitstream
         uses: actions/upload-artifact@v4
         with:
-          name: gowin_bitstream
-          path: build/tangnano9k.fs
+          name: gowin_bitstream_${{ matrix.variant }}
+          path: build/tangnano9k_${{ matrix.variant }}.fs
