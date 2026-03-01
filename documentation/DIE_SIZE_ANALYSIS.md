@@ -98,10 +98,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3442 | 1x1* |
+| **Full** | All features enabled, 40/32 width | 3442 | 1x1* |
 | **Lite** | Disable MXFP6/4 | 3138 | 1x1* |
 | **Tiny** | All optional features disabled | 2267 | 1x1 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2004 | 1x1 |
+| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2004 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -146,16 +146,17 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Variant | Tile Size | Parameters |
 |---|---|---|
-| **Full** | 1x2 | All features enabled. |
+| **Ultra-Tiny (Default)** | 1x1 | All features disabled, 32/24 bit widths. |
+| **Tiny** | 1x1 | All features disabled, 40/32 bit widths. |
 | **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_MXFP4=0`, `SUPPORT_ADV_ROUNDING=0`. |
-| **Tiny** | 1x1 | `Lite` + `ENABLE_SHARED_SCALING=0`, `SUPPORT_MIXED_PRECISION=0`. |
+| **Full** | 1x1 | All features enabled. |
 
 ### CI/CD Progress: Matrix Testing
 
 To ensure the integrity of all variants, the CI/CD pipeline is updated to test multiple configurations on every build.
 
 - [x] **Parameter Injection**: Support parameter overrides via `COMPILE_ARGS` in the CI pipeline.
-- [x] **GitHub Actions Matrix**: Updated `.github/workflows/test.yaml` to include Full, Lite, and Tiny variants.
+- [x] **GitHub Actions Matrix**: Updated `.github/workflows/test.yaml` to include Full, Lite, Tiny, and Ultra-Tiny variants.
 - [x] **Testbench Adaptations**: Updated `test/test.py` to dynamically detect and skip tests based on hardware parameters.
 
 ### Refactoring Progress Checklist

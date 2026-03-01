@@ -123,7 +123,7 @@ module fp8_mul #(
         if (SUPPORT_INT8)
             p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
         else
-            p_res = (zero_a || zero_b) ? 16'd0 : {8'd0, ma[3:0] * mb[3:0]};
+            p_res = (zero_a || zero_b) ? 16'd0 : ({4'b0, ma[3:0]} * {4'b0, mb[3:0]});
         sign_res = sign_a ^ sign_b;
         exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
     end

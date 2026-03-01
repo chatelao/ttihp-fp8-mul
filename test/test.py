@@ -58,9 +58,9 @@ def decode_format(bits, format_val):
 
     return sign, exp, mant, bias, is_int
 
-def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
+def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum - 5
-    WIDTH = 40
+    WIDTH = width
 
     if shift_amt >= 0:
         if not overflow_wrap and shift_amt >= WIDTH:
@@ -128,14 +128,40 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0):
         return res_32 - 0x100000000
     return res_32
 
-def get_param(handle, default=1):
+def get_param(handle, name, default=1):
+    # 1. Try to get from cocotb handle
     try:
         return int(handle.value)
     except Exception:
-        return default
+        pass
+
+    # 2. Try to get from COMPILE_ARGS environment variable
+    compile_args = os.environ.get("COMPILE_ARGS", "")
+    import re
+    # Match both -P name=val and -P tb.name=val
+    matches = re.findall(r"-P\s+(?:\w+\.)?" + name + r"=(\d+)", compile_args)
+    if matches:
+        return int(matches[-1]) # Use the last one if multiple
+
+    # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Ultra-Tiny)
+    defaults = {
+        "ALIGNER_WIDTH": 32,
+        "ACCUMULATOR_WIDTH": 24,
+        "SUPPORT_E5M2": 0,
+        "SUPPORT_MXFP6": 0,
+        "SUPPORT_MXFP4": 0,
+        "SUPPORT_INT8": 0,
+        "SUPPORT_PIPELINING": 0,
+        "SUPPORT_ADV_ROUNDING": 0,
+        "SUPPORT_MIXED_PRECISION": 0,
+        "ENABLE_SHARED_SCALING": 0,
+        "USE_LNS_MUL": 0,
+        "USE_LNS_MUL_PRECISE": 0
+    }
+    return defaults.get(name, default)
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -188,7 +214,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7)
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap)
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -201,22 +227,23 @@ async def reset_dut(dut):
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None):
     # Enforce parameter constraints in model
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
         format_b = format_a
 
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
     if not support_adv:
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
-    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
-    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
-    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), 0)
-    acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), 32)
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
+    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
+    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
+    acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), "ACCUMULATOR_WIDTH", 32)
+    aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
 
     await reset_dut(dut)
 
@@ -234,7 +261,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise)
+                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -270,12 +297,12 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap)
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
     else:
         # If no shared scaling, the result is sign-extended to 32-bit in hardware
         if expected_acc < 0:
@@ -342,7 +369,7 @@ async def test_mxfp8_mac_e5m2(dut):
 @cocotb.test()
 async def test_rounding_modes(dut):
     # Check if advanced rounding is supported
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
     if not support_adv:
         dut._log.info("Skipping Rounding Modes Test (SUPPORT_ADV_ROUNDING=0)")
         return
@@ -407,7 +434,7 @@ async def test_accumulator_saturation(dut):
 @cocotb.test()
 async def test_mixed_precision(dut):
     # Check if mixed precision is supported
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
         dut._log.info("Skipping Mixed-Precision MAC Test (SUPPORT_MIXED_PRECISION=0)")
         return
@@ -430,11 +457,11 @@ async def test_mixed_precision(dut):
 async def test_mxfp_mac_randomized(dut):
     import random
 
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
 
     dut._log.info(f"Start Randomized MXFP MAC Test (E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
     clock = Clock(dut.clk, 10, unit="ns")
@@ -476,31 +503,32 @@ async def test_fast_start_scale_compression(dut):
     # We can't use run_mac_test as is because it does a reset.
     # Manual protocol for fast start:
 
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
-    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
-    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), 0)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
+    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
     await ClockCycles(dut.clk, 1)
 
     # Now at Cycle 3
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
-    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
+    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
+    aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise)
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
         expected_acc += prod
 
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign)
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
     else:
         expected_final = expected_acc
 
@@ -535,15 +563,15 @@ async def test_yaml_cases(dut):
         cases = yaml.safe_load(f)
 
     # Detect hardware support
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), 1)
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), 1)
-    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), 1)
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), 1)
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), 1)
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), 1)
-    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), 0)
-    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), 0)
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
+    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
+    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
+    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
+    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
 
     for case in cases:
         inputs = case['inputs']
