@@ -4,11 +4,6 @@
 ![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/fpga.yaml/badge.svg)
 ![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gowin.yaml/badge.svg)
 ![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/diagram.yaml/badge.svg)
-![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/docs.yaml/badge.svg)
-![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/test.yaml/badge.svg)
-![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/fpga.yaml/badge.svg)
-![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/gowin.yaml/badge.svg)
-![](https://github.com/chatelao/ttihp-fp8-mul/actions/workflows/diagram.yaml/badge.svg)
 
 # Tiny Tapeout IHP 26a - OCP MXFP8 Streaming MAC Unit
 

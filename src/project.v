@@ -207,20 +207,29 @@ module tt_um_chatelao_fp8_multiplier #(
     // 4. Accumulator Control
     // With multiplier pipelining, aligned products are ready at cycles 4 to 35.
     // Without pipelining, they are ready at cycles 3 to 34.
-    wire acc_en    = SUPPORT_PIPELINING ?
-                     ((cycle_count >= 6'd4 && cycle_count <= 6'd35) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((cycle_count >= 6'd3 && cycle_count <= 6'd34) && (state == STATE_STREAM));
-    wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
+    reg acc_en_reg, acc_clear_reg;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            acc_en_reg <= 1'b0;
+            acc_clear_reg <= 1'b1;
+        end else if (ena) begin
+            // Registering the enable and clear signals to break critical paths.
+            acc_en_reg <= SUPPORT_PIPELINING ?
+                          ((cycle_count >= 6'd3 && cycle_count <= 6'd34) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                          ((cycle_count >= 6'd2 && cycle_count <= 6'd33) && (state == STATE_STREAM));
+            acc_clear_reg <= (cycle_count <= 6'd1) && (state != STATE_STREAM);
+        end
+    end
 
     accumulator #(
         .WIDTH(ACCUMULATOR_WIDTH)
     ) acc_inst (
         .clk(clk),
         .rst_n(rst_n),
-        .clear(acc_clear),
-        .en(acc_en),
+        .clear(acc_clear_reg),
+        .en(acc_en_reg),
         .overflow_wrap(overflow_wrap),
-        .data_in(acc_en ? aligned_res[ACCUMULATOR_WIDTH-1:0] : {ACCUMULATOR_WIDTH{1'b0}}),
+        .data_in(acc_en_reg ? aligned_res[ACCUMULATOR_WIDTH-1:0] : {ACCUMULATOR_WIDTH{1'b0}}),
         .data_out(acc_out)
     );
 
