@@ -252,33 +252,49 @@ module tt_um_chatelao_fp8_multiplier #(
 
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
-            reg [15:0] mul_prod_lane0_reg, mul_prod_lane1_reg;
-            reg signed [6:0] mul_exp_sum_lane0_reg, mul_exp_sum_lane1_reg;
-            reg mul_sign_lane0_reg, mul_sign_lane1_reg;
+            reg [15:0] mul_prod_lane0_reg;
+            reg signed [6:0] mul_exp_sum_lane0_reg;
+            reg mul_sign_lane0_reg;
 
             always @(posedge clk) begin
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
                     mul_exp_sum_lane0_reg <= 7'd0;
                     mul_sign_lane0_reg <= 1'b0;
-                    mul_prod_lane1_reg <= 16'd0;
-                    mul_exp_sum_lane1_reg <= 7'd0;
-                    mul_sign_lane1_reg <= 1'b0;
                 end else if (ena) begin
                     mul_prod_lane0_reg <= mul_prod_lane0;
                     mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
                     mul_sign_lane0_reg <= mul_sign_lane0;
-                    mul_prod_lane1_reg <= mul_prod_lane1;
-                    mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
-                    mul_sign_lane1_reg <= mul_sign_lane1;
                 end
             end
             assign mul_prod_lane0_val = mul_prod_lane0_reg;
             assign mul_exp_sum_lane0_val = mul_exp_sum_lane0_reg;
             assign mul_sign_lane0_val = mul_sign_lane0_reg;
-            assign mul_prod_lane1_val = mul_prod_lane1_reg;
-            assign mul_exp_sum_lane1_val = mul_exp_sum_lane1_reg;
-            assign mul_sign_lane1_val = mul_sign_lane1_reg;
+
+            if (SUPPORT_VECTOR_PACKING) begin : gen_pipeline_lane1
+                reg [15:0] mul_prod_lane1_reg;
+                reg signed [6:0] mul_exp_sum_lane1_reg;
+                reg mul_sign_lane1_reg;
+
+                always @(posedge clk) begin
+                    if (!rst_n) begin
+                        mul_prod_lane1_reg <= 16'd0;
+                        mul_exp_sum_lane1_reg <= 7'd0;
+                        mul_sign_lane1_reg <= 1'b0;
+                    end else if (ena) begin
+                        mul_prod_lane1_reg <= mul_prod_lane1;
+                        mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
+                        mul_sign_lane1_reg <= mul_sign_lane1;
+                    end
+                end
+                assign mul_prod_lane1_val = mul_prod_lane1_reg;
+                assign mul_exp_sum_lane1_val = mul_exp_sum_lane1_reg;
+                assign mul_sign_lane1_val = mul_sign_lane1_reg;
+            end else begin : gen_no_pipeline_lane1
+                assign mul_prod_lane1_val = 16'd0;
+                assign mul_exp_sum_lane1_val = 7'd0;
+                assign mul_sign_lane1_val = 1'b0;
+            end
         end else begin : gen_no_pipeline
             assign mul_prod_lane0_val = mul_prod_lane0;
             assign mul_exp_sum_lane0_val = mul_exp_sum_lane0;
