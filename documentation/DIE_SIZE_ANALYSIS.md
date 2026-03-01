@@ -97,10 +97,10 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 3435 | 1x1* |
-| **Lite** | Disable MXFP6/4/Adv_Round | 3132 | 1x1* |
-| **Tiny** | All optional features disabled | 2236 | 1x1 |
-| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 1977 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 3416 | 1x1* |
+| **Lite** | Disable MXFP6/Adv_Round | 3149 | 1x1* |
+| **Tiny** | All optional features disabled | 2302 | 1x1 |
+| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2040 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -110,7 +110,7 @@ The implementation has been refactored to support aggressive area optimizations,
 |---|:---:|:---:|:---:|:---:|
 | `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ |
-| `SUPPORT_MXFP4` | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP4` | ✅ | ✅ | ✅ | ✅ |
 | `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ |
 | `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
@@ -124,18 +124,18 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 3435 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 3408 | -27 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 3418 | -17 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 3448 | +13 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 2969 | -466 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 3390 | -45 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3185 | -250 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3382 | -53 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3162 | -273 |
-| **Tiny (All Disabled)** | All features disabled | 2236 | -1199 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1977 | -1458 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1658 | -1777 |
+| **Baseline (Full)** | All features enabled | 3416 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 3389 | -27 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 3399 | -17 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 3429 | +13 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 3001 | -415 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 3411 | -5 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 3166 | -250 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 3362 | -54 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 3164 | -252 |
+| **Tiny (All Disabled)** | All features disabled | 2299 | -1117 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2038 | -1378 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1719 | -1697 |
 | **LNS Multiplier (Mitchell)** | Replaces multiplier with Mitchell adder | 3032 | -403 |
 | **LNS Multiplier (Precise)** | Replaces multiplier with LNS LUT | 3086 | -349 |
 
@@ -147,7 +147,7 @@ The implementation has been refactored to support aggressive area optimizations,
 |---|---|---|
 | **Ultra-Tiny (Default)** | 1x1 | All features disabled, 32/24 bit widths. |
 | **Tiny** | 1x1 | All features disabled, 40/32 bit widths. |
-| **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_MXFP4=0`, `SUPPORT_ADV_ROUNDING=0`. |
+| **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_ADV_ROUNDING=0`. |
 | **Full** | 1x1 | All features enabled. |
 
 ### CI/CD Progress: Matrix Testing

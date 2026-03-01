@@ -149,7 +149,7 @@ def get_param(handle, name, default=1):
         "ACCUMULATOR_WIDTH": 24,
         "SUPPORT_E5M2": 0,
         "SUPPORT_MXFP6": 0,
-        "SUPPORT_MXFP4": 0,
+        "SUPPORT_MXFP4": 1,
         "SUPPORT_INT8": 0,
         "SUPPORT_PIPELINING": 0,
         "SUPPORT_ADV_ROUNDING": 0,
