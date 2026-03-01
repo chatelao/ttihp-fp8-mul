@@ -2,6 +2,21 @@
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
 LAYOUT_WITH_LEGEND()
+skinparam rectangle<<boundary>> {
+    FontSize 20
+}
+skinparam rectangle<<container_boundary>> {
+    FontSize 20
+}
+skinparam rectangle<<system_boundary>> {
+    FontSize 20
+}
+skinparam rectangle<<enterprise_boundary>> {
+    FontSize 20
+}
+UpdateBoundaryStyle("container", $type="<size:20>container</size>")
+UpdateBoundaryStyle("system", $type="<size:20>system</size>")
+UpdateBoundaryStyle("enterprise", $type="<size:20>enterprise</size>")
 
 Person(host, "Host System", "FPGA, Microcontroller, or Testbench")
 
