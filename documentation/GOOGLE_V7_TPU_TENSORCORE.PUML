@@ -1,0 +1,55 @@
+@startuml GOOGLE_V7_TPU_TENSORCORE
+skinparam rectangle<<boundary>> {
+    FontSize 20
+}
+
+package "Level 1: TPU v7 Core (TensorCore)" <<boundary>> {
+    component [Vector Processing Unit (VPU)] as vpu
+    component [HBM Interface] as hbm
+
+    package "Level 2: Matrix Multiply Unit (MXU)" <<boundary>> {
+        component [MXU Control Logic] as mxu_ctrl
+        component [Weight SRAM] as weight_sram
+
+        package "Level 3: PE Array (Systolic Grid)" <<boundary>> {
+
+            package "Level 4: Processing Element (PE)" <<boundary>> {
+                component [MX+ Decoder] as decoder
+                component [4x4/8x8 Multiplier] as mul
+                component [Product Aligner] as aligner
+                component [32-bit Local Accumulator] as acc
+
+                decoder -> mul : Mantissa/Exp
+                mul -> aligner : Product
+                aligner -> acc : Aligned Sum
+            }
+
+            component [PE (Row i, Col j+1)] as pe_right
+            component [PE (Row i+1, Col j)] as pe_down
+        }
+    }
+}
+
+' Dataflow: Weights
+hbm -[#blue]-> weight_sram : Load Weights
+weight_sram -[#blue]-> decoder : Stationary Weight (W_ij)
+
+' Dataflow: Activations
+mxu_ctrl -[#red]-> decoder : Stream Activation (A_i)
+decoder -[#red]-> pe_right : Pass Activation
+
+' Dataflow: Partial Sums
+pe_down <-[#green]- acc : Reduced Partial Sum
+acc <-[#green]- mxu_ctrl : Input Partial Sum (Up)
+
+' Output to VPU
+acc -[#green]down-> vpu : Final Dot Product
+
+legend right
+  | Color | Description |
+  | <#blue> | Weights (Stationary) |
+  | <#red> | Activations (Streaming) |
+  | <#green> | Partial Sums (Reduction) |
+endlegend
+
+@enduml
