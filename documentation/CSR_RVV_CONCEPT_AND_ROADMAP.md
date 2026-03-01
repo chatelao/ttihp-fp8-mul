@@ -27,19 +27,44 @@ To manage the specific requirements of OCP Microscaling Formats (MX), a new cust
 | `101` | INT8 | MXINT8 |
 | `110` | INT8_SYM | MXINT8 |
 
+### 1.2. Standard RVV 1.0 CSRs
+
+The Bridge unit tracks the following standard Vector CSRs as defined in the RISC-V Vector Extension 1.0.
+
+| Address | Name | Privilege | Description | OCP MX Relevance |
+|:---|:---|:---|:---|:---|
+| `0x008` | **vstart** | URW | Vector start position. | Restart index for bit-serial streaming. |
+| `0x009` | **vxsat** | URW | Fixed-point saturation flag. | Accumulator saturation sticky bit. |
+| `0x00A` | **vxrm** | URW | Fixed-point rounding mode. | Mapped to OCP MX Rounding Mode. |
+| `0xC20` | **vl** | URO | Vector length. | Number of elements in the current operation. |
+| `0xC21` | **vtype** | URO | Vector data type register. | Encodes SEW and LMUL. |
+| `0xC22` | **vlenb** | URO | VLEN/8 (bytes). | Design-time constant. |
+
+#### `vtype` Layout
+| Bits | Name | Description |
+|:---|:---|:---|
+| [XLEN-1] | **vill** | Illegal value bit. |
+| [7] | **vma** | Mask Agnostic (0: Undisturbed, 1: Agnostic). |
+| [6] | **vta** | Tail Agnostic (0: Undisturbed, 1: Agnostic). |
+| [5:3] | **vsew** | Selected Element Width (e.g., 000 for 8-bit). |
+| [2:0] | **vlmul** | Vector Register Grouping (LMUL). |
+
 ---
 
 ## 2. Integration with Standard RISC-V CSRs
 
-### 2.1. Rounding Mode (`frm`)
-Mapped to the standard RISC-V **`frm`** field in the **`fcsr`**.
+### 2.1. Rounding Mode (`vxrm` / `frm`)
 
-| `frm` | OCP MX Rounding Mode | Description |
+For fixed-point OCP MX operations, the **`vxrm`** CSR (Vector Fixed-Point Rounding Mode) is used. For standard floating-point operations, the **`frm`** field is used.
+
+| `vxrm` / `frm` | OCP MX Rounding Mode | Description |
 |:---|:---|:---|
-| `000` | **RNE** (11) | Round to Nearest, ties to Even. |
-| `001` | **TRN** (00) | Round towards Zero (Truncate). |
-| `010` | **FLR** (10) | Round down (towards -Infinity). |
-| `011` | **CEL** (01) | Round up (towards +Infinity). |
+| `00` / `000` | **RNE** (11) | Round to Nearest, ties to Even. |
+| `01` / `---` | **RNU** (--) | Round to Nearest, Up (Add +0.5 LSB). |
+| `10` / `001` | **TRN** (00) | Round down (towards -Infinity). |
+| `11` / `---` | **ROD** (--) | Round to Odd (Jamming). |
+
+*Note: OCP MX v1.0 primarily specifies RNE, TRN, FLR, and CEL. Mapping RVV's 2-bit `vxrm` requires careful aliasing of floor/ceil to the closest fixed-point semantics.*
 
 ### 2.2. Saturation Flag (`vxsat`)
 Sticky bit set if any element in the 32-element block triggers saturation.
@@ -48,10 +73,11 @@ Sticky bit set if any element in the 32-element block triggers saturation.
 
 ## 3. Operational Flow in a RISC-V System
 
-1. **Configuration**: `csrrw x0, vmxfmt, t0` (Set formats/overflow).
-2. **Instruction**: Issue `vdot.mx v1, v2, v3` (Custom-0 Opcode).
-3. **Execution**: The RVV-to-MX Bridge fetches operands from VRF and drives the 41-cycle MAC sequence.
-4. **Result**: 32-bit result is written to destination VRF; `vxsat` updated.
+1. **Vector Config**: `vsetvli t0, a0, e8, m1, ta, ma` (Setup RVV state).
+2. **MX Config**: `csrrw x0, vmxfmt, t0` (Set OCP MX formats/overflow).
+3. **Instruction**: Issue `vdot.mx v1, v2, v3` (Custom-0 Opcode).
+4. **Execution**: The RVV-to-MX Bridge fetches operands from VRF, respecting `vstart` and `vl`, and drives the 41-cycle MAC sequence.
+5. **Result**: 32-bit result is written to destination VRF; `vxsat` updated; `vstart` reset to 0.
 
 ---
 
@@ -113,6 +139,13 @@ The "RVV to MX Bridge" acts as the hardware shim between the RISC-V Vector Regis
 | **3.2: CSR-Triggered Execution** | Writing to a specific control bit in `vmxfmt` starts the operation. | Non-standard; hard to pipeline in a superscalar or out-of-order core. |
 | **3.3: ALU Re-purposing** | Reuse `vdot.vv` with a specific state bit in `vtype`. | Causes confusion with standard floating-point operations; breaks IEEE-754 compatibility expectations. |
 
+### 5.5. Sub-step 4: RVV 1.0 Compliance
+
+| Variant | Description | Justification |
+|:---|:---|:---|
+| **4.1: State Machine (vstart/vl)** | Implement an FSM that respects `vstart` (restart index) and `vl` (truncation). | **Selected**: Essential for standard RVV compliance and resumable traps. |
+| **4.2: SEW/LMUL Decoder** | Hardware logic to decode `vtype` and adjust streaming window (e.g., $k=VLMAX$). | Enables future flexibility for non-32 element blocks. |
+
 ---
 
 ## 6. SERV CPU Integration Concept
@@ -137,9 +170,13 @@ SERV is a bit-serial RISC-V CPU, meaning it processes 1 bit per cycle and takes 
 - **Protocol Alignment**: Since SERV takes 32 cycles to "produce" a 32-bit register value, and the MAC unit expects 32 elements, the timing is naturally aligned for a low-gate-count implementation.
 - **1x1 Tile Target**: This variant minimizes "dead" silicon used for bus interconnects or large buffers, maximizing the area available for the MAC arithmetic logic.
 
-### 6.4. Dataflow for Minimal SERV Integration
-1. CPU executes `vdot.mx` (custom opcode).
-2. CPU shifts out `rs1` and `rs2` bit-by-bit over 32 cycles.
-3. Bridge collects bits into 8-bit chunks.
-4. Every 8 cycles, the Bridge feeds one element to the MAC unit.
-5. MAC Unit runs in parallel (pipelined) or stalls the CPU if protocol cycles > 32.
+### 6.4. Dataflow for Minimal SERV Integration (RVV 1.0 Compliant)
+1. **Instruction Decode**: CPU executes `vdot.mx` (custom opcode).
+2. **Loop Initialization**: Bridge initializes internal element index $i = vstart$.
+3. **Serial Stream**:
+   - CPU shifts out `rs1` and `rs2` (or VRF chunks) bit-by-bit.
+   - Bridge collects bits into 8-bit elements.
+   - Elements are ignored until $i \ge vstart$.
+   - Execution terminates when $i = vl$ (truncation).
+4. **FSM Drive**: Every 8 cycles, if $vstart \le i < vl$, the Bridge feeds one element to the MAC unit.
+5. **Post-Processing**: MAC Unit runs the 41-cycle sequence; Bridge resets `vstart` to 0 on successful completion.
