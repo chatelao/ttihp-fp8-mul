@@ -181,17 +181,19 @@ module fp8_mul_lns #(
             decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b, is_intb);
         end
 
-        // Combined Log-Adder (Mitchell or Precise)
+        // Combined Log-Adder (Mitchell or Precise) or Multiplier (for BM)
         if (is_inta || is_intb) begin
             // Logarithmic multiplication doesn't apply easily to INT8 in this architecture.
-            // To save area and maintain the "no multiplier" promise, we return 0.
             p_res = 16'd0;
             exp_sum_res = 7'sd0;
         end else begin
-            // FP8 formats have implicit bit at bit 3 for all decoded 'ma', 'mb'.
             if (zero_a || zero_b) begin
                 p_res = 16'd0;
                 exp_sum_res = 7'sd0;
+            end else if (SUPPORT_MX_PLUS && (is_bm_a || is_bm_b)) begin
+                // To maintain the precision benefits of MX+, BM elements use a standard multiplier
+                p_res = ma * mb;
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
             end else begin
                 if (USE_LNS_MUL_PRECISE) begin
                     m_sum = lns_lut[{ma[2:0], mb[2:0]}];

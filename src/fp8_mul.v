@@ -159,11 +159,13 @@ module fp8_mul #(
             decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
         end
 
-        // 8x8 or 4x4 Multiplier
+        // 8x8 or 4x4 Multiplier (Variant B: Parameterized Multiplier)
+        // Synthesis tools will optimize the multiplier width based on the parameters
         if (SUPPORT_INT8 || SUPPORT_MX_PLUS)
             p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
         else
             p_res = (zero_a || zero_b) ? 16'd0 : ({4'b0, ma[3:0]} * {4'b0, mb[3:0]});
+
         sign_res = sign_a ^ sign_b;
         exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
     end
