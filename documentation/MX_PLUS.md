@@ -96,19 +96,19 @@ In standard MX formats, the exponent of the largest magnitude value in a block (
 
 ## Phase 6: Vector Packing for FP4 (Throughput Optimization)
 
-### Step 10: Packed Protocol Definition
+### Step 10: Packed Protocol Definition (Status: **COMPLETED**)
 - **Goal**: Optimize the streaming protocol for 4-bit elements.
-- **Tasks**:
-  - Define a "Packed Mode" bit in the `Config Byte` (Cycle 1).
-  - Modify the FSM to transition through 16 `STREAM` cycles (3-18) when Packed Mode is active.
-  - Specify the bit layout for packed elements: `ui_in[7:4] = A[i+1]`, `ui_in[3:0] = A[i]`.
+- **Implementation**:
+  - Defined a "Packed Mode" bit in the `Config Byte` (Cycle 1, `uio_in[6]`).
+  - Modified the FSM to transition through 16 `STREAM` cycles (3-18) when Packed Mode is active, resulting in a **25-cycle protocol**.
+  - Specified the bit layout for packed elements: `ui_in[7:4] = A[i+1]`, `ui_in[3:0] = A[i]`.
 
-### Step 11: Dual-Lane Multiplier Integration
+### Step 11: Dual-Lane Multiplier Integration (Status: **COMPLETED**)
 - **Goal**: Implement parallel processing of packed elements.
-- **Tasks**:
-  - Instantiate a second FP8/FP4 multiplier unit.
-  - Update the accumulator logic to perform two parallel additions per cycle ($Acc = Acc + Prod_i + Prod_{i+1}$).
-  - Evaluate the area impact; use `generate` blocks to make the second lane optional (`SUPPORT_DUAL_LANE`).
+- **Implementation**:
+  - Instantiated a second FP8/FP4 multiplier unit.
+  - Updated the accumulator logic to perform two parallel additions per cycle ($Acc = Acc + Prod_i + Prod_{i+1}$).
+  - Parameterized via `SUPPORT_VECTOR_PACKING` (defaults to `0` in Ultra-Tiny to save area).
 
 ### Step 12: Buffering & Duty Cycle Reduction (Alternative)
 - **Goal**: Reduce I/O activity without increasing multiplier area.

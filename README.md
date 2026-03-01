@@ -34,7 +34,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 | 0     | -                  | -                   | 0x00                 | **IDLE**: Waiting for start. |
 | 1     | **Scale A**        | **Config Byte**     | 0x00                 | Load Scale A and Operation Mode. |
 | 2     | **Scale B**        | **Format B**        | 0x00                 | Load Scale B and Format B. |
-| 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements.* |
+| 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements (Standard).* |
 | 35    | -                  | -                   | 0x00                 | Pipeline flush. |
 | 36    | -                  | -                   | 0x00                 | Final Shared Scaling calculation. |
 | 37    | -                  | -                   | **Result [31:24]**   | Output Byte 3 (MSB). |
@@ -42,12 +42,13 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 | 39    | -                  | -                   | **Result [15:8]**    | Output Byte 1. |
 | 40    | -                  | -                   | **Result [7:0]**     | Output Byte 0 (LSB). |
 
-*\*Note: For 4-bit formats like MXFP4, future versions may support packing two elements per cycle (Vector Packing) to reduce the STREAM phase to 16 cycles.*
+*\*Note: For 4-bit formats (MXFP4), the unit supports **Vector Packing** (uio_in[6]=1 in Cycle 1). This reduces the STREAM phase to 16 cycles (Cycles 3-18) and the total sequence to 25 cycles.*
 
 ### Configuration Byte (Cycle 1, `uio_in`)
 - `[2:0]`: **Format A** (0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM)
 - `[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
 - `[5]`: **Overflow Mode** (0: SAT, 1: WRAP)
+- `[6]`: **Packed Mode** (1: Enable Vector Packing for FP4/MXFP4)
 
 ### Format B Byte (Cycle 2, `uio_in`)
 - `[2:0]`: **Format B** (Same encoding as Format A)

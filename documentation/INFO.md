@@ -16,22 +16,26 @@ The unit supports both **E4M3** and **E5M2** element formats:
 - **E4M3**: 1-bit sign, 4-bit exponent (Bias 7), 3-bit mantissa.
 - **E5M2**: 1-bit sign, 5-bit exponent (Bias 15), 2-bit mantissa.
 
-### Operational Protocol (40-Cycle Sequence)
-To minimize resource usage, operands are streamed into the unit over 40 clock cycles (0-39):
+### Operational Protocol (40-Cycle Standard / 24-Cycle Packed)
+To minimize resource usage, operands are streamed into the unit over a fixed sequence:
 1. **Cycle 1**: Load Scale A ($X_A$ on `ui_in`) and Configuration (on `uio_in`).
 2. **Cycle 2**: Load Scale B ($X_B$ on `ui_in`) and Format B (on `uio_in`).
-3. **Cycles 3-34**: Stream 32 pairs of elements $A_i$ and $B_i$.
-4. **Cycle 35**: Pipeline flush cycle.
-5. **Cycles 36-39**: The 32-bit accumulator result is shifted out 8 bits at a time on `uo_out`.
+3. **Streaming Phase**:
+   - **Standard Mode**: Cycles 3-34 (32 pairs of elements).
+   - **Packed Mode (FP4)**: Cycles 3-18 (16 pairs of packed elements, `uio_in[6]=1`).
+4. **Flush/Scale**: 2 cycles after the streaming phase ends.
+5. **Output**: 4 cycles to shift out the 32-bit result on `uo_out`.
 
 ## How to test
 
 The design uses a clocked FSM. To test:
 1. Reset the unit (`rst_n` = 0) then enable it (`ena` = 1).
-2. On Cycle 1, provide Scale A on `ui_in`.
+2. On Cycle 1, provide Scale A on `ui_in` and Config on `uio_in` (Set `uio_in[6]=1` for Packed Mode).
 3. On Cycle 2, provide Scale B on `ui_in` and Format B on `uio_in`.
-4. From Cycle 3 to 34, provide elements $A_i$ on `ui_in` and $B_i$ on `uio_in` at each clock edge.
-5. Cycle 35 is used for internal pipeline synchronization.
-6. From Cycle 36 to 39, read the 32-bit result from `uo_out` (Byte 3 to Byte 0).
+4. Stream elements $A_i$ and $B_i$:
+   - **Standard**: 32 cycles.
+   - **Packed**: 16 cycles (two 4-bit elements per cycle: `[7:4]=E_i+1`, `[3:0]=E_i`).
+5. Wait 2 cycles for internal pipeline synchronization and shared scaling.
+6. Read the 32-bit result from `uo_out` over 4 cycles (Byte 3 to Byte 0).
 
 A Cocotb testbench in `test/test.py` performs this protocol and verifies the results.

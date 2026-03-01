@@ -67,12 +67,12 @@ All formats are aligned to the lower bits of the 8-bit input wires during the `S
 - **Subnormals**: Flushed to zero (E=0).
 - **Special Values**: The unit prioritizes saturation for out-of-range values. E5M2 supports IEEE-style Infinities and NaNs, while other formats utilize the full range for finite numbers or specialized NaN encodings as per OCP MX v1.0.
 
-### 2.1. Optimization: FP4 Vector Packing
-For the 4-bit **MXFP4** format, the 8-bit input wires (`ui_in`, `uio_in`) can technically carry **two elements per cycle** (Vector Packing).
-- **Feasibility**: Yes, loading two FP4 values per input is possible.
-- **Cycle Reduction**: If implemented, the `STREAM` phase could be reduced from 32 cycles to 16 cycles.
-- **Hardware Impact**: Achieving a $2\times$ throughput increase requires a second parallel multiplier-accumulator path, which significantly increases area. Alternatively, packing can be used to reduce the I/O duty cycle by buffering elements internally.
-- **Compliance**: The OCP MX v1.0 specification requires a block size ($k$) of 32. As long as the unit processes 32 elements per block, it remains fully compliant. The transmission protocol (packed vs. unpacked) is an implementation choice.
+### 2.1. Optimization: FP4 Vector Packing (Status: **IMPLEMENTED**)
+For the 4-bit **MXFP4** format, the 8-bit input wires (`ui_in`, `uio_in`) carry **two elements per cycle** when "Packed Mode" is enabled.
+- **Implementation**: Enabled via `uio_in[6]=1` in Cycle 1 and the `SUPPORT_VECTOR_PACKING` parameter.
+- **Cycle Reduction**: The `STREAM` phase is reduced from 32 cycles to 16 cycles, resulting in a **25-cycle** total protocol.
+- **Hardware Impact**: Achieving this $2\times$ throughput increase utilizes a second parallel multiplier-accumulator path (dual-lane datapath). This is optional and can be disabled via parameters to save area in "Tiny" builds.
+- **Compliance**: The OCP MX v1.0 specification requires a block size ($k$) of 32. By processing two 4-bit elements per 8-bit input, the unit maintains the $k=32$ block size while doubling throughput.
 
 ## 3. Architecture: Operand Streaming
 To fit within the ~320 D-Flip-Flop (DFF) budget of a 1x1 tile, the design employs **Temporal Multiplexing (Operand Streaming)**.
