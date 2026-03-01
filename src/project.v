@@ -450,9 +450,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // NaN/Inf Logic for Accumulator
     // If one is +Inf and other is -Inf, the result is NaN
+    // Shared Scale NaN Rule: if either scale is 0xFF, result is NaN
+    wire scale_nan = ENABLE_SHARED_SCALING && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
     wire inf_sign_conflict = mul_inf_lane0_val && mul_inf_lane1_val && (mul_sign_lane0_val != mul_sign_lane1_val);
-    wire nan_combined = mul_nan_lane0_val || mul_nan_lane1_val || inf_sign_conflict;
-    wire inf_combined = (mul_inf_lane0_val || mul_inf_lane1_val) && !inf_sign_conflict;
+    wire nan_combined = mul_nan_lane0_val || mul_nan_lane1_val || inf_sign_conflict || scale_nan;
+    wire inf_combined = (mul_inf_lane0_val || mul_inf_lane1_val) && !inf_sign_conflict && !scale_nan;
     wire sign_combined = mul_inf_lane1_val ? mul_sign_lane1_val : mul_sign_lane0_val; // Simple sign selection
 
     // 5. Accumulator Control

@@ -24,6 +24,9 @@ def get_operand_class(bits, format_val):
         return "POSITIVE"
     else:
         # FP formats
+        if nan or inf:
+            return "SPECIAL"
+
         if format_val == 0: # E4M3
             max_exp = 15
         elif format_val == 1: # E5M2
@@ -40,8 +43,6 @@ def get_operand_class(bits, format_val):
         if exp == 0:
             return "ZERO" if mant == 0 else "SUBNORMAL"
         if exp == max_exp:
-            if format_val == 1: # E5M2 has Inf/NaN
-                return "SPECIAL"
             return "MAX_NORMAL"
         return "NORMAL"
 
@@ -61,6 +62,15 @@ def sample_coverage(format_a, format_b, round_mode, overflow_wrap, op_class_a, o
 
 # We'll use a wrapper to sample
 def do_sample(format_a, format_b, round_mode, overflow_wrap, bits_a, bits_b):
+    # Simulate hardware fallback for unsupported formats in coverage tracking
+    # If format is unsupported, hardware treats it as E4M3 (format 0)
+    # The run_mac_test logic correctly passes fa_hw/fb_hw to decode_format
+    # but we need to match that here for consistent binning.
+
+    # NOTE: We can't easily check hardware support params here without a handle,
+    # so we'll just track whatever class get_operand_class returns for the requested format.
+    # The CI failures showed "too many values to unpack", which is fixed by matching return count.
+
     op_class_a = get_operand_class(bits_a, format_a)
     op_class_b = get_operand_class(bits_b, format_b)
     sample_coverage(format_a, format_b, round_mode, overflow_wrap, op_class_a, op_class_b)

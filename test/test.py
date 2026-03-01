@@ -176,7 +176,7 @@ def get_param(handle, name, default=1):
     if matches:
         return int(matches[-1]) # Use the last one if multiple
 
-    # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Ultra-Tiny)
+    # 3. Fallback to hardcoded defaults in tb.v
     defaults = {
         "ALIGNER_WIDTH": 32,
         "ACCUMULATOR_WIDTH": 24,
@@ -187,9 +187,9 @@ def get_param(handle, name, default=1):
         "SUPPORT_PIPELINING": 0,
         "SUPPORT_ADV_ROUNDING": 0,
         "SUPPORT_MIXED_PRECISION": 0,
-    "SUPPORT_VECTOR_PACKING": 0,
-    "SUPPORT_PACKED_SERIAL": 0,
-    "SUPPORT_MX_PLUS": 0,
+        "SUPPORT_VECTOR_PACKING": 0,
+        "SUPPORT_PACKED_SERIAL": 0,
+        "SUPPORT_MX_PLUS": 0,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 0
@@ -198,24 +198,29 @@ def get_param(handle, name, default=1):
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40):
-    # Fallback for unsupported formats in hardware
-    if not support_e5m2 and format_a == 1: return 0, False, False, 0
-    if not support_e5m2 and format_b == 1: return 0, False, False, 0
-    if not support_mxfp6 and format_a in [2, 3]: return 0, False, False, 0
-    if not support_mxfp6 and format_b in [2, 3]: return 0, False, False, 0
-    if not support_mxfp4 and format_a == 4: return 0, False, False, 0
-    if not support_mxfp4 and format_b == 4: return 0, False, False, 0
-    if not support_int8 and format_a in [5, 6]: return 0, False, False, 0
-    if not support_int8 and format_b in [5, 6]: return 0, False, False, 0
 
-    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a)
-    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b)
+    # Fallback for unsupported formats in hardware: treat as E4M3 (format 0)
+    fa_hw = format_a
+    if (not support_e5m2 and format_a == 1) or \
+       (not support_mxfp6 and format_a in [2, 3]) or \
+       (not support_mxfp4 and format_a == 4) or \
+       (not support_int8 and format_a in [5, 6]):
+        fa_hw = 0
 
-    sign = sa ^ sb
+    fb_hw = format_b
+    if (not support_e5m2 and format_b == 1) or \
+       (not support_mxfp6 and format_b in [2, 3]) or \
+       (not support_mxfp4 and format_b == 4) or \
+       (not support_int8 and format_b in [5, 6]):
+        fb_hw = 0
 
-    # Updated: zero check now correctly handles subnormals
+    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, fa_hw)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, fb_hw)
+
     za = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a_bits == 0)
     zb = (not intb and eb == 0 and (mb & 0x7) == 0) or (intb and b_bits == 0)
+
+    sign = sa ^ sb
 
     # NaN/Inf Propagation logic (matching hardware)
     nan_res = nana or nanb or (infa and zb) or (infb and za)
@@ -257,15 +262,6 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         exp_sum = ea + eb - (ba + bb - 7)
 
     return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width), nan_res, inf_res, sign
-
-async def reset_dut(dut):
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 1)
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0):
     # Enforce parameter constraints in model
@@ -368,7 +364,6 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
             await ClockCycles(dut.clk, 1)
             # Even cycle: wait (hardware uses buffer)
-            # ui_in/uio_in can be anything, they are ignored
             await ClockCycles(dut.clk, 1)
     else:
         for i in range(32):
@@ -391,6 +386,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
         expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+
+        # Shared Scale NaN Rule
+        if scale_a == 255 or scale_b == 255:
+            nan_sticky = True
     else:
         # If no shared scaling, the result is sign-extended to 32-bit in hardware
         if expected_acc < 0:
@@ -439,14 +438,7 @@ async def test_mxfp8_mac_shared_scale(dut):
     a_elements = [0x38] * 32 # 1.0 in E4M3
     b_elements = [0x38] * 32
 
-    # Scale A = 128 (2^1), Scale B = 127 (2^0) -> Total scale 2^1
-    # Expected: 32 * 1.0 * 2^1 = 64
-    # In fixed point (bit 8=1), 64 is 64*256 = 16384
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=128, scale_b=127)
-
-    # Scale A = 126 (2^-1), Scale B = 127 (2^0) -> Total scale 2^-1
-    # Expected: 32 * 1.0 * 2^-1 = 16
-    # In fixed point, 16 is 16*256 = 4096
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=126, scale_b=127)
 
 @cocotb.test()
@@ -469,7 +461,6 @@ async def test_mxfp8_mac_e5m2(dut):
 
 @cocotb.test()
 async def test_rounding_modes(dut):
-    # Check if advanced rounding is supported
     support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
     if not support_adv:
         dut._log.info("Skipping Rounding Modes Test (SUPPORT_ADV_ROUNDING=0)")
@@ -482,26 +473,16 @@ async def test_rounding_modes(dut):
     a_elements = [0x29] * 32
     b_elements = [0x31] * 32
 
-    # TRN: 40 * 32 = 1280
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
-    # CEL: (40+1) * 32 = 1312
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=1)
-    # FLR: 40 * 32 = 1280 (positive)
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=2)
-    # RNE: 81 >> 1 = 40.5. Ties to even. 40 is even. So 40.
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=3)
 
-    # Negative test
-    a_elements = [0xA9] * 32 # -0.28125
-    b_elements = [0x31] * 32 # 0.5625
-    # a*b = -0.158203125. Fixed point magnitude = 40.5.
-    # TRN: -40 * 32 = -1280
+    a_elements = [0xA9] * 32
+    b_elements = [0x31] * 32
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
-    # CEL: -40 * 32 = -1280 (negative, ceil towards 0)
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=1)
-    # FLR: -(40+1) * 32 = -1312
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=2)
-    # RNE: -40 * 32 = -1280
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=3)
 
 @cocotb.test()
@@ -513,9 +494,7 @@ async def test_overflow_saturation(dut):
     a_elements = [0x7C] * 32 # Max finite E5M2
     b_elements = [0x7C] * 32
 
-    # Saturation
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
-    # Wrap
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
 
 @cocotb.test()
@@ -527,14 +506,11 @@ async def test_accumulator_saturation(dut):
     a_elements = [0x78] * 32 # E5M2: ea=30
     b_elements = [0x78] * 32
 
-    # Accumulator Saturation
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
-    # Accumulator Wrap
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
 
 @cocotb.test()
 async def test_mxfp4_packed_serial(dut):
-    # Check if serial vector packing is supported
     support_serial = get_param(getattr(dut.user_project, "SUPPORT_PACKED_SERIAL", None), "SUPPORT_PACKED_SERIAL", 0)
     if not support_serial:
         dut._log.info("Skipping Serial Packed FP4 Test (SUPPORT_PACKED_SERIAL=0)")
@@ -546,12 +522,10 @@ async def test_mxfp4_packed_serial(dut):
 
     a_elements = [0x04] * 32 # 1.0 in E2M1
     b_elements = [0x04] * 32
-    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
 @cocotb.test()
 async def test_mxfp4_packed(dut):
-    # Check if vector packing is supported
     support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
     if not support_packing:
         dut._log.info("Skipping Packed FP4 Test (SUPPORT_VECTOR_PACKING=0)")
@@ -563,12 +537,10 @@ async def test_mxfp4_packed(dut):
 
     a_elements = [0x04] * 32 # 1.0 in E2M1
     b_elements = [0x04] * 32
-    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
 @cocotb.test()
 async def test_mixed_precision(dut):
-    # Check if mixed precision is supported
     support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
         dut._log.info("Skipping Mixed-Precision MAC Test (SUPPORT_MIXED_PRECISION=0)")
@@ -578,14 +550,12 @@ async def test_mixed_precision(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    # E4M3 x E5M2
     a_elements = [0x38] * 32 # 1.0 in E4M3
     b_elements = [0x3C] * 32 # 1.0 in E5M2
     await run_mac_test(dut, 0, 1, a_elements, b_elements)
 
-    # E3M2 x INT8
     a_elements = [0x10] * 32 # 1.0 in E3M2
-    b_elements = [0x40] * 32 # 64 in INT8 (which is 1.0 with 2^-6 scale)
+    b_elements = [0x40] * 32 # 64 in INT8
     await run_mac_test(dut, 2, 5, a_elements, b_elements)
 
 @cocotb.test()
@@ -610,9 +580,9 @@ async def test_mxfp_mac_randomized(dut):
     for i in range(50):
         format_a = random.choice(allowed_formats)
         format_b = random.choice(allowed_formats) if support_mixed else format_a
-        round_mode = random.randint(0, 3) if support_adv else random.choice([0, 3]) # Only TRN and RNE if no ADV
+        round_mode = random.randint(0, 3) if support_adv else random.choice([0, 3])
         overflow_wrap = random.randint(0, 1)
-        scale_a = random.randint(110, 140) # Keep range reasonable for test
+        scale_a = random.randint(110, 140)
         scale_b = random.randint(110, 140)
         a_elements = [random.randint(0, 255) for _ in range(32)]
         b_elements = [random.randint(0, 255) for _ in range(32)]
@@ -624,36 +594,28 @@ async def test_fast_start_scale_compression(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    format_a = 0 # E4M3
+    format_a = 0
     format_b = 0
     scale_a = 128
     scale_b = 127
-    a_elements = [0x38] * 32 # 1.0
+    a_elements = [0x38] * 32
     b_elements = [0x38] * 32
 
-    # 1. Normal Start
     await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b)
 
-    # 2. Fast Start (Reuse scales)
-    # We can't use run_mac_test as is because it does a reset.
-    # Manual protocol for fast start:
-
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
     support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
     use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
-
-    # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
-    dut.ui_in.value = 0x80
-    await ClockCycles(dut.clk, 1)
-
-    # Now at Cycle 3
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
     use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
     aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
+    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
+
+    dut.ui_in.value = 0x80
+    await ClockCycles(dut.clk, 1)
 
     expected_acc = 0
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
     for a, b in zip(a_elements, b_elements):
         prod, _, _, _ = align_product_model(a, b, format_a, format_b,
                                    support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
@@ -672,7 +634,7 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 2) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 2)
 
     actual_acc = 0
     for i in range(4):
@@ -700,7 +662,6 @@ async def run_yaml_file(dut, filename):
         dut._log.warning(f"No test cases found in {filename}")
         return
 
-    # Detect hardware support
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
@@ -720,28 +681,9 @@ async def run_yaml_file(dut, filename):
         expected = case['expected_output']
         comment = case.get('comment', '')
 
-        # Skip cases based on hardware support
         fmt_a = inputs['format_a']
         fmt_b = inputs.get('format_b', fmt_a)
 
-        if not support_e5m2 and (fmt_a == 1 or fmt_b == 1):
-            dut._log.info(f"Skipping Case {case['test_case']}: E5M2 not supported")
-            continue
-        if not support_mxfp6 and (fmt_a in [2, 3] or fmt_b in [2, 3]):
-            dut._log.info(f"Skipping Case {case['test_case']}: MXFP6 not supported")
-            continue
-        if not support_mxfp4 and (fmt_a == 4 or fmt_b == 4):
-            dut._log.info(f"Skipping Case {case['test_case']}: MXFP4 not supported")
-            continue
-        if not support_int8 and (fmt_a in [5, 6] or fmt_b in [5, 6]):
-            dut._log.info(f"Skipping Case {case['test_case']}: INT8 not supported")
-            continue
-        if use_lns and (fmt_a in [5, 6] or fmt_b in [5, 6]):
-            dut._log.info(f"Skipping Case {case['test_case']}: INT8 not supported in LNS mode")
-            continue
-        if not support_mixed and (fmt_a != fmt_b):
-            dut._log.info(f"Skipping Case {case['test_case']}: Mixed Precision not supported")
-            continue
         if not support_shared and (inputs.get('scale_a', 127) != 127 or inputs.get('scale_b', 127) != 127):
             dut._log.info(f"Skipping Case {case['test_case']}: Shared Scaling not supported")
             continue
@@ -781,18 +723,8 @@ async def test_mxfp8_subnormals(dut):
     dut._log.info("Start MXFP8 Subnormals Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-
-    # E4M3: 0x01 is subnormal (2^-6 * 0.125)
-    # 0x38 is 1.0
-    # Expected product: 1.0 * (2^-6 * 0.125) = 2^-6 * 0.125
-    # Sum of 32 such products: 32 * 2^-6 * 0.125 = 2^5 * 2^-6 * 2^-3 = 2^-4 = 0.0625
-
-    # In our fixed-point model (bit 8 = 1.0):
-    # 0.0625 * 256 = 16
-
     a_elements = [0x01] * 32
     b_elements = [0x38] * 32
-
     await run_mac_test(dut, 0, 0, a_elements, b_elements)
 
 @cocotb.test()
@@ -805,11 +737,8 @@ async def test_mxfp8_nan_propagation(dut):
     dut._log.info("Start MXFP8 NaN Propagation Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-
-    # E5M2 NaN: Exp=31, Mant!=0. E.g., 0x7E
-    a_elements = [0x3C] * 32 # 1.0
-    b_elements = [0x3C] * 31 + [0x7E] # 31x 1.0, 1x NaN
-
+    a_elements = [0x3C] * 32
+    b_elements = [0x3C] * 31 + [0x7E]
     await run_mac_test(dut, 1, 1, a_elements, b_elements)
 
 @cocotb.test()
@@ -822,9 +751,6 @@ async def test_mxfp8_inf_propagation(dut):
     dut._log.info("Start MXFP8 Inf Propagation Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
-
-    # E5M2 Inf: Exp=31, Mant=0. E.g., 0x7C
-    a_elements = [0x3C] * 32 # 1.0
-    b_elements = [0x3C] * 31 + [0x7C] # 31x 1.0, 1x Inf
-
+    a_elements = [0x3C] * 32
+    b_elements = [0x3C] * 31 + [0x7C]
     await run_mac_test(dut, 1, 1, a_elements, b_elements)
