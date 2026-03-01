@@ -6,7 +6,8 @@ module fp8_mul #(
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
     parameter SUPPORT_INT8  = 1,
-    parameter SUPPORT_MIXED_PRECISION = 1
+    parameter SUPPORT_MIXED_PRECISION = 1,
+    parameter SUPPORT_MX_PLUS = 0
 )(
     input  wire [7:0] a,
     input  wire [7:0] b,
@@ -40,6 +41,7 @@ module fp8_mul #(
     task automatic decode_operand(
         input [7:0] data,
         input [2:0] fmt,
+        input is_bm,
         output reg sign_out,
         output reg [4:0] exp_out,
         output reg [7:0] mant_out,
@@ -57,38 +59,68 @@ module fp8_mul #(
             case (fmt)
                 FMT_E4M3: begin
                     sign_out = data[7];
-                    exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
-                    mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 6'sd7;
-                    zero_out = (data[6:0] == 7'd0);
+                    if (is_bm && SUPPORT_MX_PLUS) begin
+                        exp_out = 5'd11; // 15 - 4 (mantissa shift compensation)
+                        mant_out = {1'b1, data[6:0]};
+                        zero_out = 1'b0;
+                    end else begin
+                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
                     sign_out = data[7];
-                    exp_out = (data[6:2] == 5'd0) ? 5'd1 : data[6:2];
-                    mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                     bias_out = 6'sd15;
-                    zero_out = (data[6:0] == 7'd0);
+                    if (is_bm && SUPPORT_MX_PLUS) begin
+                        exp_out = 5'd26; // 30 - 4 (mantissa shift compensation)
+                        mant_out = {1'b1, data[6:0]};
+                        zero_out = 1'b0;
+                    end else begin
+                        exp_out = (data[6:2] == 5'd0) ? 5'd1 : data[6:2];
+                        mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
+                        zero_out = (data[6:0] == 7'd0);
+                    end
                 end
                 FMT_E3M2: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
-                    exp_out = (data[4:2] == 3'd0) ? 5'd1 : {2'b0, data[4:2]};
-                    mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
                     bias_out = 6'sd3;
-                    zero_out = (data[4:0] == 5'd0);
+                    if (is_bm && SUPPORT_MX_PLUS) begin
+                        exp_out = 5'd5; // 7 - 2 (mantissa shift compensation)
+                        mant_out = {2'b0, 1'b1, data[4:0]};
+                        zero_out = 1'b0;
+                    end else begin
+                        exp_out = (data[4:2] == 3'd0) ? 5'd1 : {2'b0, data[4:2]};
+                        mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
+                        zero_out = (data[4:0] == 5'd0);
+                    end
                 end
                 FMT_E2M3: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
-                    exp_out = (data[4:3] == 2'd0) ? 5'd1 : {3'b0, data[4:3]};
-                    mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
                     bias_out = 6'sd1;
-                    zero_out = (data[4:0] == 5'd0);
+                    if (is_bm && SUPPORT_MX_PLUS) begin
+                        exp_out = 5'd1; // 3 - 2 (mantissa shift compensation)
+                        mant_out = {2'b0, 1'b1, data[4:0]};
+                        zero_out = 1'b0;
+                    end else begin
+                        exp_out = (data[4:3] == 2'd0) ? 5'd1 : {3'b0, data[4:3]};
+                        mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
+                        zero_out = (data[4:0] == 5'd0);
+                    end
                 end
                 FMT_E2M1: if (SUPPORT_MXFP4) begin
                     sign_out = data[3];
-                    exp_out = (data[2:1] == 2'd0) ? 5'd1 : {3'b0, data[2:1]};
-                    mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
                     bias_out = 6'sd1;
-                    zero_out = (data[2:0] == 3'd0);
+                    if (is_bm && SUPPORT_MX_PLUS) begin
+                        exp_out = 5'd3; // No compensation needed (shift 0)
+                        mant_out = {4'b0, 1'b1, data[2:0]};
+                        zero_out = 1'b0;
+                    end else begin
+                        exp_out = (data[2:1] == 2'd0) ? 5'd1 : {3'b0, data[2:1]};
+                        mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
+                        zero_out = (data[2:0] == 3'd0);
+                    end
                 end
                 FMT_INT8: if (SUPPORT_INT8) begin
                     sign_out = data[7];
@@ -117,18 +149,18 @@ module fp8_mul #(
 
     always @(*) begin
         // Operand A Decoding
-        decode_operand(a, format_a, sign_a, ea, ma, bias_a, zero_a);
+        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a);
 
         // Operand B Decoding
         if (SUPPORT_MIXED_PRECISION) begin
-            decode_operand(b, format_b, sign_b, eb, mb, bias_b, zero_b);
+            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
         end else begin
             // Use format_a for both operands to allow hardware sharing
-            decode_operand(b, format_a, sign_b, eb, mb, bias_b, zero_b);
+            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
         end
 
         // 8x8 or 4x4 Multiplier
-        if (SUPPORT_INT8)
+        if (SUPPORT_INT8 || SUPPORT_MX_PLUS)
             p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
         else
             p_res = (zero_a || zero_b) ? 16'd0 : ({4'b0, ma[3:0]} * {4'b0, mb[3:0]});

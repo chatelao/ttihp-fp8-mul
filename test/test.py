@@ -7,64 +7,89 @@ from cocotb.triggers import ClockCycles, Timer
 import yaml
 import os
 
-def decode_format(bits, format_val):
+def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
     if format_val == 0: # E4M3
         sign = (bits >> 7) & 1
-        exp_field = (bits >> 3) & 0xF
-        mant = (bits & 0x7)
-        is_subnormal = (exp_field == 0 and mant != 0)
-        exp = 1 if is_subnormal else exp_field
-        implicit_bit = 0 if (exp_field == 0) else 1
-        mant = (implicit_bit << 3) | (bits & 0x7)
         bias = 7
         is_int = False
+        if is_bm and support_mxplus:
+            exp = 15 - 4
+            mant = (1 << 7) | (bits & 0x7F)
+        else:
+            exp_field = (bits >> 3) & 0xF
+            mant_field = (bits & 0x7)
+            is_subnormal = (exp_field == 0 and mant_field != 0)
+            exp = 1 if is_subnormal else exp_field
+            implicit_bit = 0 if (exp_field == 0) else 1
+            mant = (implicit_bit << 3) | mant_field
         return sign, exp, mant, bias, is_int
     elif format_val == 1: # E5M2
         sign = (bits >> 7) & 1
-        exp_field = (bits >> 2) & 0x1F
-        mant_field = (bits & 0x3)
-        is_subnormal = (exp_field == 0 and mant_field != 0)
-        exp = 1 if is_subnormal else exp_field
-        implicit_bit = 0 if (exp_field == 0) else 1
-        mant = (implicit_bit << 2) | mant_field
-        mant <<= 1 # Align to 4 bits
         bias = 15
         is_int = False
+        if is_bm and support_mxplus:
+            exp = 31 - 5 # 31 is e_max, but we shifted mantissa by 1 in standard. Wait.
+            # E5M2 standard decode: mant = (implicit << 2) | mant_field; mant <<= 1
+            # E5M2 MX+: mant = (1 << 7) | (bits & 0x7F).
+            # Alignment: Bit 3 is the standard implicit bit position.
+            # In fp8_mul.v: exp_out = 5'd26; mant_out = {1'b1, data[6:0]};
+            exp = 26
+            mant = (1 << 7) | (bits & 0x7F)
+        else:
+            exp_field = (bits >> 2) & 0x1F
+            mant_field = (bits & 0x3)
+            is_subnormal = (exp_field == 0 and mant_field != 0)
+            exp = 1 if is_subnormal else exp_field
+            implicit_bit = 0 if (exp_field == 0) else 1
+            mant = (implicit_bit << 2) | mant_field
+            mant <<= 1 # Align to 4 bits
         return sign, exp, mant, bias, is_int
     elif format_val == 2: # E3M2
         sign = (bits >> 5) & 1
-        exp_field = (bits >> 2) & 0x7
-        mant_field = (bits & 0x3)
-        is_subnormal = (exp_field == 0 and mant_field != 0)
-        exp = 1 if is_subnormal else exp_field
-        implicit_bit = 0 if (exp_field == 0) else 1
-        mant = (implicit_bit << 2) | mant_field
-        mant <<= 1 # Align to 4 bits
         bias = 3
         is_int = False
+        if is_bm and support_mxplus:
+            exp = 5
+            mant = (1 << 5) | (bits & 0x1F)
+        else:
+            exp_field = (bits >> 2) & 0x7
+            mant_field = (bits & 0x3)
+            is_subnormal = (exp_field == 0 and mant_field != 0)
+            exp = 1 if is_subnormal else exp_field
+            implicit_bit = 0 if (exp_field == 0) else 1
+            mant = (implicit_bit << 2) | mant_field
+            mant <<= 1 # Align to 4 bits
         return sign, exp, mant, bias, is_int
     elif format_val == 3: # E2M3
         sign = (bits >> 5) & 1
-        exp_field = (bits >> 3) & 0x3
-        mant_field = (bits & 0x7)
-        is_subnormal = (exp_field == 0 and mant_field != 0)
-        exp = 1 if is_subnormal else exp_field
-        implicit_bit = 0 if (exp_field == 0) else 1
-        mant = (implicit_bit << 3) | mant_field
         bias = 1
         is_int = False
+        if is_bm and support_mxplus:
+            exp = 1
+            mant = (1 << 5) | (bits & 0x1F)
+        else:
+            exp_field = (bits >> 3) & 0x3
+            mant_field = (bits & 0x7)
+            is_subnormal = (exp_field == 0 and mant_field != 0)
+            exp = 1 if is_subnormal else exp_field
+            implicit_bit = 0 if (exp_field == 0) else 1
+            mant = (implicit_bit << 3) | mant_field
         return sign, exp, mant, bias, is_int
     elif format_val == 4: # E2M1
         sign = (bits >> 3) & 1
-        exp_field = (bits >> 1) & 0x3
-        mant_field = (bits & 0x1)
-        is_subnormal = (exp_field == 0 and mant_field != 0)
-        exp = 1 if is_subnormal else exp_field
-        implicit_bit = 0 if (exp_field == 0) else 1
-        mant = (implicit_bit << 1) | mant_field
-        mant <<= 2 # Align to 4 bits
         bias = 1
         is_int = False
+        if is_bm and support_mxplus:
+            exp = 3
+            mant = (1 << 3) | (bits & 0x7)
+        else:
+            exp_field = (bits >> 1) & 0x3
+            mant_field = (bits & 0x1)
+            is_subnormal = (exp_field == 0 and mant_field != 0)
+            exp = 1 if is_subnormal else exp_field
+            implicit_bit = 0 if (exp_field == 0) else 1
+            mant = (implicit_bit << 1) | mant_field
+            mant <<= 2 # Align to 4 bits
         return sign, exp, mant, bias, is_int
     elif format_val == 5: # INT8
         sign = (bits >> 7) & 1
@@ -192,7 +217,8 @@ def get_param(handle, name, default=1):
     return defaults.get(name, default)
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
+                        is_bm_a=False, is_bm_b=False, support_mxplus=False):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -203,14 +229,17 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if not support_int8 and format_a in [5, 6]: return 0
     if not support_int8 and format_b in [5, 6]: return 0
 
-    sa, ea, ma, ba, inta = decode_format(a_bits, format_a)
-    sb, eb, mb, bb, intb = decode_format(b_bits, format_b)
+    sa, ea, ma, ba, inta = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
+    sb, eb, mb, bb, intb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
 
     sign = sa ^ sb
 
     # Updated: zero check now correctly handles subnormals
-    if (not inta and ea == 0 and (ma & 0x7) == 0) or (not intb and eb == 0 and (mb & 0x7) == 0):
-        return 0
+    # For MX+, zero_out is forced to 0 for BM elements
+    if not (is_bm_a and support_mxplus):
+        if (not inta and ea == 0 and (ma & 0x7) == 0): return 0
+    if not (is_bm_b and support_mxplus):
+        if (not intb and eb == 0 and (mb & 0x7) == 0): return 0
     if (inta and a_bits == 0) or (intb and b_bits == 0):
         return 0
 
@@ -239,7 +268,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         real_ma = ma if not inta else ma
         real_mb = mb if not intb else mb
 
-        if not support_int8:
+        if not support_int8 and not support_mxplus:
             real_ma = real_ma & 0xF
             real_mb = real_mb & 0xF
 
@@ -307,9 +336,18 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     expected_acc = 0
     # Process elements in groups of 32
-    for a, b in zip(a_elements, b_elements):
+    for i, (a, b) in enumerate(zip(a_elements, b_elements)):
+        is_bm_a_cur = (i == bm_index_a)
+        is_bm_b_cur = (i == bm_index_b)
+        if actual_packed:
+             # In packed mode, we need to map i to the correct element index
+             # i goes 0 to 31.
+             is_bm_a_cur = (i == bm_index_a)
+             is_bm_b_cur = (i == bm_index_b)
+
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width)
+                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
+                                   is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask

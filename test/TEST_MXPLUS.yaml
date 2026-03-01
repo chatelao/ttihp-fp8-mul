@@ -1,27 +1,234 @@
 - test_case: 1
-  comment: "MXFP4+ (E2M1) basic outlier preservation. Placeholder enabled for Step 1 verification."
+  comment: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x02)=5.0, b[31] is BM(0x02)=5.0.
+    Others 1.0. Total = 5 + 30 + 5 = 40.0. Fixed = 10240.
   disabled: false
   inputs:
-    format_a: 4 # E2M1
-    format_b: 4 # E2M1
+    format_a: 4
+    format_b: 4
     bm_index_a: 0
-    bm_index_b: 0
+    bm_index_b: 31
     scale_a: 127
     scale_b: 127
-    a_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: 8192
-
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: 10240
 - test_case: 2
-  comment: "MXFP6+ (E3M2) outlier preservation. Placeholder enabled for Step 1 verification."
+  comment: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x05)=6.5, b[31] is BM(0x05)=6.5.
+    Others 1.0. Total = 6.5 + 30 + 6.5 = 43.0. Fixed = 11008.
   disabled: false
   inputs:
-    format_a: 2 # E3M2
-    format_b: 2 # E3M2
-    bm_index_a: 15
-    bm_index_b: 15
+    format_a: 4
+    format_b: 4
+    bm_index_a: 0
+    bm_index_b: 31
     scale_a: 127
     scale_b: 127
-    a_elements: [0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C]
-    b_elements: [0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C]
-  expected_output: 8192
+    a_elements:
+    - 5
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 5
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 5
+  expected_output: 14336
+- test_case: 3
+  comment: MXFP8+ (E4M3) BM element precision. a[10] is BM(0x38)=256.0, b[31] is BM(0x38)=256.0.
+    Others 1.0. Total = 256 + 30 + 256 = 542.0. Fixed = 138752.
+  disabled: false
+  inputs:
+    format_a: 0
+    format_b: 0
+    bm_index_a: 10
+    bm_index_b: 31
+    scale_a: 127
+    scale_b: 127
+    a_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 196096

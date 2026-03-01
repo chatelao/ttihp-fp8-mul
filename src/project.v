@@ -210,6 +210,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
                 .SUPPORT_INT8(SUPPORT_INT8),
                 .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
                 .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
             ) multiplier_lane0 (
                 .a(a_lane0),
@@ -229,6 +230,7 @@ module tt_um_chatelao_fp8_multiplier #(
                     .SUPPORT_MXFP4(SUPPORT_MXFP4),
                     .SUPPORT_INT8(SUPPORT_INT8),
                     .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                    .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
                     .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
                 ) multiplier_lane1 (
                     .a(a_lane1),
@@ -252,7 +254,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
                 .SUPPORT_INT8(SUPPORT_INT8),
-                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION)
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS)
             ) multiplier_lane0 (
                 .a(a_lane0),
                 .b(b_lane0),
@@ -270,7 +273,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .SUPPORT_MXFP6(SUPPORT_MXFP6),
                     .SUPPORT_MXFP4(SUPPORT_MXFP4),
                     .SUPPORT_INT8(SUPPORT_INT8),
-                    .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION)
+                    .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                    .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS)
                 ) multiplier_lane1 (
                     .a(a_lane1),
                     .b(b_lane1),
