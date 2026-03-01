@@ -3,6 +3,12 @@
 ## Overview
 The NVIDIA Blackwell architecture introduces the **5th Generation Tensor Cores**, designed to accelerate the most demanding AI and high-performance computing (HPC) workloads. A key innovation in this generation is the native support for ultra-low precision data formats, specifically **FP4** and **FP6**, which significantly increase throughput and efficiency for Large Language Model (LLM) serving.
 
+## Architecture Diagram
+
+![NVIDIA 5th Gen Tensor Core (Blackwell) Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/documentation/BLACKWELL_TENSOR_CORE.PUML)
+
+*Source: [documentation/BLACKWELL_TENSOR_CORE.PUML](BLACKWELL_TENSOR_CORE.PUML)*
+
 ## Key Features
 - **Native FP4 and FP6 Support**: Blackwell Tensor Cores provide native hardware acceleration for 4-bit and 6-bit floating-point formats, doubling the throughput compared to FP8.
 - **Microscaling (MX) Compatibility**: The architecture is designed to work seamlessly with **OCP Microscaling (MX) formats**, utilizing block-based scaling to maintain high numerical accuracy at low bit-widths.
