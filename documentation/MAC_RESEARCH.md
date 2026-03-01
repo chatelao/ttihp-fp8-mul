@@ -25,6 +25,37 @@ This document summarizes the research into area-optimized Multiply-Accumulate (M
 | **Taner Oksuz FPU** | Low Resource | [GitHub](https://github.com/taneroksuz/fpu) | IEEE-754 Single/Double precision. | Pseudo-extended precision avoids complex subnormal handling. |
 | **AMD TensorCast** | Software Ref | [GitHub](https://github.com/amd/tensorcast) | Quantization library for OCP MX and AMD datatypes. | Useful for hardware verification and reference models. |
 
+## Industry-Driven BFP Variants (Microsoft / Rouhani et al.)
+
+This section explores the Block Floating-Point (BFP) variants developed by Microsoft Research (Rouhani et al.) and evaluates their architectural trade-offs compared to the OCP MX and MX+ implementations used in this project.
+
+### Microsoft Floating Point (MSFP)
+*   **Source**: Rouhani et al. (2020), deployed in Project Brainwave.
+*   **Architecture**:
+    *   **Block Size**: Typically 16 elements.
+    *   **Scaling**: Single-level 8-bit shared exponent ($e_{shared}$) per block, set to the exponent of the largest absolute value.
+    *   **Element Format**: Elements consist only of a sign bit and mantissa bits. Individual exponents are eliminated.
+    *   **Decoding**: Elements are obtained by right-shifting the original values by the difference between $e_{shared}$ and the original exponent. There are no implicit leading bits.
+*   **Usefulness for our Product**:
+    *   **Pros**: Simplest element decoding logic; ideal for extremely area-constrained FPGA/ASIC targets where silicon budget for individual decoders is non-existent.
+    *   **Cons**: Lower numerical accuracy than OCP MX at similar bit-widths because it lacks the dynamic range provided by per-element exponents.
+
+### Shared Microexponents (SMX)
+*   **Source**: Rouhani et al. (2023).
+*   **Architecture**:
+    *   **Scaling**: Multi-level scaling approach.
+    *   **Structure**: A group of 16 elements ($k_1=16$) shares a first-level 8-bit exponent. Within that group, pairs of elements ($k_2=2$) share a 1-bit "sub-scale" or microexponent.
+    *   **Dynamic Range**: The microexponent provides an additional shift, allowing sub-blocks to adapt to local outliers.
+*   **Usefulness for our Product**:
+    *   **Pros**: Significantly improves dynamic range compared to MSFP; effectively handles local outliers within a larger block.
+    *   **Cons**: Introduces multi-level shifting complexity in the datapath and requires more complex metadata management than the OCP MX streaming protocol.
+
+### Comparative Analysis: Why OCP MX + MX+?
+The current project implements OCP MX (and the MX+ extension) rather than MSFP or SMX for several strategic reasons:
+1.  **Standardization**: OCP MX is an industry-standard (AMD, Arm, Intel, Meta, Microsoft, NVIDIA, Qualcomm), ensuring broader compatibility.
+2.  **Granularity**: Unlike MSFP/SMX, OCP MX elements retain their own (narrow) exponent bits. This "per-element" exponent allows for much finer-grained scaling and better accuracy for LLM activations.
+3.  **Outlier Handling (MX+)**: Our implementation of MX+ (repurposing the BM exponent as mantissa) provides the outlier accuracy of much wider formats (like FP6 or FP8) while maintaining the 4-bit footprint of MXFP4, outperforming the accuracy-per-bit of both MSFP and SMX.
+
 ## Research Blockers
 Extensive searches for a "Top 10" list of specific gate counts for open-source MAC units were performed. However, the search tools consistently failed to return high-quality results for specific technical queries regarding gate counts of various GitHub implementations. Most information was derived from internal documentation and architectural analysis of referenced papers (MSFP, SMX, MX).
 
