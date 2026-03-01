@@ -20,7 +20,7 @@ def decode_format(bits, format_val):
         mant = (implicit_bit << 3) | (bits & 0x7)
         bias = 7
         is_int = False
-        nan = (bits & 0x7F) == 0x7F
+        nan = (bits & 0x7F) == 0x7F # OCP: 0x7F and 0xFF are NaNs
         zero = (bits & 0x7F) == 0
         return sign, exp, mant, bias, is_int, nan, inf, zero
     elif format_val == 1: # E5M2
@@ -98,9 +98,10 @@ def decode_format(bits, format_val):
 
     return sign, exp, mant, bias, is_int, nan, inf, zero
 
-def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, nan=False, inf=False):
+def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, out_width=32, nan=False, inf=False):
     shift_amt = exp_sum - 5
     WIDTH = width
+    OUT_WIDTH = out_width
 
     huge = nan or inf
     if shift_amt >= 0:
@@ -136,37 +137,41 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, na
         elif round_mode == 2: # FLR
             aligned = base + 1 if (sign and (shifted_out != 0 or sticky)) else base
         elif round_mode == 3: # RNE
-            half = 1 << (n - 1)
-            if shifted_out > half:
-                aligned = base + 1
-            elif shifted_out < half:
+            if n == 0:
                 aligned = base
-            else: # Tie
-                aligned = base + 1 if (base & 1) else base
+            else:
+                half = 1 << (n - 1)
+                if shifted_out > half:
+                    aligned = base + 1
+                elif shifted_out < half:
+                    aligned = base
+                else: # Tie
+                    aligned = base + 1 if (base & 1) else base
         else:
             aligned = base
 
     if sign:
         # Check saturation for negative
-        # Magnitude > 2^31 saturates to -2^31
-        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
-        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+        sat_val = -(1 << (OUT_WIDTH - 1))
+        limit = (1 << (OUT_WIDTH - 1))
+        # Match RTL saturation logic
+        if not overflow_wrap and (huge or (aligned >> OUT_WIDTH) != 0 or ((aligned >> (OUT_WIDTH-1)) & 1 and (aligned & (limit-1)) != 0)):
+            res = sat_val
         else:
             res = -aligned
     else:
-        # Magnitude > 2^31-1 saturates to 2^31-1
-        # In RTL: (huge || |rounded[WIDTH-1:31])
-        if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+        # Magnitude > 2^(OUT_WIDTH-1)-1 saturates
+        limit = (1 << (OUT_WIDTH - 1)) - 1
+        if not overflow_wrap and (huge or (aligned >> (OUT_WIDTH - 1)) != 0):
+            res = limit
         else:
             res = aligned
 
     # Return as 32-bit signed integer
-    res_32 = res & 0xFFFFFFFF
-    if res_32 & 0x80000000:
-        return res_32 - 0x100000000
-    return res_32
+    res_masked = res & 0xFFFFFFFF
+    if res_masked & 0x80000000:
+        return res_masked - 0x100000000
+    return res_masked
 
 def get_param(handle, name, default=1):
     # 1. Try to get from cocotb handle
@@ -203,7 +208,7 @@ def get_param(handle, name, default=1):
     return defaults.get(name, default)
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40):
+                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40, acc_width=32):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -259,7 +264,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7)
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width, nan=nan_res, inf=inf_res)
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width, out_width=acc_width, nan=nan_res, inf=inf_res)
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -311,7 +316,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Process elements in groups of 32
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width)
+                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise,
+                                   aligner_width=aligner_width, acc_width=acc_width)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -363,6 +369,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
+    dut._log.info(f"Detected Shared Scaling: {support_shared}")
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         shared_nan_expected = (scale_a == 255 or scale_b == 255)
@@ -381,7 +388,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width, nan=(any_nan_in_block or shared_nan_expected))
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width, out_width=acc_width, nan=(any_nan_in_block or shared_nan_expected))
     else:
         # If no shared scaling, the result is sign-extended to 32-bit in hardware
         if expected_acc < 0:
@@ -628,20 +635,23 @@ async def test_fast_start_scale_compression(dut):
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
     use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
+    acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), "ACCUMULATOR_WIDTH", 32)
     aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
+    dut._log.info(f"Detected Acc Width: {acc_width}, Aligner Width: {aligner_width}")
 
     expected_acc = 0
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    acc_width = get_param(getattr(dut.user_project, "ACCUMULATOR_WIDTH", None), "ACCUMULATOR_WIDTH", 32)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width, acc_width=acc_width)
         expected_acc += prod
 
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width, out_width=acc_width)
     else:
         expected_final = expected_acc
 

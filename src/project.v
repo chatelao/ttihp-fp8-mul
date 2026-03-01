@@ -139,7 +139,7 @@ module tt_um_chatelao_fp8_multiplier #(
                     nan_sticky    <= 1'b0;
                 end else if (cycle_count == 6'd2) begin
                     nan_sticky    <= 1'b0;
-                end else if (state == STATE_STREAM) begin
+                end else if (cycle_count >= 6'd3 && cycle_count <= last_stream_cycle) begin
                     nan_sticky    <= nan_sticky | mul_nan_lane0 | mul_nan_lane1;
                 end
             end
@@ -354,6 +354,8 @@ module tt_um_chatelao_fp8_multiplier #(
     // 2. Shared Scale Calculation
     // S = XA + XB - 254. UE8M0 has bias 127.
     wire signed [9:0] shared_exp = $signed({2'b0, scale_a_val}) + $signed({2'b0, scale_b_val}) - 10'sd254;
+    // OCP: If shared scale is NaN (0xFF), result is NaN.
+    // We force sign to 0 for consistency with standard quiet NaN representation if possible.
     wire shared_nan = ENABLE_SHARED_SCALING && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
 
     // 3. Aligner Multiplexing
@@ -375,20 +377,21 @@ module tt_um_chatelao_fp8_multiplier #(
                                     {16'd0, mul_prod_lane0_val};
     wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? (shared_exp + 10'sd5) :
                                     {{3{mul_exp_sum_lane0_val[6]}}, mul_exp_sum_lane0_val};
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
+    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? (acc_out[ACCUMULATOR_WIDTH-1] && !shared_nan) : mul_sign_lane0_val;
 
     wire [31:0] aligned_lane0_res;
     fp8_aligner #(
         .WIDTH(ALIGNER_WIDTH),
-        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
+        .OUT_WIDTH(ACCUMULATOR_WIDTH)
     ) aligner_lane0_inst (
         .prod(aligner_lane0_in_prod),
         .exp_sum(aligner_lane0_in_exp),
         .sign(aligner_lane0_in_sign),
         .round_mode(round_mode),
         .overflow_wrap(overflow_wrap),
-        .nan((cycle_count < capture_cycle) ? mul_nan_lane0_val : (nan_sticky | shared_nan)),
-        .inf((cycle_count < capture_cycle) ? mul_inf_lane0_val : 1'b0),
+        .nan(acc_en ? mul_nan_lane0_val : (nan_sticky | shared_nan)),
+        .inf(acc_en ? mul_inf_lane0_val : 1'b0),
         .aligned(aligned_lane0_res)
     );
 
@@ -397,15 +400,16 @@ module tt_um_chatelao_fp8_multiplier #(
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             fp8_aligner #(
                 .WIDTH(ALIGNER_WIDTH),
-                .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+                .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
+                .OUT_WIDTH(ACCUMULATOR_WIDTH)
             ) aligner_lane1_inst (
                 .prod({16'd0, mul_prod_lane1_val}),
                 .exp_sum({{3{mul_exp_sum_lane1_val[6]}}, mul_exp_sum_lane1_val}),
                 .sign(mul_sign_lane1_val),
                 .round_mode(round_mode),
                 .overflow_wrap(overflow_wrap),
-                .nan(mul_nan_lane1_val && cycle_count < capture_cycle),
-                .inf(mul_inf_lane1_val && cycle_count < capture_cycle),
+                .nan(acc_en ? mul_nan_lane1_val : 1'b0),
+                .inf(acc_en ? mul_inf_lane1_val : 1'b0),
                 .aligned(aligned_lane1_res)
             );
         end else begin : no_aligner_lane1

@@ -2,7 +2,8 @@
 
 module fp8_aligner #(
     parameter WIDTH = 40,
-    parameter SUPPORT_ADV_ROUNDING = 1
+    parameter SUPPORT_ADV_ROUNDING = 1,
+    parameter OUT_WIDTH = 32
 )(
     input  wire [31:0] prod,     // Increased to 32-bit to support accumulator scaling
     input  wire signed [9:0] exp_sum,  // Increased to 10-bit signed for shared scales
@@ -99,19 +100,19 @@ module fp8_aligner #(
             rounded = base + do_inc;
         end
 
-        // Saturation check using bits above the 32-bit window
-        // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000
+        // Saturation check using bits above the (OUT_WIDTH-1)-bit window
+        // We use bit indices relative to OUT_WIDTH to support variable accumulator widths.
         if (sign) begin
-            // Magnitude > 2^31 saturates
-            // Using shift to avoid illegal range if WIDTH=32
-            if (!overflow_wrap && (huge || |(rounded >> 32) || (rounded[31] && |rounded[30:0])))
-                aligned = 32'h80000000;
+            // Magnitude > 2^(OUT_WIDTH-1) saturates to -2^(OUT_WIDTH-1)
+            // Example for 32-bit: magnitude > 2^31 saturates to 0x80000000
+            if (!overflow_wrap && (huge || |(rounded >> OUT_WIDTH) || (rounded[OUT_WIDTH-1] && |rounded[OUT_WIDTH-2:0])))
+                aligned = (32'hFFFFFFFF << (OUT_WIDTH-1));
             else
                 aligned = -rounded[31:0];
         end else begin
-            // Magnitude > 2^31-1 saturates
-            if (!overflow_wrap && (huge || |(rounded >> 31)))
-                aligned = 32'h7FFFFFFF;
+            // Magnitude > 2^(OUT_WIDTH-1)-1 saturates to 2^(OUT_WIDTH-1)-1
+            if (!overflow_wrap && (huge || |(rounded >> (OUT_WIDTH-1))))
+                aligned = ~(32'hFFFFFFFF << (OUT_WIDTH-1));
             else
                 aligned = rounded[31:0];
         end

@@ -87,7 +87,7 @@ module fp8_mul_lns #(
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 6'sd7;
                     zero_out = (data[6:0] == 7'd0);
-                    nan_out = (data[6:0] == 7'b1111111);
+                    nan_out = (data[6:0] == 7'b1111111); // OCP E4M3: 0x7F and 0xFF are NaNs.
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
                     sign_out = data[7];
