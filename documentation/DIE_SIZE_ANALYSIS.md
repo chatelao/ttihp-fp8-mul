@@ -108,7 +108,7 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 6292 | 1x1* |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6287 | 1x1* |
 | **Lite** | Disable MXFP6/Adv/VP | 3067 | 1x1* |
 | **Tiny** | All optional features disabled | 2261 | 1x1 |
 | **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2015 | 1x1 |
@@ -136,21 +136,21 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 6292 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 6227 | -65 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 6250 | -42 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 6309 | +17 |
-| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3371 | -2921 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 5454 | -838 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 6246 | -46 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 5791 | -501 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6195 | -97 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6027 | -265 |
-| **Tiny (All Disabled)** | All features disabled | 2261 | -4031 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2015 | -4277 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1708 | -4584 |
-| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 5476 | -816 |
-| **LNS Multiplier (Precise)** | Precise LNS multiplier | 5588 | -704 |
+| **Baseline (Full)** | All features enabled | 6287 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 6228 | -59 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 6249 | -38 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 6310 | +23 |
+| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3371 | -2916 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 5454 | -833 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 6259 | -28 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 5791 | -496 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6180 | -107 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6029 | -258 |
+| **Tiny (All Disabled)** | All features disabled | 2261 | -4026 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2015 | -4272 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1708 | -4579 |
+| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 5476 | -811 |
+| **LNS Multiplier (Precise)** | Precise LNS multiplier | 5588 | -699 |
 
 ## 5. Deployment & CI/CD Progress
 
@@ -181,3 +181,39 @@ To ensure the integrity of all variants, the CI/CD pipeline is updated to test m
 - [x] Verify **Full** Variant
 - [x] Verify **Lite** Variant
 - [x] Verify **Tiny** Variant
+
+## 6. Speed and Throughput Analysis
+
+The architectural variants not only differ in area (gate count) but also in their processing speed and data throughput.
+
+### 6.1. Protocol Latency and Cycle Counts
+
+The MAC unit operates using a fixed-cycle protocol. The total number of cycles required for a single 32-element block operation depends on the enabled features:
+
+| Mode | Parameter | Cycles | Description |
+|---|---|---|---|
+| **Standard** | Default | 41 | 32 cycles of streaming + 9 overhead (Setup, Scale, Output) |
+| **Packed Lane** | `SUPPORT_VECTOR_PACKING=1` | 25 | 16 cycles of streaming (2 elements/cycle) + 9 overhead |
+| **Packed Serial** | `SUPPORT_PACKED_SERIAL=1` | 41 | 32 cycles of streaming (packed byte every 2 cycles) |
+
+### 6.2. Throughput (Elements per Clock Cycle)
+
+The throughput is measured as the number of elements processed per clock cycle ($k / \text{Total Cycles}$).
+
+| Configuration | Format | Total Cycles | Throughput (Elem/Cycle) | Speedup (vs Std) |
+|---|---|---|---|---|
+| Standard | All | 41 | 0.78 | 1.00x |
+| Packed Serial | FP4 | 41 | 0.78 | 1.00x |
+| **Packed Lane** | **FP4** | **25** | **1.28** | **1.64x** |
+
+### 6.3. Maximum Frequency ($F_{max}$) and Pipelining
+
+The `SUPPORT_PIPELINING` parameter significantly impacts the timing closure of the design:
+
+- **Pipelining ENABLED**: Inserts a register stage between the multiplier and the aligner. This reduces the longest combinatorial path (the "Critical Path"), allowing the unit to run at higher clock frequencies (e.g., targeting >50 MHz on IHP SG13G2).
+- **Pipelining DISABLED**: Reduces area by ~30-50 gates but forces the design into a single-cycle combinatorial path from operand input to accumulator update. This lowers the $F_{max}$, suitable for low-power or area-constrained designs running at <10 MHz.
+
+### 6.4. Hardware-Accelerated Scaling
+
+- **`ENABLE_SHARED_SCALING=1`**: The hardware performs the 32-bit absolute value and shift in a single cycle (Cycle 36).
+- **`ENABLE_SHARED_SCALING=0`**: The hardware outputs the unscaled 32-bit accumulator. The host processor must perform the scaling in software. While this saves ~250 gates, it may significantly reduce the *effective system throughput* if the host CPU is a simple bit-serial core like SERV.
