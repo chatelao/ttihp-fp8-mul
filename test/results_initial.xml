@@ -1,0 +1,20 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1772388193" />
+    <testcase name="test_mxfp8_mac_shared_scale" classname="test" file="/app/test/test.py" lineno="395" time="0.017225027084350586" sim_time_ns="1010.0" ratio_time="58635.61172090191" />
+    <testcase name="test_mxfp8_mac_e4m3" classname="test" file="/app/test/test.py" lineno="414" time="0.0070612430572509766" sim_time_ns="510.0" ratio_time="72225.2436100888" />
+    <testcase name="test_mxfp8_mac_e5m2" classname="test" file="/app/test/test.py" lineno="423" time="0.006573200225830078" sim_time_ns="510.0" ratio_time="77587.7780195865" />
+    <testcase name="test_rounding_modes" classname="test" file="/app/test/test.py" lineno="432" time="0.00010180473327636719" sim_time_ns="0.0" ratio_time="0.0" />
+    <testcase name="test_overflow_saturation" classname="test" file="/app/test/test.py" lineno="469" time="0.02384638786315918" sim_time_ns="1020.0" ratio_time="42773.77378298123" />
+    <testcase name="test_accumulator_saturation" classname="test" file="/app/test/test.py" lineno="483" time="0.0207827091217041" sim_time_ns="1020.0" ratio_time="49079.26074636626" />
+    <testcase name="test_mxfp4_packed_serial" classname="test" file="/app/test/test.py" lineno="497" time="0.00011563301086425781" sim_time_ns="0.0" ratio_time="0.0" />
+    <testcase name="test_mxfp4_packed" classname="test" file="/app/test/test.py" lineno="514" time="8.296966552734375e-05" sim_time_ns="0.0" ratio_time="0.0" />
+    <testcase name="test_mixed_precision" classname="test" file="/app/test/test.py" lineno="531" time="8.320808410644531e-05" sim_time_ns="0.0" ratio_time="0.0" />
+    <testcase name="test_mxfp_mac_randomized" classname="test" file="/app/test/test.py" lineno="553" time="0.4007115364074707" sim_time_ns="25500.0" ratio_time="63636.80024941899" />
+    <testcase name="test_fast_start_scale_compression" classname="test" file="/app/test/test.py" lineno="583" time="0.012183427810668945" sim_time_ns="900.0" ratio_time="73870.83618715877" />
+    <testcase name="test_yaml_cases" classname="test" file="/app/test/test.py" lineno="729" time="0.09620046615600586" sim_time_ns="2040.0" ratio_time="21205.71844934497" />
+    <testcase name="test_mx_fp4_yaml" classname="test" file="/app/test/test.py" lineno="733" time="0.035384178161621094" sim_time_ns="1530.0000000000036" ratio_time="43239.664717138876" />
+    <testcase name="test_mxplus_yaml" classname="test" file="/app/test/test.py" lineno="737" time="0.01840806007385254" sim_time_ns="510.0" ratio_time="27705.255086842208" />
+    <testcase name="test_mxfp8_subnormals" classname="test" file="/app/test/test.py" lineno="741" time="0.007010221481323242" sim_time_ns="510.0" ratio_time="72750.91113151719" />
+  </testsuite>
+</testsuites>

@@ -14,6 +14,8 @@ module fp8_mul_lns #(
     input  wire [7:0] b,
     input  wire [2:0] format_a,
     input  wire [2:0] format_b,
+    input  wire       is_bm_a,
+    input  wire       is_bm_b,
     output wire [15:0] prod,    // Mantissa product
     output wire signed [6:0] exp_sum, // Combined exponent (biased)
     output wire       sign

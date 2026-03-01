@@ -50,7 +50,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (Header Cycle Extension)**: Add a dedicated "Metadata Cycle" (Cycle 0) before Scale A.
 - **Reasoning**: **Variant B** is selected. It maintains the 41-cycle standard protocol, ensuring backward compatibility with existing software drivers and minimizing the latency impact of the extension.
 
-### Step 2: Internal Storage & Parameterization
+### Step 2: Internal Storage & Parameterization (Status: **COMPLETED**)
 - **Goal**: Add parameterized hardware support for MX+.
 - **Preparation**:
   - Define `bm_index_a` and `bm_index_b` registers in `src/project.v`.
@@ -66,7 +66,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ## Phase 2: MX+ Operand Decoding
 
-### Step 3: Outlier Identification in Multiplier
+### Step 3: Outlier Identification in Multiplier (Status: **COMPLETED**)
 - **Goal**: Detect when the current streaming element is the designated Block Max.
 - **Preparation**:
   - Update `fp8_mul` module interface to accept outlier metadata.
