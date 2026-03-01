@@ -43,9 +43,9 @@ jobs:
       - name: Synthesis
         run: |
           if [ -n "${PARAMS}" ]; then
-            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; chparam ${PARAMS} tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; chparam ${PARAMS} tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
           else
-            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
           fi
 
       - name: Place and Route
