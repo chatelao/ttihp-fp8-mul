@@ -21,6 +21,8 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~403 |
 | `ALIGNER_WIDTH` | `40` | Internal datapath width for the product aligner. | ~259 (Ultra-Tiny) |
 | `USE_LNS_MUL_PRECISE` | `0` | Uses a 64x4 LUT for more accurate LNS multiplication. | ~349 |
+| `SUPPORT_SERIAL` | `1` | Enables bit-serial timing (Stretched Protocol). | +67 |
+| `SERIAL_K_FACTOR` | `8` | Latency scaling factor for serial operation. | N/A |
 
 ### 1.2. Recommended Refactorings
 
@@ -109,49 +111,52 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 6287 | 1x1* |
-| **Lite** | Disable MXFP6/Adv/VP | 3067 | 1x1* |
-| **Tiny** | All optional features disabled | 2261 | 1x1 |
-| **Ultra-Tiny (Default)** | Tiny config + Reduced widths (32/24) | 2015 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6399 | 1x1* |
+| **Lite** | Disable MXFP6/4/Adv/VP | 3378 | 1x1* |
+| **Tiny** | All optional features disabled | 2302 | 1x1 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2057 | 1x1 |
+| **Tiny-Serial (GDS Default)** | Ultra-Tiny + Serial Infrastructure | 2124 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
 ### Variant Feature Comparison Matrix
 
-| Feature / Parameter | Full | Lite | Tiny | Ultra-Tiny |
-|---|:---:|:---:|:---:|:---:|
-| `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ |
-| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ |
-| `SUPPORT_MXFP4` | ✅ | ✅ | ✅ | ✅ |
-| `SUPPORT_VECTOR_PACKING` | ✅ | ❌ | ❌ | ❌ |
-| `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ |
-| `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ |
-| `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ |
-| `SUPPORT_MIXED_PRECISION` | ✅ | ✅ | ❌ | ❌ |
-| `ENABLE_SHARED_SCALING` | ✅ | ✅ | ❌ | ❌ |
-| `USE_LNS_MUL` | ❌ | ❌ | ❌ | ❌ |
-| `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** |
-| `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** |
+| Feature / Parameter | Full | Lite | Tiny | Ultra-Tiny | Tiny-Serial |
+|---|:---:|:---:|:---:|:---:|:---:|
+| `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP4` | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `SUPPORT_VECTOR_PACKING` | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_ADV_ROUNDING` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `SUPPORT_MIXED_PRECISION` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `ENABLE_SHARED_SCALING` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `USE_LNS_MUL` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `SUPPORT_SERIAL` | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** | **32** |
+| `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** | **24** |
 
 ## 4. Automated Gate Impact Analysis (Post-Optimization)
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 6287 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 6228 | -59 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 6249 | -38 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 6310 | +23 |
-| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3371 | -2916 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 5454 | -833 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 6259 | -28 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 5791 | -496 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6180 | -107 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6029 | -258 |
-| **Tiny (All Disabled)** | All features disabled | 2261 | -4026 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2015 | -4272 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1708 | -4579 |
-| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 5476 | -811 |
-| **LNS Multiplier (Precise)** | Precise LNS multiplier | 5588 | -699 |
+| **Baseline (Full)** | All features enabled | 6399 | 0 |
+| `SUPPORT_E5M2` | Disable E5M2 | 6232 | -167 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 6215 | -184 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 6352 | -47 |
+| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3542 | -2857 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 6158 | -241 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 6353 | -46 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 6377 | -22 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6325 | -74 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6170 | -229 |
+| **Tiny (All Disabled)** | All features disabled | 2302 | -4097 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2057 | -4342 |
+| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 2124 | -4275 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1787 | -4612 |
+| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 6570 | +171 |
+| **LNS Multiplier (Precise)** | Precise LNS multiplier | 6686 | +287 |
 
 ## 5. Deployment & CI/CD Progress
 
@@ -159,7 +164,8 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Variant | Tile Size | Parameters |
 |---|---|---|
-| **Ultra-Tiny (Default)** | 1x1 | All features disabled, 32/24 bit widths. |
+| **Tiny-Serial (GDS Default)** | 1x1 | `SUPPORT_SERIAL=1`, `SERIAL_K_FACTOR=8`, Ultra-Tiny widths. |
+| **Ultra-Tiny** | 1x1 | All features disabled, 32/24 bit widths. |
 | **Tiny** | 1x1 | All features disabled, 40/32 bit widths. |
 | **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_ADV_ROUNDING=0`. |
 | **Full** | 1x1 | All features enabled. |
@@ -182,6 +188,7 @@ To ensure the integrity of all variants, the CI/CD pipeline is updated to test m
 - [x] Verify **Full** Variant
 - [x] Verify **Lite** Variant
 - [x] Verify **Tiny** Variant
+- [x] Verify **Tiny-Serial** Variant
 
 ## 6. Speed and Throughput Analysis
 
@@ -218,3 +225,12 @@ The `SUPPORT_PIPELINING` parameter significantly impacts the timing closure of t
 
 - **`ENABLE_SHARED_SCALING=1`**: The hardware performs the 32-bit absolute value and shift in a single cycle (Cycle 36).
 - **`ENABLE_SHARED_SCALING=0`**: The hardware outputs the unscaled 32-bit accumulator. The host processor must perform the scaling in software. While this saves ~250 gates, it may significantly reduce the *effective system throughput* if the host CPU is a simple bit-serial core like SERV.
+
+### 6.5. Tiny-Serial: Bit-Serial Infrastructure
+
+The "Tiny-Serial" variant (inspired by the SERV bit-serial RISC-V core) provides a bit-serial execution framework within the OCP MX MAC unit.
+
+- **Stretched Protocol**: To maintain the 8-bit streaming interface while allowing for internal bit-serial processing, the protocol is "stretched" by a factor $K$ (`SERIAL_K_FACTOR`). Each cycle in the standard protocol corresponds to $K$ clock cycles in the serial variant.
+- **Area Impact**: The serialization logic (primarily the `k_counter` and additional FSM control) adds approximately **67 gates** to the Ultra-Tiny baseline.
+- **Throughput Trade-off**: Total cycles for a standard operation increase from 41 to $41 \times K$. For $K=8$, a block requires 328 cycles.
+- **Latency Decoupling**: This mode is essential for configurations where internal timing closure is difficult at the target 8-bit IO interface frequency, allowing the core to operate at higher internal frequencies relative to the data stream.
