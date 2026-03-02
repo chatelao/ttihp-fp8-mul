@@ -11,7 +11,7 @@
 
 module tt_um_chatelao_fp8_multiplier #(
     parameter ALIGNER_WIDTH = 32,
-    parameter ACCUMULATOR_WIDTH = 24,
+    parameter ACCUMULATOR_WIDTH = 32,
     parameter SUPPORT_E5M2  = 0,
     parameter SUPPORT_MXFP6 = 0,
     parameter SUPPORT_MXFP4 = 1,
@@ -53,27 +53,48 @@ module tt_um_chatelao_fp8_multiplier #(
     // MX+ Registers
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
+    wire [2:0] nbm_offset_a_val;
+    wire [2:0] nbm_offset_b_val;
+    wire       mx_plus_en_val;
 
     generate
         if (SUPPORT_MX_PLUS) begin : gen_mx_plus
             reg [4:0] bm_index_a;
             reg [4:0] bm_index_b;
+            reg [2:0] nbm_offset_a;
+            reg [2:0] nbm_offset_b;
+            reg       mx_plus_en;
             always @(posedge clk) begin
                 if (!rst_n) begin
                     bm_index_a <= 5'd0;
                     bm_index_b <= 5'd0;
+                    nbm_offset_a <= 3'd0;
+                    nbm_offset_b <= 3'd0;
+                    mx_plus_en <= 1'b0;
                 end else if (ena) begin
-                    if (cycle_count == 6'd0 && !ui_in[7])
+                    if (cycle_count == 6'd0 && !ui_in[7]) begin
                         bm_index_a <= uio_in[4:0];
+                        nbm_offset_a <= uio_in[7:5];
+                        nbm_offset_b <= ui_in[2:0];
+                    end
+                    if (cycle_count == 6'd1) begin
+                        mx_plus_en <= uio_in[7];
+                    end
                     if (cycle_count == 6'd2)
                         bm_index_b <= uio_in[7:3];
                 end
             end
             assign bm_index_a_val = bm_index_a;
             assign bm_index_b_val = bm_index_b;
+            assign nbm_offset_a_val = mx_plus_en ? nbm_offset_a : 3'd0;
+            assign nbm_offset_b_val = mx_plus_en ? nbm_offset_b : 3'd0;
+            assign mx_plus_en_val = mx_plus_en;
         end else begin : gen_no_mx_plus
             assign bm_index_a_val = 5'd0;
             assign bm_index_b_val = 5'd0;
+            assign nbm_offset_a_val = 3'd0;
+            assign nbm_offset_b_val = 3'd0;
+            assign mx_plus_en_val = 1'b0;
         end
     endgenerate
 
@@ -197,10 +218,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [4:0] element_index_lane0 = actual_packed_mode ? { (cycle_count[4:0] - 5'd3), 1'b0 } : (cycle_count[4:0] - 5'd3);
     wire [4:0] element_index_lane1 = actual_packed_mode ? { (cycle_count[4:0] - 5'd3), 1'b1 } : 5'd0;
 
-    wire is_bm_a_lane0 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && (element_index_lane0 == bm_index_a_val);
-    wire is_bm_b_lane0 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && (element_index_lane0 == bm_index_b_val);
-    wire is_bm_a_lane1 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_a_val);
-    wire is_bm_b_lane1 = SUPPORT_MX_PLUS && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_b_val);
+    wire is_bm_a_lane0 = mx_plus_en_val && (state == STATE_STREAM) && (element_index_lane0 == bm_index_a_val);
+    wire is_bm_b_lane0 = mx_plus_en_val && (state == STATE_STREAM) && (element_index_lane0 == bm_index_b_val);
+    wire is_bm_a_lane1 = mx_plus_en_val && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_a_val);
+    wire is_bm_b_lane1 = mx_plus_en_val && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_b_val);
 
     generate
         if (USE_LNS_MUL) begin : lns_gen
@@ -298,59 +319,81 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
     wire signed [6:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
     wire mul_sign_lane0_val, mul_sign_lane1_val;
+    wire is_bm_a_lane0_val, is_bm_b_lane0_val;
+    wire is_bm_a_lane1_val, is_bm_b_lane1_val;
 
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
             reg [15:0] mul_prod_lane0_reg;
             reg signed [6:0] mul_exp_sum_lane0_reg;
             reg mul_sign_lane0_reg;
+            reg is_bm_a_lane0_reg, is_bm_b_lane0_reg;
 
             always @(posedge clk) begin
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
                     mul_exp_sum_lane0_reg <= 7'd0;
                     mul_sign_lane0_reg <= 1'b0;
+                    is_bm_a_lane0_reg <= 1'b0;
+                    is_bm_b_lane0_reg <= 1'b0;
                 end else if (ena) begin
                     mul_prod_lane0_reg <= mul_prod_lane0;
                     mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
                     mul_sign_lane0_reg <= mul_sign_lane0;
+                    is_bm_a_lane0_reg <= is_bm_a_lane0;
+                    is_bm_b_lane0_reg <= is_bm_b_lane0;
                 end
             end
             assign mul_prod_lane0_val = mul_prod_lane0_reg;
             assign mul_exp_sum_lane0_val = mul_exp_sum_lane0_reg;
             assign mul_sign_lane0_val = mul_sign_lane0_reg;
+            assign is_bm_a_lane0_val = is_bm_a_lane0_reg;
+            assign is_bm_b_lane0_val = is_bm_b_lane0_reg;
 
             if (SUPPORT_VECTOR_PACKING) begin : gen_pipeline_lane1
                 reg [15:0] mul_prod_lane1_reg;
                 reg signed [6:0] mul_exp_sum_lane1_reg;
                 reg mul_sign_lane1_reg;
+                reg is_bm_a_lane1_reg, is_bm_b_lane1_reg;
 
                 always @(posedge clk) begin
                     if (!rst_n) begin
                         mul_prod_lane1_reg <= 16'd0;
                         mul_exp_sum_lane1_reg <= 7'd0;
                         mul_sign_lane1_reg <= 1'b0;
+                        is_bm_a_lane1_reg <= 1'b0;
+                        is_bm_b_lane1_reg <= 1'b0;
                     end else if (ena) begin
                         mul_prod_lane1_reg <= mul_prod_lane1;
                         mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
                         mul_sign_lane1_reg <= mul_sign_lane1;
+                        is_bm_a_lane1_reg <= is_bm_a_lane1;
+                        is_bm_b_lane1_reg <= is_bm_b_lane1;
                     end
                 end
                 assign mul_prod_lane1_val = mul_prod_lane1_reg;
                 assign mul_exp_sum_lane1_val = mul_exp_sum_lane1_reg;
                 assign mul_sign_lane1_val = mul_sign_lane1_reg;
+                assign is_bm_a_lane1_val = is_bm_a_lane1_reg;
+                assign is_bm_b_lane1_val = is_bm_b_lane1_reg;
             end else begin : gen_no_pipeline_lane1
                 assign mul_prod_lane1_val = 16'd0;
                 assign mul_exp_sum_lane1_val = 7'd0;
                 assign mul_sign_lane1_val = 1'b0;
+                assign is_bm_a_lane1_val = 1'b0;
+                assign is_bm_b_lane1_val = 1'b0;
             end
         end else begin : gen_no_pipeline
             assign mul_prod_lane0_val = mul_prod_lane0;
             assign mul_exp_sum_lane0_val = mul_exp_sum_lane0;
             assign mul_sign_lane0_val = mul_sign_lane0;
+            assign is_bm_a_lane0_val = is_bm_a_lane0;
+            assign is_bm_b_lane0_val = is_bm_b_lane0;
             assign mul_prod_lane1_val = mul_prod_lane1;
             assign mul_exp_sum_lane1_val = mul_exp_sum_lane1;
             assign mul_sign_lane1_val = mul_sign_lane1;
+            assign is_bm_a_lane1_val = is_bm_a_lane1;
+            assign is_bm_b_lane1_val = is_bm_b_lane1;
         end
     endgenerate
 
@@ -371,12 +414,21 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
+    // MX++ Exponent Offset (Step 6)
+    // Subtract offsets if the element is NOT a BM.
+    wire signed [9:0] exp_sum_lane0_adj = {{3{mul_exp_sum_lane0_val[6]}}, mul_exp_sum_lane0_val} -
+                                          (is_bm_a_lane0_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
+                                          (is_bm_b_lane0_val ? 10'd0 : {7'd0, nbm_offset_b_val});
+
+    wire signed [9:0] exp_sum_lane1_adj = {{3{mul_exp_sum_lane1_val[6]}}, mul_exp_sum_lane1_val} -
+                                          (is_bm_a_lane1_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
+                                          (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
+
     // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
     wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ?
                                     (ACCUMULATOR_WIDTH > 32 ? acc_abs_val[31:0] : {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val}) :
                                     {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? (shared_exp + 10'sd5) :
-                                    {{3{mul_exp_sum_lane0_val[6]}}, mul_exp_sum_lane0_val};
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && cycle_count >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
     wire [31:0] aligned_lane0_res;
@@ -400,7 +452,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
             ) aligner_lane1_inst (
                 .prod({16'd0, mul_prod_lane1_val}),
-                .exp_sum({{3{mul_exp_sum_lane1_val[6]}}, mul_exp_sum_lane1_val}),
+                .exp_sum(exp_sum_lane1_adj),
                 .sign(mul_sign_lane1_val),
                 .round_mode(round_mode),
                 .overflow_wrap(overflow_wrap),

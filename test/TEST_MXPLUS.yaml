@@ -3,6 +3,7 @@
     Others 1.0. Total = 5 + 30 + 5 = 40.0. Fixed = 10240.
   disabled: false
   inputs:
+    mx_plus_mode: 1
     format_a: 4
     format_b: 4
     bm_index_a: 0
@@ -81,6 +82,7 @@
     Others 1.0. Total = 6.5 + 30 + 6.5 = 43.0. Fixed = 11008.
   disabled: false
   inputs:
+    mx_plus_mode: 1
     format_a: 4
     format_b: 4
     bm_index_a: 0
@@ -155,80 +157,68 @@
     - 5
   expected_output: 14336
 - test_case: 3
-  comment: MXFP8+ (E4M3) BM element precision. a[10] is BM(0x38)=256.0, b[31] is BM(0x38)=256.0.
-    Others 1.0. Total = 256 + 30 + 256 = 542.0. Fixed = 138752.
+  comment: MXFP8+ (E4M3) BM element precision. a[10] is BM(0x38)=368.0, b[31] is BM(0x38)=368.0.
+    Others 1.0. Total = 368 + 30 + 368 = 766.0. Fixed = 196096.
   disabled: false
   inputs:
+    mx_plus_mode: 1
     format_a: 0
     format_b: 0
     bm_index_a: 10
     bm_index_b: 31
     scale_a: 127
     scale_b: 127
-    a_elements:
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    b_elements:
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
-    - 56
+    a_elements: [56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
+    b_elements: [56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
   expected_output: 196096
+- test_case: 4
+  comment: MXFP4++ (E2M1) Decoupled Scaling. a[0] is BM, b[0] is BM. nbm_offset_a=1.
+    BM Prod = 25.0, NBM Prod = 0.5. Total = 25 + 31*0.5 = 40.5. Fixed = 10368.
+  disabled: false
+  inputs:
+    mx_plus_mode: 1
+    format_a: 4
+    format_b: 4
+    bm_index_a: 0
+    bm_index_b: 0
+    nbm_offset_a: 1
+    nbm_offset_b: 0
+    scale_a: 127
+    scale_b: 127
+    a_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    b_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+  expected_output: 10368
+- test_case: 5
+  comment: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=1.
+    BM Prod = 25.0, NBM Prod = 0.25*0.5 = 0.125. Total = 25 + 31*0.125 = 28.875. Fixed = 7392.
+  disabled: false
+  inputs:
+    mx_plus_mode: 1
+    format_a: 4
+    format_b: 4
+    bm_index_a: 0
+    bm_index_b: 0
+    nbm_offset_a: 2
+    nbm_offset_b: 1
+    scale_a: 127
+    scale_b: 127
+    a_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    b_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+  expected_output: 7392
+- test_case: 6
+  comment: MXFP8++ (E4M3) Decoupled Scaling. nbm_offset_a=1, nbm_offset_b=2.
+    BM Prod = 368*368 = 135424.0, NBM Prod = 0.5*0.25 = 0.125. Fixed = 135424*256 + 31*32 = 34669536.
+  disabled: false
+  inputs:
+    mx_plus_mode: 1
+    format_a: 0
+    format_b: 0
+    bm_index_a: 0
+    bm_index_b: 0
+    nbm_offset_a: 1
+    nbm_offset_b: 2
+    scale_a: 127
+    scale_b: 127
+    a_elements: [56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
+    b_elements: [56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
+  expected_output: 34669536
