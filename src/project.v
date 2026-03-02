@@ -15,7 +15,7 @@
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
     parameter ALIGNER_WIDTH = 32,
-    parameter ACCUMULATOR_WIDTH = 24,
+    parameter ACCUMULATOR_WIDTH = 32,
     parameter SUPPORT_E5M2  = 0,
     parameter SUPPORT_MXFP6 = 0,
     parameter SUPPORT_MXFP4 = 1,
@@ -57,9 +57,14 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [11:0] k_counter;
             always @(posedge clk) begin
                 if (!rst_n) k_counter <= 12'd0;
-                else if (ena) k_counter <= (k_counter == SERIAL_K_FACTOR[11:0] - 12'd1) ? 12'd0 : k_counter + 12'd1;
+                else if (ena) begin
+                    if (k_counter == SERIAL_K_FACTOR[11:0] - 12'd1)
+                        k_counter <= 12'd0;
+                    else
+                        k_counter <= k_counter + 12'd1;
+                end
             end
-            assign strobe = (k_counter == 12'd0);
+            assign strobe = (ena && k_counter == 12'd0);
             assign logical_cycle = cycle_count;
         end else begin : gen_no_serial_ctrl
             assign strobe = 1'b1;
@@ -214,10 +219,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // MXFP8 Datapath Integration (Step 12: Pipelining & Scale Compression)
     // ------------------------------------------------------------------------
 
-    // 1. Multiplier & Pipeline Stage
-    wire [15:0] mul_prod_lane0, mul_prod_lane1;
-    wire signed [6:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
-    wire mul_sign_lane0, mul_sign_lane1;
+    // Multiplier Logic
+    wire [15:0] mul_prod_lane0;
+    wire [15:0] mul_prod_lane1;
+    wire signed [6:0] mul_exp_sum_lane0;
+    wire signed [6:0] mul_exp_sum_lane1;
+    wire mul_sign_lane0;
+    wire mul_sign_lane1;
 
     reg [3:0] packed_a_buf, packed_b_buf;
     always @(posedge clk) begin
@@ -253,14 +261,21 @@ module tt_um_chatelao_fp8_multiplier #(
     wire is_bm_a_lane1 = mx_plus_en_val && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_a_val);
     wire is_bm_b_lane1 = mx_plus_en_val && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_b_val);
 
-    wire mul_done_lane0;
+    wire signed_aligned_prod_bit_lane0_top;
+    wire [15:0] mul_prod_p0;
 
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_datapath
+            assign mul_sign_lane1 = 1'b0;
+            assign mul_exp_sum_lane1 = 7'd0;
+            assign mul_prod_lane1 = 16'd0;
+            assign mul_prod_lane0 = mul_prod_p0;
             wire mul_prod_bit_lane0;
             wire mul_busy_lane0;
             wire start_mul_lane0;
             wire [4:0] init_count_lane0;
+            wire signed_aligned_prod_bit_lane0;
+            assign signed_aligned_prod_bit_lane0_top = signed_aligned_prod_bit_lane0;
 
             fp8_mul_serial #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -282,13 +297,13 @@ module tt_um_chatelao_fp8_multiplier #(
                 .format_b(format_b_val),
                 .is_bm_a(is_bm_a_lane0),
                 .is_bm_b(is_bm_b_lane0),
+                .prod(mul_prod_p0),
                 .prod_bit(mul_prod_bit_lane0),
                 .exp_sum(mul_exp_sum_lane0),
                 .sign(mul_sign_lane0),
                 .busy(mul_busy_lane0)
             );
 
-            wire signed_aligned_prod_bit_lane0;
             fp8_aligner_serial #(
                 .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
                 .SERIAL_K_FACTOR(SERIAL_K_FACTOR)
@@ -296,7 +311,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clk(clk),
                 .rst_n(rst_n),
                 .strobe(strobe),
-                .exp_sum(exp_sum_lane0_adj[6] ? {3'b111, exp_sum_lane0_adj} : {3'b000, exp_sum_lane0_adj}),
+                .exp_sum(exp_sum_lane0_adj[9:0]),
                 .sign_in(mul_sign_lane0),
                 .mul_prod_bit(mul_prod_bit_lane0),
                 .mul_busy(mul_busy_lane0),
@@ -305,10 +320,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .data_out_bit(signed_aligned_prod_bit_lane0)
             );
 
-            assign mul_prod_lane1 = 16'd0;
-            assign mul_exp_sum_lane1 = 7'd0;
-            assign mul_sign_lane1 = 1'b0;
         end else if (USE_LNS_MUL) begin : lns_gen
+            assign mul_prod_p0 = mul_prod_lane0;
             fp8_mul_lns #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
@@ -353,7 +366,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_exp_sum_lane1 = 7'd0;
                 assign mul_sign_lane1 = 1'b0;
             end
+            assign signed_aligned_prod_bit_lane0_top = 1'b0;
         end else begin : std_gen
+            assign mul_prod_p0 = mul_prod_lane0;
             fp8_mul #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
@@ -396,6 +411,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_exp_sum_lane1 = 7'd0;
                 assign mul_sign_lane1 = 1'b0;
             end
+            assign signed_aligned_prod_bit_lane0_top = 1'b0;
         end
     endgenerate
 
@@ -563,14 +579,14 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (SUPPORT_SERIAL) ? {ACCUMULATOR_WIDTH{1'b0}} : (aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0]);
 
     // 5. Accumulator Control
     // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+    wire acc_en    = (SUPPORT_SERIAL) ? 1'b0 : (strobe && (SUPPORT_PIPELINING ?
                      ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+                     ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
@@ -590,16 +606,19 @@ module tt_um_chatelao_fp8_multiplier #(
             accumulator_serial #(
                 .WIDTH(ACCUMULATOR_WIDTH)
             ) acc_inst (
+                /* verilator lint_off PINMISSING */
                 .clk(clk),
                 .rst_n(rst_n),
+                .en(ena),
                 .strobe(strobe),
                 .clear(acc_clear),
-                .data_in_bit(gen_serial_datapath.signed_aligned_prod_bit_lane0),
+                .data_in_bit(signed_aligned_prod_bit_lane0_top),
                 .load_en(ena && strobe && logical_cycle == capture_cycle),
                 .load_data(final_scaled_result),
                 .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
                 .shift_out(acc_shift_out),
                 .data_out(acc_out)
+                /* verilator lint_on PINMISSING */
             );
         end else begin : gen_parallel_acc
             accumulator #(

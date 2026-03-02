@@ -24,7 +24,7 @@ module tb ();
   wire [7:0] uio_oe;
 
   parameter ALIGNER_WIDTH = 32;
-  parameter ACCUMULATOR_WIDTH = 24;
+  parameter ACCUMULATOR_WIDTH = 32;
   parameter SUPPORT_E5M2 = 0;
   parameter SUPPORT_MXFP6 = 0;
   parameter SUPPORT_MXFP4 = 1;

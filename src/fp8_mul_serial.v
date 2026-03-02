@@ -25,11 +25,16 @@ module fp8_mul_serial #(
     input  wire [2:0] format_b,
     input  wire       is_bm_a,
     input  wire       is_bm_b,
+    output reg [15:0] prod,
     output wire       prod_bit,
-    output reg signed [6:0] exp_sum,
+    output wire signed [6:0] exp_sum,
     output wire       sign,
     output reg        busy
 );
+    /* verilator lint_off UNUSEDPARAM */
+    localparam UNUSED_K = SERIAL_K_FACTOR;
+    /* verilator lint_on UNUSEDPARAM */
+
     localparam FMT_E4M3 = 3'b000;
     localparam FMT_E5M2 = 3'b001;
     localparam FMT_E3M2 = 3'b010;
@@ -102,47 +107,62 @@ module fp8_mul_serial #(
     end
 
     assign sign = (zero_a_wire || zero_b_wire) ? 1'b0 : (sign_a_wire ^ sign_b_wire);
+    assign exp_sum = $signed({2'b0, ea_wire}) + $signed({2'b0, eb_wire}) - ($signed(bias_a_wire) + $signed(bias_b_wire) - 7'sd7);
 
     reg [7:0] ma_reg, mb_reg;
     reg [7:0] acc_reg_m;
     reg [4:0] count;
     reg zero_sticky;
 
-    wire [8:0] sum_step = (ma_reg[0] ? mb_reg : 8'd0) + acc_reg_m;
-    assign prod_bit = ((busy || start) && !zero_sticky) ? ((count < 8) ? sum_step[0] : acc_reg_m[0]) : 1'b0;
+    // Combinatorial calculation of the state at init_count
+    reg [7:0] ma_start, acc_start;
+    always @(*) begin
+        reg [7:0] ma, acc;
+        reg [8:0] s;
+        integer i;
+        ma = ma_wire; acc = 8'd0;
+        for (i = 0; i < 16; i = i + 1) begin
+            if (i < 16 && i < {27'd0, init_count}) begin
+                s = (ma[0] ? {1'b0, mb_wire} : 9'd0) + {1'b0, acc};
+                acc = s[8:1];
+                ma = {1'b0, ma[7:1]};
+            end
+        end
+        ma_start = ma;
+        acc_start = acc;
+    end
+
+    wire [8:0] sum_step_comb = (start ? (ma_start[0] ? {1'b0, mb_wire} : 9'd0) + {1'b0, acc_start} :
+                                       (ma_reg[0] ? {1'b0, mb_reg} : 9'd0) + {1'b0, acc_reg_m});
+    wire [7:0] acc_reg_m_comb = start ? acc_start : acc_reg_m;
+    wire [7:0] ma_reg_comb = start ? ma_start : ma_reg;
+    wire [4:0] current_index = start ? init_count : count;
+    assign prod_bit = ((busy || start) && !zero_sticky) ? ((current_index < 5'd8) ? sum_step_comb[0] : acc_reg_m_comb[0]) : 1'b0;
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            busy <= 1'b0; count <= 5'd0; ma_reg <= 8'd0; mb_reg <= 8'd0; acc_reg_m <= 8'd0; zero_sticky <= 1'b1; exp_sum <= 0;
+            busy <= 1'b0; count <= 5'd0; ma_reg <= 8'd0; mb_reg <= 8'd0; acc_reg_m <= 8'd0; zero_sticky <= 1'b1; prod <= 16'd0;
         end else if (strobe) begin
             zero_sticky <= zero_a_wire || zero_b_wire;
-            exp_sum <= $signed({2'b0, ea_wire}) + $signed({2'b0, eb_wire}) - ($signed(bias_a_wire) + $signed(bias_b_wire) - 7'sd7);
             busy <= 1'b0;
         end else if (start && !busy) begin
             busy <= 1'b1;
             count <= init_count + 5'd1;
-            begin : init_mul
-                reg [7:0] ma, acc;
-                reg [8:0] s;
-                integer i;
-                ma = ma_wire; acc = 0;
-                for (i = 0; i < 32; i = i + 1) begin
-                    if (i < init_count) begin
-                        s = (ma[0] ? mb_wire : 8'd0) + acc;
-                        acc = s[8:1];
-                        ma = {1'b0, ma[7:1]};
-                    end
-                end
-                ma_reg <= ma;
-                acc_reg_m <= acc;
-                mb_reg <= mb_wire;
-            end
+            // Update registers to state AFTER processing current_index bit
+            ma_reg <= {1'b0, ma_reg_comb[7:1]};
+            acc_reg_m <= sum_step_comb[8:1];
+            mb_reg <= mb_wire;
+            prod <= 16'd0;
+            if (!zero_sticky) prod[init_count] <= sum_step_comb[0];
         end else if (busy) begin
             if (count < 5'd8) begin
-                acc_reg_m <= sum_step[8:1]; ma_reg <= {1'b0, ma_reg[7:1]}; count <= count + 5'd1;
+                prod[count] <= zero_sticky ? 1'b0 : sum_step_comb[0];
+                acc_reg_m <= sum_step_comb[8:1]; ma_reg <= {1'b0, ma_reg[7:1]}; count <= count + 5'd1;
             end else if (count < 5'd15) begin
-                acc_reg_m <= {1'b0, acc_reg_m[7:1]}; count <= count + 5'd1;
+                prod[count] <= zero_sticky ? 1'b0 : acc_reg_m_comb[0];
+                acc_reg_m <= {1'b0, acc_reg_m_comb[7:1]}; count <= count + 5'd1;
             end else begin
+                prod[count] <= zero_sticky ? 1'b0 : acc_reg_m_comb[0];
                 busy <= 1'b0;
             end
         end
