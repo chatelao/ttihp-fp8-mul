@@ -25,7 +25,9 @@ def verify_gowin_top():
         "parameter SUPPORT_MX_PLUS",
         "parameter ENABLE_SHARED_SCALING",
         "parameter USE_LNS_MUL",
-        "parameter USE_LNS_MUL_PRECISE"
+        "parameter USE_LNS_MUL_PRECISE",
+        "parameter SUPPORT_SERIAL",
+        "parameter SERIAL_K_FACTOR"
     ]
 
     missing_params = []
