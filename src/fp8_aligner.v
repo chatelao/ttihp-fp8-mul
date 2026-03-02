@@ -92,7 +92,7 @@ module fp8_aligner #(
                 end
                 default: do_inc = 1'b0;
             endcase
-            rounded = base + do_inc;
+            rounded = base + {{(WIDTH-1){1'b0}}, do_inc};
         end
 
         // Saturation check using bits above the 32-bit window
