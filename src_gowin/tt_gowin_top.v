@@ -13,6 +13,8 @@ module tt_gowin_top #(
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
     parameter SUPPORT_MX_PLUS = 0,
+    parameter SUPPORT_SERIAL = 0,
+    parameter SERIAL_K_FACTOR = 1,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
@@ -49,6 +51,8 @@ module tt_gowin_top #(
         .SUPPORT_VECTOR_PACKING(SUPPORT_VECTOR_PACKING),
         .SUPPORT_PACKED_SERIAL(SUPPORT_PACKED_SERIAL),
         .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+        .SUPPORT_SERIAL(SUPPORT_SERIAL),
+        .SERIAL_K_FACTOR(SERIAL_K_FACTOR),
         .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
         .USE_LNS_MUL(USE_LNS_MUL),
         .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
