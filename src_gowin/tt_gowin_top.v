@@ -15,7 +15,9 @@ module tt_gowin_top #(
     parameter SUPPORT_MX_PLUS = 0,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SUPPORT_SERIAL = 0,
+    parameter SERIAL_K_FACTOR = 1
 )(
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
@@ -51,7 +53,9 @@ module tt_gowin_top #(
         .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
         .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
         .USE_LNS_MUL(USE_LNS_MUL),
-        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+        .SUPPORT_SERIAL(SUPPORT_SERIAL),
+        .SERIAL_K_FACTOR(SERIAL_K_FACTOR)
     ) user_project (
         .ui_in(ui_in),
         .uo_out(uo_out),
