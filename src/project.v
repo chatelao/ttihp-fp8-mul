@@ -26,8 +26,8 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
     parameter SUPPORT_MX_PLUS = 0,
-    parameter SUPPORT_SERIAL = 1,
-    parameter SERIAL_K_FACTOR = 8,
+    parameter SUPPORT_SERIAL = 0,
+    parameter SERIAL_K_FACTOR = 1,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
@@ -267,13 +267,10 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_datapath
             assign mul_sign_lane1 = 1'b0;
-            assign mul_exp_sum_lane1 = 7'd0;
+            assign mul_exp_sum_lane1 = 7'sd0;
             assign mul_prod_lane1 = 16'd0;
             assign mul_prod_lane0 = mul_prod_p0;
-            wire mul_prod_bit_lane0;
-            wire mul_busy_lane0;
-            wire start_mul_lane0;
-            wire [4:0] init_count_lane0;
+
             wire signed_aligned_prod_bit_lane0;
             assign signed_aligned_prod_bit_lane0_top = signed_aligned_prod_bit_lane0;
 
@@ -289,8 +286,6 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clk(clk),
                 .rst_n(rst_n),
                 .strobe(strobe),
-                .start(start_mul_lane0),
-                .init_count(init_count_lane0),
                 .a(a_lane0),
                 .b(b_lane0),
                 .format_a(format_a),
@@ -298,10 +293,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_a(is_bm_a_lane0),
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_p0),
-                .prod_bit(mul_prod_bit_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .busy(mul_busy_lane0)
+                .sign(mul_sign_lane0)
             );
 
             fp8_aligner_serial #(
@@ -311,12 +304,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clk(clk),
                 .rst_n(rst_n),
                 .strobe(strobe),
-                .exp_sum(exp_sum_lane0_adj[9:0]),
+                .exp_sum(mul_exp_sum_lane0),
                 .sign_in(mul_sign_lane0),
-                .mul_prod_bit(mul_prod_bit_lane0),
-                .mul_busy(mul_busy_lane0),
-                .start_mul(start_mul_lane0),
-                .init_count(init_count_lane0),
+                .mul_prod(mul_prod_p0),
                 .data_out_bit(signed_aligned_prod_bit_lane0)
             );
 
@@ -363,7 +353,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = 7'd0;
+                assign mul_exp_sum_lane1 = 7'sd0;
                 assign mul_sign_lane1 = 1'b0;
             end
             assign signed_aligned_prod_bit_lane0_top = 1'b0;
@@ -408,7 +398,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = 7'd0;
+                assign mul_exp_sum_lane1 = 7'sd0;
                 assign mul_sign_lane1 = 1'b0;
             end
             assign signed_aligned_prod_bit_lane0_top = 1'b0;
@@ -434,7 +424,7 @@ module tt_um_chatelao_fp8_multiplier #(
             always @(posedge clk) begin
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
-                    mul_exp_sum_lane0_reg <= 7'd0;
+                    mul_exp_sum_lane0_reg <= 7'sd0;
                     mul_sign_lane0_reg <= 1'b0;
                     is_bm_a_lane0_reg <= 1'b0;
                     is_bm_b_lane0_reg <= 1'b0;
@@ -461,7 +451,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 always @(posedge clk) begin
                     if (!rst_n) begin
                         mul_prod_lane1_reg <= 16'd0;
-                        mul_exp_sum_lane1_reg <= 7'd0;
+                        mul_exp_sum_lane1_reg <= 7'sd0;
                         mul_sign_lane1_reg <= 1'b0;
                         is_bm_a_lane1_reg <= 1'b0;
                         is_bm_b_lane1_reg <= 1'b0;
@@ -480,7 +470,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign is_bm_b_lane1_val = is_bm_b_lane1_reg;
             end else begin : gen_no_pipeline_lane1
                 assign mul_prod_lane1_val = 16'd0;
-                assign mul_exp_sum_lane1_val = 7'd0;
+                assign mul_exp_sum_lane1_val = 7'sd0;
                 assign mul_sign_lane1_val = 1'b0;
                 assign is_bm_a_lane1_val = 1'b0;
                 assign is_bm_b_lane1_val = 1'b0;

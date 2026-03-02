@@ -7,73 +7,61 @@ module fp8_aligner_serial #(
     input  wire       clk,
     input  wire       rst_n,
     input  wire       strobe,
-    input  wire signed [9:0] exp_sum,
+    input  wire signed [6:0] exp_sum,
     input  wire       sign_in,
-    input  wire       mul_prod_bit,
-    input  wire       mul_busy,
-    output reg        start_mul,
-    output reg [4:0]  init_count,
+    input  wire [15:0] mul_prod,
     output wire       data_out_bit
 );
-    reg signed [10:0] delay;
-    reg [11:0] k_count;
-    reg sign_reg;
+    /* verilator lint_off UNUSEDPARAM */
+    localparam UNUSED_W = ACCUMULATOR_WIDTH;
+    localparam UNUSED_K = SERIAL_K_FACTOR;
+    /* verilator lint_on UNUSEDPARAM */
 
-    // Shift to align product LSB (bit 0) to fixed-point bit 8 (2^0)
-    wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
-    wire signed [10:0] delay_val = 11'sd8 + shift_amt;
+    reg [15:0] p_reg;
+    reg signed [9:0] e_reg;
+    reg s_reg;
+    reg f1_reg;
+    reg [5:0] k_count;
+
+    // delay = 3 + exp_sum (aligning product bit 0 to accumulator bit delay)
+    wire signed [10:0] delay_val = 11'sd3 + $signed(exp_sum);
 
     always @(posedge clk) begin
         if (!rst_n) begin
-            delay <= 11'd0; k_count <= 12'd0; sign_reg <= 1'b0;
+            p_reg <= 16'd0; e_reg <= 10'sd0; s_reg <= 1'b0; f1_reg <= 1'b0; k_count <= 6'd63;
         end else if (strobe) begin
-            delay <= delay_val;
-            k_count <= 12'd0; sign_reg <= sign_in;
-        end else begin
-            if (k_count < 12'hFFF) k_count <= k_count + 12'd1;
-        end
-    end
-
-    always @(*) begin
-        start_mul = 1'b0;
-        init_count = 5'd0;
-        if (!strobe && !mul_busy && k_count < SERIAL_K_FACTOR[11:0]) begin
-            if (delay < 0) begin // Negative delay: skip bits
-                start_mul = 1'b1;
-                init_count = (-delay > 11'sd15) ? 5'd15 : -delay[4:0];
-            end else if (k_count[10:0] == delay) begin
-                start_mul = 1'b1;
-                init_count = 5'd0;
+            p_reg <= mul_prod;
+            e_reg <= $signed({{3{exp_sum[6]}}, exp_sum});
+            s_reg <= sign_in;
+            k_count <= 6'd0;
+            // Pre-calculate found_one for skipped bits (if delay < 0)
+            if (delay_val < 0) begin
+                if (delay_val == -11'sd1) f1_reg <= mul_prod[0];
+                else if (delay_val == -11'sd2) f1_reg <= (mul_prod[0] | mul_prod[1]);
+                else if (delay_val == -11'sd3) f1_reg <= (mul_prod[0] | mul_prod[1] | mul_prod[2]);
+                else if (delay_val == -11'sd4) f1_reg <= (mul_prod[0] | mul_prod[1] | mul_prod[2] | mul_prod[3]);
+                else if (delay_val == -11'sd5) f1_reg <= (mul_prod[0] | mul_prod[1] | mul_prod[2] | mul_prod[3] | mul_prod[4]);
+                else if (delay_val == -11'sd6) f1_reg <= (mul_prod[0] | mul_prod[1] | mul_prod[2] | mul_prod[3] | mul_prod[4] | mul_prod[5]);
+                else if (delay_val == -11'sd7) f1_reg <= (mul_prod[0] | mul_prod[1] | mul_prod[2] | mul_prod[3] | mul_prod[4] | mul_prod[5] | mul_prod[6]);
+                else f1_reg <= |mul_prod;
+            end else begin
+                f1_reg <= 1'b0;
             end
+        end else begin
+            if (k_count < 6'd63) k_count <= k_count + 6'd1;
+            if (active && abs_bit) f1_reg <= 1'b1;
         end
     end
 
-    reg found_one;
-    always @(posedge clk) begin
-        if (!rst_n) found_one <= 1'b0;
-        else if (strobe) found_one <= 1'b0;
-        else if ((mul_busy || start_mul) && mul_prod_bit) found_one <= 1'b1;
-    end
+    wire signed [10:0] delay = 11'sd3 + $signed(e_reg);
+    wire signed [10:0] prod_idx = $signed({5'd0, k_count}) - delay;
 
-    wire abs_bit = (mul_busy || start_mul) ? mul_prod_bit : 1'b0;
-    // 2's complement negation bit-serially: keep bits up to and including first '1', then flip.
-    wire current_neg_bit = found_one ? ~abs_bit : abs_bit;
-    // Correct negation logic: if sign=1 and we see the first 1, it is kept. Subsequent bits are flipped.
-    // If abs_bit is 0, it stays 0 unless we are after the first 1.
-    // Wait, the standard algorithm is: scan from LSB, keep bits until first '1' is seen, then invert all subsequent bits.
-    // My logic: found_one is set AFTER the clock edge where mul_prod_bit=1.
-    // So for the bit where mul_prod_bit=1, found_one is still 0. current_neg_bit = abs_bit = 1. Correct.
-    // For subsequent bits, found_one is 1. current_neg_bit = ~abs_bit. Correct.
+    wire active = (prod_idx >= 0 && prod_idx < 16);
 
-    wire current_bit = sign_reg ? current_neg_bit : abs_bit;
+    wire [3:0] bit_idx = active ? prod_idx[3:0] : 4'd0;
+    wire abs_bit = active ? p_reg[bit_idx] : 1'b0;
 
-    wire active = (delay < 0) || (k_count[10:0] >= delay);
-    // data_out_bit:
-    // If active and multiplier busy: output current_bit.
-    // If active and multiplier finished:
-    //    If sign_reg=1 AND product was non-zero (found_one): sign extend with 1s.
-    //    If sign_reg=1 AND product was zero: sign extend with 0s.
-    //    If sign_reg=0: sign extend with 0s.
-    assign data_out_bit = active ? ((mul_busy || start_mul) ? current_bit : (sign_reg && found_one)) : 1'b0;
+    // Bit-serial 2's complement negation
+    assign data_out_bit = (prod_idx >= 0) ? (s_reg ? (abs_bit ^ f1_reg) : abs_bit) : 1'b0;
 
 endmodule
