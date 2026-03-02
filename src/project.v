@@ -23,8 +23,8 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
     parameter SUPPORT_MX_PLUS = 0,
-    parameter SUPPORT_SERIAL = 0,
-    parameter SERIAL_K_FACTOR = 1,
+    parameter SUPPORT_SERIAL = 1,
+    parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
