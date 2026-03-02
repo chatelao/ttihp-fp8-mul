@@ -3,6 +3,7 @@
 module tt_gowin_top #(
     parameter ALIGNER_WIDTH = 32,
     parameter ACCUMULATOR_WIDTH = 24,
+    parameter SUPPORT_E4M3 = 1,
     parameter SUPPORT_E5M2 = 0,
     parameter SUPPORT_MXFP6 = 0,
     parameter SUPPORT_MXFP4 = 1,
@@ -41,6 +42,7 @@ module tt_gowin_top #(
     tt_um_chatelao_fp8_multiplier #(
         .ALIGNER_WIDTH(ALIGNER_WIDTH),
         .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
+        .SUPPORT_E4M3(SUPPORT_E4M3),
         .SUPPORT_E5M2(SUPPORT_E5M2),
         .SUPPORT_MXFP6(SUPPORT_MXFP6),
         .SUPPORT_MXFP4(SUPPORT_MXFP4),
