@@ -13,7 +13,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         bias = 7
         is_int = False
         if is_bm and support_mxplus:
-            exp = 15 - 4
+            exp = 11 # 15 - 4
             mant = (1 << 7) | (bits & 0x7F)
         else:
             exp_field = (bits >> 3) & 0xF
@@ -28,12 +28,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         bias = 15
         is_int = False
         if is_bm and support_mxplus:
-            exp = 31 - 5 # 31 is e_max, but we shifted mantissa by 1 in standard. Wait.
-            # E5M2 standard decode: mant = (implicit << 2) | mant_field; mant <<= 1
-            # E5M2 MX+: mant = (1 << 7) | (bits & 0x7F).
-            # Alignment: Bit 3 is the standard implicit bit position.
-            # In fp8_mul.v: exp_out = 5'd26; mant_out = {1'b1, data[6:0]};
-            exp = 26
+            exp = 26 # 30 - 4
             mant = (1 << 7) | (bits & 0x7F)
         else:
             exp_field = (bits >> 2) & 0x1F
@@ -49,7 +44,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         bias = 3
         is_int = False
         if is_bm and support_mxplus:
-            exp = 5
+            exp = 5 # 7 - 2
             mant = (1 << 5) | (bits & 0x1F)
         else:
             exp_field = (bits >> 2) & 0x7
@@ -65,7 +60,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         bias = 1
         is_int = False
         if is_bm and support_mxplus:
-            exp = 1
+            exp = 1 # 3 - 2
             mant = (1 << 5) | (bits & 0x1F)
         else:
             exp_field = (bits >> 3) & 0x3
@@ -80,7 +75,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         bias = 1
         is_int = False
         if is_bm and support_mxplus:
-            exp = 3
+            exp = 3 # 3 - 0
             mant = (1 << 3) | (bits & 0x7)
         else:
             exp_field = (bits >> 1) & 0x3
@@ -251,25 +246,30 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
 
     if use_lns:
         if inta or intb: return 0 # No INT8 support in LNS mode
-        if use_lns_precise:
-            # Precise LNS LUT logic
-            lut = [
-                0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
-                0x1, 0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x8,
-                0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0x9,
-                0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa,
-                0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa, 0xb,
-                0x5, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb, 0xc,
-                0x6, 0x8, 0x9, 0xa, 0xa, 0xb, 0xc, 0xd,
-                0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe
-            ]
-            m_sum = lut[(ma & 0x7) * 8 + (mb & 0x7)]
+        if support_mxplus and (is_bm_a or is_bm_b):
+            # To maintain the precision benefits of MX+, BM elements use a standard multiplier
+            prod = ma * mb
+            exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
         else:
-            m_sum = (ma & 0x7) + (mb & 0x7)
-        carry = m_sum >> 3
-        m_res = m_sum & 0x7
-        prod = (8 + m_res) << 3
-        exp_sum = ea + eb - (ba + bb - 7) + carry - adj_a - adj_b
+            if use_lns_precise:
+                # Precise LNS LUT logic
+                lut = [
+                    0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
+                    0x1, 0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x8,
+                    0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0x9,
+                    0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa,
+                    0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa, 0xb,
+                    0x5, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb, 0xc,
+                    0x6, 0x8, 0x9, 0xa, 0xa, 0xb, 0xc, 0xd,
+                    0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe
+                ]
+                m_sum = lut[(ma & 0x7) * 8 + (mb & 0x7)]
+            else:
+                m_sum = (ma & 0x7) + (mb & 0x7)
+            carry = m_sum >> 3
+            m_res = m_sum & 0x7
+            prod = (8 + m_res) << 3
+            exp_sum = ea + eb - (ba + bb - 7) + carry - adj_a - adj_b
     else:
         real_ma = ma if not inta else ma
         real_mb = mb if not intb else mb
@@ -355,7 +355,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
                                    support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
                                    is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
-                                   offset_a=nbm_offset_a, offset_b=nbm_offset_b)
+                                   offset_a=nbm_offset_a if mx_plus_mode else 0,
+                                   offset_b=nbm_offset_b if mx_plus_mode else 0)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask

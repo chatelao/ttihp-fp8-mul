@@ -124,7 +124,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ## Phase 5: Verification & Benchmarking
 
-### Step 7: Reference Model Synchronization
+### Step 7: Reference Model Synchronization (Status: **COMPLETED**)
 - **Goal**: Update the Python reference model for bit-accuracy.
 - **Preparation**:
   - Implement the `E0Mx` layout in the `test/test.py` decoding logic.
