@@ -23,6 +23,8 @@ def verify_gowin_top():
         "parameter SUPPORT_VECTOR_PACKING",
         "parameter SUPPORT_PACKED_SERIAL",
         "parameter SUPPORT_MX_PLUS",
+        "parameter SUPPORT_SERIAL",
+        "parameter SERIAL_K_FACTOR",
         "parameter ENABLE_SHARED_SCALING",
         "parameter USE_LNS_MUL",
         "parameter USE_LNS_MUL_PRECISE"
