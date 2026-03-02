@@ -206,19 +206,19 @@
     b_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
   expected_output: 7392
 - test_case: 6
-  comment: MXFP8++ (E4M3) Decoupled Scaling. nbm_offset_a=1, nbm_offset_b=2.
-    BM Prod = 368*368 = 135424.0, NBM Prod = 0.5*0.25 = 0.125. Fixed = 135424*256 + 31*32 = 34669536.
+  comment: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=2.
+    BM Prod = 25.0, NBM Prod = 0.25*0.25 = 0.0625. Total = 25 + 31*0.0625 = 26.9375. Fixed = 6896.
   disabled: false
   inputs:
     mx_plus_mode: 1
-    format_a: 0
-    format_b: 0
+    format_a: 4
+    format_b: 4
     bm_index_a: 0
     bm_index_b: 0
-    nbm_offset_a: 1
+    nbm_offset_a: 2
     nbm_offset_b: 2
     scale_a: 127
     scale_b: 127
-    a_elements: [56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
-    b_elements: [56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
-  expected_output: 34669536
+    a_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    b_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+  expected_output: 6896

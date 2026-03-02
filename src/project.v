@@ -11,7 +11,7 @@
 
 module tt_um_chatelao_fp8_multiplier #(
     parameter ALIGNER_WIDTH = 32,
-    parameter ACCUMULATOR_WIDTH = 32,
+    parameter ACCUMULATOR_WIDTH = 24,
     parameter SUPPORT_E5M2  = 0,
     parameter SUPPORT_MXFP6 = 0,
     parameter SUPPORT_MXFP4 = 1,

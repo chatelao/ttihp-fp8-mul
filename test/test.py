@@ -294,7 +294,7 @@ async def reset_dut(dut):
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0):
     # Enforce parameter constraints in model
-    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
         format_b = format_a
 
@@ -305,15 +305,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
     actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
-    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 0)
     if not support_adv:
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
-    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
@@ -406,7 +406,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 1)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
@@ -649,8 +649,8 @@ async def test_fast_start_scale_compression(dut):
     # We can't use run_mac_test as is because it does a reset.
     # Manual protocol for fast start:
 
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 1)
-    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
@@ -658,13 +658,13 @@ async def test_fast_start_scale_compression(dut):
     await ClockCycles(dut.clk, 1)
 
     # Now at Cycle 3
-    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
                                    support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
@@ -720,13 +720,13 @@ async def run_yaml_file(dut, filename):
         return
 
     # Detect hardware support
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
-    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
-    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
-    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 0)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     for case in cases:
