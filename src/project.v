@@ -10,6 +10,8 @@
 `include "accumulator.v"
 
 module tt_um_chatelao_fp8_multiplier #(
+    parameter SUPPORT_SERIAL = 0,
+    parameter SERIAL_K_FACTOR = 8,
     parameter ALIGNER_WIDTH = 32,
     parameter ACCUMULATOR_WIDTH = 24,
     parameter SUPPORT_E5M2  = 0,
@@ -24,9 +26,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MX_PLUS = 0,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0,
-    parameter SUPPORT_SERIAL = 0,
-    parameter SERIAL_K_FACTOR = 8
+    parameter USE_LNS_MUL_PRECISE = 0
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
@@ -121,7 +121,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
-    wire [11:0] last_stream_cycle = SUPPORT_SERIAL ? (actual_packed_mode ? (6'd3 + 16 * SERIAL_K_FACTOR - 1) : (6'd3 + 32 * SERIAL_K_FACTOR - 1)) :
+    wire [11:0] last_stream_cycle = SUPPORT_SERIAL ? (actual_packed_mode ? (12'd3 + 16 * SERIAL_K_FACTOR - 1) : (12'd3 + 32 * SERIAL_K_FACTOR - 1)) :
                                     (actual_packed_mode ? 12'd18 : 12'd34);
     wire [11:0] capture_cycle     = SUPPORT_SERIAL ? (last_stream_cycle + 12'd2) :
                                     (actual_packed_mode ? 12'd20 : 12'd36);
@@ -180,28 +180,29 @@ module tt_um_chatelao_fp8_multiplier #(
     wire signed [6:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
 
+    wire [11:0] stream_offset = cycle_count - 12'd3;
+    wire [4:0] element_index_base = SUPPORT_SERIAL ? (stream_offset / SERIAL_K_FACTOR) : stream_offset[4:0];
+    wire element_index_is_even = SUPPORT_SERIAL ? (element_index_base[0] == 1'b0) : (cycle_count[0] == 1'b1);
+
     reg [3:0] packed_a_buf, packed_b_buf;
     always @(posedge clk) begin
         if (!rst_n) begin
             packed_a_buf <= 4'd0;
             packed_b_buf <= 4'd0;
-        end else if (ena && actual_packed_serial && cycle_count[0]) begin
+        end else if (ena && actual_packed_serial && element_index_is_even) begin
             packed_a_buf <= ui_in[7:4];
             packed_b_buf <= uio_in[7:4];
         end
     end
 
     wire [7:0] a_lane0 = actual_packed_mode ? {4'd0, ui_in[3:0]} :
-                        (actual_packed_serial ? (cycle_count[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in);
+                        (actual_packed_serial ? (element_index_is_even ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in);
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
-                        (actual_packed_serial ? (cycle_count[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in);
+                        (actual_packed_serial ? (element_index_is_even ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in);
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
 
     // MX+ Centralized Flagging (Step 3)
-    wire [11:0] stream_offset = cycle_count - 12'd3;
-    wire [4:0] element_index_base = SUPPORT_SERIAL ? (stream_offset / SERIAL_K_FACTOR) : stream_offset[4:0];
-
     wire [4:0] element_index_lane0 = actual_packed_mode ? { element_index_base[3:0], 1'b0 } : element_index_base;
     wire [4:0] element_index_lane1 = actual_packed_mode ? { element_index_base[3:0], 1'b1 } : 5'd0;
 
@@ -427,7 +428,9 @@ module tt_um_chatelao_fp8_multiplier #(
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
     // In SERIAL mode, we accumulate at the end of each SERIAL_K_FACTOR block (or continuously if K=1)
     // For Step 0/1 integration, we assume parallel aligner/accumulator but serial-timed inputs.
-    wire serial_sample_tick = SUPPORT_SERIAL ? ((stream_offset % SERIAL_K_FACTOR) == (SERIAL_K_FACTOR - 1)) : 1'b1;
+    wire serial_sample_tick = SUPPORT_SERIAL ?
+                              (SUPPORT_PIPELINING ? ((stream_offset % SERIAL_K_FACTOR) == 12'd0) : ((stream_offset % SERIAL_K_FACTOR) == (SERIAL_K_FACTOR - 1)))
+                              : 1'b1;
 
     wire acc_en    = SUPPORT_PIPELINING ?
                      ((cycle_count >= 12'd4 && cycle_count <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT) && serial_sample_tick) :
@@ -498,14 +501,14 @@ module tt_um_chatelao_fp8_multiplier #(
                 assert(cycle_count == 12'd3);
                 assert(state == STATE_STREAM);
             end else if ($past(cycle_count) == last_cycle) begin
-                assert(cycle_count == 6'd0);
+                assert(cycle_count == 12'd0);
             end else begin
                 assert(cycle_count == $past(cycle_count) + 1'b1);
             end
 
             // State progression (verified by combinatorial definition)
-            assert(state == ((cycle_count == 6'd0) ? STATE_IDLE :
-                             (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
+            assert(state == ((cycle_count == 12'd0) ? STATE_IDLE :
+                             (cycle_count <= 12'd2) ? STATE_LOAD_SCALE :
                              (cycle_count <= capture_cycle) ? STATE_STREAM :
                              STATE_OUTPUT));
         end
