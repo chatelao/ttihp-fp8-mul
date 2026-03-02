@@ -3,6 +3,7 @@
 // This file implements an FP8 multiplier using Logarithmic Number System (LNS).
 // It replaces the 4x4/8x8 multiplier with a simple adder or LUT.
 module fp8_mul_lns #(
+    parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
@@ -77,7 +78,7 @@ module fp8_mul_lns #(
             is_int_out = 1'b0;
 
             case (fmt)
-                FMT_E4M3: begin
+                FMT_E4M3: if (SUPPORT_E4M3) begin
                     sign_out = data[7];
                     bias_out = 6'sd7;
                     if (is_bm && SUPPORT_MX_PLUS) begin

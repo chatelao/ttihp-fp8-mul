@@ -2,6 +2,7 @@
 
 // This file contains logic derived from fp8_mul by Clive Chan (https://github.com/cchan/fp8_mul)
 module fp8_mul #(
+    parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
@@ -57,7 +58,7 @@ module fp8_mul #(
             zero_out = 1'b1;
 
             case (fmt)
-                FMT_E4M3: begin
+                FMT_E4M3: if (SUPPORT_E4M3) begin
                     sign_out = data[7];
                     bias_out = 6'sd7;
                     if (is_bm && SUPPORT_MX_PLUS) begin
@@ -159,12 +160,14 @@ module fp8_mul #(
             decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
         end
 
-        // 8x8 or 4x4 Multiplier (Variant B: Parameterized Multiplier)
+        // 8x8, 4x4 or 2x2 Multiplier (Variant B: Parameterized Multiplier)
         // Synthesis tools will optimize the multiplier width based on the parameters
         if (SUPPORT_INT8 || SUPPORT_MX_PLUS)
             p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
-        else
+        else if (SUPPORT_E4M3 || SUPPORT_E5M2 || SUPPORT_MXFP6)
             p_res = (zero_a || zero_b) ? 16'd0 : ({4'b0, ma[3:0]} * {4'b0, mb[3:0]});
+        else
+            p_res = (zero_a || zero_b) ? 16'd0 : ({{14{1'b0}}, ma[3:2]} * {{14{1'b0}}, mb[3:2]}) << 4;
 
         sign_res = sign_a ^ sign_b;
         exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
