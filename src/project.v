@@ -26,8 +26,8 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
     parameter SUPPORT_MX_PLUS = 0,
-    parameter SUPPORT_SERIAL = 0,
-    parameter SERIAL_K_FACTOR = 1,
+    parameter SUPPORT_SERIAL = 1,
+    parameter SERIAL_K_FACTOR = 32,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0
@@ -50,12 +50,15 @@ module tt_um_chatelao_fp8_multiplier #(
 
     reg [11:0] cycle_count;
     wire strobe;
+    wire strobe_start;
+    wire strobe_end;
+    wire [11:0] k_counter_val;
     wire [11:0] logical_cycle;
 
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_ctrl
             reg [11:0] k_counter;
-            always @(posedge clk) begin
+            always @(posedge clk) begin : k_counter_proc
                 if (!rst_n) k_counter <= 12'd0;
                 else if (ena) begin
                     if (k_counter == SERIAL_K_FACTOR[11:0] - 12'd1)
@@ -64,10 +67,16 @@ module tt_um_chatelao_fp8_multiplier #(
                         k_counter <= k_counter + 12'd1;
                 end
             end
-            assign strobe = (ena && k_counter == 12'd0);
+            assign strobe_start = (ena && k_counter == 12'd0);
+            assign strobe_end   = (ena && k_counter == SERIAL_K_FACTOR[11:0] - 12'd1);
+            assign strobe = strobe_start;
+            assign k_counter_val = k_counter;
             assign logical_cycle = cycle_count;
         end else begin : gen_no_serial_ctrl
+            assign strobe_start = 1'b1;
+            assign strobe_end   = 1'b1;
             assign strobe = 1'b1;
+            assign k_counter_val = 12'd0;
             assign logical_cycle = cycle_count;
         end
     endgenerate
@@ -92,7 +101,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [2:0] nbm_offset_a;
             reg [2:0] nbm_offset_b;
             reg       mx_plus_en;
-            always @(posedge clk) begin
+            always @(posedge clk) begin : mx_plus_reg_proc
                 if (!rst_n) begin
                     bm_index_a <= 5'd0;
                     bm_index_b <= 5'd0;
@@ -134,7 +143,7 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
-            always @(posedge clk) begin
+            always @(posedge clk) begin : scale_a_proc
                 if (!rst_n) scale_a <= 8'd0;
                 else if (ena && strobe && logical_cycle == 12'd1) scale_a <= ui_in;
             end
@@ -145,7 +154,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
-            always @(posedge clk) begin
+            always @(posedge clk) begin : scale_b_proc
                 if (!rst_n) scale_b <= 8'd0;
                 else if (ena && strobe && logical_cycle == 12'd2) scale_b <= ui_in;
             end
@@ -156,7 +165,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
         if (SUPPORT_MIXED_PRECISION) begin : gen_format_b
             reg [2:0] format_b;
-            always @(posedge clk) begin
+            always @(posedge clk) begin : format_b_proc
                 if (!rst_n) format_b <= 3'd0;
                 else if (ena && strobe && logical_cycle == 12'd2) format_b <= uio_in[2:0];
             end
@@ -190,7 +199,7 @@ module tt_um_chatelao_fp8_multiplier #(
     assign uio_out = 8'b00000000;
 
     // Cycle Counter & FSM Transitions
-    always @(posedge clk) begin
+    always @(posedge clk) begin : cycle_counter_proc
         if (!rst_n) begin
             cycle_count <= 12'd0;
             format_a <= 3'd0;
@@ -228,7 +237,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire mul_sign_lane1;
 
     reg [3:0] packed_a_buf, packed_b_buf;
-    always @(posedge clk) begin
+    always @(posedge clk) begin : packed_buf_proc
         if (!rst_n) begin
             packed_a_buf <= 4'd0;
             packed_b_buf <= 4'd0;
@@ -303,6 +312,7 @@ module tt_um_chatelao_fp8_multiplier #(
             ) aligner_lane0_serial (
                 .clk(clk),
                 .rst_n(rst_n),
+                .k_cnt(k_counter_val[5:0]),
                 .strobe(strobe),
                 .exp_sum(mul_exp_sum_lane0),
                 .sign_in(mul_sign_lane0),
@@ -421,7 +431,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg mul_sign_lane0_reg;
             reg is_bm_a_lane0_reg, is_bm_b_lane0_reg;
 
-            always @(posedge clk) begin
+            always @(posedge clk) begin : mul_pipe_proc
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
                     mul_exp_sum_lane0_reg <= 7'sd0;
@@ -448,7 +458,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 reg mul_sign_lane1_reg;
                 reg is_bm_a_lane1_reg, is_bm_b_lane1_reg;
 
-                always @(posedge clk) begin
+                always @(posedge clk) begin : mul_pipe_lane1_proc
                     if (!rst_n) begin
                         mul_prod_lane1_reg <= 16'd0;
                         mul_exp_sum_lane1_reg <= 7'sd0;
@@ -574,7 +584,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Accumulator Control
     // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = (SUPPORT_SERIAL) ? 1'b0 : (strobe && (SUPPORT_PIPELINING ?
+    wire acc_en    = (SUPPORT_SERIAL) ? (state == STATE_STREAM && logical_cycle != capture_cycle) : (strobe && (SUPPORT_PIPELINING ?
                      ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
@@ -599,7 +609,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 /* verilator lint_off PINMISSING */
                 .clk(clk),
                 .rst_n(rst_n),
-                .en(ena),
+                .en(acc_en),
                 .strobe(strobe),
                 .clear(acc_clear),
                 .data_in_bit(signed_aligned_prod_bit_lane0_top),
@@ -635,7 +645,7 @@ module tt_um_chatelao_fp8_multiplier #(
 `ifdef FORMAL
     // 0. Formal-only capture register for serialization verification
     reg [31:0] f_scaled_acc_reg;
-    always @(posedge clk) begin
+    always @(posedge clk) begin : f_scaled_reg_proc
         if (!rst_n) f_scaled_acc_reg <= 32'd0;
         else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= final_scaled_result;
     end
@@ -645,7 +655,7 @@ module tt_um_chatelao_fp8_multiplier #(
     always @(posedge clk) f_past_valid <= 1'b1;
 
     initial assume(!rst_n);
-    always @(posedge clk) begin
+    always @(posedge clk) begin : rst_assume_proc
         if (!f_past_valid)
             assume(!rst_n);
         else
@@ -656,14 +666,14 @@ module tt_um_chatelao_fp8_multiplier #(
     always @(*) assume(ena == 1'b1);
 
     // 3. Invariants
-    always @(posedge clk) begin
+    always @(posedge clk) begin : invariants_proc
         if (rst_n) begin
             assert(logical_cycle <= 12'd40);
         end
     end
 
     // 4. Protocol FSM Transitions
-    always @(posedge clk) begin
+    always @(posedge clk) begin : fsm_assert_proc
         if (f_past_valid && $past(rst_n) && rst_n && $past(strobe)) begin
             // Cycle count progression
             if ($past(state) == STATE_IDLE && $past(ui_in[7])) begin
@@ -684,7 +694,7 @@ module tt_um_chatelao_fp8_multiplier #(
     end
 
     // 5. Register Stability
-    always @(posedge clk) begin
+    always @(posedge clk) begin : reg_stability_proc
         if (f_past_valid && $past(rst_n) && rst_n && $past(strobe)) begin
             // format_a, round_mode, overflow_wrap loaded at cycle 1
             if ($past(logical_cycle) != 12'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
@@ -705,7 +715,7 @@ module tt_um_chatelao_fp8_multiplier #(
     end
 
     // 6. Output Gating & Serialization
-    always @(*) begin
+    always @(*) begin : output_assert_proc
         if (rst_n) begin
             if (state != STATE_OUTPUT) begin
                 assert(uo_out == 8'd0);
@@ -722,7 +732,7 @@ module tt_um_chatelao_fp8_multiplier #(
     end
 
     // 7. MX+ Block Max Detection
-    always @(posedge clk) begin
+    always @(posedge clk) begin : bm_detection_proc
         if (rst_n && SUPPORT_MX_PLUS && state == STATE_STREAM) begin
             if (element_index_lane0 == bm_index_a_val) assert(is_bm_a_lane0);
             else assert(!is_bm_a_lane0);

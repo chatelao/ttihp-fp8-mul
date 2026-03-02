@@ -2,8 +2,7 @@
 
 /**
  * Bit-serial multiplier for OCP MX MAC unit.
- * Performs combinatorial mantissa multiplication and exponent sum
- * based on operands registered at strobe.
+ * Performs combinatorial mantissa multiplication and exponent sum.
  */
 module fp8_mul_serial #(
     parameter SUPPORT_E5M2  = 1,
@@ -14,9 +13,9 @@ module fp8_mul_serial #(
     parameter SUPPORT_MX_PLUS = 0,
     parameter SERIAL_K_FACTOR = 32
 )(
-    input  wire       clk,
-    input  wire       rst_n,
-    input  wire       strobe,
+    input  wire       clk,      // Unused but kept for interface consistency
+    input  wire       rst_n,    // Unused
+    input  wire       strobe,   // Unused
     input  wire [7:0] a,
     input  wire [7:0] b,
     input  wire [2:0] format_a,
@@ -30,6 +29,9 @@ module fp8_mul_serial #(
     /* verilator lint_off UNUSEDPARAM */
     localparam UNUSED_K = SERIAL_K_FACTOR;
     /* verilator lint_on UNUSEDPARAM */
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire _unused = &{clk, rst_n, strobe};
+    /* verilator lint_on UNUSEDSIGNAL */
 
     localparam FMT_E4M3 = 3'b000;
     localparam FMT_E5M2 = 3'b001;
@@ -38,25 +40,6 @@ module fp8_mul_serial #(
     localparam FMT_E2M1 = 3'b100;
     localparam FMT_INT8 = 3'b101;
     localparam FMT_INT8_SYM = 3'b110;
-
-    // Register operands at strobe to break combinational paths from IO
-    reg [7:0] a_reg, b_reg;
-    reg [2:0] fa_reg, fb_reg;
-    reg bm_a_reg, bm_b_reg;
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            a_reg <= 8'd0; b_reg <= 8'd0; fa_reg <= 3'd0; fb_reg <= 3'd0;
-            bm_a_reg <= 1'b0; bm_b_reg <= 1'b0;
-        end else if (strobe) begin
-            a_reg <= a;
-            b_reg <= b;
-            fa_reg <= format_a;
-            fb_reg <= SUPPORT_MIXED_PRECISION ? format_b : format_a;
-            bm_a_reg <= is_bm_a;
-            bm_b_reg <= is_bm_b;
-        end
-    end
 
     reg [7:0] ma;
     reg [4:0] ea;
@@ -72,75 +55,77 @@ module fp8_mul_serial #(
 
     always @(*) begin : decode_proc_a
         ma = 8'd0; ea = 5'd0; ba = 6'sd0; sa = 1'b0; za = 1'b1;
-        case (fa_reg)
+        case (format_a)
             FMT_E4M3: begin
-                sa = a_reg[7]; ba = 6'sd7;
-                if (bm_a_reg && SUPPORT_MX_PLUS) begin ea = 5'd11; ma = {1'b1, a_reg[6:0]}; za = 1'b0; end
-                else begin ea = (a_reg[6:3] == 4'd0) ? 5'd1 : {1'b0, a_reg[6:3]}; ma = {4'b0, (a_reg[6:3] != 4'd0), a_reg[2:0]}; za = (a_reg[6:0] == 7'd0); end
+                sa = a[7]; ba = 6'sd7;
+                if (is_bm_a && SUPPORT_MX_PLUS) begin ea = 5'd11; ma = {1'b1, a[6:0]}; za = 1'b0; end
+                else begin ea = (a[6:3] == 4'd0) ? 5'd1 : {1'b0, a[6:3]}; ma = {4'b0, (a[6:3] != 4'd0), a[2:0]}; za = (a[6:0] == 7'd0); end
             end
             FMT_E5M2: if (SUPPORT_E5M2) begin
-                sa = a_reg[7]; ba = 6'sd15;
-                if (bm_a_reg && SUPPORT_MX_PLUS) begin ea = 5'd26; ma = {1'b1, a_reg[6:0]}; za = 1'b0; end
-                else begin ea = (a_reg[6:2] == 5'd0) ? 5'd1 : a_reg[6:2]; ma = {4'b0, (a_reg[6:2] != 5'd0), a_reg[1:0], 1'b0}; za = (a_reg[6:0] == 7'd0); end
+                sa = a[7]; ba = 6'sd15;
+                if (is_bm_a && SUPPORT_MX_PLUS) begin ea = 5'd26; ma = {1'b1, a[6:0]}; za = 1'b0; end
+                else begin ea = (a[6:2] == 5'd0) ? 5'd1 : a[6:2]; ma = {4'b0, (a[6:2] != 5'd0), a[1:0], 1'b0}; za = (a[6:0] == 7'd0); end
             end
             FMT_E3M2: if (SUPPORT_MXFP6) begin
-                sa = a_reg[5]; ba = 6'sd3;
-                if (bm_a_reg && SUPPORT_MX_PLUS) begin ea = 5'd5; ma = {2'b0, 1'b1, a_reg[4:0]}; za = 1'b0; end
-                else begin ea = (a_reg[4:2] == 3'd0) ? 5'd1 : {2'b0, a_reg[4:2]}; ma = {4'b0, (a_reg[4:2] != 3'd0), a_reg[1:0], 1'b0}; za = (a_reg[4:0] == 5'd0); end
+                sa = a[5]; ba = 6'sd3;
+                if (is_bm_a && SUPPORT_MX_PLUS) begin ea = 5'd5; ma = {2'b0, 1'b1, a[4:0]}; za = 1'b0; end
+                else begin ea = (a[4:2] == 3'd0) ? 5'd1 : {2'b0, a[4:2]}; ma = {4'b0, (a[4:2] != 3'd0), a[1:0], 1'b0}; za = (a[4:0] == 5'd0); end
             end
             FMT_E2M3: if (SUPPORT_MXFP6) begin
-                sa = a_reg[5]; ba = 6'sd1;
-                if (bm_a_reg && SUPPORT_MX_PLUS) begin ea = 5'd1; ma = {2'b0, 1'b1, a_reg[4:0]}; za = 1'b0; end
-                else begin ea = (a_reg[4:3] == 2'd0) ? 5'd1 : {3'b0, a_reg[4:3]}; ma = {4'b0, (a_reg[4:3] != 2'd0), a_reg[2:0]}; za = (a_reg[4:0] == 5'd0); end
+                sa = a[5]; ba = 6'sd1;
+                if (is_bm_a && SUPPORT_MX_PLUS) begin ea = 5'd1; ma = {2'b0, 1'b1, a[4:0]}; za = 1'b0; end
+                else begin ea = (a[4:3] == 2'd0) ? 5'd1 : {3'b0, a[4:3]}; ma = {4'b0, (a[4:3] != 2'd0), a[2:0]}; za = (a[4:0] == 5'd0); end
             end
             FMT_E2M1: if (SUPPORT_MXFP4) begin
-                sa = a_reg[3]; ba = 6'sd1;
-                if (bm_a_reg && SUPPORT_MX_PLUS) begin ea = 5'd3; ma = {4'b0, 1'b1, a_reg[2:0]}; za = 1'b0; end
-                else begin ea = (a_reg[2:1] == 2'd0) ? 5'd1 : {3'b0, a_reg[2:1]}; ma = {4'b0, (a_reg[2:1] != 2'd0), a_reg[0], 2'b0}; za = (a_reg[2:0] == 3'd0); end
+                sa = a[3]; ba = 6'sd1;
+                if (is_bm_a && SUPPORT_MX_PLUS) begin ea = 5'd3; ma = {4'b0, 1'b1, a[2:0]}; za = 1'b0; end
+                else begin ea = (a[2:1] == 2'd0) ? 5'd1 : {3'b0, a[2:1]}; ma = {4'b0, (a[2:1] != 2'd0), a[0], 2'b0}; za = (a[2:0] == 3'd0); end
             end
             FMT_INT8: if (SUPPORT_INT8) begin
-                sa = a_reg[7]; ma = a_reg[7] ? (~a_reg + 8'd1) : a_reg; ea = 5'd0; ba = 6'sd3; za = (a_reg == 8'd0);
+                sa = a[7]; ma = a[7] ? (~a + 8'd1) : a; ea = 5'd0; ba = 6'sd3; za = (a == 8'd0);
             end
             FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                sa = a_reg[7]; ma = (a_reg == 8'h80) ? 8'd127 : (a_reg[7] ? (~a_reg + 8'd1) : a_reg); ea = 5'd0; ba = 6'sd3; za = (a_reg == 8'd0);
+                sa = a[7]; ma = (a == 8'h80) ? 8'd127 : (a[7] ? (~a + 8'd1) : a); ea = 5'd0; ba = 6'sd3; za = (a == 8'd0);
             end
             default: ;
         endcase
     end
 
+    wire [2:0] fb_val = SUPPORT_MIXED_PRECISION ? format_b : format_a;
+
     always @(*) begin : decode_proc_b
         mb = 8'd0; eb = 5'd0; bb = 6'sd0; sb = 1'b0; zb = 1'b1;
-        case (fb_reg)
+        case (fb_val)
             FMT_E4M3: begin
-                sb = b_reg[7]; bb = 6'sd7;
-                if (bm_b_reg && SUPPORT_MX_PLUS) begin eb = 5'd11; mb = {1'b1, b_reg[6:0]}; zb = 1'b0; end
-                else begin eb = (b_reg[6:3] == 4'd0) ? 5'd1 : {1'b0, b_reg[6:3]}; mb = {4'b0, (b_reg[6:3] != 4'd0), b_reg[2:0]}; zb = (b_reg[6:0] == 7'd0); end
+                sb = b[7]; bb = 6'sd7;
+                if (is_bm_b && SUPPORT_MX_PLUS) begin eb = 5'd11; mb = {1'b1, b[6:0]}; zb = 1'b0; end
+                else begin eb = (b[6:3] == 4'd0) ? 5'd1 : {1'b0, b[6:3]}; mb = {4'b0, (b[6:3] != 4'd0), b[2:0]}; zb = (b[6:0] == 7'd0); end
             end
             FMT_E5M2: if (SUPPORT_E5M2) begin
-                sb = b_reg[7]; bb = 6'sd15;
-                if (bm_b_reg && SUPPORT_MX_PLUS) begin eb = 5'd26; mb = {1'b1, b_reg[6:0]}; zb = 1'b0; end
-                else begin eb = (b_reg[6:2] == 5'd0) ? 5'd1 : b_reg[6:2]; mb = {4'b0, (b_reg[6:2] != 5'd0), b_reg[1:0], 1'b0}; zb = (b_reg[6:0] == 7'd0); end
+                sb = b[7]; bb = 6'sd15;
+                if (is_bm_b && SUPPORT_MX_PLUS) begin eb = 5'd26; mb = {1'b1, b[6:0]}; zb = 1'b0; end
+                else begin eb = (b[6:2] == 5'd0) ? 5'd1 : b[6:2]; mb = {4'b0, (b[6:2] != 5'd0), b[1:0], 1'b0}; zb = (b[6:0] == 7'd0); end
             end
             FMT_E3M2: if (SUPPORT_MXFP6) begin
-                sb = b_reg[5]; bb = 6'sd3;
-                if (bm_b_reg && SUPPORT_MX_PLUS) begin eb = 5'd5; mb = {2'b0, 1'b1, b_reg[4:0]}; zb = 1'b0; end
-                else begin eb = (b_reg[4:2] == 3'd0) ? 5'd1 : {2'b0, b_reg[4:2]}; mb = {4'b0, (b_reg[4:2] != 3'd0), b_reg[1:0], 1'b0}; zb = (b_reg[4:0] == 5'd0); end
+                sb = b[5]; bb = 6'sd3;
+                if (is_bm_b && SUPPORT_MX_PLUS) begin eb = 5'd5; mb = {2'b0, 1'b1, b[4:0]}; zb = 1'b0; end
+                else begin eb = (b[4:2] == 3'd0) ? 5'd1 : {2'b0, b[4:2]}; mb = {4'b0, (b[4:2] != 3'd0), b[1:0], 1'b0}; zb = (b[4:0] == 5'd0); end
             end
             FMT_E2M3: if (SUPPORT_MXFP6) begin
-                sb = b_reg[5]; bb = 6'sd1;
-                if (bm_b_reg && SUPPORT_MX_PLUS) begin eb = 5'd1; mb = {2'b0, 1'b1, b_reg[4:0]}; zb = 1'b0; end
-                else begin eb = (b_reg[4:3] == 2'd0) ? 5'd1 : {3'b0, b_reg[4:3]}; mb = {4'b0, (b_reg[4:3] != 2'd0), b_reg[2:0]}; zb = (b_reg[4:0] == 5'd0); end
+                sb = b[5]; bb = 6'sd1;
+                if (is_bm_b && SUPPORT_MX_PLUS) begin eb = 5'd1; mb = {2'b0, 1'b1, b[4:0]}; zb = 1'b0; end
+                else begin eb = (b[4:3] == 2'd0) ? 5'd1 : {3'b0, b[4:3]}; mb = {4'b0, (b[4:3] != 2'd0), b[2:0]}; zb = (b[4:0] == 5'd0); end
             end
             FMT_E2M1: if (SUPPORT_MXFP4) begin
-                sb = b_reg[3]; bb = 6'sd1;
-                if (bm_b_reg && SUPPORT_MX_PLUS) begin eb = 5'd3; mb = {4'b0, 1'b1, b_reg[2:0]}; zb = 1'b0; end
-                else begin eb = (b_reg[2:1] == 2'd0) ? 5'd1 : {3'b0, b_reg[2:1]}; mb = {4'b0, (b_reg[2:1] != 2'd0), b_reg[0], 2'b0}; zb = (b_reg[2:0] == 3'd0); end
+                sb = b[3]; bb = 6'sd1;
+                if (is_bm_b && SUPPORT_MX_PLUS) begin eb = 5'd3; mb = {4'b0, 1'b1, b[2:0]}; zb = 1'b0; end
+                else begin eb = (b[2:1] == 2'd0) ? 5'd1 : {3'b0, b[2:1]}; mb = {4'b0, (b[2:1] != 2'd0), b[0], 2'b0}; zb = (b[2:0] == 3'd0); end
             end
             FMT_INT8: if (SUPPORT_INT8) begin
-                sb = b_reg[7]; mb = b_reg[7] ? (~b_reg + 8'd1) : b_reg; eb = 5'd0; bb = 6'sd3; zb = (b_reg == 8'd0);
+                sb = b[7]; mb = b[7] ? (~b + 8'd1) : b; eb = 5'd0; bb = 6'sd3; zb = (b == 8'd0);
             end
             FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                sb = b_reg[7]; mb = (b_reg == 8'h80) ? 8'd127 : (b_reg[7] ? (~b_reg + 8'd1) : b_reg); eb = 5'd0; bb = 6'sd3; zb = (b_reg == 8'd0);
+                sb = b[7]; mb = (b == 8'h80) ? 8'd127 : (b[7] ? (~b + 8'd1) : b); eb = 5'd0; bb = 6'sd3; zb = (b == 8'd0);
             end
             default: ;
         endcase

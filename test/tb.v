@@ -36,7 +36,7 @@ module tb ();
   parameter SUPPORT_PACKED_SERIAL = 0;
   parameter SUPPORT_MX_PLUS = 0;
   parameter SUPPORT_SERIAL = 1;
-  parameter SERIAL_K_FACTOR = 8;
+  parameter SERIAL_K_FACTOR = 32;
   parameter ENABLE_SHARED_SCALING = 0;
   parameter USE_LNS_MUL = 0;
   parameter USE_LNS_MUL_PRECISE = 0;
