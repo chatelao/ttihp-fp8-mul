@@ -8,6 +8,8 @@ import yaml
 import os
 
 def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
+    nan = False
+    inf = False
     if format_val == 0: # E4M3
         sign = (bits >> 7) & 1
         bias = 7
@@ -22,17 +24,13 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             exp = 1 if is_subnormal else exp_field
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 3) | mant_field
-        return sign, exp, mant, bias, is_int
+            nan = (bits & 0x7F) == 0x7F
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 1: # E5M2
         sign = (bits >> 7) & 1
         bias = 15
         is_int = False
         if is_bm and support_mxplus:
-            exp = 31 - 5 # 31 is e_max, but we shifted mantissa by 1 in standard. Wait.
-            # E5M2 standard decode: mant = (implicit << 2) | mant_field; mant <<= 1
-            # E5M2 MX+: mant = (1 << 7) | (bits & 0x7F).
-            # Alignment: Bit 3 is the standard implicit bit position.
-            # In fp8_mul.v: exp_out = 5'd26; mant_out = {1'b1, data[6:0]};
             exp = 26
             mant = (1 << 7) | (bits & 0x7F)
         else:
@@ -43,7 +41,9 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 2) | mant_field
             mant <<= 1 # Align to 4 bits
-        return sign, exp, mant, bias, is_int
+            inf = (exp_field == 31) and (mant_field == 0)
+            nan = (exp_field == 31) and (mant_field != 0)
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 2: # E3M2
         sign = (bits >> 5) & 1
         bias = 3
@@ -59,7 +59,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 2) | mant_field
             mant <<= 1 # Align to 4 bits
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 3: # E2M3
         sign = (bits >> 5) & 1
         bias = 1
@@ -74,7 +74,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             exp = 1 if is_subnormal else exp_field
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 3) | mant_field
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 4: # E2M1
         sign = (bits >> 3) & 1
         bias = 1
@@ -90,7 +90,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 1) | mant_field
             mant <<= 2 # Align to 4 bits
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 5: # INT8
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -109,9 +109,9 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
     else: # Default E4M3
         return decode_format(bits, 0)
 
-    return sign, exp, mant, bias, is_int
+    return sign, exp, mant, bias, is_int, nan, inf
 
-def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
+def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, nan=False, inf=False):
     shift_amt = exp_sum - 5
     WIDTH = width
 
@@ -232,10 +232,12 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if not support_int8 and format_a in [5, 6]: return 0
     if not support_int8 and format_b in [5, 6]: return 0
 
-    sa, ea, ma, ba, inta = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
-    sb, eb, mb, bb, intb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
+    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
 
     sign = sa ^ sb
+    nan = nana or nanb
+    inf = infa or infb
 
     # Updated: zero check now correctly handles subnormals
     # For MX+, zero_out is forced to 0 for BM elements
@@ -278,7 +280,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7)
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width, nan=nan, inf=inf)
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -798,3 +800,55 @@ async def test_mxfp8_subnormals(dut):
     b_elements = [0x38] * 32
 
     await run_mac_test(dut, 0, 0, a_elements, b_elements)
+
+@cocotb.test()
+async def test_special_value_detection(dut):
+    dut._log.info("Start Special Value Detection Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    await reset_dut(dut)
+
+    # 1. E5M2 NaN (0x7F) and Inf (0x7C)
+    # Cycle 1: Load E5M2 format
+    dut.ui_in.value = 127
+    dut.uio_in.value = 1 # FMT_E5M2
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 2: Load Scale B
+    dut.ui_in.value = 127
+    dut.uio_in.value = 1
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 3: Feed elements
+    # a = 0x7F (NaN), b = 0x3C (1.0)
+    dut.ui_in.value = 0x7F
+    dut.uio_in.value = 0x3C
+    await ClockCycles(dut.clk, 1)
+
+    await Timer(1, "ns")
+    assert dut.mul_nan_lane0.value == 1
+    assert dut.mul_inf_lane0.value == 0
+
+    # a = 0x7C (Inf), b = 0x3C (1.0)
+    dut.ui_in.value = 0x7C
+    dut.uio_in.value = 0x3C
+    await ClockCycles(dut.clk, 1)
+    await Timer(1, "ns")
+    assert dut.mul_nan_lane0.value == 0
+    assert dut.mul_inf_lane0.value == 1
+
+    # 2. E4M3 NaN (0x7F)
+    await reset_dut(dut)
+    # Cycle 1: Load E4M3 format
+    dut.ui_in.value = 127
+    dut.uio_in.value = 0 # FMT_E4M3
+    await ClockCycles(dut.clk, 1)
+    # Cycle 2
+    await ClockCycles(dut.clk, 1)
+    # Cycle 3: Feed element
+    dut.ui_in.value = 0x7F
+    dut.uio_in.value = 0x38
+    await ClockCycles(dut.clk, 1)
+    await Timer(1, "ns")
+    assert dut.mul_nan_lane0.value == 1

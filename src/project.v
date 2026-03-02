@@ -174,6 +174,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     wire signed [6:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
+    wire mul_nan_lane0, mul_nan_lane1;
+    wire mul_inf_lane0, mul_inf_lane1;
 
     reg [3:0] packed_a_buf, packed_b_buf;
     always @(posedge clk) begin
@@ -221,7 +223,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0)
+                .sign(mul_sign_lane0),
+                .nan(mul_nan_lane0),
+                .inf(mul_inf_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul_lns #(
@@ -241,12 +245,16 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1)
+                    .sign(mul_sign_lane1),
+                    .nan(mul_nan_lane1),
+                    .inf(mul_inf_lane1)
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
                 assign mul_exp_sum_lane1 = 7'd0;
                 assign mul_sign_lane1 = 1'b0;
+                assign mul_nan_lane1 = 1'b0;
+                assign mul_inf_lane1 = 1'b0;
             end
         end else begin : std_gen
             fp8_mul #(
@@ -265,7 +273,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0)
+                .sign(mul_sign_lane0),
+                .nan(mul_nan_lane0),
+                .inf(mul_inf_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul #(
@@ -284,12 +294,16 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1)
+                    .sign(mul_sign_lane1),
+                    .nan(mul_nan_lane1),
+                    .inf(mul_inf_lane1)
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
                 assign mul_exp_sum_lane1 = 7'd0;
                 assign mul_sign_lane1 = 1'b0;
+                assign mul_nan_lane1 = 1'b0;
+                assign mul_inf_lane1 = 1'b0;
             end
         end
     endgenerate

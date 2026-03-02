@@ -51,6 +51,10 @@ module tb ();
       .clk    (clk),      // clock
       .rst_n  (rst_n)     // not reset
   );
+
+  // Expose internal signals for testing
+  wire mul_nan_lane0 = user_project.mul_nan_lane0;
+  wire mul_inf_lane0 = user_project.mul_inf_lane0;
 `else
   // RTL simulation instantiation (with parameters)
   tt_um_chatelao_fp8_multiplier #(
@@ -79,6 +83,10 @@ module tb ();
       .clk    (clk),      // clock
       .rst_n  (rst_n)     // not reset
   );
+
+  // Expose internal signals for testing
+  wire mul_nan_lane0 = user_project.mul_nan_lane0;
+  wire mul_inf_lane0 = user_project.mul_inf_lane0;
 `endif
 
 endmodule
