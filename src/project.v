@@ -8,6 +8,9 @@
 `include "fp8_mul_lns.v"
 `include "fp8_aligner.v"
 `include "accumulator.v"
+`include "fp8_mul_serial.v"
+`include "fp8_aligner_serial.v"
+`include "accumulator_serial.v"
 
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
@@ -250,8 +253,62 @@ module tt_um_chatelao_fp8_multiplier #(
     wire is_bm_a_lane1 = mx_plus_en_val && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_a_val);
     wire is_bm_b_lane1 = mx_plus_en_val && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1 == bm_index_b_val);
 
+    wire mul_done_lane0;
+
     generate
-        if (USE_LNS_MUL) begin : lns_gen
+        if (SUPPORT_SERIAL) begin : gen_serial_datapath
+            wire mul_prod_bit_lane0;
+            wire mul_busy_lane0;
+            wire start_mul_lane0;
+            wire [4:0] init_count_lane0;
+
+            fp8_mul_serial #(
+                .SUPPORT_E5M2(SUPPORT_E5M2),
+                .SUPPORT_MXFP6(SUPPORT_MXFP6),
+                .SUPPORT_MXFP4(SUPPORT_MXFP4),
+                .SUPPORT_INT8(SUPPORT_INT8),
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+                .SERIAL_K_FACTOR(SERIAL_K_FACTOR)
+            ) multiplier_lane0 (
+                .clk(clk),
+                .rst_n(rst_n),
+                .strobe(strobe),
+                .start(start_mul_lane0),
+                .init_count(init_count_lane0),
+                .a(a_lane0),
+                .b(b_lane0),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .is_bm_a(is_bm_a_lane0),
+                .is_bm_b(is_bm_b_lane0),
+                .prod_bit(mul_prod_bit_lane0),
+                .exp_sum(mul_exp_sum_lane0),
+                .sign(mul_sign_lane0),
+                .busy(mul_busy_lane0)
+            );
+
+            wire signed_aligned_prod_bit_lane0;
+            fp8_aligner_serial #(
+                .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
+                .SERIAL_K_FACTOR(SERIAL_K_FACTOR)
+            ) aligner_lane0_serial (
+                .clk(clk),
+                .rst_n(rst_n),
+                .strobe(strobe),
+                .exp_sum(exp_sum_lane0_adj[6] ? {3'b111, exp_sum_lane0_adj} : {3'b000, exp_sum_lane0_adj}),
+                .sign_in(mul_sign_lane0),
+                .mul_prod_bit(mul_prod_bit_lane0),
+                .mul_busy(mul_busy_lane0),
+                .start_mul(start_mul_lane0),
+                .init_count(init_count_lane0),
+                .data_out_bit(signed_aligned_prod_bit_lane0)
+            );
+
+            assign mul_prod_lane1 = 16'd0;
+            assign mul_exp_sum_lane1 = 7'd0;
+            assign mul_sign_lane1 = 1'b0;
+        end else if (USE_LNS_MUL) begin : lns_gen
             fp8_mul_lns #(
                 .SUPPORT_E5M2(SUPPORT_E5M2),
                 .SUPPORT_MXFP6(SUPPORT_MXFP6),
@@ -528,21 +585,40 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
 
-    accumulator #(
-        .WIDTH(ACCUMULATOR_WIDTH)
-    ) acc_inst (
-        .clk(clk),
-        .rst_n(rst_n),
-        .clear(acc_clear),
-        .en(acc_en),
-        .overflow_wrap(overflow_wrap),
-        .data_in(aligned_combined),
-        .load_en(ena && strobe && logical_cycle == capture_cycle),
-        .load_data(final_scaled_result),
-        .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
-        .shift_out(acc_shift_out),
-        .data_out(acc_out)
-    );
+    generate
+        if (SUPPORT_SERIAL) begin : gen_serial_acc
+            accumulator_serial #(
+                .WIDTH(ACCUMULATOR_WIDTH)
+            ) acc_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .strobe(strobe),
+                .clear(acc_clear),
+                .data_in_bit(gen_serial_datapath.signed_aligned_prod_bit_lane0),
+                .load_en(ena && strobe && logical_cycle == capture_cycle),
+                .load_data(final_scaled_result),
+                .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
+                .shift_out(acc_shift_out),
+                .data_out(acc_out)
+            );
+        end else begin : gen_parallel_acc
+            accumulator #(
+                .WIDTH(ACCUMULATOR_WIDTH)
+            ) acc_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .clear(acc_clear),
+                .en(acc_en),
+                .overflow_wrap(overflow_wrap),
+                .data_in(aligned_combined),
+                .load_en(ena && strobe && logical_cycle == capture_cycle),
+                .load_data(final_scaled_result),
+                .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
+                .shift_out(acc_shift_out),
+                .data_out(acc_out)
+            );
+        end
+    endgenerate
 
     // 6. Output Logic
     assign uo_out = (state == STATE_OUTPUT && logical_cycle > capture_cycle) ? acc_shift_out : 8'h00;
