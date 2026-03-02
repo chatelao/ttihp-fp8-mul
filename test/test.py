@@ -221,7 +221,7 @@ def get_param(dut, name, default=1):
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
-                        is_bm_a=False, is_bm_b=False, support_mxplus=False):
+                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0):
     # Fallback for unsupported formats in hardware
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
@@ -246,6 +246,9 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if (inta and a_bits == 0) or (intb and b_bits == 0):
         return 0
 
+    adj_a = 0 if is_bm_a else offset_a
+    adj_b = 0 if is_bm_b else offset_b
+
     if use_lns:
         if inta or intb: return 0 # No INT8 support in LNS mode
         if use_lns_precise:
@@ -266,7 +269,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         carry = m_sum >> 3
         m_res = m_sum & 0x7
         prod = (8 + m_res) << 3
-        exp_sum = ea + eb - (ba + bb - 7) + carry
+        exp_sum = ea + eb - (ba + bb - 7) + carry - adj_a - adj_b
     else:
         real_ma = ma if not inta else ma
         real_mb = mb if not intb else mb
@@ -276,7 +279,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
             real_mb = real_mb & 0xF
 
         prod = real_ma * real_mb
-        exp_sum = ea + eb - (ba + bb - 7)
+        exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
 
     return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
 
@@ -289,27 +292,28 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0):
     # Enforce parameter constraints in model
-    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
         format_b = format_a
 
-    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    support_mxplus_hw = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    support_mxplus = support_mxplus_hw and mx_plus_mode
     support_packing = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
     support_serial = get_param(dut, "SUPPORT_PACKED_SERIAL", 0)
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
     actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
-    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 0)
     if not support_adv:
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
-    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
@@ -317,8 +321,12 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = (bm_index_a & 0x1F) if support_mxplus else 0
+    if support_mxplus_hw:
+        dut.ui_in.value = (nbm_offset_b & 0x7)
+        dut.uio_in.value = (bm_index_a & 0x1F) | ((nbm_offset_a & 0x7) << 5)
+    else:
+        dut.ui_in.value = 0
+        dut.uio_in.value = 0
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
@@ -326,7 +334,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Cycle 1: Load Scale A and Format/Numerical Control
     dut.ui_in.value = scale_a
-    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6)
+    # For MX+, we use bit 7 of Cycle 1 to enable the extension semantics.
+    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
     await ClockCycles(dut.clk, 1)
 
     # Cycle 2: Load Scale B and Format B
@@ -345,7 +354,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
                                    support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
-                                   is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus)
+                                   is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
+                                   offset_a=nbm_offset_a, offset_b=nbm_offset_b)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -396,7 +406,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, 1)
 
     # Calculate expected final result after shared scaling
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
@@ -629,6 +639,9 @@ async def test_fast_start_scale_compression(dut):
     a_elements = [0x38] * 32 # 1.0
     b_elements = [0x38] * 32
 
+    support_mxplus_hw = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
+
     # 1. Normal Start
     await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b)
 
@@ -636,26 +649,34 @@ async def test_fast_start_scale_compression(dut):
     # We can't use run_mac_test as is because it does a reset.
     # Manual protocol for fast start:
 
-    support_shared = get_param(getattr(dut.user_project, "ENABLE_SHARED_SCALING", None), "ENABLE_SHARED_SCALING", 1)
-    support_int8 = get_param(getattr(dut.user_project, "SUPPORT_INT8", None), "SUPPORT_INT8", 1)
-    use_lns_precise = get_param(getattr(dut.user_project, "USE_LNS_MUL_PRECISE", None), "USE_LNS_MUL_PRECISE", 0)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+    use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
     await ClockCycles(dut.clk, 1)
 
     # Now at Cycle 3
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
-    use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
-    aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    use_lns = get_param(dut, "USE_LNS_MUL", 0)
+    aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
                                    support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
-        expected_acc += prod
+
+        mask = (1 << acc_width) - 1
+        acc_masked = expected_acc & mask
+        prod_masked = prod & mask
+        sum_masked = (acc_masked + prod_masked) & mask
+        if sum_masked & (1 << (acc_width - 1)):
+            expected_acc = sum_masked - (1 << acc_width)
+        else:
+            expected_acc = sum_masked
 
     if support_shared:
         shared_exp = scale_a + scale_b - 254
@@ -699,13 +720,13 @@ async def run_yaml_file(dut, filename):
         return
 
     # Detect hardware support
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
-    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
-    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
-    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 0)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     for case in cases:
@@ -759,7 +780,10 @@ async def run_yaml_file(dut, filename):
                            expected_override=expected,
                            packed_mode=inputs.get('packed_mode', 0),
                            bm_index_a=inputs.get('bm_index_a', 0),
-                           bm_index_b=inputs.get('bm_index_b', 0))
+                           bm_index_b=inputs.get('bm_index_b', 0),
+                           nbm_offset_a=inputs.get('nbm_offset_a', 0),
+                           nbm_offset_b=inputs.get('nbm_offset_b', 0),
+                           mx_plus_mode=inputs.get('mx_plus_mode', 0))
 
 @cocotb.test()
 async def test_yaml_cases(dut):

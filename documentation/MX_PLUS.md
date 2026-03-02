@@ -109,7 +109,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
 
 ## Phase 4: MX++ Support (Advanced Scaling)
 
-### Step 6: Decoupled Shared Scaling
+### Step 6: Decoupled Shared Scaling (Status: **COMPLETED**)
 - **Goal**: Implement **MX++**, which allows Non-Block Max (NBM) elements to use a finer quantization grid.
 - **Preparation**:
   - Implement a 3-bit subtractor to calculate the `shared_exp_nbm = shared_exp - offset`.
