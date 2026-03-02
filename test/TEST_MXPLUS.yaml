@@ -222,3 +222,48 @@
     a_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
     b_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
   expected_output: 6896
+- test_case: 7
+  comment: MXFP4+ (E2M1) BM at mid-block index 15. a[15]=7.5, b[15]=7.5. Others 1.0.
+    Sum = 7.5*7.5 + 31 = 87.25. Fixed = 22336.
+  disabled: false
+  inputs:
+    mx_plus_mode: 1
+    format_a: 4
+    format_b: 4
+    bm_index_a: 15
+    bm_index_b: 15
+    scale_a: 127
+    scale_b: 127
+    a_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 7, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    b_elements: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 7, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+  expected_output: 22336
+- test_case: 8
+  comment: Mixed formats. E4M3+ x E2M1+. a[0] is BM(0x7F), b[0] is BM(0x07).
+    Others 1.0. Total = 987136 (Fixed).
+  disabled: false
+  inputs:
+    mx_plus_mode: 1
+    format_a: 0
+    format_b: 4
+    bm_index_a: 0
+    bm_index_b: 0
+    scale_a: 127
+    scale_b: 127
+    a_elements: [127, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56, 56]
+    b_elements: [7, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+  expected_output: 987136
+- test_case: 9
+  comment: Repurposed exponents edge cases (min value). a[0]=BM(0x00), b[0]=BM(0x00).
+    Others 0.0. Total = 262144 (Fixed).
+  disabled: false
+  inputs:
+    mx_plus_mode: 1
+    format_a: 0
+    format_b: 4
+    bm_index_a: 0
+    bm_index_b: 0
+    scale_a: 127
+    scale_b: 127
+    a_elements: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    b_elements: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+  expected_output: 262144
