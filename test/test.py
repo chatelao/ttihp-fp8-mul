@@ -215,7 +215,9 @@ def get_param(dut, name, default=1):
     "SUPPORT_MX_PLUS": 0,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
-        "USE_LNS_MUL_PRECISE": 0
+        "USE_LNS_MUL_PRECISE": 0,
+        "SUPPORT_SERIAL": 0,
+        "SERIAL_K_FACTOR": 8
     }
     return defaults.get(name, default)
 
@@ -290,6 +292,10 @@ async def reset_dut(dut):
     await ClockCycles(dut.clk, 1)
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0):
+    support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
+    serial_k = get_param(dut, "SERIAL_K_FACTOR", 8)
+    cycles_per_element = serial_k if support_serial else 1
+
     # Enforce parameter constraints in model
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
     if not support_mixed:
@@ -371,7 +377,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         for i in range(16):
             dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
             dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
-            await ClockCycles(dut.clk, 1)
+            await ClockCycles(dut.clk, cycles_per_element)
     elif actual_serial:
         for i in range(16):
             # Odd cycle: send packed byte
@@ -385,7 +391,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         for i in range(32):
             dut.ui_in.value = a_elements[i]
             dut.uio_in.value = b_elements[i]
-            await ClockCycles(dut.clk, 1)
+            await ClockCycles(dut.clk, cycles_per_element)
 
     # Pipeline flush for last element
     dut.ui_in.value = 0
@@ -414,7 +420,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     for i in range(4):
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, 1)
+        await ClockCycles(dut.clk, cycles_per_element)
 
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
@@ -645,6 +651,10 @@ async def test_fast_start_scale_compression(dut):
     await ClockCycles(dut.clk, 1)
 
     # Now at Cycle 3
+    support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
+    serial_k = get_param(dut, "SERIAL_K_FACTOR", 8)
+    cycles_per_element = serial_k if support_serial else 1
+
     support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
     use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
@@ -668,7 +678,7 @@ async def test_fast_start_scale_compression(dut):
     for i in range(32):
         dut.ui_in.value = a_elements[i]
         dut.uio_in.value = b_elements[i]
-        await ClockCycles(dut.clk, 1)
+        await ClockCycles(dut.clk, cycles_per_element)
 
     await ClockCycles(dut.clk, 2) # Flush + Shared Scale
 
@@ -676,7 +686,7 @@ async def test_fast_start_scale_compression(dut):
     for i in range(4):
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, 1)
+        await ClockCycles(dut.clk, cycles_per_element)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final

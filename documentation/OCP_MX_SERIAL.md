@@ -11,28 +11,36 @@ The fundamental principle of SERV is that any N-bit operation can be decomposed 
 - **1-Bit Datapath**: All arithmetic (addition, multiplication, shifting) is performed using 1-bit full adders and minimal control logic.
 - **Latency-Area Tradeoff**: An 8-bit multiplication that takes 1 cycle in a parallel multiplier will take ~64 cycles in a bit-serial multiplier, but use ~1/10th of the area.
 
-## 3. Bit-Serial Architecture
+## 3. Interface Consistency
+To maintain compatibility with existing host controllers and the Tiny Tapeout 8-bit I/O, the **external interface remains identical**:
+- **8-bit `ui_in`**: Still used for Scales and Element data.
+- **8-bit `uio_in`**: Still used for Control/Format and Element data.
+- **8-bit `uo_out`**: Still used for the 32-bit serialized result.
 
-### 3.1. Serial Decoder
+The only change from the outside is the **timing**: the number of clock cycles between data loads or stores increases by a factor of $K$ (where $K$ is the serialization factor, typically 8 for bit-serial operations).
+
+## 4. Bit-Serial Architecture
+
+### 4.1. Serial Decoder
 Instead of a parallel decoder that unpacks S, E, and M fields in one cycle, the serial decoder processes the 8-bit input stream bit-by-bit:
 - **State-Based Field Extraction**: A small FSM tracks the bit position and routes the incoming bit to the appropriate serial exponent or mantissa shift register.
 - **On-the-fly Bias Correction**: Exponent bias subtraction is performed using a bit-serial subtractor as the exponent bits arrive.
 
-### 3.2. Bit-Serial Multiplier
+### 4.2. Bit-Serial Multiplier
 The mantissa multiplication ($M_A \times M_B$) is implemented using a **Serial-Parallel** or **Purely Serial** multiplier:
 - **Shift-and-Add**: A 1-bit full adder and a carry flip-flop perform the multiplication over multiple cycles.
 - **Width**: For MXFP8 (E4M3), a 4-bit mantissa multiplication takes 16 cycles.
 
-### 3.3. Serial Aligner (The Bit-Serial Shifter)
+### 4.3. Serial Aligner (The Bit-Serial Shifter)
 Alignment is the most area-intensive part of the parallel design due to the barrel shifter. In a bit-serial design:
 - **Delayed Start**: The product stream is delayed by a number of cycles proportional to the required shift amount.
 - **Counter-Based Alignment**: A counter tracks the alignment shift, and the bit-serial stream is gated or delayed until the correct bit position is reached.
 
-### 3.4. Serial Accumulator
+### 4.4. Serial Accumulator
 - **1-Bit Full Adder**: The aligned product bit-stream is added to the accumulator bit-stream (which is circulating in a shift register) using a single 1-bit full adder.
 - **Carry Handling**: A single "Carry" D-Flip-Flop (DFF) stores the carry-out from bit $n$ to be used in bit $n+1$.
 
-## 4. Operational Protocol (Extended)
+## 5. Operational Protocol (Extended)
 A bit-serial implementation requires a significantly longer protocol than the current 41-cycle version.
 
 | Phase | Parallel Cycles | Serial Cycles (Estimated) | Description |
@@ -42,26 +50,35 @@ A bit-serial implementation requires a significantly longer protocol than the cu
 | **Summation** | 2 | 64 | Final carry propagation and scaling. |
 | **Output** | 4 | 32 | Bit-serial shift-out of 32-bit result. |
 
-## 5. Implementation Roadmap
+## 6. Implementation Roadmap: "Tiny-Serial" Variant
 
-### Phase 1: Serial Component Research
-- **Step 1: Bit-Serial Library**: Develop a library of 1-bit primitives (Serial Adder, Serial Subtractor, Serial Comparator, Serial Multiplier).
-- **Step 2: Shift-Register Memory**: Investigate using IHP SG13G2 latch-based or specialized DFF-based shift registers for area optimization.
+### Step 0: CI/CE Infrastructure (Baseline)
+- [ ] Add `Tiny-Serial` to `.github/workflows/test.yaml` and `gowin.yaml`.
+- [ ] Initialize as a clone of `Ultra-Tiny` (Parallel) with `SUPPORT_SERIAL=1` and `SERIAL_K_FACTOR=1`.
+- [ ] Update `test/test.py` to support variable clock intervals between elements.
 
-### Phase 2: Serial Datapath Development
-- **Step 3: Bit-Serial Multiplier Core**: Implement an 8-bit serial multiplier capable of handling both FP mantissas and INT8 values.
-- **Step 4: The "Serial Aligner"**: Design a logic-delay-based alignment unit that replaces the 32-bit barrel shifter.
-- **Step 5: Serial Accumulator**: Implement the 32-bit (or 40-bit for MX++) accumulator as a circulating shift register with a 1-bit adder.
+### Step 1: Bit-Serial Component Library
+- [ ] Implement `serial_adder.v`, `serial_sub.v`, and `serial_mul.v`.
+- [ ] Verify 1-bit components using cocotb unit tests.
 
-### Phase 3: Control & Integration
-- **Step 6: Serial FSM**: Replace the cycle counter with a more complex nested FSM (Block Cycle -> Element Cycle -> Bit Cycle).
-- **Step 7: IO Interface**: Implement a bit-serial or nibble-serial interface to the host to match the internal datapath width.
+### Step 2: Serial Multiplier Integration
+- [ ] Integrate bit-serial multiplier into `src/project.v`.
+- [ ] Increase `SERIAL_K_FACTOR` to 8 for the multiplication phase.
+- [ ] Maintain parallel alignment and accumulation for initial verification.
 
-### Phase 4: Verification & Benchmarking
-- **Step 8: Bit-Serial Reference Model**: Create a cycle-accurate Python model of the serial execution.
-- **Step 9: Area Comparison**: Compare the gate count of the `OCP-MX-SERIAL` against the `Ultra-Tiny` parallel configuration using `gate_analysis.py`.
+### Step 3: Serial Aligner & Shifter
+- [ ] Implement logic-delay-based alignment.
+- [ ] Replace the 32-bit barrel shifter with the serial aligner.
 
-## 6. Target Metrics
+### Step 4: Serial Accumulator & Decoder
+- [ ] Implement the 32-bit/40-bit accumulator as a circulating shift register.
+- [ ] Implement bit-by-bit format decoding.
+
+### Step 5: Optimization & Hardening
+- [ ] Compare gate count against `Ultra-Tiny` (< 500 gate goal).
+- [ ] Run through GDSII flow to verify 1x1 tile density.
+
+## 7. Target Metrics
 - **Area Goal**: < 500 gates (excluding shift registers).
 - **Tile Target**: 1x1 Tiny Tapeout tile (Sky130 or IHP).
 - **Frequency**: Optimized for 100MHz+ to compensate for high cycle counts.
