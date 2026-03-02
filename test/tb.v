@@ -39,25 +39,8 @@ module tb ();
   parameter USE_LNS_MUL = 0;
   parameter USE_LNS_MUL_PRECISE = 0;
 
-`ifdef GL_TEST
-  // Gate-level simulation instantiation (no parameters)
-  tt_um_chatelao_fp8_multiplier user_project (
-      .ui_in  (ui_in),    // Dedicated inputs
-      .uo_out (uo_out),   // Dedicated outputs
-      .uio_in (uio_in),   // IOs: Input path
-      .uio_out(uio_out),  // IOs: Output path
-      .uio_oe (uio_oe),   // IOs: Enable path (active high: 0=input, 1=output)
-      .ena    (ena),      // enable - goes high when design is selected
-      .clk    (clk),      // clock
-      .rst_n  (rst_n)     // not reset
-  );
-
-  // Expose internal signals for testing
-  wire mul_nan_lane0 = user_project.mul_nan_lane0;
-  wire mul_inf_lane0 = user_project.mul_inf_lane0;
-`else
-  // RTL simulation instantiation (with parameters)
   tt_um_chatelao_fp8_multiplier #(
+`ifndef GL_TEST
       .ALIGNER_WIDTH(ALIGNER_WIDTH),
       .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
       .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -73,6 +56,7 @@ module tb ();
       .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
       .USE_LNS_MUL(USE_LNS_MUL),
       .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+`endif
   ) user_project (
       .ui_in  (ui_in),    // Dedicated inputs
       .uo_out (uo_out),   // Dedicated outputs
@@ -84,7 +68,8 @@ module tb ();
       .rst_n  (rst_n)     // not reset
   );
 
-  // Expose internal signals for testing
+`ifndef GL_TEST
+  // Expose internal signals for testing (only in RTL simulation)
   wire mul_nan_lane0 = user_project.mul_nan_lane0;
   wire mul_inf_lane0 = user_project.mul_inf_lane0;
 `endif

@@ -78,7 +78,7 @@ module fp8_mul #(
                         exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
-                        // E4M3 NaN is 0x7F or 0xFF
+                        // E4M3 NaN: (Exp=15, Mant=7) -> 0x7F or 0xFF
                         nan_out = (data[6:0] == 7'h7F);
                     end
                 end
@@ -185,8 +185,9 @@ module fp8_mul #(
         exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
 
         // Initial NaN/Inf detection (just identification for Subtask 1)
-        nan_res = nan_a || nan_b;
-        inf_res = inf_a || inf_b;
+        // NaN takes precedence over Inf
+        nan_res = nan_a || nan_b || (inf_a && zero_b) || (inf_b && zero_a);
+        inf_res = !nan_res && (inf_a || inf_b);
     end
 
     assign sign = sign_res;

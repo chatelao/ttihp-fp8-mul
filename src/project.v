@@ -120,8 +120,11 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [5:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    wire [5:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
-    wire [5:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
+
+    // Total latency through multiplier (+1) and lane combiner (+1)
+    wire [5:0] acc_latency       = (SUPPORT_PIPELINING ? 6'd2 : 6'd0);
+    wire [5:0] capture_cycle     = (actual_packed_mode ? 6'd20 : 6'd36) + acc_latency;
+    wire [5:0] last_cycle        = (actual_packed_mode ? 6'd24 : 6'd40) + acc_latency;
 
     wire [1:0] state = (cycle_count == 6'd0) ? STATE_IDLE :
                        (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
@@ -426,14 +429,27 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    // break critical path for Gowin in Full build
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined_node = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    reg [ACCUMULATOR_WIDTH-1:0] aligned_combined_reg;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            aligned_combined_reg <= {ACCUMULATOR_WIDTH{1'b0}};
+        end else if (ena) begin
+            aligned_combined_reg <= aligned_combined_node;
+        end
+    end
+
+    // Only use the extra register if pipelining is supported to meet timing on slow targets like Gowin
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = SUPPORT_PIPELINING ? aligned_combined_reg : aligned_combined_node;
 
     // 5. Accumulator Control
-    // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
-    // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = SUPPORT_PIPELINING ?
-                     ((cycle_count >= 6'd4 && cycle_count <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((cycle_count >= 6'd3 && cycle_count <= last_stream_cycle) && (state == STATE_STREAM));
+    // Account for the cycles of latency in the datapath
+    // Multiplier (+1 if pipelined) + Lane combiner register (+1 if pipelined)
+    wire [5:0] acc_start_cycle = 6'd3 + acc_latency;
+    wire [5:0] acc_end_cycle   = last_stream_cycle + acc_latency;
+
+    wire acc_en    = (cycle_count >= acc_start_cycle && cycle_count <= acc_end_cycle) && (state == STATE_STREAM || (SUPPORT_PIPELINING && state == STATE_OUTPUT));
     wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
@@ -485,7 +501,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // 3. Invariants
     always @(posedge clk) begin
         if (rst_n) begin
-            assert(cycle_count <= 6'd40);
+            assert(cycle_count <= 6'd42);
         end
     end
 

@@ -316,6 +316,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
+    support_pipelining = get_param(dut, "SUPPORT_PIPELINING", 0)
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
@@ -393,6 +394,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, 1)
+    if support_pipelining:
+        await ClockCycles(dut.clk, 2) # Extra cycles for lane combiner register and multiplier pipeline
 
     # Shared scaling alignment
     await ClockCycles(dut.clk, 1)
@@ -651,6 +654,7 @@ async def test_fast_start_scale_compression(dut):
     support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
     use_lns = get_param(getattr(dut.user_project, "USE_LNS_MUL", None), "USE_LNS_MUL", 0)
     aligner_width = get_param(getattr(dut.user_project, "ALIGNER_WIDTH", None), "ALIGNER_WIDTH", 40)
+    support_pipelining = get_param(dut, "SUPPORT_PIPELINING", 0)
 
     expected_acc = 0
     support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
@@ -672,7 +676,10 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, 1)
 
-    await ClockCycles(dut.clk, 2) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 1) # Flush
+    if support_pipelining:
+        await ClockCycles(dut.clk, 2) # Extra cycles for datapath latency
+    await ClockCycles(dut.clk, 1) # Shared Scale
 
     actual_acc = 0
     for i in range(4):
@@ -807,39 +814,69 @@ async def test_special_value_detection(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    await reset_dut(dut)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
 
-    # 1. E5M2 NaN (0x7F) and Inf (0x7C)
-    # Cycle 1: Load E5M2 format
-    dut.ui_in.value = 127
-    dut.uio_in.value = 1 # FMT_E5M2
-    await ClockCycles(dut.clk, 1)
+    if support_e5m2:
+        dut._log.info("Testing E5M2 Special Values")
+        # Custom reset to handle Cycle 0 sampling if needed
+        dut.ena.value = 1
+        dut.ui_in.value = 0
+        dut.uio_in.value = 16 if support_mxplus else 0 # bm_index_a = 16
+        dut.rst_n.value = 0
+        await ClockCycles(dut.clk, 10)
+        dut.rst_n.value = 1
+        await ClockCycles(dut.clk, 1)
 
-    # Cycle 2: Load Scale B
-    dut.ui_in.value = 127
-    dut.uio_in.value = 1
-    await ClockCycles(dut.clk, 1)
+        # Cycle 1: Load E5M2 format
+        dut.ui_in.value = 127
+        dut.uio_in.value = 1 # FMT_E5M2
+        await ClockCycles(dut.clk, 1)
 
-    # Cycle 3: Feed elements
-    # a = 0x7F (NaN), b = 0x3C (1.0)
-    dut.ui_in.value = 0x7F
-    dut.uio_in.value = 0x3C
-    await ClockCycles(dut.clk, 1)
+        # Cycle 2: Load Scale B
+        dut.ui_in.value = 127
+        dut.uio_in.value = 1 # FMT_E5M2 (also contains bm_index_b=0)
+        await ClockCycles(dut.clk, 1)
 
-    await Timer(1, "ns")
-    assert dut.mul_nan_lane0.value == 1
-    assert dut.mul_inf_lane0.value == 0
+        # Cycle 3: Feed elements
+        # element 0: a = 0x7F (NaN), b = 0x3C (1.0)
+        # Note: if support_mxplus=1, element 0 is not BM (BM is 16).
+        dut.ui_in.value = 0x7F
+        dut.uio_in.value = 0x3C
+        await ClockCycles(dut.clk, 1)
 
-    # a = 0x7C (Inf), b = 0x3C (1.0)
-    dut.ui_in.value = 0x7C
-    dut.uio_in.value = 0x3C
-    await ClockCycles(dut.clk, 1)
-    await Timer(1, "ns")
-    assert dut.mul_nan_lane0.value == 0
-    assert dut.mul_inf_lane0.value == 1
+        await Timer(1, "ns")
+        try:
+            dut._log.info(f"E5M2 NaN check: nan={dut.mul_nan_lane0.value}, inf={dut.mul_inf_lane0.value}")
+            assert dut.mul_nan_lane0.value == 1
+            assert dut.mul_inf_lane0.value == 0
+        except AttributeError:
+            dut._log.warning("Internal signals not accessible, skipping detailed check")
+
+        # element 1: a = 0x7C (Inf), b = 0x3C (1.0)
+        dut.ui_in.value = 0x7C
+        dut.uio_in.value = 0x3C
+        await ClockCycles(dut.clk, 1)
+        await Timer(1, "ns")
+        try:
+            dut._log.info(f"E5M2 Inf check: nan={dut.mul_nan_lane0.value}, inf={dut.mul_inf_lane0.value}")
+            assert dut.mul_nan_lane0.value == 0
+            assert dut.mul_inf_lane0.value == 1
+        except AttributeError:
+            dut._log.warning("Internal signals not accessible, skipping detailed check")
+    else:
+        dut._log.info("Skipping E5M2 Special Value tests (SUPPORT_E5M2=0)")
 
     # 2. E4M3 NaN (0x7F)
-    await reset_dut(dut)
+    dut._log.info("Testing E4M3 Special Values")
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = 16 if support_mxplus else 0 # bm_index_a = 16
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1)
+
     # Cycle 1: Load E4M3 format
     dut.ui_in.value = 127
     dut.uio_in.value = 0 # FMT_E4M3
@@ -851,4 +888,8 @@ async def test_special_value_detection(dut):
     dut.uio_in.value = 0x38
     await ClockCycles(dut.clk, 1)
     await Timer(1, "ns")
-    assert dut.mul_nan_lane0.value == 1
+    try:
+        dut._log.info(f"E4M3 NaN check: nan={dut.mul_nan_lane0.value}")
+        assert dut.mul_nan_lane0.value == 1
+    except AttributeError:
+        dut._log.warning("Internal signals not accessible, skipping detailed check")
