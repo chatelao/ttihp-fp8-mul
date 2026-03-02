@@ -23,6 +23,9 @@ module tb ();
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
 
+  wire mul_nan_lane0 = user_project.mul_nan_lane0;
+  wire mul_inf_lane0 = user_project.mul_inf_lane0;
+
   parameter ALIGNER_WIDTH = 32;
   parameter ACCUMULATOR_WIDTH = 24;
   parameter SUPPORT_E5M2 = 0;
