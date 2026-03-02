@@ -24,7 +24,9 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MX_PLUS = 0,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SUPPORT_SERIAL = 0,
+    parameter SERIAL_K_FACTOR = 1
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
@@ -42,7 +44,8 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam STATE_STREAM     = 2'b10;
     localparam STATE_OUTPUT     = 2'b11;
 
-    reg [5:0] cycle_count;
+    reg [11:0] cycle_count;
+    wire [11:0] K_val = SUPPORT_SERIAL ? SERIAL_K_FACTOR : 12'd1;
 
     // MXFP Registers
     reg [2:0] format_a;
@@ -72,15 +75,15 @@ module tt_um_chatelao_fp8_multiplier #(
                     nbm_offset_b <= 3'd0;
                     mx_plus_en <= 1'b0;
                 end else if (ena) begin
-                    if (cycle_count == 6'd0 && !ui_in[7]) begin
+                    if (cycle_count == 12'd0 && !ui_in[7]) begin
                         bm_index_a <= uio_in[4:0];
                         nbm_offset_a <= uio_in[7:5];
                         nbm_offset_b <= ui_in[2:0];
                     end
-                    if (cycle_count == 6'd1) begin
+                    if (cycle_count == 12'd1) begin
                         mx_plus_en <= uio_in[7];
                     end
-                    if (cycle_count == 6'd2)
+                    if (cycle_count == 1 + K_val)
                         bm_index_b <= uio_in[7:3];
                 end
             end
@@ -108,7 +111,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [7:0] scale_a;
             always @(posedge clk) begin
                 if (!rst_n) scale_a <= 8'd0;
-                else if (ena && cycle_count == 6'd1) scale_a <= ui_in;
+                else if (ena && cycle_count == 12'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
         end else begin : gen_no_scale_a
@@ -119,7 +122,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [7:0] scale_b;
             always @(posedge clk) begin
                 if (!rst_n) scale_b <= 8'd0;
-                else if (ena && cycle_count == 6'd2) scale_b <= ui_in;
+                else if (ena && cycle_count == 1 + K_val) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
         end else begin : gen_no_scale_b
@@ -130,7 +133,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [2:0] format_b;
             always @(posedge clk) begin
                 if (!rst_n) format_b <= 3'd0;
-                else if (ena && cycle_count == 6'd2) format_b <= uio_in[2:0];
+                else if (ena && cycle_count == 1 + K_val) format_b <= uio_in[2:0];
             end
             assign format_b_val = format_b;
         end else begin : gen_no_format_b
@@ -140,17 +143,17 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
-    wire [5:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    wire [5:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
-    wire [5:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
+    wire [11:0] last_stream_cycle = (actual_packed_mode ? 12'd18 : 12'd34) * K_val;
+    wire [11:0] capture_cycle     = (actual_packed_mode ? 12'd20 : 12'd36) * K_val;
+    wire [11:0] last_cycle        = (actual_packed_mode ? 12'd24 : 12'd40) * K_val;
 
-    wire [1:0] state = (cycle_count == 6'd0) ? STATE_IDLE :
-                       (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
+    wire [1:0] state = (cycle_count == 12'd0) ? STATE_IDLE :
+                       (cycle_count <= 2 * K_val) ? STATE_LOAD_SCALE :
                        (cycle_count <= capture_cycle) ? STATE_STREAM :
                        STATE_OUTPUT;
 
     initial begin
-        cycle_count = 6'd0;
+        cycle_count = 12'd0;
         format_a = 3'd0;
         round_mode = 2'd0;
         overflow_wrap = 1'b0;
@@ -164,7 +167,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // Cycle Counter & FSM Transitions
     always @(posedge clk) begin
         if (!rst_n) begin
-            cycle_count <= 6'd0;
+            cycle_count <= 12'd0;
             format_a <= 3'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
@@ -172,12 +175,12 @@ module tt_um_chatelao_fp8_multiplier #(
         end else if (ena) begin
             // Fast Start (Scale Compression)
             if (state == STATE_IDLE && ui_in[7]) begin
-                cycle_count <= 6'd3;
+                cycle_count <= 2 * K_val + 12'd1;
                 packed_mode <= ui_in[6]; // Capture packed mode from compressed start if needed
             end else begin
-                cycle_count <= (cycle_count == last_cycle) ? 6'd0 : cycle_count + 6'd1;
+                cycle_count <= (cycle_count == last_cycle) ? 12'd0 : cycle_count + 12'd1;
 
-                if (cycle_count == 6'd1) begin
+                if (cycle_count == 12'd1) begin
                     format_a      <= uio_in[2:0];
                     round_mode    <= uio_in[4:3];
                     overflow_wrap <= uio_in[5];
@@ -197,11 +200,16 @@ module tt_um_chatelao_fp8_multiplier #(
     wire mul_sign_lane0, mul_sign_lane1;
 
     reg [3:0] packed_a_buf, packed_b_buf;
+    // In stretched mode, we sample every K cycles
+    wire sample_pulse = ((cycle_count - 12'd1) % K_val == 0);
+
     always @(posedge clk) begin
         if (!rst_n) begin
             packed_a_buf <= 4'd0;
             packed_b_buf <= 4'd0;
-        end else if (ena && actual_packed_serial && cycle_count[0]) begin
+        end else if (ena && actual_packed_serial && sample_pulse && cycle_count[0]) begin
+            // Note: actual_packed_serial uses alternating cycles, might need adjustment if K > 1
+            // For now, assume K=1 for packed_serial or adjust as needed.
             packed_a_buf <= ui_in[7:4];
             packed_b_buf <= uio_in[7:4];
         end
@@ -214,9 +222,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
 
-    // MX+ Centralized Flagging (Step 3)
-    wire [4:0] element_index_lane0 = actual_packed_mode ? { (cycle_count[4:0] - 5'd3), 1'b0 } : (cycle_count[4:0] - 5'd3);
-    wire [4:0] element_index_lane1 = actual_packed_mode ? { (cycle_count[4:0] - 5'd3), 1'b1 } : 5'd0;
+    // MX+ Centralized Flagging (Step 3) - Adjusted for stretched cycles
+    wire [11:0] element_base = (cycle_count - 12'd1) / K_val - 12'd2;
+    wire [4:0] element_index_lane0 = actual_packed_mode ? { element_base[3:0], 1'b0 } : element_base[4:0];
+    wire [4:0] element_index_lane1 = actual_packed_mode ? { element_base[3:0], 1'b1 } : 5'd0;
 
     wire is_bm_a_lane0 = mx_plus_en_val && (state == STATE_STREAM) && (element_index_lane0 == bm_index_a_val);
     wire is_bm_b_lane0 = mx_plus_en_val && (state == STATE_STREAM) && (element_index_lane0 == bm_index_b_val);
@@ -467,12 +476,13 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
 
     // 5. Accumulator Control
-    // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
-    // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
+    // In stretched mode, parallel datapath accumulation triggers at the end of each K-cycle block.
+    wire acc_pulse = SUPPORT_PIPELINING ? ((cycle_count - 12'd1) % K_val == 0) : (cycle_count % K_val == 0);
+
     wire acc_en    = SUPPORT_PIPELINING ?
-                     ((cycle_count >= 6'd4 && cycle_count <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((cycle_count >= 6'd3 && cycle_count <= last_stream_cycle) && (state == STATE_STREAM));
-    wire acc_clear = (cycle_count <= 6'd2) && (state != STATE_STREAM);
+                     (acc_pulse && (cycle_count >= 4 * K_val && cycle_count <= last_stream_cycle + K_val) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     (acc_pulse && (cycle_count >= 3 * K_val && cycle_count <= last_stream_cycle) && (state == STATE_STREAM));
+    wire acc_clear = (cycle_count <= 2 * K_val) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
     wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res :
@@ -489,7 +499,7 @@ module tt_um_chatelao_fp8_multiplier #(
         .data_in(aligned_combined),
         .load_en(ena && cycle_count == capture_cycle),
         .load_data(final_scaled_result),
-        .shift_en(ena && state == STATE_OUTPUT && cycle_count > capture_cycle && cycle_count < last_cycle),
+        .shift_en(ena && state == STATE_OUTPUT && cycle_count > capture_cycle && cycle_count < last_cycle && (cycle_count % K_val == 0)),
         .shift_out(acc_shift_out),
         .data_out(acc_out)
     );
@@ -523,7 +533,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // 3. Invariants
     always @(posedge clk) begin
         if (rst_n) begin
-            assert(cycle_count <= 6'd40);
+            assert(cycle_count <= last_cycle);
         end
     end
 
@@ -532,17 +542,17 @@ module tt_um_chatelao_fp8_multiplier #(
         if (f_past_valid && $past(rst_n) && rst_n) begin
             // Cycle count progression
             if ($past(state) == STATE_IDLE && $past(ui_in[7])) begin
-                assert(cycle_count == 6'd3);
+                assert(cycle_count == 2 * K_val + 12'd1);
                 assert(state == STATE_STREAM);
             end else if ($past(cycle_count) == last_cycle) begin
-                assert(cycle_count == 6'd0);
+                assert(cycle_count == 12'd0);
             end else begin
                 assert(cycle_count == $past(cycle_count) + 1'b1);
             end
 
             // State progression (verified by combinatorial definition)
-            assert(state == ((cycle_count == 6'd0) ? STATE_IDLE :
-                             (cycle_count <= 6'd2) ? STATE_LOAD_SCALE :
+            assert(state == ((cycle_count == 12'd0) ? STATE_IDLE :
+                             (cycle_count <= 2 * K_val) ? STATE_LOAD_SCALE :
                              (cycle_count <= capture_cycle) ? STATE_STREAM :
                              STATE_OUTPUT));
         end
@@ -552,17 +562,17 @@ module tt_um_chatelao_fp8_multiplier #(
     always @(posedge clk) begin
         if (f_past_valid && $past(rst_n) && rst_n) begin
             // format_a, round_mode, overflow_wrap loaded at cycle 1
-            if ($past(cycle_count) != 6'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
+            if ($past(cycle_count) != 12'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
                 assert(format_a      == $past(format_a));
                 assert(round_mode    == $past(round_mode));
                 assert(overflow_wrap == $past(overflow_wrap));
             end
 
             if (SUPPORT_MX_PLUS) begin
-                if ($past(cycle_count) != 6'd0 || ($past(cycle_count) == 6'd0 && $past(ui_in[7]))) begin
+                if ($past(cycle_count) != 12'd0 || ($past(cycle_count) == 12'd0 && $past(ui_in[7]))) begin
                     assert(bm_index_a_val == $past(bm_index_a_val));
                 end
-                if ($past(cycle_count) != 6'd2) begin
+                if ($past(cycle_count) != 1 + K_val) begin
                     assert(bm_index_b_val == $past(bm_index_b_val));
                 end
             end
@@ -572,14 +582,14 @@ module tt_um_chatelao_fp8_multiplier #(
     // 6. Output Gating & Serialization
     always @(*) begin
         if (rst_n) begin
-            if (state != STATE_OUTPUT) begin
+            if (state != STATE_OUTPUT || cycle_count <= capture_cycle) begin
                 assert(uo_out == 8'd0);
             end else begin
-                case (cycle_count - capture_cycle)
-                    6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
-                    6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
-                    6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
-                    6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
+                case ((cycle_count - capture_cycle - 12'd1) / K_val)
+                    12'd0: assert(uo_out == f_scaled_acc_reg[31:24]);
+                    12'd1: assert(uo_out == f_scaled_acc_reg[23:16]);
+                    12'd2: assert(uo_out == f_scaled_acc_reg[15:8]);
+                    12'd3: assert(uo_out == f_scaled_acc_reg[7:0]);
                     default: assert(uo_out == 8'd0);
                 endcase
             end

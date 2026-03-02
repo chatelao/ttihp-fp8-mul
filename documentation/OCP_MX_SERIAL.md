@@ -32,34 +32,36 @@ Alignment is the most area-intensive part of the parallel design due to the barr
 - **1-Bit Full Adder**: The aligned product bit-stream is added to the accumulator bit-stream (which is circulating in a shift register) using a single 1-bit full adder.
 - **Carry Handling**: A single "Carry" D-Flip-Flop (DFF) stores the carry-out from bit $n$ to be used in bit $n+1$.
 
-## 4. Operational Protocol (Extended)
-A bit-serial implementation requires a significantly longer protocol than the current 41-cycle version.
+### 3.5. IO Interface (Hybrid Streaming)
+To maintain backward compatibility with existing system integrations, the bit-serial variant maintains the **8-bit parallel IO interface** (`ui_in`, `uio_in`, `uo_out`).
+- **Input Buffering**: Incoming bytes are captured into a 1-byte shift register and then processed bit-serially over 8 or more clock cycles.
+- **Stretched Protocol**: The host must provide multiple clock cycles between data loads/stores. The internal FSM signals "ready" or simply expects a fixed `K` factor of cycles per element.
 
-| Phase | Parallel Cycles | Serial Cycles (Estimated) | Description |
-|-------|-----------------|---------------------------|-------------|
-| **Metadata** | 2 | 16 | Serial shift-in of Scales and Formats. |
-| **Stream** | 32 | 256 - 1024 | 32 elements processed bit-serially. |
+## 4. Operational Protocol (Stretched)
+A bit-serial implementation requires a significantly longer protocol than the current 41-cycle version. The external interface remains 8-bit, but the time between elements is stretched by `SERIAL_K_FACTOR`.
+
+| Phase | Parallel Cycles | Serial Cycles (K=32) | Description |
+|-------|-----------------|----------------------|-------------|
+| **Metadata** | 2 | 64 | Scales and Formats. |
+| **Stream** | 32 | 1024 | 32 elements processed bit-serially. |
 | **Summation** | 2 | 64 | Final carry propagation and scaling. |
-| **Output** | 4 | 32 | Bit-serial shift-out of 32-bit result. |
+| **Output** | 4 | 128 | 32-bit result shift-out (8 cycles per byte). |
 
-## 5. Implementation Roadmap
+## 5. Implementation Roadmap: Tiny-Serial
 
-### Phase 1: Serial Component Research
-- **Step 1: Bit-Serial Library**: Develop a library of 1-bit primitives (Serial Adder, Serial Subtractor, Serial Comparator, Serial Multiplier).
-- **Step 2: Shift-Register Memory**: Investigate using IHP SG13G2 latch-based or specialized DFF-based shift registers for area optimization.
+### Phase 1: Infrastructure & Baseline
+- **Step 1: Tiny-Serial Variant**: Define a new architectural variant `Tiny-Serial` in CI/CE, initially mirroring `Ultra-Tiny`.
+- **Step 2: Protocol Stretching**: Introduce `SUPPORT_SERIAL` and `SERIAL_K_FACTOR` in `src/project.v`. Update the FSM to spend more cycles in each state, maintaining the same 8-bit IO logic but with increased processing time.
+- **Step 3: Testbench Adaptation**: Update `test/test.py` to handle the stretched protocol when `SUPPORT_SERIAL` is enabled.
 
-### Phase 2: Serial Datapath Development
-- **Step 3: Bit-Serial Multiplier Core**: Implement an 8-bit serial multiplier capable of handling both FP mantissas and INT8 values.
-- **Step 4: The "Serial Aligner"**: Design a logic-delay-based alignment unit that replaces the 32-bit barrel shifter.
-- **Step 5: Serial Accumulator**: Implement the 32-bit (or 40-bit for MX++) accumulator as a circulating shift register with a 1-bit adder.
+### Phase 2: Incremental Serialisation
+- **Step 4: Serial Multiplier Replacement**: Replace the parallel 8-bit multiplier with a bit-serial multiplier. Verify against `Ultra-Tiny` functional tests.
+- **Step 5: Serial Aligner Replacement**: Replace the barrel shifter in `fp8_aligner.v` with a bit-serial alignment unit (delay-line based).
+- **Step 6: Serial Accumulator Replacement**: Replace the parallel accumulator with a circulating shift register and 1-bit adder.
 
-### Phase 3: Control & Integration
-- **Step 6: Serial FSM**: Replace the cycle counter with a more complex nested FSM (Block Cycle -> Element Cycle -> Bit Cycle).
-- **Step 7: IO Interface**: Implement a bit-serial or nibble-serial interface to the host to match the internal datapath width.
-
-### Phase 4: Verification & Benchmarking
-- **Step 8: Bit-Serial Reference Model**: Create a cycle-accurate Python model of the serial execution.
-- **Step 9: Area Comparison**: Compare the gate count of the `OCP-MX-SERIAL` against the `Ultra-Tiny` parallel configuration using `gate_analysis.py`.
+### Phase 3: Optimization & Hardening
+- **Step 7: Shift-Register Memory**: Investigate using IHP SG13G2 latch-based or specialized DFF-based shift registers for area optimization.
+- **Step 8: Gate Analysis**: Continuously monitor gate count using `test/gate_analysis.py` to ensure it stays below the `Ultra-Tiny` baseline.
 
 ## 6. Target Metrics
 - **Area Goal**: < 500 gates (excluding shift registers).

@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        variant: [Full, Lite, Tiny, Ultra-Tiny]
+        config: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -35,14 +35,16 @@ jobs:
 
       - name: Set parameters
         run: |
-          if [ "${{ matrix.variant }}" == "Full" ]; then
+          if [ "${{ matrix.config }}" == "Full" ]; then
             echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1" >> $GITHUB_ENV
-          elif [ "${{ matrix.variant }}" == "Lite" ]; then
+          elif [ "${{ matrix.config }}" == "Lite" ]; then
             echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 1" >> $GITHUB_ENV
-          elif [ "${{ matrix.variant }}" == "Tiny" ]; then
+          elif [ "${{ matrix.config }}" == "Tiny" ]; then
             echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0" >> $GITHUB_ENV
-          elif [ "${{ matrix.variant }}" == "Ultra-Tiny" ]; then
+          elif [ "${{ matrix.config }}" == "Ultra-Tiny" ]; then
             echo "PARAMS=" >> $GITHUB_ENV
+          elif [ "${{ matrix.config }}" == "Tiny-Serial" ]; then
+            echo "PARAMS=-set SUPPORT_SERIAL 1 -set SERIAL_K_FACTOR 8" >> $GITHUB_ENV
           fi
 
       - name: Synthesis
@@ -80,7 +82,7 @@ jobs:
       - name: Pack bitstream
         run: |
           if command -v gowin_pack >/dev/null 2>&1; then
-            gowin_pack -d GW1N-9C -o build/tangnano9k_${{ matrix.variant }}.fs build/gowin_pnr.json
+            gowin_pack -d GW1N-9C -o build/tangnano9k_${{ matrix.config }}.fs build/gowin_pnr.json
           else
             echo "Error: gowin_pack not found"
             exit 1
@@ -89,5 +91,5 @@ jobs:
       - name: Upload bitstream
         uses: actions/upload-artifact@v4
         with:
-          name: gowin_bitstream_${{ matrix.variant }}
-          path: build/tangnano9k_${{ matrix.variant }}.fs
+          name: gowin_bitstream_${{ matrix.config }}
+          path: build/tangnano9k_${{ matrix.config }}.fs

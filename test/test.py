@@ -302,6 +302,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_mxplus = support_mxplus_hw and mx_plus_mode
     support_packing = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
     support_serial = get_param(dut, "SUPPORT_PACKED_SERIAL", 0)
+    support_stretched = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_stretched else 1
+    cycles_per_element = k_factor
+
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
     actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
@@ -336,7 +340,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.ui_in.value = scale_a
     # For MX+, we use bit 7 of Cycle 1 to enable the extension semantics.
     dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
-    await ClockCycles(dut.clk, 1)
+    await ClockCycles(dut.clk, cycles_per_element)
 
     # Cycle 2: Load Scale B and Format B
     dut.ui_in.value = scale_b
@@ -344,7 +348,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
     else:
         dut.uio_in.value = format_b
-    await ClockCycles(dut.clk, 1)
+    await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
     # Process elements in groups of 32
@@ -382,29 +386,29 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         for i in range(16):
             dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
             dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
-            await ClockCycles(dut.clk, 1)
+            await ClockCycles(dut.clk, cycles_per_element)
     elif actual_serial:
         for i in range(16):
             # Odd cycle: send packed byte
             dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
             dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
-            await ClockCycles(dut.clk, 1)
+            await ClockCycles(dut.clk, cycles_per_element)
             # Even cycle: wait (hardware uses buffer)
             # ui_in/uio_in can be anything, they are ignored
-            await ClockCycles(dut.clk, 1)
+            await ClockCycles(dut.clk, cycles_per_element)
     else:
         for i in range(32):
             dut.ui_in.value = a_elements[i]
             dut.uio_in.value = b_elements[i]
-            await ClockCycles(dut.clk, 1)
+            await ClockCycles(dut.clk, cycles_per_element)
 
     # Pipeline flush for last element
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, 1)
+    await ClockCycles(dut.clk, cycles_per_element)
 
     # Shared scaling alignment
-    await ClockCycles(dut.clk, 1)
+    await ClockCycles(dut.clk, cycles_per_element)
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
@@ -425,7 +429,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     for i in range(4):
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, 1)
+        await ClockCycles(dut.clk, cycles_per_element)
 
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
@@ -654,11 +658,14 @@ async def test_fast_start_scale_compression(dut):
     support_int8 = get_param(dut, "SUPPORT_INT8", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
+    support_stretched = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_stretched else 1
+
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
     await ClockCycles(dut.clk, 1)
 
-    # Now at Cycle 3
+    # Now at Cycle 2*K + 1
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
@@ -690,15 +697,15 @@ async def test_fast_start_scale_compression(dut):
     for i in range(32):
         dut.ui_in.value = a_elements[i]
         dut.uio_in.value = b_elements[i]
-        await ClockCycles(dut.clk, 1)
+        await ClockCycles(dut.clk, k_factor)
 
-    await ClockCycles(dut.clk, 2) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Shared Scale
 
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, 1)
+        await ClockCycles(dut.clk, k_factor)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final

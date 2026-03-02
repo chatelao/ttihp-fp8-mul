@@ -36,7 +36,8 @@ def main():
         "SUPPORT_MIXED_PRECISION",
         "SUPPORT_MX_PLUS",
         "ENABLE_SHARED_SCALING",
-        "USE_LNS_MUL"
+        "USE_LNS_MUL",
+        "SUPPORT_SERIAL"
     ]
 
     baseline_params = {f: 1 for f in features}
@@ -81,6 +82,13 @@ def main():
     tiny_gates = get_yosys_stats(tiny_params)
     tiny_delta = tiny_gates - baseline_gates
     print(f"{'Tiny (All Disabled)':<30} | {tiny_gates:<10} | {tiny_delta:<10}")
+
+    tiny_serial_params = tiny_params.copy()
+    tiny_serial_params["SUPPORT_SERIAL"] = 1
+    tiny_serial_params["SERIAL_K_FACTOR"] = 8
+    tiny_serial_gates = get_yosys_stats(tiny_serial_params)
+    tiny_serial_delta = tiny_serial_gates - baseline_gates
+    print(f"{'Tiny-Serial (K=8)':<30} | {tiny_serial_gates:<10} | {tiny_serial_delta:<10}")
 
     ultra_tiny_params = tiny_params.copy()
     ultra_tiny_params["ALIGNER_WIDTH"] = 32
