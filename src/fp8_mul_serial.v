@@ -20,9 +20,8 @@ module fp8_mul_serial #(
     input  wire        is_bm_a,
     input  wire        is_bm_b,
     output reg [15:0]  prod,
-    output reg signed [EXP_SUM_WIDTH-1:0] exp_sum,
-    output reg         sign,
-    output reg         valid
+    output wire signed [EXP_SUM_WIDTH-1:0] exp_sum,
+    output wire        sign
 );
 
     // Format Selection
@@ -171,14 +170,15 @@ module fp8_mul_serial #(
     reg [3:0] bit_cnt;
     reg zero_latched;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_latched;
+    reg signed [EXP_SUM_WIDTH-1:0] exp_sum_output_reg;
     reg sign_latched;
+    reg sign_output_reg;
 
     always @(posedge clk) begin
         if (!rst_n) begin
             prod <= 16'd0;
-            exp_sum <= {EXP_SUM_WIDTH{1'b0}};
-            sign <= 1'b0;
-            valid <= 1'b0;
+            exp_sum_output_reg <= {EXP_SUM_WIDTH{1'b0}};
+            sign_output_reg <= 1'b0;
             p_acc <= 16'd0;
             bit_cnt <= 4'd8;
             ma_reg <= 8'd0;
@@ -189,9 +189,8 @@ module fp8_mul_serial #(
         end else if (strobe) begin
             // 1. Output result of calculation that finished in previous logical cycle
             prod <= zero_latched ? 16'd0 : p_acc;
-            exp_sum <= exp_sum_latched;
-            sign <= sign_latched;
-            valid <= (bit_cnt == 4'd8);
+            exp_sum_output_reg <= exp_sum_latched;
+            sign_output_reg <= sign_latched;
 
             // 2. Prepare for new cycle
             p_acc <= 16'd0;
@@ -216,5 +215,8 @@ module fp8_mul_serial #(
             bit_cnt <= bit_cnt + 4'd1;
         end
     end
+
+    assign exp_sum = exp_sum_output_reg;
+    assign sign = sign_output_reg;
 
 endmodule

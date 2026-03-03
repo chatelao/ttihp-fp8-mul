@@ -169,8 +169,6 @@ module tt_um_chatelao_fp8_multiplier #(
     // Pipelined Parallel: Mul(+1), Aligner(+1), Combined(+1) = +3 LC
     // Serial: Mul(+1), Aligner(+1) = +2 LC
     // Tiny Parallel: +0 LC
-    localparam [11:0] DATAPATH_LATENCY = (SUPPORT_PIPELINING) ? 12'd3 :
-                                         (SUPPORT_SERIAL)     ? 12'd2 : 12'd0;
 
     // Total latency from last element input to capture:
     // Non-pipelined: 1 (flush) + 1 (shared scale) = +2
@@ -323,7 +321,6 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_sign_lane1 = 1'b0;
             end
         end else if (SUPPORT_SERIAL) begin : serial_gen
-            wire mul_lane0_valid;
             fp8_mul_serial #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -345,11 +342,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .valid(mul_lane0_valid)
+                .sign(mul_sign_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
-                wire mul_lane1_valid;
                 fp8_mul_serial #(
                     .SUPPORT_E4M3(SUPPORT_E4M3),
                     .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -371,8 +366,7 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .valid(mul_lane1_valid)
+                    .sign(mul_sign_lane1)
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
@@ -564,26 +558,23 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire [31:0] aligned_lane0_res_comb;
     reg [31:0] aligned_lane0_res;
-    wire aligned_lane0_valid;
     generate
         if (SUPPORT_SERIAL) begin : gen_aligner_lane0_serial
             fp8_aligner_serial #(
-                .WIDTH(ALIGNER_WIDTH),
+                .WIDTH(40), // Robust bit-width
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
             ) aligner_lane0_inst (
                 .clk(clk),
                 .rst_n(rst_n),
-                .en(serial_gen.mul_lane0_valid),
+                .strobe(strobe),
                 .prod(aligner_lane0_in_prod),
                 .exp_sum(aligner_lane0_in_exp),
                 .sign(aligner_lane0_in_sign),
                 .round_mode(round_mode),
                 .overflow_wrap(overflow_wrap),
-                .aligned(aligned_lane0_res_comb),
-                .valid(aligned_lane0_valid)
+                .aligned(aligned_lane0_res_comb)
             );
         end else begin : gen_aligner_lane0_parallel
-            assign aligned_lane0_valid = 1'b1;
             fp8_aligner #(
                 .WIDTH(ALIGNER_WIDTH),
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
@@ -611,28 +602,25 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_off UNUSEDSIGNAL */
     wire [31:0] aligned_lane1_res_comb;
     reg [31:0] aligned_lane1_res;
-    wire aligned_lane1_valid;
     /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             if (SUPPORT_SERIAL) begin : gen_aligner_lane1_serial
                 fp8_aligner_serial #(
-                    .WIDTH(ALIGNER_WIDTH),
+                    .WIDTH(40), // Robust bit-width
                     .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
                 ) aligner_lane1_inst (
                     .clk(clk),
                     .rst_n(rst_n),
-                    .en(serial_gen.gen_lane1.mul_lane1_valid),
+                    .strobe(strobe),
                     .prod({16'd0, mul_prod_lane1_val}),
                     .exp_sum(exp_sum_lane1_adj),
                     .sign(mul_sign_lane1_val),
                     .round_mode(round_mode),
                     .overflow_wrap(overflow_wrap),
-                    .aligned(aligned_lane1_res_comb),
-                    .valid(aligned_lane1_valid)
+                    .aligned(aligned_lane1_res_comb)
                 );
             end else begin : gen_aligner_lane1_parallel
-                assign aligned_lane1_valid = 1'b1;
                 fp8_aligner #(
                     .WIDTH(ALIGNER_WIDTH),
                     .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
@@ -679,7 +667,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // With serial multiplier + serial aligner (+2 LC): products are ready on the strobe of cycle 5.
     // Without pipelining: cycles 3 to last_stream_cycle.
     wire acc_en    = (SUPPORT_PIPELINING ? (strobe && (logical_cycle >= 12'd6 && logical_cycle <= last_stream_cycle + 12'd3) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     (SUPPORT_SERIAL     ? aligned_lane0_valid :
+                     (SUPPORT_SERIAL     ? (strobe && (logical_cycle >= 12'd5 && logical_cycle <= last_stream_cycle + 12'd2) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                                            (strobe && (logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
 
