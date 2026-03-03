@@ -163,8 +163,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [11:0] last_stream_cycle = actual_packed_mode ? 12'd18 : 12'd34;
-    wire [11:0] capture_cycle     = actual_packed_mode ? 12'd20 : 12'd36;
-    wire [11:0] last_cycle        = actual_packed_mode ? 12'd24 : 12'd40;
+    wire [11:0] capture_cycle     = (actual_packed_mode ? 12'd20 : 12'd36) + (SUPPORT_PIPELINING ? 12'd1 : 12'd0);
+    wire [11:0] last_cycle        = (actual_packed_mode ? 12'd24 : 12'd40) + (SUPPORT_PIPELINING ? 12'd1 : 12'd0);
 
     wire [1:0] state = (logical_cycle == 12'd0) ? STATE_IDLE :
                        (logical_cycle <= 12'd2) ? STATE_LOAD_SCALE :
@@ -573,14 +573,28 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined_comb = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    reg [ACCUMULATOR_WIDTH-1:0] aligned_combined;
+    generate
+        if (SUPPORT_PIPELINING) begin : gen_combined_pipeline
+            always @(posedge clk) begin
+                if (!rst_n) aligned_combined <= {ACCUMULATOR_WIDTH{1'b0}};
+                else if (ena && strobe) aligned_combined <= aligned_combined_comb;
+            end
+        end else begin : gen_combined_no_pipeline
+            always @(*) aligned_combined = aligned_combined_comb;
+        end
+    endgenerate
 
     // 5. Accumulator Control
-    // With multiplier pipelining or serial execution, aligned products are ready at cycles 4 to last_stream_cycle+1.
+    // With multiplier pipelining AND aligner pipelining, products are ready at cycles 5 to last_stream_cycle+2.
+    // With just serial/one pipeline, they are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = strobe && ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ?
+    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+                     ((logical_cycle >= 12'd5 && logical_cycle <= last_stream_cycle + 12'd2) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     (SUPPORT_SERIAL ?
                      ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+                     ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;

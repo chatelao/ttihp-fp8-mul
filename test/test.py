@@ -412,6 +412,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Shared scaling alignment
     await ClockCycles(dut.clk, cycles_per_element)
 
+    # If aligner pipelining is enabled, we need one more cycle for the result to reach the accumulator
+    if get_param(dut, "SUPPORT_PIPELINING", 0):
+        await ClockCycles(dut.clk, cycles_per_element)
+
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if support_shared:
@@ -700,6 +704,8 @@ async def test_fast_start_scale_compression(dut):
         await ClockCycles(dut.clk, k_factor)
 
     await ClockCycles(dut.clk, 2 * k_factor) # Flush + Shared Scale
+    if get_param(dut, "SUPPORT_PIPELINING", 0):
+        await ClockCycles(dut.clk, k_factor)
 
     actual_acc = 0
     for i in range(4):
