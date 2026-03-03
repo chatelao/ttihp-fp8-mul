@@ -1,17 +1,33 @@
 name: gds
 
 on:
-  push:
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   gds:
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        variant: [baseline, light, tiny]
+
+    permissions:
+      contents: write
+
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Configure Variant
+        run: python scripts/configure_variant.py ${{ matrix.variant }}
 
       - name: Build GDS
         uses: TinyTapeout/tt-gds-action@ttihp26a
@@ -19,29 +35,45 @@ jobs:
           pdk: ihp-sg13g2
           librelane-version: 3.0.0.dev44
 
-  precheck:
-    needs: gds
-    runs-on: ubuntu-24.04
-    steps:
-      - name: checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
       - name: Run Tiny Tapeout Precheck
         uses: TinyTapeout/tt-gds-action/precheck@ttihp26a
 
-  gl_test:
-    needs: gds
-    runs-on: ubuntu-24.04
-    steps:
-      - name: checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
       - name: GL test
         uses: TinyTapeout/tt-gds-action/gl_test@ttihp26a
+
+      - name: Generate Colored Visualization
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          pip install klayout
+          xvfb-run python3 scripts/gds_colorizer.py
+
+      - name: Prepare Assets
+        run: |
+          mkdir -p release_assets
+          if [ -f gds_colored_zones.png ]; then
+            cp gds_colored_zones.png release_assets/gds_image_${{ matrix.variant }}.png
+          fi
+          # Find and rename GDS/OAS files
+          find . -maxdepth 5 -name "*.gds" -exec cp {} release_assets/gds_${{ matrix.variant }}.gds \;
+          find . -maxdepth 5 -name "*.oas" -exec cp {} release_assets/gds_${{ matrix.variant }}.oas \;
+          ls -R release_assets
+
+      - name: Upload Release Assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release_assets/*.gds
+            release_assets/*.oas
+            release_assets/*.png
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gds_${{ matrix.variant }}
+          path: release_assets/
 
   viewer:
     needs: gds
@@ -57,20 +89,10 @@ jobs:
 
       - name: Download Layout Artifacts
         uses: actions/download-artifact@v4
+        with:
+          name: gds_baseline
 
       - name: Diagnostic Path List
         run: ls -R
-
-      - name: Generate Colored Visualization
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
-          pip install klayout
-          xvfb-run python3 scripts/gds_colorizer.py
-
-      - name: Upload Colored Visualization
-        uses: actions/upload-artifact@v4
-        with:
-          name: gds_colored_zones
-          path: gds_colored_zones.png
 
       - uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
