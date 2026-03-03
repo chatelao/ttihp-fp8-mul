@@ -191,15 +191,15 @@ A bit-serial LNS implementation represents the "logical floor" of OCP MX hardwar
 ## 10. Implementation Roadmap: LNS Evolution & Bit-Serial Integration
 This roadmap outlines the future development phases for LNS-based optimizations in the OCP MX MAC unit.
 
-### 10.1. Phase A: Robustness & Special Value Handling
-*   **NaN/Infinity Propagation**: Currently, LNS log-addition may produce valid-looking results for special values. This phase involves adding element-wise detection for IEEE-754 NaNs and Infinities.
-*   **Sticky Registers**: Implement sticky status registers that latch NaN/Overflow flags during the 32-element block processing.
-*   **Subnormal Support**: Refine the LNS adder to handle subnormal inputs by detecting leading zeros and adjusting the log-base accordingly, or by flushing to zero (FTZ) for area-constrained variants.
+### 10.1. Phase A: Robustness & Special Value Handling [>]
+*   [x] **NaN/Infinity Detection**: Added element-wise detection for IEEE-754 NaNs and Infinities in the bit-serial core.
+*   [ ] **Sticky Registers**: Implement sticky status registers that latch NaN/Overflow flags during the 32-element block processing in the top-level unit.
+*   [x] **Subnormal Support**: Currently handled via Flush-to-Zero (FTZ) to minimize area.
 
-### 10.2. Phase B: Bit-Serial LNS Core (Step 4 Extension)
-*   **Module Development**: Implement `src/fp8_mul_serial_lns.v` using the 1-bit full adder and carry-save synchronization described in Section 9.
-*   **Bias Subtractor**: Integrate a bit-serial bias subtraction stage using a second full-adder/carry-flop pair or a specialized serial subtractor.
-*   **Verification**: Create a dedicated Cocotb testbench for the bit-serial LNS core, validating it against the parallel Mitchell model.
+### 10.2. Phase B: Bit-Serial LNS Core (Step 4 Extension) [x]
+*   [x] **Module Development**: Implement `src/fp8_mul_serial_lns.v` using the 1-bit full adder and carry-save synchronization. Added support for mixed-format alignment and dynamic bias subtraction.
+*   [x] **Bias Subtractor**: Integrate a bit-serial bias subtraction stage using a second full-adder/carry-flop pair or a specialized serial subtractor.
+*   [x] **Verification**: Create a dedicated Cocotb testbench for the bit-serial LNS core, validating it against the parallel Mitchell model.
 
 ### 10.3. Phase C: Serial Integration & Stretched Protocol
 *   **Tiny-Serial Integration**: Swap the existing bit-serial multiplier (if any) or parallel multiplier in the Tiny-Serial variant with the new `fp8_mul_serial_lns`.
