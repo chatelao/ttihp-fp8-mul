@@ -212,9 +212,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // MXFP8 Datapath Integration (Step 12: Pipelining & Scale Compression)
     // ------------------------------------------------------------------------
 
+    // Exponent Width Parameterization (Step 3 of OPTIMIZE_FP4)
+    localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
+                               (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
+
     // 1. Multiplier & Pipeline Stage
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
-    wire signed [6:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
 
     reg [3:0] packed_a_buf, packed_b_buf;
@@ -261,7 +265,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_INT8(SUPPORT_INT8),
                 .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
                 .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
-                .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+                .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
             ) multiplier_lane0 (
                 .a(a_lane0),
                 .b(b_lane0),
@@ -282,7 +287,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .SUPPORT_INT8(SUPPORT_INT8),
                     .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
                     .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
-                    .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+                    .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+                    .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
                 ) multiplier_lane1 (
                     .a(a_lane1),
                     .b(b_lane1),
@@ -296,7 +302,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = 7'd0;
+                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
                 assign mul_sign_lane1 = 1'b0;
             end
         end else begin : std_gen
@@ -307,7 +313,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_MXFP4(SUPPORT_MXFP4),
                 .SUPPORT_INT8(SUPPORT_INT8),
                 .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
-                .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS)
+                .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
             ) multiplier_lane0 (
                 .a(a_lane0),
                 .b(b_lane0),
@@ -327,7 +334,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .SUPPORT_MXFP4(SUPPORT_MXFP4),
                     .SUPPORT_INT8(SUPPORT_INT8),
                     .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
-                    .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS)
+                    .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+                    .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
                 ) multiplier_lane1 (
                     .a(a_lane1),
                     .b(b_lane1),
@@ -341,7 +349,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = 7'd0;
+                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
                 assign mul_sign_lane1 = 1'b0;
             end
         end
@@ -350,7 +358,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // Pipeline registers for multiplier output
     /* verilator lint_off UNUSEDSIGNAL */
     wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
-    wire signed [6:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
     wire mul_sign_lane0_val, mul_sign_lane1_val;
     /* verilator lint_on UNUSEDSIGNAL */
     wire is_bm_a_lane0_val, is_bm_b_lane0_val;
@@ -359,14 +367,14 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
             reg [15:0] mul_prod_lane0_reg;
-            reg signed [6:0] mul_exp_sum_lane0_reg;
+            reg signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_reg;
             reg mul_sign_lane0_reg;
             reg is_bm_a_lane0_reg, is_bm_b_lane0_reg;
 
             always @(posedge clk) begin
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
-                    mul_exp_sum_lane0_reg <= 7'd0;
+                    mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
                     mul_sign_lane0_reg <= 1'b0;
                     is_bm_a_lane0_reg <= 1'b0;
                     is_bm_b_lane0_reg <= 1'b0;
@@ -386,14 +394,14 @@ module tt_um_chatelao_fp8_multiplier #(
 
             if (SUPPORT_VECTOR_PACKING) begin : gen_pipeline_lane1
                 reg [15:0] mul_prod_lane1_reg;
-                reg signed [6:0] mul_exp_sum_lane1_reg;
+                reg signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane1_reg;
                 reg mul_sign_lane1_reg;
                 reg is_bm_a_lane1_reg, is_bm_b_lane1_reg;
 
                 always @(posedge clk) begin
                     if (!rst_n) begin
                         mul_prod_lane1_reg <= 16'd0;
-                        mul_exp_sum_lane1_reg <= 7'd0;
+                        mul_exp_sum_lane1_reg <= {EXP_SUM_WIDTH{1'b0}};
                         mul_sign_lane1_reg <= 1'b0;
                         is_bm_a_lane1_reg <= 1'b0;
                         is_bm_b_lane1_reg <= 1'b0;
@@ -412,7 +420,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign is_bm_b_lane1_val = is_bm_b_lane1_reg;
             end else begin : gen_no_pipeline_lane1
                 assign mul_prod_lane1_val = 16'd0;
-                assign mul_exp_sum_lane1_val = 7'd0;
+                assign mul_exp_sum_lane1_val = {EXP_SUM_WIDTH{1'b0}};
                 assign mul_sign_lane1_val = 1'b0;
                 assign is_bm_a_lane1_val = 1'b0;
                 assign is_bm_b_lane1_val = 1'b0;
@@ -450,12 +458,12 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // MX++ Exponent Offset (Step 6)
     // Subtract offsets if the element is NOT a BM.
-    wire signed [9:0] exp_sum_lane0_adj = {{3{mul_exp_sum_lane0_val[6]}}, mul_exp_sum_lane0_val} -
+    wire signed [9:0] exp_sum_lane0_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0_val} -
                                           (is_bm_a_lane0_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                           (is_bm_b_lane0_val ? 10'd0 : {7'd0, nbm_offset_b_val});
 
     /* verilator lint_off UNUSEDSIGNAL */
-    wire signed [9:0] exp_sum_lane1_adj = {{3{mul_exp_sum_lane1_val[6]}}, mul_exp_sum_lane1_val} -
+    wire signed [9:0] exp_sum_lane1_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane1_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane1_val} -
                                           (is_bm_a_lane1_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
