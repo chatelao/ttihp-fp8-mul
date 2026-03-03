@@ -39,6 +39,8 @@ module fp8_mul_serial #(
                                     (SUPPORT_MXFP6) ? 3 : 2;
     localparam INTERNAL_BIAS_WIDTH = INTERNAL_EXP_WIDTH + 1;
 
+    /* verilator lint_off WIDTHTRUNC */
+    /* verilator lint_off WIDTHEXPAND */
     task automatic decode_operand(
         input [7:0] data,
         input [2:0] fmt,
@@ -146,6 +148,8 @@ module fp8_mul_serial #(
             endcase
         end
     endtask
+    /* verilator lint_on WIDTHTRUNC */
+    /* verilator lint_on WIDTHEXPAND */
 
     // Working Registers
     reg [15:0] p_acc;
@@ -188,15 +192,14 @@ module fp8_mul_serial #(
                 next_sign_reg <= sign_a_wire ^ sign_b_wire;
                 next_zero_reg <= zero_a_wire || zero_b_wire;
                 next_exp_sum_reg <= $signed({2'b0, ea_wire}) + $signed({2'b0, eb_wire}) - ($signed(bias_a_wire) + $signed(bias_b_wire) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'd7}));
-
             end else if (k_cnt < 12'd7) begin
                 // Bit-Serial Shift-and-Add (bits 1 to 6)
                 if (mb_val[k_cnt[2:0]]) begin
-                    p_acc <= p_acc + (ma_val << k_cnt[2:0]);
+                    p_acc <= p_acc + ({8'd0, ma_val} << k_cnt[2:0]);
                 end
             end else if (k_cnt == 12'd7) begin
                 // Bit 7: Complete and Register for the NEXT logical cycle
-                prod <= next_zero_reg ? 16'd0 : (mb_val[7] ? p_acc + (ma_val << 7) : p_acc);
+                prod <= next_zero_reg ? 16'd0 : (mb_val[7] ? p_acc + ({8'd0, ma_val} << 7) : p_acc);
                 exp_sum <= next_exp_sum_reg;
                 sign <= next_sign_reg;
             end
