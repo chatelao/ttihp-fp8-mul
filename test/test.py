@@ -304,8 +304,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_mxplus = support_mxplus_hw and mx_plus_mode
     support_packing = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
     support_serial = get_param(dut, "SUPPORT_PACKED_SERIAL", 0)
+    support_buffering = get_param(dut, "SUPPORT_INPUT_BUFFERING", 0)
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
-    actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
+    actual_buffering = support_buffering and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
+    actual_serial = support_serial and not support_packing and not actual_buffering and packed_mode and (format_a == 4) and (format_b == 4)
 
     # Tiny-Serial timing parameters
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
@@ -389,6 +391,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
             dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
             await ClockCycles(dut.clk, cycles_per_element)
+    elif actual_buffering:
+        for i in range(16):
+            dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
+            dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
+            await ClockCycles(dut.clk, cycles_per_element)
+        # Next 16 cycles, values are ignored
+        dut.ui_in.value = 0
+        dut.uio_in.value = 0
+        await ClockCycles(dut.clk, 16 * cycles_per_element)
     elif actual_serial:
         for i in range(16):
             # Odd cycle: send packed byte
@@ -559,8 +570,8 @@ async def test_mxfp4_packed_serial(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x04] * 32 # 1.0 in E2M1
-    b_elements = [0x04] * 32
+    a_elements = [0x02] * 32 # 1.0 in E2M1
+    b_elements = [0x02] * 32
     # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
@@ -576,8 +587,8 @@ async def test_mxfp4_packed(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x04] * 32 # 1.0 in E2M1
-    b_elements = [0x04] * 32
+    a_elements = [0x02] * 32 # 1.0 in E2M1
+    b_elements = [0x02] * 32
     # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
@@ -811,6 +822,62 @@ async def test_mxplus_yaml(dut):
         dut._log.info("Skipping MX+ YAML Test (SUPPORT_MX_PLUS=0)")
         return
     await run_yaml_file(dut, "TEST_MXPLUS.yaml")
+
+@cocotb.test()
+async def test_mxfp4_input_buffering(dut):
+    # Check if input buffering is supported
+    support_buffering = get_param(getattr(dut.user_project, "SUPPORT_INPUT_BUFFERING", None), "SUPPORT_INPUT_BUFFERING", 0)
+    if not support_buffering:
+        dut._log.info("Skipping Input Buffering FP4 Test (SUPPORT_INPUT_BUFFERING=0)")
+        return
+
+    dut._log.info("Start Input Buffering FP4 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x02] * 32 # 1.0 in E2M1
+    b_elements = [0x02] * 32
+    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
+
+    # Manual protocol to test burst loading
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
+
+    # 1. Reset
+    await reset_dut(dut)
+
+    # 2. Cycle 1: Load Config (packed_mode=1)
+    dut.ui_in.value = 127 # scale_a
+    dut.uio_in.value = 4 | (0 << 3) | (0 << 5) | (1 << 6) # E2M1, TRN, SAT, packed_mode=1
+    await ClockCycles(dut.clk, k_factor)
+
+    # 3. Cycle 2: Load Scale B
+    dut.ui_in.value = 127
+    dut.uio_in.value = 4 # format_b
+    await ClockCycles(dut.clk, k_factor)
+
+    # 4. Burst Load (16 cycles)
+    for i in range(16):
+        dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
+        dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
+        await ClockCycles(dut.clk, k_factor)
+
+    # 5. Idle/Wait (next 16 cycles of streaming phase)
+    # The unit should continue processing from internal buffer
+    dut.ui_in.value = 0xAA # Dummy values to prove they are ignored
+    dut.uio_in.value = 0x55
+    await ClockCycles(dut.clk, 16 * k_factor)
+
+    # 6. Pipeline flush + Result collection
+    await ClockCycles(dut.clk, 2 * k_factor)
+
+    actual_acc = 0
+    for i in range(4):
+        await Timer(1, unit="ns")
+        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        await ClockCycles(dut.clk, k_factor)
+
+    if actual_acc & 0x80000000: actual_acc -= 0x100000000
+    assert actual_acc == 8192
 
 @cocotb.test()
 async def test_mxfp8_subnormals(dut):

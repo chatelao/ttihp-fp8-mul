@@ -23,6 +23,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MIXED_PRECISION = 0,
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
+    parameter SUPPORT_INPUT_BUFFERING = 0,
     parameter SUPPORT_MX_PLUS = 0,
     parameter SUPPORT_SERIAL = 1,
     parameter SERIAL_K_FACTOR = 8,
@@ -77,6 +78,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [2:0] nbm_offset_a_val;
     wire [2:0] nbm_offset_b_val;
     wire       mx_plus_en_val;
+    wire [7:0] buffered_a_lane0;
+    wire [7:0] buffered_b_lane0;
 
     generate
         if (SUPPORT_MX_PLUS) begin : gen_mx_plus
@@ -116,6 +119,36 @@ module tt_um_chatelao_fp8_multiplier #(
             assign nbm_offset_a_val = 3'd0;
             assign nbm_offset_b_val = 3'd0;
             assign mx_plus_en_val = 1'b0;
+        end
+
+        if (SUPPORT_INPUT_BUFFERING) begin : gen_input_buffering
+            reg [7:0] fifo_a [0:15];
+            reg [7:0] fifo_b [0:15];
+            reg [3:0] write_ptr;
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    write_ptr <= 4'd0;
+                end else if (ena && strobe) begin
+                    if (state == STATE_IDLE) begin
+                        write_ptr <= 4'd0;
+                    end else if (state == STATE_STREAM && logical_cycle <= 12'd18) begin
+                        fifo_a[write_ptr] <= ui_in;
+                        fifo_b[write_ptr] <= uio_in;
+                        write_ptr <= write_ptr + 4'd1;
+                    end
+                end
+            end
+
+            wire [3:0] read_ptr = (logical_cycle - 12'd3) >> 1;
+            wire [7:0] a_byte = (logical_cycle == 12'd3) ? ui_in : fifo_a[read_ptr];
+            wire [7:0] b_byte = (logical_cycle == 12'd3) ? uio_in : fifo_b[read_ptr];
+            wire use_low = ((logical_cycle - 12'd3) & 12'd1) == 12'd0;
+
+            assign buffered_a_lane0 = {4'd0, use_low ? a_byte[3:0] : a_byte[7:4]};
+            assign buffered_b_lane0 = {4'd0, use_low ? b_byte[3:0] : b_byte[7:4]};
+        end else begin : gen_no_input_buffering
+            assign buffered_a_lane0 = 8'd0;
+            assign buffered_b_lane0 = 8'd0;
         end
     endgenerate
 
@@ -160,7 +193,8 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
-    wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [11:0] last_stream_cycle = actual_packed_mode ? 12'd18 : 12'd34;
     wire [11:0] capture_cycle     = actual_packed_mode ? 12'd20 : 12'd36;
     wire [11:0] last_cycle        = actual_packed_mode ? 12'd24 : 12'd40;
@@ -233,9 +267,11 @@ module tt_um_chatelao_fp8_multiplier #(
     end
 
     wire [7:0] a_lane0 = actual_packed_mode ? {4'd0, ui_in[3:0]} :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in);
+                        (actual_input_buffering ? buffered_a_lane0 :
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in);
+                        (actual_input_buffering ? buffered_b_lane0 :
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
