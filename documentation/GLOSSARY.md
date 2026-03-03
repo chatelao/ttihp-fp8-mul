@@ -9,6 +9,7 @@ This document provides definitions for terms, acronyms, and concepts used throug
 - **MXINT8**: 8-bit integer formats (standard and symmetric) supported by OCP MX.
 - **E4M3**: An 8-bit float format with 1 sign bit, 4 exponent bits (Bias 7), and 3 mantissa bits.
 - **E5M2**: An 8-bit float format with 1 sign bit, 5 exponent bits (Bias 15), and 2 mantissa bits.
+- **E2M1 (FP4)**: A 4-bit float format with 1 sign bit, 2 exponent bits (Bias 1), and 1 mantissa bit.
 - **UE8M0**: An 8-bit unsigned biased exponent format (Bias 127) used for shared scaling factors.
 - **Block Size (k)**: The number of elements that share a single scaling factor (fixed at 32 in this design).
 - **Shared Scale**: A single scaling factor applied to a block of elements to reduce memory bandwidth.
@@ -18,7 +19,7 @@ This document provides definitions for terms, acronyms, and concepts used throug
 - **BM (Block Max)**: The element with the largest magnitude in a block, whose exponent determines the shared scale.
 - **NBM (Non-Block Max)**: Any element in a block that is not the Block Max.
 - **MX+**: An extension to OCP MX that repurposes the exponent bits of the Block Max element for additional mantissa precision.
-- **MX++**: A further extension allowing Non-Block Max elements to use a finer quantization grid via a shared exponent offset.
+- **MX++**: A further extension allowing Non-Block Max elements to use a finer quantization grid via a shared exponent offset (Decoupled Shared Scaling).
 - **SEZ (Shared Exponent Zero)**: A flushing rule where the entire block is treated as zero if the shared scale is zero.
 - **RNE (Round-to-Nearest-Ties-to-Even)**: A rounding mode that rounds to the nearest value, breaking ties by rounding to the nearest even number.
 - **TRN (Truncate)**: A rounding mode that rounds towards zero.
@@ -27,14 +28,28 @@ This document provides definitions for terms, acronyms, and concepts used throug
 - **SAT (Saturation)**: An overflow handling method that clamps out-of-range values to the maximum or minimum representable values.
 - **WRAP (Wrapping)**: An overflow handling method that uses modulo arithmetic (ignoring overflow bits).
 
+## LNS (Logarithmic Number System)
+
+- **LNS Multiplier**: A multiplier that performs multiplication by adding logarithms.
+- **Mitchell's Approximation**: A linear approximation of $\log_2(1+M) \approx M$, enabling low-area multiplier designs.
+- **Precise LNS**: An LNS implementation that uses a lookup table (LUT) to correct the Mitchell approximation error.
+
+## Bit-Serial & Tiny-Serial
+
+- **Tiny-Serial**: A bit-serial configuration of the OCP MX MAC unit designed for extreme area efficiency.
+- **SERIAL_K_FACTOR**: The scaling factor for internal clock cycles in the bit-serial implementation (e.g., K=8).
+- **Stretched Protocol**: A protocol where each 8-bit data load/unload phase is extended by $K$ internal cycles to allow bit-serial processing.
+- **Strobe**: A control signal that marks the start of a multi-cycle bit-serial operation (e.g., the first bit of a byte).
+
 ## Protocol & Hardware Architecture
 
 - **Streaming MAC**: A Multiply-Accumulate unit that processes elements sequentially over a timed protocol.
 - **Fast Start (Scale Compression)**: A protocol optimization that allows the reuse of previously loaded scales and formats to increase throughput.
-- **Vector Packing**: A potential optimization for 4-bit formats (like MXFP4) where two elements are packed into a single 8-bit input cycle to reduce the transmission phase.
+- **Vector Packing**: An optimization for 4-bit formats (like MXFP4) where two elements are packed into a single 8-bit input cycle.
+- **Input Buffering**: A 16-entry FIFO that allows burst-loading packed 4-bit data in 16 cycles while processing internally over 32 cycles.
 - **Aligner**: Hardware logic that shifts the product of a multiplication to align its binary point with the accumulator.
-- **Accumulator**: A high-precision register (32-bit in this design) that stores the running sum of products.
-- **FSM (Finite State Machine)**: The control logic that manages the 41-cycle operational sequence.
+- **Accumulator**: A high-precision register (24-bit or 32-bit) that stores the running sum of products.
+- **FSM (Finite State Machine)**: The control logic that manages the operational sequence (41 logical cycles).
 
 ## Tooling & Technology
 
@@ -46,8 +61,12 @@ This document provides definitions for terms, acronyms, and concepts used throug
 - **Icarus Verilog**: An open-source Verilog simulation and synthesis tool.
 - **Yosys**: An open-source framework for Verilog RTL synthesis.
 
-## RISC-V Integration
+## RISC-V & SERV Integration
 
+- **SERV**: An award-winning bit-serial RISC-V core.
+- **OCP-MX-V**: A proposed custom RISC-V ISA extension (opcode 0x0b) for OCP MX operations.
+- **Variant A (Extension Interface)**: A coprocessor integration method using SERV's standard extension interface.
+- **Variant B (Internal Snooping)**: A tightly coupled integration method that snoops the 1-bit register file streams directly.
 - **ZvfofpXmin**: A proposed RISC-V extension name for minimal vector floating-point support.
 - **vmxfmt**: A custom CSR (Control and Status Register) proposed to configure OCP MX formats.
 - **vxsat**: The standard RISC-V Vector Fixed-Point Saturation Flag.
