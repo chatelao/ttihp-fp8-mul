@@ -238,18 +238,23 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
                         support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
                         is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0,
                         scale_a=127, scale_b=127, support_shared=False):
-    # Fallback for unsupported formats in hardware
-    if not support_e5m2 and format_a == 1: return 0, False, False, False
-    if not support_e5m2 and format_b == 1: return 0, False, False, False
-    if not support_mxfp6 and format_a in [2, 3]: return 0, False, False, False
-    if not support_mxfp6 and format_b in [2, 3]: return 0, False, False, False
-    if not support_mxfp4 and format_a == 4: return 0, False, False, False
-    if not support_mxfp4 and format_b == 4: return 0, False, False, False
-    if not support_int8 and format_a in [5, 6]: return 0, False, False, False
-    if not support_int8 and format_b in [5, 6]: return 0, False, False, False
+    # Fallback for unsupported formats in hardware: decode as zero.
+    eff_format_a = format_a
+    eff_format_b = format_b
+    eff_a_bits = a_bits
+    eff_b_bits = b_bits
 
-    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
-    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
+    if not support_e5m2 and format_a == 1: eff_a_bits = 0
+    if not support_e5m2 and format_b == 1: eff_b_bits = 0
+    if not support_mxfp6 and format_a in [2, 3]: eff_a_bits = 0
+    if not support_mxfp6 and format_b in [2, 3]: eff_b_bits = 0
+    if not support_mxfp4 and format_a == 4: eff_a_bits = 0
+    if not support_mxfp4 and format_b == 4: eff_b_bits = 0
+    if not support_int8 and format_a in [5, 6]: eff_a_bits = 0
+    if not support_int8 and format_b in [5, 6]: eff_b_bits = 0
+
+    sa, ea, ma, ba, inta, nana, infa = decode_format(eff_a_bits, eff_format_a, is_bm_a, support_mxplus)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format(eff_b_bits, eff_format_b, is_bm_b, support_mxplus)
 
     sign = sa ^ sb
 
@@ -500,6 +505,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     if expected_override is not None:
         expected_final = expected_override
+        if expected_final >= 0x80000000:
+            expected_final -= 0x100000000
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
