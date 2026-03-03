@@ -5,6 +5,7 @@
  */
 
 `include "fp8_mul.v"
+`include "fp8_mul_serial.v"
 `include "fp8_mul_lns.v"
 `include "fp8_aligner.v"
 `include "accumulator.v"
@@ -305,6 +306,59 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
                 assign mul_sign_lane1 = 1'b0;
             end
+        end else if (SUPPORT_SERIAL) begin : serial_gen
+            fp8_mul_serial #(
+                .SUPPORT_E4M3(SUPPORT_E4M3),
+                .SUPPORT_E5M2(SUPPORT_E5M2),
+                .SUPPORT_MXFP6(SUPPORT_MXFP6),
+                .SUPPORT_MXFP4(SUPPORT_MXFP4),
+                .SUPPORT_INT8(SUPPORT_INT8),
+                .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+            ) multiplier_lane0 (
+                .clk(clk),
+                .rst_n(rst_n),
+                .strobe(strobe),
+                .a(a_lane0),
+                .b(b_lane0),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .is_bm_a(is_bm_a_lane0),
+                .is_bm_b(is_bm_b_lane0),
+                .prod(mul_prod_lane0),
+                .exp_sum(mul_exp_sum_lane0),
+                .sign(mul_sign_lane0)
+            );
+            if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
+                fp8_mul_serial #(
+                    .SUPPORT_E4M3(SUPPORT_E4M3),
+                    .SUPPORT_E5M2(SUPPORT_E5M2),
+                    .SUPPORT_MXFP6(SUPPORT_MXFP6),
+                    .SUPPORT_MXFP4(SUPPORT_MXFP4),
+                    .SUPPORT_INT8(SUPPORT_INT8),
+                    .SUPPORT_MIXED_PRECISION(SUPPORT_MIXED_PRECISION),
+                    .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+                    .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+                ) multiplier_lane1 (
+                    .clk(clk),
+                    .rst_n(rst_n),
+                    .strobe(strobe),
+                    .a(a_lane1),
+                    .b(b_lane1),
+                    .format_a(format_a),
+                    .format_b(format_b_val),
+                    .is_bm_a(is_bm_a_lane1),
+                    .is_bm_b(is_bm_b_lane1),
+                    .prod(mul_prod_lane1),
+                    .exp_sum(mul_exp_sum_lane1),
+                    .sign(mul_sign_lane1)
+                );
+            end else begin : no_lane1
+                assign mul_prod_lane1 = 16'd0;
+                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1 = 1'b0;
+            end
         end else begin : std_gen
             fp8_mul #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
@@ -522,9 +576,9 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
 
     // 5. Accumulator Control
-    // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
+    // With multiplier pipelining or serial execution, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+    wire acc_en    = strobe && ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ?
                      ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
