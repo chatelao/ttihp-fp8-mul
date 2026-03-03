@@ -10,7 +10,8 @@ module fp8_mul_lns #(
     parameter SUPPORT_INT8  = 1,
     parameter SUPPORT_MIXED_PRECISION = 1,
     parameter SUPPORT_MX_PLUS = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter EXP_SUM_WIDTH = 7
 )(
     input  wire [7:0] a,
     input  wire [7:0] b,
@@ -19,7 +20,7 @@ module fp8_mul_lns #(
     input  wire       is_bm_a,
     input  wire       is_bm_b,
     output wire [15:0] prod,    // Mantissa product
-    output wire signed [6:0] exp_sum, // Combined exponent (biased)
+    output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign
 );
     // Format Selection
@@ -31,15 +32,20 @@ module fp8_mul_lns #(
     localparam FMT_INT8 = 3'b101;
     localparam FMT_INT8_SYM = 3'b110;
 
+    localparam INTERNAL_EXP_WIDTH = (SUPPORT_E5M2) ? 5 :
+                                    (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 4 :
+                                    (SUPPORT_MXFP6) ? 3 : 2;
+    localparam INTERNAL_BIAS_WIDTH = INTERNAL_EXP_WIDTH + 1;
+
     reg sign_a, sign_b;
-    reg [4:0] ea, eb;
+    reg [INTERNAL_EXP_WIDTH-1:0] ea, eb;
     reg [7:0] ma, mb;
-    reg signed [5:0] bias_a, bias_b;
+    reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_a, bias_b;
     reg zero_a, zero_b;
     reg is_inta, is_intb;
 
     reg [15:0] p_res;
-    reg signed [6:0] exp_sum_res;
+    reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
     reg [3:0] m_sum;
 
@@ -62,83 +68,83 @@ module fp8_mul_lns #(
         input [2:0] fmt,
         input is_bm,
         output reg sign_out,
-        output reg [4:0] exp_out,
+        output reg [INTERNAL_EXP_WIDTH-1:0] exp_out,
         output reg [7:0] mant_out,
-        output reg signed [5:0] bias_out,
+        output reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_out,
         output reg zero_out,
         output reg is_int_out
     );
         begin
             // Defaults for unsupported formats
             sign_out = 1'b0;
-            exp_out = 5'd0;
+            exp_out = {INTERNAL_EXP_WIDTH{1'b0}};
             mant_out = 8'd0;
-            bias_out = 6'sd0;
+            bias_out = {INTERNAL_BIAS_WIDTH{1'b0}};
             zero_out = 1'b1;
             is_int_out = 1'b0;
 
             case (fmt)
                 FMT_E4M3: if (SUPPORT_E4M3) begin
                     sign_out = data[7];
-                    bias_out = 6'sd7;
+                    bias_out = 7;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5'd11; // 15 - 4 (mantissa shift compensation)
+                        exp_out = 11; // 15 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                        exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
                     end
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
                     sign_out = data[7];
-                    bias_out = 6'sd15;
+                    bias_out = 15;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5'd26; // 30 - 4 (mantissa shift compensation)
+                        exp_out = 26; // 30 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:2] == 5'd0) ? 5'd1 : data[6:2];
+                        exp_out = (data[6:2] == 5'd0) ? 1 : data[6:2];
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
                     end
                 end
                 FMT_E3M2: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
-                    bias_out = 6'sd3;
+                    bias_out = 3;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5'd5; // 7 - 2 (mantissa shift compensation)
+                        exp_out = 5; // 7 - 2 (mantissa shift compensation)
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:2] == 3'd0) ? 5'd1 : {2'b0, data[4:2]};
+                        exp_out = (data[4:2] == 3'd0) ? 1 : data[4:2];
                         mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
                         zero_out = (data[4:0] == 5'd0);
                     end
                 end
                 FMT_E2M3: if (SUPPORT_MXFP6) begin
                     sign_out = data[5];
-                    bias_out = 6'sd1;
+                    bias_out = 1;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5'd1; // 3 - 2 (mantissa shift compensation)
+                        exp_out = 1; // 3 - 2 (mantissa shift compensation)
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:3] == 2'd0) ? 5'd1 : {3'b0, data[4:3]};
+                        exp_out = (data[4:3] == 2'd0) ? 1 : data[4:3];
                         mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
                         zero_out = (data[4:0] == 5'd0);
                     end
                 end
                 FMT_E2M1: if (SUPPORT_MXFP4) begin
                     sign_out = data[3];
-                    bias_out = 6'sd1;
+                    bias_out = 1;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5'd3; // No compensation needed (shift 0)
+                        exp_out = 3; // No compensation needed (shift 0)
                         mant_out = {4'b0, 1'b1, data[2:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[2:1] == 2'd0) ? 5'd1 : {3'b0, data[2:1]};
+                        exp_out = (data[2:1] == 2'd0) ? 1 : data[2:1];
                         mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
                         zero_out = (data[2:0] == 3'd0);
                     end
@@ -146,24 +152,24 @@ module fp8_mul_lns #(
                 FMT_INT8: if (SUPPORT_INT8) begin
                     sign_out = data[7];
                     mant_out = data[7] ? -data : data;
-                    exp_out = 5'd0;
-                    bias_out = 6'sd3;
+                    exp_out = 0;
+                    bias_out = 3;
                     zero_out = (data == 8'd0);
                     is_int_out = 1'b1;
                 end
                 FMT_INT8_SYM: if (SUPPORT_INT8) begin
                     sign_out = data[7];
                     mant_out = (data == 8'h80) ? 8'd127 : (data[7] ? -data : data);
-                    exp_out = 5'd0;
-                    bias_out = 6'sd3;
+                    exp_out = 0;
+                    bias_out = 3;
                     zero_out = (data == 8'd0);
                     is_int_out = 1'b1;
                 end
                 default: begin
                     sign_out = data[7];
-                    exp_out = (data[6:3] == 4'd0) ? 5'd1 : {1'b0, data[6:3]};
+                    exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
-                    bias_out = 6'sd7;
+                    bias_out = 7;
                     zero_out = (data[6:0] == 7'd0);
                 end
             endcase
@@ -186,15 +192,15 @@ module fp8_mul_lns #(
         if (is_inta || is_intb) begin
             // Logarithmic multiplication doesn't apply easily to INT8 in this architecture.
             p_res = 16'd0;
-            exp_sum_res = 7'sd0;
+            exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         end else begin
             if (zero_a || zero_b) begin
                 p_res = 16'd0;
-                exp_sum_res = 7'sd0;
+                exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
             end else if (SUPPORT_MX_PLUS && (is_bm_a || is_bm_b)) begin
                 // To maintain the precision benefits of MX+, BM elements use a standard multiplier
                 p_res = ma * mb;
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7);
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
             end else begin
                 if (USE_LNS_MUL_PRECISE) begin
                     m_sum = lns_lut[{ma[2:0], mb[2:0]}];
@@ -204,7 +210,7 @@ module fp8_mul_lns #(
                     m_sum = ma[2:0] + mb[2:0];
                 end
                 p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7) + $signed({6'b0, m_sum[3]});
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7})) + $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
             end
         end
         sign_res = sign_a ^ sign_b;

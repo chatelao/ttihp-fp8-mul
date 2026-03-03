@@ -45,7 +45,7 @@ While FP8 requires a 32-bit or 40-bit accumulator to maintain precision across 3
 - **Action**: Refactor the multiplier in `fp8_mul.v` to use a hierarchical structure that scales its bit-width based on the feature parameters.
 - **Goal**: Automatically instantiate a minimal 2x2 multiplier for FP4-only builds, while preserving 8x8 capability for multi-format builds.
 
-### Step 3: Minimal Exponent Path Refactoring
+### Step 3: Minimal Exponent Path Refactoring (COMPLETED)
 - **Action**: Parameterize the internal exponent bit-width and bias constants throughout the datapath.
 - **Goal**: Shrink the exponent arithmetic logic from 6 bits to 3 bits when only narrow formats are enabled.
 
