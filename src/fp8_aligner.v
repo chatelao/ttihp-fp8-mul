@@ -21,6 +21,7 @@ module fp8_aligner #(
     // Expand shift_amt to handle wider exp_sum
     wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
 
+    /* verilator lint_off ALWCOMBORDER */
     always @(*) begin : align_logic
         reg [WIDTH-1:0] shifted;
         reg [WIDTH-1:0] base;
@@ -112,5 +113,6 @@ module fp8_aligner #(
                 aligned = rounded[31:0];
         end
     end
+    /* verilator lint_on ALWCOMBORDER */
 
 endmodule

@@ -419,7 +419,17 @@ module tt_um_chatelao_fp8_multiplier #(
     wire is_bm_a_lane0_val, is_bm_b_lane0_val;
     wire is_bm_a_lane1_val, is_bm_b_lane1_val;
 
-    wire pipeline_en = ena && (SUPPORT_SERIAL ? strobe : 1'b1);
+    wire pipeline_en;
+    generate
+        if (SUPPORT_SERIAL) begin : gen_pipeline_en_serial
+            assign pipeline_en = ena && strobe;
+        end else begin : gen_pipeline_en_par
+            assign pipeline_en = ena;
+        end
+    endgenerate
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire pipeline_en_unused = pipeline_en;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
@@ -576,21 +586,15 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] aligned0_truncated = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] aligned1_truncated = aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned0_truncated + aligned1_truncated;
 
     // 5. Accumulator Control
     // With multiplier pipelining or serial execution, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en;
-    generate
-        if (SUPPORT_SERIAL) begin : gen_acc_en_serial
-            assign acc_en = strobe && ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT));
-        end else if (SUPPORT_PIPELINING) begin : gen_acc_en_pipe
-            assign acc_en = (logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT);
-        end else begin : gen_acc_en_std
-            assign acc_en = (logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM);
-        end
-    endgenerate
+    wire is_active = (logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle + 12'd1);
+    wire acc_en = strobe && is_active && (SUPPORT_PIPELINING || SUPPORT_SERIAL ? logical_cycle >= 12'd4 : logical_cycle <= last_stream_cycle);
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
