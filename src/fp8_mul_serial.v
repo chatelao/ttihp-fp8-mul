@@ -46,6 +46,8 @@ module fp8_mul_serial #(
     reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_a_tmp, bias_b_tmp;
     reg zero_a_tmp, zero_b_tmp;
 
+    /* verilator lint_off WIDTHTRUNC */
+    /* verilator lint_off WIDTHEXPAND */
     task automatic decode_op(
         input [7:0] data,
         input [2:0] fmt,
@@ -71,7 +73,7 @@ module fp8_mul_serial #(
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:3] == 4'd0) ? 1 : {{(INTERNAL_EXP_WIDTH-4){1'b0}}, data[6:3]};
+                        exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
                     end
@@ -84,7 +86,7 @@ module fp8_mul_serial #(
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:2] == 5'd0) ? 1 : {{(INTERNAL_EXP_WIDTH-5){1'b0}}, data[6:2]};
+                        exp_out = (data[6:2] == 5'd0) ? 1 : data[6:2];
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
                     end
@@ -97,7 +99,7 @@ module fp8_mul_serial #(
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:2] == 3'd0) ? 1 : {{(INTERNAL_EXP_WIDTH-3){1'b0}}, data[4:2]};
+                        exp_out = (data[4:2] == 3'd0) ? 1 : data[4:2];
                         mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
                         zero_out = (data[4:0] == 5'd0);
                     end
@@ -110,7 +112,7 @@ module fp8_mul_serial #(
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:3] == 2'd0) ? 1 : {{(INTERNAL_EXP_WIDTH-2){1'b0}}, data[4:3]};
+                        exp_out = (data[4:3] == 2'd0) ? 1 : data[4:3];
                         mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
                         zero_out = (data[4:0] == 5'd0);
                     end
@@ -123,7 +125,7 @@ module fp8_mul_serial #(
                         mant_out = {4'b0, 1'b1, data[2:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[2:1] == 2'd0) ? 1 : {{(INTERNAL_EXP_WIDTH-2){1'b0}}, data[2:1]};
+                        exp_out = (data[2:1] == 2'd0) ? 1 : data[2:1];
                         mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
                         zero_out = (data[2:0] == 3'd0);
                     end
@@ -144,7 +146,7 @@ module fp8_mul_serial #(
                 end
                 default: begin
                     sign_out = data[7];
-                    exp_out = (data[6:3] == 4'd0) ? 1 : {{(INTERNAL_EXP_WIDTH-4){1'b0}}, data[6:3]};
+                    exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 7;
                     zero_out = (data[6:0] == 7'd0);
@@ -152,6 +154,8 @@ module fp8_mul_serial #(
             endcase
         end
     endtask
+    /* verilator lint_on WIDTHTRUNC */
+    /* verilator lint_on WIDTHEXPAND */
 
     always @(*) begin
         decode_op(a, format_a, is_bm_a, sign_a_tmp, ea_tmp, ma_tmp, bias_a_tmp, zero_a_tmp);
@@ -207,7 +211,11 @@ module fp8_mul_serial #(
     assign prod = (zero_a_reg || zero_b_reg) ? 16'd0 : accumulator;
     assign sign = sign_a_reg ^ sign_b_reg;
 
-    wire signed [EXP_SUM_WIDTH-1:0] bias_offset = 7;
-    assign exp_sum = $signed({1'b0, ea_reg}) + $signed({1'b0, eb_reg}) - ($signed(bias_a_reg) + $signed(bias_b_reg) - bias_offset);
+    wire signed [EXP_SUM_WIDTH-1:0] ea_s = $signed({1'b0, ea_reg});
+    wire signed [EXP_SUM_WIDTH-1:0] eb_s = $signed({1'b0, eb_reg});
+    /* verilator lint_off WIDTHEXPAND */
+    wire signed [EXP_SUM_WIDTH-1:0] b_sum = $signed(bias_a_reg) + $signed(bias_b_reg);
+    /* verilator lint_on WIDTHEXPAND */
+    assign exp_sum = ea_s + eb_s - (b_sum - 7);
 
 endmodule
