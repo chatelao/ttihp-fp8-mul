@@ -32,19 +32,19 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 ### 1.2. Recommended Refactorings
 
 #### Multiplier Core (`fp8_mul.v`)
-- [x] **Conditional Decoding**: Use logic pruning based on `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
-- [x] **Bias Simplification**: Bias logic is simplified based on supported formats.
-- [x] **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
+- **Conditional Decoding**: Use logic pruning based on `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
+- **Bias Simplification**: Bias logic is simplified based on supported formats.
+- **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
 
 #### Product Aligner (`fp8_aligner.v`)
-- [x] **Configurable Rounding**: Logic for `R_CEL` and `R_FLR` is pruned if `SUPPORT_ADV_ROUNDING` is disabled.
-- [x] **Internal Bit-width**: Fully parameterize the internal registers using `ALIGNER_WIDTH`.
+- **Configurable Rounding**: Logic for `R_CEL` and `R_FLR` is pruned if `SUPPORT_ADV_ROUNDING` is disabled.
+- **Internal Bit-width**: Fully parameterize the internal registers using `ALIGNER_WIDTH`.
 
 #### Top-Level Integration (`project.v`)
-- [x] **FSM Guarding**: Shared scaling logic and absolute value logic (`acc_abs_val`) are conditionally enabled via `ENABLE_SHARED_SCALING`.
-- [x] **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b`, `scale_b`, and multiplier pipeline.
-- [x] **Fast Start Logic**: Verified correctness with all parameter variants.
-- [x] **FSM State Register Elimination**: The `state` register was removed and replaced with combinatorial logic derived from `cycle_count`.
+- **FSM Guarding**: Shared scaling logic and absolute value logic (`acc_abs_val`) are conditionally enabled via `ENABLE_SHARED_SCALING`.
+- **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b`, `scale_b`, and multiplier pipeline.
+- **Fast Start Logic**: Verified correctness with all parameter variants.
+- **FSM State Register Elimination**: The `state` register was removed and replaced with combinatorial logic derived from `cycle_count`.
 
 ## 2. Die Size Analysis (Optimized Architecture)
 
@@ -68,47 +68,47 @@ The implementation has been refactored to support aggressive area optimizations,
 
 ## 3. Implemented Optimizations for 1x1 Tile
 
-### Optimization 1: Downsize the Aligner Path (Status: **COMPLETED**)
+### Optimization 1: Downsize the Aligner Path
 - **Change**: Narrowed the internal datapath via the `ALIGNER_WIDTH` parameter.
 - **Impact**: Reducing from 40-bit to 32-bit (combined with 24-bit accumulator) saves **~259 gates**.
 
-### Optimization 2: Offload Shared Scaling to Software (Status: **COMPLETED**)
+### Optimization 2: Offload Shared Scaling to Software
 - **Change**: Controlled via `ENABLE_SHARED_SCALING` parameter.
 - **Impact**: Removes absolute value logic and complex shift logic, saving **~264 gates**.
 
-### Optimization 3: Format Pruning (Status: **COMPLETED**)
+### Optimization 3: Format Pruning
 - **Change**: Parameters `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
 - **Impact**: Simplifies decoders and exponent logic, saving **~183** and **~50** gates respectively.
 
-### Optimization 4: Simplify Rounding Modes (Status: **COMPLETED**)
+### Optimization 4: Simplify Rounding Modes
 - **Change**: `SUPPORT_ADV_ROUNDING` disables CEIL/FLOOR.
 - **Impact**: Simplifies rounding bit generation, saving **~21 gates**.
 
-### Optimization 5: Remove Mixed-Precision Support (Status: **COMPLETED**)
+### Optimization 5: Remove Mixed-Precision Support
 - **Change**: `SUPPORT_MIXED_PRECISION` shares format for A and B.
 - **Impact**: Eliminates configuration registers and decoders, saving **~107 gates**.
 
-### Optimization 6: Prune INT8 Support (Status: **COMPLETED**)
+### Optimization 6: Prune INT8 Support
 - **Change**: `SUPPORT_INT8` parameter.
 - **Impact**: Shrinks mantissa multiplier from 8x8 to 4x4, saving **~242 gates**.
 
-### Optimization 7: Datapath Depipelining (Status: **COMPLETED**)
+### Optimization 7: Datapath Depipelining
 - **Change**: `SUPPORT_PIPELINING` parameter.
 - **Impact**: Removes pipeline registers, saving **~65 gates**.
 
-### Optimization 8: Accumulator Serialization & Register Reuse (Status: **COMPLETED**)
+### Optimization 8: Accumulator Serialization & Register Reuse
 - **Change**: The accumulator register is refactored to act as a shift-register during the output phase.
 - **Impact**: Eliminates the 32-bit output register (`scaled_acc_reg`), saving ~250 gates.
 
-### Optimization 9: Aggressive Width Pruning (Status: **COMPLETED**)
+### Optimization 9: Aggressive Width Pruning
 - **Change**: Parameterized `ACCUMULATOR_WIDTH`.
 - **Impact**: Reducing accumulation to 24-bit fits the design into the most restricted 1x1 tile targets.
 
-### Optimization 10: Disable Vector Packing (Status: **COMPLETED**)
+### Optimization 10: Disable Vector Packing
 - **Change**: `SUPPORT_VECTOR_PACKING` parameter.
 - **Impact**: Removes the second multiplier/aligner lane. Saves **~2309 gates**.
 
-### Optimization 11: Serial Vector Packing (Status: **COMPLETED**)
+### Optimization 11: Serial Vector Packing
 - **Change**: `SUPPORT_PACKED_SERIAL` parameter.
 - **Impact**: (Deprecated in favor of Input Buffering) Provides a low-area alternative to dual-lane packing.
 
@@ -185,21 +185,9 @@ The implementation has been refactored to support aggressive area optimizations,
 
 To ensure the integrity of all variants, the CI/CD pipeline is updated to test multiple configurations on every build.
 
-- [x] **Parameter Injection**: Support parameter overrides via `COMPILE_ARGS` in the CI pipeline.
-- [x] **GitHub Actions Matrix**: Updated `.github/workflows/test.yaml` to include Full, Lite, Tiny, and Ultra-Tiny variants.
-- [x] **Testbench Adaptations**: Updated `test/test.py` to dynamically detect and skip tests based on hardware parameters.
-
-### Refactoring Progress Checklist
-
-- [x] Parameterize Multiplier Core (`SUPPORT_MXFP6`, `SUPPORT_MXFP4`)
-- [x] Parameterize Product Aligner (`SUPPORT_ADV_ROUNDING`, `ALIGNER_WIDTH`)
-- [x] Parameterize Top-Level (`ENABLE_SHARED_SCALING`, `SUPPORT_MIXED_PRECISION`)
-- [x] Update CI pipeline for parameter injection
-- [x] Update `test/test.py` for dynamic test skipping
-- [x] Verify **Full** Variant
-- [x] Verify **Lite** Variant
-- [x] Verify **Tiny** Variant
-- [x] Verify **Tiny-Serial** Variant
+- **Parameter Injection**: Support parameter overrides via `COMPILE_ARGS` in the CI pipeline.
+- **GitHub Actions Matrix**: Updated `.github/workflows/test.yaml` to include Full, Lite, Tiny, and Ultra-Tiny variants.
+- **Testbench Adaptations**: Updated `test/test.py` to dynamically detect and skip tests based on hardware parameters.
 
 ## 6. Speed and Throughput Analysis
 
