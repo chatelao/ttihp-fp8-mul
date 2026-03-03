@@ -31,6 +31,7 @@ def main():
         "SUPPORT_MXFP6",
         "SUPPORT_MXFP4",
         "SUPPORT_VECTOR_PACKING",
+        "SUPPORT_PACKED_SERIAL",
         "SUPPORT_INT8",
         "SUPPORT_PIPELINING",
         "SUPPORT_ADV_ROUNDING",
@@ -45,6 +46,7 @@ def main():
     baseline_params = {f: 1 for f in features}
     baseline_params["USE_LNS_MUL"] = 0 # Baseline is standard multiplier
     baseline_params["SUPPORT_SERIAL"] = 0 # Baseline is parallel
+    baseline_params["SUPPORT_PACKED_SERIAL"] = 0 # Mutually exclusive with VP/Input Buffering in many configs
     baseline_params["ALIGNER_WIDTH"] = 40
     baseline_params["ACCUMULATOR_WIDTH"] = 32
     baseline_params["USE_LNS_MUL_PRECISE"] = 0
@@ -63,7 +65,7 @@ def main():
 
     for feature in features:
         params = baseline_params.copy()
-        if feature == "USE_LNS_MUL" or feature == "SUPPORT_SERIAL":
+        if feature in ["USE_LNS_MUL", "SUPPORT_SERIAL", "SUPPORT_PACKED_SERIAL"]:
             params[feature] = 1
             label = "Enable " + feature
         else:
@@ -78,7 +80,8 @@ def main():
             print(f"{label:<30} | {'FAILED':<10} | {'N/A':<10}")
 
     tiny_params = {f: 0 for f in features}
-    tiny_params["SUPPORT_MXFP4"] = 1 # MXFP4 enabled in all variants
+    tiny_params["SUPPORT_E4M3"] = 0
+    tiny_params["SUPPORT_MXFP4"] = 0 # Truly minimal
     tiny_params["ALIGNER_WIDTH"] = 40
     tiny_params["ACCUMULATOR_WIDTH"] = 32
     tiny_gates = get_yosys_stats(tiny_params)
@@ -93,6 +96,7 @@ def main():
     print(f"{'Ultra-Tiny (Red. Width)':<30} | {ultra_tiny_gates:<10} | {ultra_tiny_delta:<10}")
 
     tiny_serial_params = ultra_tiny_params.copy()
+    tiny_serial_params["SUPPORT_MXFP4"] = 1 # Re-enable MXFP4 for serial as it's the primary target
     tiny_serial_params["SUPPORT_SERIAL"] = 1
     tiny_serial_gates = get_yosys_stats(tiny_serial_params)
     tiny_serial_delta = tiny_serial_gates - baseline_gates
@@ -100,9 +104,10 @@ def main():
 
     lite_params = baseline_params.copy()
     lite_params["SUPPORT_MXFP6"] = 0
-    lite_params["SUPPORT_MXFP4"] = 0
+    lite_params["SUPPORT_MXFP4"] = 1 # Keep MXFP4 in Lite
     lite_params["SUPPORT_VECTOR_PACKING"] = 0
     lite_params["SUPPORT_ADV_ROUNDING"] = 0
+    lite_params["SUPPORT_MX_PLUS"] = 0
     lite_gates = get_yosys_stats(lite_params)
     lite_delta = lite_gates - baseline_gates
     print(f"{'Lite (MXFP6/4/Adv/VP Off)':<30} | {lite_gates:<10} | {lite_delta:<10}")
