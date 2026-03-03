@@ -131,6 +131,7 @@ The LNS multiplier was verified using the comprehensive Cocotb test suite across
 *   **Mitchell Mode (`USE_LNS_MUL_PRECISE=0`)**: Achieved 100% functional parity with the Python-based Mitchell approximation model. The deterministic 11.1% maximum relative error was confirmed to be correctly modeled and matched in hardware.
 *   **Precise Mode (`USE_LNS_MUL_PRECISE=1`)**: The 64-entry LUT-based approach successfully reduced the approximation error while maintaining functional consistency between the RTL and the verification model.
 *   **MX+ Compatibility**: The hybrid path, which uses standard multiplication for Block Max (BM) elements to preserve precision, was verified to work correctly in conjunction with LNS for non-BM elements.
+*   **Robustness & Special Values**: As of March 2025, Phase A is complete. The design now supports sticky NaN and Infinity tracking across blocks, adheres to the Shared Scale NaN Rule (Scale=0xFF), and generates standardized IEEE-754 Quiet NaN (0x7FC00000) and signed Infinity patterns via a final output override mux.
 
 ### 8.2. Physical Impact Analysis
 Synthesis results (using Yosys) for the isolated multiplier core (`fp8_mul` vs `fp8_mul_lns`) demonstrate significant silicon area savings for non-MX+ configurations.
@@ -191,9 +192,9 @@ A bit-serial LNS implementation represents the "logical floor" of OCP MX hardwar
 ## 10. Implementation Roadmap: LNS Evolution & Bit-Serial Integration
 This roadmap outlines the future development phases for LNS-based optimizations in the OCP MX MAC unit.
 
-### 10.1. Phase A: Robustness & Special Value Handling [>]
-*   [x] **NaN/Infinity Detection**: Added element-wise detection for IEEE-754 NaNs and Infinities in the bit-serial core.
-*   [ ] **Sticky Registers**: Implement sticky status registers that latch NaN/Overflow flags during the 32-element block processing in the top-level unit.
+### 10.1. Phase A: Robustness & Special Value Handling [x]
+*   [x] **NaN/Infinity Detection**: Added element-wise detection for IEEE-754 NaNs and Infinities in parallel and bit-serial cores.
+*   [x] **Sticky Registers**: Implement sticky status registers that latch NaN/Overflow flags during the 32-element block processing in the top-level unit.
 *   [x] **Subnormal Support**: Currently handled via Flush-to-Zero (FTZ) to minimize area.
 
 ### 10.2. Phase B: Bit-Serial LNS Core (Step 4 Extension) [x]

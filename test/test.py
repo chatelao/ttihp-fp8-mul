@@ -8,6 +8,8 @@ import yaml
 import os
 
 def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
+    nan = False
+    inf = False
     if format_val == 0: # E4M3
         sign = (bits >> 7) & 1
         bias = 7
@@ -22,7 +24,9 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             exp = 1 if is_subnormal else exp_field
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 3) | mant_field
-        return sign, exp, mant, bias, is_int
+            if (bits & 0x7F) == 0x7F:
+                nan = True
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 1: # E5M2
         sign = (bits >> 7) & 1
         bias = 15
@@ -38,7 +42,10 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 2) | mant_field
             mant <<= 1 # Align to 4 bits
-        return sign, exp, mant, bias, is_int
+            if exp_field == 0x1F:
+                if mant_field == 0: inf = True
+                else: nan = True
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 2: # E3M2
         sign = (bits >> 5) & 1
         bias = 3
@@ -54,7 +61,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 2) | mant_field
             mant <<= 1 # Align to 4 bits
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 3: # E2M3
         sign = (bits >> 5) & 1
         bias = 1
@@ -69,7 +76,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             exp = 1 if is_subnormal else exp_field
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 3) | mant_field
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 4: # E2M1
         sign = (bits >> 3) & 1
         bias = 1
@@ -85,7 +92,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 1) | mant_field
             mant <<= 2 # Align to 4 bits
-        return sign, exp, mant, bias, is_int
+        return sign, exp, mant, bias, is_int, nan, inf
     elif format_val == 5: # INT8
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -102,9 +109,9 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         bias = 3
         is_int = True
     else: # Default E4M3
-        return decode_format(bits, 0)
+        return decode_format(bits, 0, is_bm, support_mxplus)
 
-    return sign, exp, mant, bias, is_int
+    return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum - 5
@@ -220,28 +227,42 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
                         support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
                         is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0):
     # Fallback for unsupported formats in hardware
-    if not support_e5m2 and format_a == 1: return 0
-    if not support_e5m2 and format_b == 1: return 0
-    if not support_mxfp6 and format_a in [2, 3]: return 0
-    if not support_mxfp6 and format_b in [2, 3]: return 0
-    if not support_mxfp4 and format_a == 4: return 0
-    if not support_mxfp4 and format_b == 4: return 0
-    if not support_int8 and format_a in [5, 6]: return 0
-    if not support_int8 and format_b in [5, 6]: return 0
+    if not support_e5m2 and format_a == 1: return 0, False, False
+    if not support_e5m2 and format_b == 1: return 0, False, False
+    if not support_mxfp6 and format_a in [2, 3]: return 0, False, False
+    if not support_mxfp6 and format_b in [2, 3]: return 0, False, False
+    if not support_mxfp4 and format_a == 4: return 0, False, False
+    if not support_mxfp4 and format_b == 4: return 0, False, False
+    if not support_int8 and format_a in [5, 6]: return 0, False, False
+    if not support_int8 and format_b in [5, 6]: return 0, False, False
 
-    sa, ea, ma, ba, inta = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
-    sb, eb, mb, bb, intb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
+    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
 
     sign = sa ^ sb
+
+    # Special Value Propagation
+    zeroa = False
+    if not (is_bm_a and support_mxplus):
+        if (not inta and ea == 0 and (ma & 0x7) == 0): zeroa = True
+        if (inta and a_bits == 0): zeroa = True
+
+    zerob = False
+    if not (is_bm_b and support_mxplus):
+        if (not intb and eb == 0 and (mb & 0x7) == 0): zerob = True
+        if (intb and b_bits == 0): zerob = True
+
+    nan_res = nana or nanb or (infa and zerob) or (infb and zeroa)
+    inf_res = (infa or infb) and not nan_res
 
     # Updated: zero check now correctly handles subnormals
     # For MX+, zero_out is forced to 0 for BM elements
     if not (is_bm_a and support_mxplus):
-        if (not inta and ea == 0 and (ma & 0x7) == 0): return 0
+        if (not inta and ea == 0 and (ma & 0x7) == 0): return 0, nan_res, inf_res
     if not (is_bm_b and support_mxplus):
-        if (not intb and eb == 0 and (mb & 0x7) == 0): return 0
+        if (not intb and eb == 0 and (mb & 0x7) == 0): return 0, nan_res, inf_res
     if (inta and a_bits == 0) or (intb and b_bits == 0):
-        return 0
+        return 0, nan_res, inf_res
 
     adj_a = 0 if is_bm_a else offset_a
     adj_b = 0 if is_bm_b else offset_b
@@ -283,7 +304,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width), nan_res, inf_res
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -296,6 +317,7 @@ async def reset_dut(dut):
 
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0):
     # Enforce parameter constraints in model
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
         format_b = format_a
@@ -355,16 +377,38 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
+    nan_sticky = False
+    inf_pos_sticky = False
+    inf_neg_sticky = False
+
+    if support_shared:
+        if scale_a == 0xFF or scale_b == 0xFF:
+            nan_sticky = True
+
     # Process elements in groups of 32
     for i, (a, b) in enumerate(zip(a_elements, b_elements)):
         is_bm_a_cur = (i == bm_index_a)
         is_bm_b_cur = (i == bm_index_b)
 
-        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
+        prod, nan_el, inf_el = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
                                    support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
                                    is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
                                    offset_a=nbm_offset_a if mx_plus_mode else 0,
                                    offset_b=nbm_offset_b if mx_plus_mode else 0)
+
+        if nan_el: nan_sticky = True
+        if inf_el:
+            # We need the sign of the product for inf sticky.
+            # align_product_model returns aligned product.
+            # Re-calculating sign here for simplicity or just check if prod < 0.
+            # But zero elements might have inf_el=False.
+            # Actually, align_product_model knows the sign.
+            # Let's peek at sign logic again.
+            sa_el, _, _, _, _, _, _ = decode_format(a, format_a, is_bm_a_cur, support_mxplus)
+            sb_el, _, _, _, _, _, _ = decode_format(b, format_b, is_bm_b_cur, support_mxplus)
+            sign_el = sa_el ^ sb_el
+            if sign_el: inf_neg_sticky = True
+            else: inf_pos_sticky = True
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -436,6 +480,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
         else:
             expected_final = expected_acc
+
+    # Apply Output Override
+    if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
+        expected_final = 0x7FC00000
+    elif inf_pos_sticky:
+        expected_final = 0x7F800000
+    elif inf_neg_sticky:
+        expected_final = -0x00800000 # 0xFF800000 as 32-bit signed
 
     # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0
@@ -684,9 +736,24 @@ async def test_fast_start_scale_compression(dut):
 
     expected_acc = 0
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    nan_sticky = False
+    inf_pos_sticky = False
+    inf_neg_sticky = False
+    if support_shared:
+        if scale_a == 0xFF or scale_b == 0xFF:
+            nan_sticky = True
+
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_a, format_b,
+        prod, nan_el, inf_el = align_product_model(a, b, format_a, format_b,
                                    support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
+
+        if nan_el: nan_sticky = True
+        if inf_el:
+            sa_el, _, _, _, _, _, _ = decode_format(a, format_a)
+            sb_el, _, _, _, _, _, _ = decode_format(b, format_b)
+            sign_el = sa_el ^ sb_el
+            if sign_el: inf_neg_sticky = True
+            else: inf_pos_sticky = True
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -704,6 +771,13 @@ async def test_fast_start_scale_compression(dut):
         expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
     else:
         expected_final = expected_acc
+
+    if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
+        expected_final = 0x7FC00000
+    elif inf_pos_sticky:
+        expected_final = 0x7F800000
+    elif inf_neg_sticky:
+        expected_final = -0x00800000 # 0xFF800000
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]
@@ -822,6 +896,10 @@ async def test_mxplus_yaml(dut):
         dut._log.info("Skipping MX+ YAML Test (SUPPORT_MX_PLUS=0)")
         return
     await run_yaml_file(dut, "TEST_MXPLUS.yaml")
+
+@cocotb.test()
+async def test_lns_robustness_yaml(dut):
+    await run_yaml_file(dut, "TEST_LNS_ROBUSTNESS.yaml")
 
 @cocotb.test()
 async def test_mxfp4_input_buffering(dut):
