@@ -212,7 +212,8 @@ def get_param(dut, name, default=1):
     "SERIAL_K_FACTOR": 1,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
-        "USE_LNS_MUL_PRECISE": 0
+        "USE_LNS_MUL_PRECISE": 0,
+        "SHORT_PROTOCOL": 0
     }
     return defaults.get(name, default)
 
@@ -324,10 +325,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
+    short_protocol = get_param(dut, "SHORT_PROTOCOL", 0)
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
-    if support_mxplus_hw:
+    if short_protocol:
+        # SHORT_PROTOCOL captures metadata in Cycle 0
+        dut.ui_in.value = 0
+        dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    elif support_mxplus_hw:
         dut.ui_in.value = (nbm_offset_b & 0x7)
         dut.uio_in.value = (bm_index_a & 0x1F) | ((nbm_offset_a & 0x7) << 5)
     else:
@@ -336,21 +342,22 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 1) # This edge samples bm_index_a and moves to Cycle 1
+    await ClockCycles(dut.clk, 1) # This edge samples Cycle 0 and moves to Cycle 1
 
-    # Cycle 1: Load Scale A and Format/Numerical Control
-    dut.ui_in.value = scale_a
-    # For MX+, we use bit 7 of Cycle 1 to enable the extension semantics.
-    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
-    await ClockCycles(dut.clk, cycles_per_element)
+    if not short_protocol:
+        # Cycle 1: Load Scale A and Format/Numerical Control
+        dut.ui_in.value = scale_a
+        # For MX+, we use bit 7 of Cycle 1 to enable the extension semantics.
+        dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+        await ClockCycles(dut.clk, cycles_per_element)
 
-    # Cycle 2: Load Scale B and Format B
-    dut.ui_in.value = scale_b
-    if support_mxplus:
-        dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
-    else:
-        dut.uio_in.value = format_b
-    await ClockCycles(dut.clk, cycles_per_element)
+        # Cycle 2: Load Scale B and Format B
+        dut.ui_in.value = scale_b
+        if support_mxplus:
+            dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
+        else:
+            dut.uio_in.value = format_b
+        await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
     # Process elements in groups of 32
@@ -635,6 +642,12 @@ async def test_mxfp_mac_randomized(dut):
 
 @cocotb.test()
 async def test_fast_start_scale_compression(dut):
+    # Skip if short protocol is enabled as it uses a different Cycle 0 behavior
+    short_protocol = get_param(dut, "SHORT_PROTOCOL", 0)
+    if short_protocol:
+        dut._log.info("Skipping Fast Start Test (SHORT_PROTOCOL=1)")
+        return
+
     dut._log.info("Start Fast Start (Scale Compression) Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -811,6 +824,24 @@ async def test_mxplus_yaml(dut):
         dut._log.info("Skipping MX+ YAML Test (SUPPORT_MX_PLUS=0)")
         return
     await run_yaml_file(dut, "TEST_MXPLUS.yaml")
+
+@cocotb.test()
+async def test_mxfp4_short_protocol(dut):
+    # Check if short protocol is supported
+    short_protocol = get_param(dut, "SHORT_PROTOCOL", 0)
+    if not short_protocol:
+        dut._log.info("Skipping Short Protocol FP4 Test (SHORT_PROTOCOL=0)")
+        return
+
+    dut._log.info("Start Short Protocol FP4 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x04] * 32 # 1.0 in E2M1
+    b_elements = [0x04] * 32
+    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
+    # Packed mode is required for short protocol to achieve the targeted 16-cycle stream phase
+    await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
 @cocotb.test()
 async def test_mxfp8_subnormals(dut):

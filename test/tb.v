@@ -41,6 +41,7 @@ module tb ();
   parameter ENABLE_SHARED_SCALING = 0;
   parameter USE_LNS_MUL = 0;
   parameter USE_LNS_MUL_PRECISE = 0;
+  parameter SHORT_PROTOCOL = 0;
 
 `ifdef GL_TEST
   // Gate-level simulation instantiation (no parameters)
@@ -74,7 +75,8 @@ module tb ();
       .SERIAL_K_FACTOR(SERIAL_K_FACTOR),
       .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
       .USE_LNS_MUL(USE_LNS_MUL),
-      .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+      .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+      .SHORT_PROTOCOL(SHORT_PROTOCOL)
   ) user_project (
       .ui_in  (ui_in),    // Dedicated inputs
       .uo_out (uo_out),   // Dedicated outputs

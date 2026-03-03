@@ -28,7 +28,8 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SHORT_PROTOCOL = 0
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
@@ -49,6 +50,7 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [11:0] cycle_count;
     wire strobe;
     wire [11:0] logical_cycle;
+    localparam [11:0] STREAM_START = SHORT_PROTOCOL ? 12'd1 : 12'd3;
 
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_ctrl
@@ -93,12 +95,15 @@ module tt_um_chatelao_fp8_multiplier #(
                     nbm_offset_b <= 3'd0;
                     mx_plus_en <= 1'b0;
                 end else if (ena && strobe) begin
-                    if (logical_cycle == 12'd0 && !ui_in[7]) begin
+                    if (logical_cycle == 12'd0 && !ui_in[7] && !SHORT_PROTOCOL) begin
                         bm_index_a <= uio_in[4:0];
                         nbm_offset_a <= uio_in[7:5];
                         nbm_offset_b <= ui_in[2:0];
                     end
-                    if (logical_cycle == 12'd1) begin
+                    if (logical_cycle == 12'd1 && !SHORT_PROTOCOL) begin
+                        mx_plus_en <= uio_in[7];
+                    end
+                    if (logical_cycle == 12'd0 && SHORT_PROTOCOL) begin
                         mx_plus_en <= uio_in[7];
                     end
                     if (logical_cycle == 12'd2)
@@ -161,21 +166,21 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
-    wire [11:0] last_stream_cycle = actual_packed_mode ? 12'd18 : 12'd34;
-    wire [11:0] capture_cycle     = actual_packed_mode ? 12'd20 : 12'd36;
-    wire [11:0] last_cycle        = actual_packed_mode ? 12'd24 : 12'd40;
+    wire [11:0] last_stream_cycle = (actual_packed_mode ? 12'd15 : 12'd31) + STREAM_START;
+    wire [11:0] capture_cycle     = last_stream_cycle + 12'd2;
+    wire [11:0] last_cycle        = capture_cycle + 12'd4;
 
     wire [1:0] state = (logical_cycle == 12'd0) ? STATE_IDLE :
-                       (logical_cycle <= 12'd2) ? STATE_LOAD_SCALE :
+                       (logical_cycle < STREAM_START) ? STATE_LOAD_SCALE :
                        (logical_cycle <= capture_cycle) ? STATE_STREAM :
                        STATE_OUTPUT;
 
     initial begin
         cycle_count = 12'd0;
-        format_a = 3'd0;
+        format_a = SHORT_PROTOCOL ? 3'd4 : 3'd0;
         round_mode = 2'd0;
         overflow_wrap = 1'b0;
-        packed_mode = 1'b0;
+        packed_mode = SHORT_PROTOCOL ? 1'b1 : 1'b0;
     end
 
     // 1. Configure UIO as inputs
@@ -186,19 +191,25 @@ module tt_um_chatelao_fp8_multiplier #(
     always @(posedge clk) begin
         if (!rst_n) begin
             cycle_count <= 12'd0;
-            format_a <= 3'd0;
+            format_a <= SHORT_PROTOCOL ? 3'd4 : 3'd0;
             round_mode <= 2'd0;
             overflow_wrap <= 1'b0;
-            packed_mode <= 1'b0;
+            packed_mode <= SHORT_PROTOCOL ? 1'b1 : 1'b0;
         end else if (ena && strobe) begin
             // Fast Start (Scale Compression)
             if (state == STATE_IDLE && ui_in[7]) begin
                 cycle_count <= 12'd3;
                 packed_mode <= ui_in[6]; // Capture packed mode from compressed start if needed
+            end else if (state == STATE_IDLE && SHORT_PROTOCOL) begin
+                cycle_count   <= 12'd1;
+                format_a      <= uio_in[2:0];
+                round_mode    <= uio_in[4:3];
+                overflow_wrap <= uio_in[5];
+                packed_mode   <= uio_in[6];
             end else begin
                 cycle_count <= (logical_cycle == last_cycle) ? 12'd0 : logical_cycle + 12'd1;
 
-                if (logical_cycle == 12'd1) begin
+                if (logical_cycle == 12'd1 && !SHORT_PROTOCOL) begin
                     format_a      <= uio_in[2:0];
                     round_mode    <= uio_in[4:3];
                     overflow_wrap <= uio_in[5];
@@ -242,7 +253,7 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
     // MX+ Centralized Flagging (Step 3)
-    wire [4:0] logical_cycle_idx = logical_cycle[4:0] - 5'd3;
+    wire [4:0] logical_cycle_idx = logical_cycle[4:0] - STREAM_START[4:0];
     /* verilator lint_off UNUSEDSIGNAL */
     wire [5:0] element_index_lane0_full = actual_packed_mode ? { logical_cycle_idx, 1'b0 } : { 1'b0, logical_cycle_idx };
     wire [5:0] element_index_lane1_full = actual_packed_mode ? { logical_cycle_idx, 1'b1 } : 6'd0;
@@ -524,10 +535,11 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Accumulator Control
     // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
+    localparam [11:0] ACC_START = STREAM_START + (SUPPORT_PIPELINING ? 12'd1 : 12'd0);
     wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
-    wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
+                     ((logical_cycle >= ACC_START && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     ((logical_cycle >= ACC_START && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+    wire acc_clear = strobe && (logical_cycle < STREAM_START) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;
@@ -605,7 +617,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
             // State progression (verified by combinatorial definition)
             assert(state == ((logical_cycle == 12'd0) ? STATE_IDLE :
-                             (logical_cycle <= 12'd2) ? STATE_LOAD_SCALE :
+                             (logical_cycle < STREAM_START) ? STATE_LOAD_SCALE :
                              (logical_cycle <= capture_cycle) ? STATE_STREAM :
                              STATE_OUTPUT));
         end
@@ -614,8 +626,8 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Register Stability
     always @(posedge clk) begin
         if (f_past_valid && $past(rst_n) && rst_n && $past(strobe)) begin
-            // format_a, round_mode, overflow_wrap loaded at cycle 1
-            if ($past(logical_cycle) != 12'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
+            // format_a, round_mode, overflow_wrap loaded at STREAM_START-2 (Cycle 1 or Cycle 0)
+            if ($past(logical_cycle) != (SHORT_PROTOCOL ? 12'd0 : 12'd1) && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
                 assert(format_a      == $past(format_a));
                 assert(round_mode    == $past(round_mode));
                 assert(overflow_wrap == $past(overflow_wrap));

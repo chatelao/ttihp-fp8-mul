@@ -16,6 +16,15 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
+def get_param(dut, name, default=1):
+    for obj in [getattr(dut, "user_project", None), dut]:
+        if obj is None: continue
+        try:
+            handle = getattr(obj, name)
+            return int(handle.value)
+        except Exception: pass
+    return default
+
 @cocotb.test()
 async def performance_sweep(dut):
     """Measure throughput for multiple blocks."""
@@ -24,27 +33,37 @@ async def performance_sweep(dut):
     cocotb.start_soon(clock.start())
     await reset_dut(dut)
 
+    short_protocol = get_param(dut, "SHORT_PROTOCOL", 0)
     num_blocks = 100
     start_time = time.time()
 
     for block in range(num_blocks):
-        # Cycle 1: Load Scale A and Format/Numerical Control
-        dut.ui_in.value = 127
-        dut.uio_in.value = 0 # E4M3, TRN, SAT
-        await ClockCycles(dut.clk, 1)
+        if short_protocol:
+            # Cycle 0: Metadata
+            dut.ui_in.value = 0
+            dut.uio_in.value = 4 | (0 << 3) | (0 << 5) | (1 << 6) # E2M1, TRN, SAT, PACKED
+            await ClockCycles(dut.clk, 1)
+        else:
+            # Cycle 1: Load Scale A and Format/Numerical Control
+            dut.ui_in.value = 127
+            dut.uio_in.value = 0 # E4M3, TRN, SAT
+            await ClockCycles(dut.clk, 1)
 
-        # Cycle 2: Load Scale B and Format B
-        dut.ui_in.value = 0 # E4M3
-        dut.uio_in.value = 127
-        await ClockCycles(dut.clk, 1)
+            # Cycle 2: Load Scale B and Format B
+            dut.ui_in.value = 0 # E4M3
+            dut.uio_in.value = 127
+            await ClockCycles(dut.clk, 1)
 
-        # STREAM: 32 elements
-        for i in range(32):
+        # STREAM: 32 elements (16 packed cycles if SHORT_PROTOCOL or PACKED_MODE)
+        # Note: performance_sweep currently uses standard streaming for non-SHORT_PROTOCOL
+        # We'll use 32 cycles for standard and 16 cycles for SHORT_PROTOCOL
+        stream_cycles = 16 if short_protocol else 32
+        for i in range(stream_cycles):
             dut.ui_in.value = random.randint(0, 255)
             dut.uio_in.value = random.randint(0, 255)
             await ClockCycles(dut.clk, 1)
 
-        # PIPELINE: 2 cycles
+        # PIPELINE/ALIGN: 2 cycles
         await ClockCycles(dut.clk, 2)
 
         # OUTPUT: 4 cycles
@@ -53,12 +72,16 @@ async def performance_sweep(dut):
     end_time = time.time()
     elapsed = end_time - start_time
 
-    total_cycles = num_blocks * 41
+    # Cycles per block:
+    # Standard: 1(IDLE) + 2(METADATA) + 32(STREAM) + 2(FLUSH) + 4(OUTPUT) = 41
+    # Short: 1(IDLE/METADATA) + 16(STREAM) + 2(FLUSH) + 4(OUTPUT) = 23
+    cycles_per_block = 23 if short_protocol else 41
+    total_cycles = num_blocks * cycles_per_block
     total_ops = num_blocks * 32 # 32 MAC operations
 
     dut._log.info(f"Processed {num_blocks} blocks ({total_ops} MAC ops) in {elapsed:.4f}s (simulated time: {total_cycles * 10}ns)")
-    dut._log.info(f"Cycles per block: 41")
-    dut._log.info(f"Throughput: {32/41:.4f} MACs/cycle")
+    dut._log.info(f"Cycles per block: {cycles_per_block}")
+    dut._log.info(f"Throughput: {32/cycles_per_block:.4f} MACs/cycle")
 
 @cocotb.test()
 async def high_switching_activity(dut):
