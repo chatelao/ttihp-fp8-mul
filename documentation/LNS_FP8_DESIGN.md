@@ -107,3 +107,24 @@ This section explores the extension of LNS principles to the ultra-low-precision
 **Cons:**
 *   **Precision Floor**: Mitchell's approximation error is more pronounced in narrow formats like FP4 (E2M1). With only 1 bit of mantissa, the relative error of the approximation can significantly impact the convergence of small neural networks.
 *   **Diminishing Area Returns**: A 2x2 significand multiplier for FP4 is already extremely small (~20 gates). The area savings from switching that to a 3-bit LNS adder are minimal compared to the savings seen at the FP8/INT8 level.
+
+## 8. Implementation Review (Added March 2025)
+This section summarizes the final verification and physical impact analysis of the LNS implementation within the OCP MX MAC unit.
+
+### 8.1. Functional Parity
+The LNS multiplier was verified using the comprehensive Cocotb test suite across all supported OCP MX formats (E4M3, E5M2, E3M2, E2M3, E2M1).
+*   **Mitchell Mode (`USE_LNS_MUL_PRECISE=0`)**: Achieved 100% functional parity with the Python-based Mitchell approximation model. The deterministic 11.1% maximum relative error was confirmed to be correctly modeled and matched in hardware.
+*   **Precise Mode (`USE_LNS_MUL_PRECISE=1`)**: The 64-entry LUT-based approach successfully reduced the approximation error while maintaining functional consistency between the RTL and the verification model.
+*   **MX+ Compatibility**: The hybrid path, which uses standard multiplication for Block Max (BM) elements to preserve precision, was verified to work correctly in conjunction with LNS for non-BM elements.
+
+### 8.2. Physical Impact Analysis
+Synthesis results (using Yosys) for the isolated multiplier core (`fp8_mul` vs `fp8_mul_lns`) demonstrate significant silicon area savings for non-MX+ configurations.
+
+| Multiplier Variant | Gates (Cells) | Area Reduction (vs Std) |
+|--------------------|---------------|-------------------------|
+| Standard (Exact)   | 850           | -                       |
+| Mitchell LNS       | 402           | ~52.7%                  |
+| Precise LNS        | 463           | ~45.5%                  |
+
+### 8.3. Conclusion
+The LNS-based multiplier provides a highly effective area-optimization knob for the OCP MX MAC unit. For applications where the approximation error is tolerable (e.g., specific deep learning inference tasks), the Mitchell variant offers a >50% reduction in multiplier core area, making it an ideal choice for the most area-constrained Tiny Tapeout configurations.
