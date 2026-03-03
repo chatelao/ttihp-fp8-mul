@@ -90,3 +90,20 @@ However, for many Deep Learning applications (e.g., LLM inference), this approxi
 ### 6.5. Output Serializer
 - **Data Integrity**: Ensure the 32-bit result is correctly captured and serialized over Cycles 37-40.
 - **Verification**: Utilize cocotb tests to compare the serialized LNS result against the expected approximate values derived from the Python model.
+
+## 7. FP4-LNS Integration
+This section explores the extension of LNS principles to the ultra-low-precision FP4 (E2M1) format.
+
+### 7.1. Integration Variants
+1.  **Unified Log-Adder**: A single parameterized adder that handles both FP8 and FP4 formats. In FP4 mode, the lower bits of the adder are gated or ignored, and the bias is statically set to 1. This minimizes area by sharing the same physical logic between formats.
+2.  **SIMD Dual-FP4 LNS**: Since an FP4 log-addition is significantly narrower (3-bit) than an FP8 one (6-8 bit), a 1x8-bit adder can be reconfigured as a Dual 3-bit SIMD adder. This allows processing two FP4 multiplications in a single cycle using the same silicon footprint as one FP8 multiplication.
+3.  **Hard-Wired LNS Lookup**: For FP4 (E2M1), there are only 8 possible non-zero positive values. Instead of an adder, a tiny combinatorial logic block (or a 16-entry LUT) can pre-compute all possible LNS product results. This is the most area-efficient for FP4-only configurations.
+
+### 7.2. Pros and Cons
+**Pros:**
+*   **Silicon Uniformity**: Using LNS for both FP8 and FP4 allows for a highly regular datapath where "multiplication" is always an "addition," simplifying the control logic and reducing the number of specialized multiplier circuits.
+*   **Extreme Power Efficiency**: FP4 LNS operations involve only 3-bit additions. This reduces switching activity to a bare minimum, making it ideal for battery-powered edge AI applications where power is more critical than absolute precision.
+
+**Cons:**
+*   **Precision Floor**: Mitchell's approximation error is more pronounced in narrow formats like FP4 (E2M1). With only 1 bit of mantissa, the relative error of the approximation can significantly impact the convergence of small neural networks.
+*   **Diminishing Area Returns**: A 2x2 significand multiplier for FP4 is already extremely small (~20 gates). The area savings from switching that to a 3-bit LNS adder are minimal compared to the savings seen at the FP8/INT8 level.
