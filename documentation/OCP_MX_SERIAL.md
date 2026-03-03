@@ -57,7 +57,7 @@ The "Tiny-Serial" variant is implemented as a gradual evolution from the "Ultra-
 - [x] **Step 3: Testbench Adaptation**: Update `test/test.py` to handle the variable timing based on `SERIAL_K_FACTOR`.
 
 ### Phase 2: Bit-Serial Module Integration
-- [ ] **Step 4: Bit-Serial Multiplier**: Replace the parallel `fp8_mul` with a bit-serial multiplier. It will use the $K$ cycles available per element to compute the product.
+- [x] **Step 4: Bit-Serial Multiplier**: Replace the parallel `fp8_mul` with a bit-serial multiplier. It will use the $K$ cycles available per element to compute the product.
 - [ ] **Step 5: Bit-Serial Aligner**: Replace the parallel `fp8_aligner` with a serial shifter/delay-line based aligner.
 - [ ] **Step 6: Bit-Serial Accumulator**: Replace the 32-bit parallel accumulator with a circulating shift register and a 1-bit adder.
 

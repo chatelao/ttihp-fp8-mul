@@ -171,6 +171,8 @@ module fp8_mul_serial #(
     reg sign_latched, zero_latched;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_latched;
 
+    wire [15:0] next_acc_comb = shift_b[0] ? acc + shift_a : acc;
+
     always @(posedge clk) begin
         if (!rst_n) begin
             count <= 0;
@@ -192,19 +194,19 @@ module fp8_mul_serial #(
                 shift_b <= m_b_i >> 1;
                 sign_latched <= s_a_i ^ s_b_i;
                 zero_latched <= z_a_i || z_b_i;
-                exp_sum_latched <= $signed({2'b0, e_a_i}) + $signed({2'b0, e_b_i}) - ($signed(b_a_i) + $signed(b_b_i) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+                exp_sum_latched <= $signed({2'b0, e_a_i}) + $signed({2'b0, e_b_i}) - ($signed(b_a_i) + $signed(b_b_i) - $signed(8'd7));
             end else if (count > 0 && count < 8) begin
-                wire [15:0] next_acc = shift_b[0] ? acc + shift_a : acc;
-                acc <= next_acc;
+                // Cycles 1 to 7 (Bit 1 to Bit 7)
+                if (shift_b[0]) acc <= acc + shift_a;
                 shift_a <= shift_a << 1;
                 shift_b <= shift_b >> 1;
                 count   <= count + 4'd1;
-                if (count == 7) begin
+                if (count == 4'd7) begin
                     // computation done for CURRENT element. Register outputs for NEXT strobe.
                     if (SUPPORT_INT8 || SUPPORT_MX_PLUS)
-                        prod <= zero_latched ? 16'd0 : next_acc;
+                        prod <= zero_latched ? 16'd0 : next_acc_comb;
                     else
-                        prod <= zero_latched ? 16'd0 : {8'd0, next_acc[7:0]};
+                        prod <= zero_latched ? 16'd0 : {8'd0, next_acc_comb[7:0]};
                     sign <= sign_latched;
                     exp_sum <= exp_sum_latched;
                 end
