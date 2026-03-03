@@ -164,3 +164,20 @@ For the FP4 format, the advantages are even more pronounced:
 
 ### 9.5. Conclusion
 A bit-serial LNS implementation represents the "logical floor" of OCP MX hardware. It provides the absolute minimum area footprint by reducing the multiplier—traditionally the largest component—to a single bit-serial addition stage. This configuration is highly recommended for ultra-dense systolic arrays where individual node area is the primary constraint.
+
+## 10. Implementation Roadmap
+This roadmap outlines the future evolution of the LNS-based MAC unit, focusing on area reduction and numerical robustness.
+
+- [x] **Phase A: Robustness/NaN/Inf handling**
+  - Implement element-level NaN/Inf detection for E4M3/E5M2.
+  - Implement block-level sticky registers for special values.
+  - Apply Shared Scale NaN rule and standard output pattern generation.
+- [ ] **Phase B: Bit-Serial LNS Core**
+  - Develop a 1-bit bit-serial log-adder to replace the parallel LNS core.
+  - Implement carry-propagation logic for bit-serial LNS arithmetic.
+- [ ] **Phase C: Serial Integration with Stretched Protocol**
+  - Integrate the bit-serial LNS core into the Tiny-Serial FSM.
+  - Adapt the strobe generation and shift-register logic for LNS-serial flow.
+- [ ] **Phase D: Benchmarking/Physical Analysis**
+  - Conduct detailed gate-count and power analysis for the bit-serial LNS variant.
+  - Benchmark against standard bit-serial multipliers.
