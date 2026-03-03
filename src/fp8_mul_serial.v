@@ -21,7 +21,8 @@ module fp8_mul_serial #(
     input  wire        is_bm_b,
     output reg [15:0]  prod,
     output reg signed [EXP_SUM_WIDTH-1:0] exp_sum,
-    output reg         sign
+    output reg         sign,
+    output reg         valid
 );
 
     // Format Selection
@@ -177,6 +178,7 @@ module fp8_mul_serial #(
             prod <= 16'd0;
             exp_sum <= {EXP_SUM_WIDTH{1'b0}};
             sign <= 1'b0;
+            valid <= 1'b0;
             p_acc <= 16'd0;
             bit_cnt <= 4'd8;
             ma_reg <= 8'd0;
@@ -189,6 +191,7 @@ module fp8_mul_serial #(
             prod <= zero_latched ? 16'd0 : p_acc;
             exp_sum <= exp_sum_latched;
             sign <= sign_latched;
+            valid <= (bit_cnt == 4'd8);
 
             // 2. Prepare for new cycle
             p_acc <= 16'd0;
@@ -199,7 +202,7 @@ module fp8_mul_serial #(
             mb_reg <= mb_dec;
             zero_latched <= zero_a_dec || zero_b_dec;
             sign_latched <= sign_a_dec ^ sign_b_dec;
-            exp_sum_latched <= $signed({2'b0, ea_dec}) + $signed({2'b0, eb_dec}) - ($signed(bias_a_dec) + $signed(bias_b_dec) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+            exp_sum_latched <= ($signed({2'b0, ea_dec}) + $signed({2'b0, eb_dec}) + 7) - ($signed(bias_a_dec) + $signed(bias_b_dec));
 
             // bit 0
             if (ma_dec[0]) p_acc <= {8'd0, mb_dec};

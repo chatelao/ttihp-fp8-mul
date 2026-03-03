@@ -176,7 +176,9 @@ module fp8_mul #(
             p_res = (zero_a || zero_b) ? 16'd0 : ({{14{1'b0}}, ma[3:2]} * {{14{1'b0}}, mb[3:2]}) << 4;
 
         sign_res = sign_a ^ sign_b;
-        exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+        // Formula: exp_sum = (ea - bias_a) + (eb - bias_b) + 7
+        // Re-arranged for unsigned-safe addition before subtraction:
+        exp_sum_res = ($signed({2'b0, ea}) + $signed({2'b0, eb}) + 7) - ($signed(bias_a) + $signed(bias_b));
     end
 
     assign sign = sign_res;

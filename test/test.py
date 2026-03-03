@@ -404,17 +404,23 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             dut.uio_in.value = b_elements[i]
             await ClockCycles(dut.clk, cycles_per_element)
 
-    # Pipeline flush for last element
+    # Pipeline flush and capture wait
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, cycles_per_element)
 
-    # Shared scaling alignment
-    await ClockCycles(dut.clk, cycles_per_element)
+    if actual_packed:
+        target_capture = 20
+    else:
+        target_capture = 36
 
-    # If aligner pipelining is enabled, we need one more cycle for the result to reach the accumulator
     if get_param(dut, "SUPPORT_PIPELINING", 0):
-        await ClockCycles(dut.clk, cycles_per_element)
+        target_capture += 4
+    elif get_param(dut, "SUPPORT_SERIAL", 0):
+        target_capture += 2
+
+    current_cycle = 3 + (16 if actual_packed or actual_serial else 32)
+    wait_cycles = target_capture - current_cycle
+    await ClockCycles(dut.clk, wait_cycles * cycles_per_element)
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
@@ -431,6 +437,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             expected_final = expected_acc
 
     # Cycle 37-40 (or 21-24): Output Serialized Result
+    # Wait 1 cycle for the loaded value to reach uo_out
+    await ClockCycles(dut.clk, cycles_per_element)
+
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
@@ -703,9 +712,19 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, k_factor)
 
-    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Shared Scale
+    # Fast Start begins at logical_cycle 3. After 32 elements, it's at 35.
+    current_cycle = 35
+    target_capture = 36
     if get_param(dut, "SUPPORT_PIPELINING", 0):
-        await ClockCycles(dut.clk, k_factor)
+        target_capture += 4
+    elif get_param(dut, "SUPPORT_SERIAL", 0):
+        target_capture += 2
+
+    wait_cycles = target_capture - current_cycle
+    await ClockCycles(dut.clk, wait_cycles * k_factor)
+
+    # Wait 1 cycle for uo_out
+    await ClockCycles(dut.clk, k_factor)
 
     actual_acc = 0
     for i in range(4):

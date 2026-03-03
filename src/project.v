@@ -8,6 +8,7 @@
 `include "fp8_mul_serial.v"
 `include "fp8_mul_lns.v"
 `include "fp8_aligner.v"
+`include "fp8_aligner_serial.v"
 `include "accumulator.v"
 
 /* verilator lint_off DECLFILENAME */
@@ -163,8 +164,23 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [11:0] last_stream_cycle = actual_packed_mode ? 12'd18 : 12'd34;
-    wire [11:0] capture_cycle     = (actual_packed_mode ? 12'd20 : 12'd36) + (SUPPORT_PIPELINING ? 12'd1 : 12'd0);
-    wire [11:0] last_cycle        = (actual_packed_mode ? 12'd24 : 12'd40) + (SUPPORT_PIPELINING ? 12'd1 : 12'd0);
+
+    // Latency compensation:
+    // Pipelined Parallel: Mul(+1), Aligner(+1), Combined(+1) = +3 LC
+    // Serial: Mul(+1), Aligner(+1) = +2 LC
+    // Tiny Parallel: +0 LC
+    localparam [11:0] DATAPATH_LATENCY = (SUPPORT_PIPELINING) ? 12'd3 :
+                                         (SUPPORT_SERIAL)     ? 12'd2 : 12'd0;
+
+    // Total latency from last element input to capture:
+    // Non-pipelined: 1 (flush) + 1 (shared scale) = +2
+    // Serial: 1 (flush) + 2 (datapath) + 1 (shared scale) = +4
+    // Pipelined: 1 (flush) + 3 (datapath) + 1 (shared scale) + 1 (acc stable) = +6
+    wire [11:0] capture_cycle = (SUPPORT_PIPELINING) ? (actual_packed_mode ? 12'd24 : 12'd40) :
+                                (SUPPORT_SERIAL)     ? (actual_packed_mode ? 12'd22 : 12'd38) :
+                                                       (actual_packed_mode ? 12'd20 : 12'd36);
+
+    wire [11:0] last_cycle    = capture_cycle + 12'd4;
 
     wire [1:0] state = (logical_cycle == 12'd0) ? STATE_IDLE :
                        (logical_cycle <= 12'd2) ? STATE_LOAD_SCALE :
@@ -307,6 +323,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_sign_lane1 = 1'b0;
             end
         end else if (SUPPORT_SERIAL) begin : serial_gen
+            wire mul_lane0_valid;
             fp8_mul_serial #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -328,9 +345,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_b(is_bm_b_lane0),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0)
+                .sign(mul_sign_lane0),
+                .valid(mul_lane0_valid)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
+                wire mul_lane1_valid;
                 fp8_mul_serial #(
                     .SUPPORT_E4M3(SUPPORT_E4M3),
                     .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -352,7 +371,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_b(is_bm_b_lane1),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1)
+                    .sign(mul_sign_lane1),
+                    .valid(mul_lane1_valid)
                 );
             end else begin : no_lane1
                 assign mul_prod_lane1 = 16'd0;
@@ -532,43 +552,111 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+    // Select source for aligner. In pipelined mode, we switch to accumulator early enough.
+    // We need 2 cycles of propagation through Aligner and Combined stages.
+    wire use_acc_for_scale = (ENABLE_SHARED_SCALING && (logical_cycle >= (capture_cycle - 12'd2)));
+
+    wire [31:0] aligner_lane0_in_prod = use_acc_for_scale ?
                                     aligner_lane0_in_prod_acc :
                                     {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
+    wire signed [9:0] aligner_lane0_in_exp  = use_acc_for_scale ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
+    wire aligner_lane0_in_sign = use_acc_for_scale ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
-    wire [31:0] aligned_lane0_res;
-    fp8_aligner #(
-        .WIDTH(ALIGNER_WIDTH),
-        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
-    ) aligner_lane0_inst (
-        .prod(aligner_lane0_in_prod),
-        .exp_sum(aligner_lane0_in_exp),
-        .sign(aligner_lane0_in_sign),
-        .round_mode(round_mode),
-        .overflow_wrap(overflow_wrap),
-        .aligned(aligned_lane0_res)
-    );
-
-    /* verilator lint_off UNUSEDSIGNAL */
-    wire [31:0] aligned_lane1_res;
-    /* verilator lint_on UNUSEDSIGNAL */
+    wire [31:0] aligned_lane0_res_comb;
+    reg [31:0] aligned_lane0_res;
+    wire aligned_lane0_valid;
     generate
-        if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
+        if (SUPPORT_SERIAL) begin : gen_aligner_lane0_serial
+            fp8_aligner_serial #(
+                .WIDTH(ALIGNER_WIDTH),
+                .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+            ) aligner_lane0_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .en(serial_gen.mul_lane0_valid),
+                .prod(aligner_lane0_in_prod),
+                .exp_sum(aligner_lane0_in_exp),
+                .sign(aligner_lane0_in_sign),
+                .round_mode(round_mode),
+                .overflow_wrap(overflow_wrap),
+                .aligned(aligned_lane0_res_comb),
+                .valid(aligned_lane0_valid)
+            );
+        end else begin : gen_aligner_lane0_parallel
+            assign aligned_lane0_valid = 1'b1;
             fp8_aligner #(
                 .WIDTH(ALIGNER_WIDTH),
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
-            ) aligner_lane1_inst (
-                .prod({16'd0, mul_prod_lane1_val}),
-                .exp_sum(exp_sum_lane1_adj),
-                .sign(mul_sign_lane1_val),
+            ) aligner_lane0_inst (
+                .prod(aligner_lane0_in_prod),
+                .exp_sum(aligner_lane0_in_exp),
+                .sign(aligner_lane0_in_sign),
                 .round_mode(round_mode),
                 .overflow_wrap(overflow_wrap),
-                .aligned(aligned_lane1_res)
+                .aligned(aligned_lane0_res_comb)
             );
+        end
+    endgenerate
+    generate
+        if (SUPPORT_PIPELINING) begin : gen_align_pipeline_lane0
+            always @(posedge clk) begin
+                if (!rst_n) aligned_lane0_res <= 32'd0;
+                else if (ena && strobe) aligned_lane0_res <= aligned_lane0_res_comb;
+            end
+        end else begin : gen_align_no_pipeline_lane0
+            always @(*) aligned_lane0_res = aligned_lane0_res_comb;
+        end
+    endgenerate
+
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [31:0] aligned_lane1_res_comb;
+    reg [31:0] aligned_lane1_res;
+    wire aligned_lane1_valid;
+    /* verilator lint_on UNUSEDSIGNAL */
+    generate
+        if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
+            if (SUPPORT_SERIAL) begin : gen_aligner_lane1_serial
+                fp8_aligner_serial #(
+                    .WIDTH(ALIGNER_WIDTH),
+                    .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+                ) aligner_lane1_inst (
+                    .clk(clk),
+                    .rst_n(rst_n),
+                    .en(serial_gen.gen_lane1.mul_lane1_valid),
+                    .prod({16'd0, mul_prod_lane1_val}),
+                    .exp_sum(exp_sum_lane1_adj),
+                    .sign(mul_sign_lane1_val),
+                    .round_mode(round_mode),
+                    .overflow_wrap(overflow_wrap),
+                    .aligned(aligned_lane1_res_comb),
+                    .valid(aligned_lane1_valid)
+                );
+            end else begin : gen_aligner_lane1_parallel
+                assign aligned_lane1_valid = 1'b1;
+                fp8_aligner #(
+                    .WIDTH(ALIGNER_WIDTH),
+                    .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+                ) aligner_lane1_inst (
+                    .prod({16'd0, mul_prod_lane1_val}),
+                    .exp_sum(exp_sum_lane1_adj),
+                    .sign(mul_sign_lane1_val),
+                    .round_mode(round_mode),
+                    .overflow_wrap(overflow_wrap),
+                    .aligned(aligned_lane1_res_comb)
+                );
+            end
         end else begin : no_aligner_lane1
-            assign aligned_lane1_res = 32'd0;
+            assign aligned_lane1_res_comb = 32'd0;
+        end
+    endgenerate
+    generate
+        if (SUPPORT_PIPELINING && SUPPORT_VECTOR_PACKING) begin : gen_align_pipeline_lane1
+            always @(posedge clk) begin
+                if (!rst_n) aligned_lane1_res <= 32'd0;
+                else if (ena && strobe) aligned_lane1_res <= aligned_lane1_res_comb;
+            end
+        end else begin : gen_align_no_pipeline_lane1
+            always @(*) aligned_lane1_res = aligned_lane1_res_comb;
         end
     endgenerate
 
@@ -587,14 +675,12 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 5. Accumulator Control
-    // With multiplier pipelining AND aligner pipelining, products are ready at cycles 5 to last_stream_cycle+2.
-    // With just serial/one pipeline, they are ready at cycles 4 to last_stream_cycle+1.
-    // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 12'd5 && logical_cycle <= last_stream_cycle + 12'd2) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     (SUPPORT_SERIAL ?
-                     ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
+    // With 3-stage pipelining: products are ready at cycles 6 to last_stream_cycle+3.
+    // With serial multiplier + serial aligner (+2 LC): products are ready on the strobe of cycle 5.
+    // Without pipelining: cycles 3 to last_stream_cycle.
+    wire acc_en    = (SUPPORT_PIPELINING ? (strobe && (logical_cycle >= 12'd6 && logical_cycle <= last_stream_cycle + 12'd3) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     (SUPPORT_SERIAL     ? aligned_lane0_valid :
+                                           (strobe && (logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
@@ -654,7 +740,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // 3. Invariants
     always @(posedge clk) begin
         if (rst_n) begin
-            assert(logical_cycle <= 12'd40);
+            assert(logical_cycle <= 12'd44);
         end
     end
 
