@@ -23,6 +23,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MIXED_PRECISION = 0,
     parameter SUPPORT_VECTOR_PACKING = 0,
     parameter SUPPORT_PACKED_SERIAL = 0,
+    parameter SUPPORT_INPUT_BUFFERING = 0,
     parameter SUPPORT_MX_PLUS = 0,
     parameter SUPPORT_SERIAL = 1,
     parameter SERIAL_K_FACTOR = 8,
@@ -159,8 +160,9 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
-    wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_packed_mode     = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_packed_serial   = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
+    wire actual_buffered_packed = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [11:0] last_stream_cycle = actual_packed_mode ? 12'd18 : 12'd34;
     wire [11:0] capture_cycle     = actual_packed_mode ? 12'd20 : 12'd36;
     wire [11:0] last_cycle        = actual_packed_mode ? 12'd24 : 12'd40;
@@ -216,6 +218,29 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
+    wire [7:0] a_buffered_val, b_buffered_val;
+    generate
+        if (SUPPORT_INPUT_BUFFERING) begin : gen_input_buffer
+            reg [15:0] input_buffer [0:15];
+            wire [4:0] buf_write_idx = logical_cycle[4:0] - 5'd3;
+            always @(posedge clk) begin
+                if (ena && strobe && actual_buffered_packed && logical_cycle >= 12'd3 && logical_cycle <= 12'd18) begin
+                    input_buffer[buf_write_idx[3:0]] <= {uio_in, ui_in};
+                end
+            end
+            wire [5:0] buf_idx_ext = (logical_cycle[5:0] - 6'd3);
+            wire [4:0] buf_idx = buf_idx_ext[5:1];
+            wire [15:0] current_buf_val = input_buffer[buf_idx[3:0]];
+            assign a_buffered_val = (logical_cycle == 12'd3) ? {4'd0, ui_in[3:0]} :
+                                    (buf_idx_ext[0] ? {4'd0, current_buf_val[7:4]} : {4'd0, current_buf_val[3:0]});
+            assign b_buffered_val = (logical_cycle == 12'd3) ? {4'd0, uio_in[3:0]} :
+                                    (buf_idx_ext[0] ? {4'd0, current_buf_val[15:12]} : {4'd0, current_buf_val[11:8]});
+        end else begin : gen_no_input_buffer
+            assign a_buffered_val = 8'd0;
+            assign b_buffered_val = 8'd0;
+        end
+    endgenerate
+
     // 1. Multiplier & Pipeline Stage
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
@@ -233,9 +258,11 @@ module tt_um_chatelao_fp8_multiplier #(
     end
 
     wire [7:0] a_lane0 = actual_packed_mode ? {4'd0, ui_in[3:0]} :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in);
+                        (actual_buffered_packed ? a_buffered_val :
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in);
+                        (actual_buffered_packed ? b_buffered_val :
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;

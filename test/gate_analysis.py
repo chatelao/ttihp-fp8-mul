@@ -36,6 +36,7 @@ def main():
         "SUPPORT_ADV_ROUNDING",
         "SUPPORT_MIXED_PRECISION",
         "SUPPORT_MX_PLUS",
+        "SUPPORT_INPUT_BUFFERING",
         "ENABLE_SHARED_SCALING",
         "USE_LNS_MUL",
         "SUPPORT_SERIAL"

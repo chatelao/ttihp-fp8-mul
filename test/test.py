@@ -207,6 +207,7 @@ def get_param(dut, name, default=1):
         "SUPPORT_MIXED_PRECISION": 0,
     "SUPPORT_VECTOR_PACKING": 0,
     "SUPPORT_PACKED_SERIAL": 0,
+    "SUPPORT_INPUT_BUFFERING": 0,
     "SUPPORT_MX_PLUS": 0,
     "SUPPORT_SERIAL": 0,
     "SERIAL_K_FACTOR": 1,
@@ -304,8 +305,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_mxplus = support_mxplus_hw and mx_plus_mode
     support_packing = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
     support_serial = get_param(dut, "SUPPORT_PACKED_SERIAL", 0)
+    support_buf = get_param(dut, "SUPPORT_INPUT_BUFFERING", 0)
     actual_packed = support_packing and packed_mode and (format_a == 4) and (format_b == 4)
     actual_serial = support_serial and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
+    actual_buffered = support_buf and not support_packing and packed_mode and (format_a == 4) and (format_b == 4)
 
     # Tiny-Serial timing parameters
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
@@ -397,6 +400,16 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             await ClockCycles(dut.clk, cycles_per_element)
             # Even cycle: wait (hardware uses buffer)
             # ui_in/uio_in can be anything, they are ignored
+            await ClockCycles(dut.clk, cycles_per_element)
+    elif actual_buffered:
+        for i in range(16):
+            dut.ui_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i]
+            dut.uio_in.value = (b_elements[2*i+1] << 4) | b_elements[2*i]
+            await ClockCycles(dut.clk, cycles_per_element)
+        for i in range(16):
+            # No activity on pins, processing continues from buffer
+            dut.ui_in.value = 0
+            dut.uio_in.value = 0
             await ClockCycles(dut.clk, cycles_per_element)
     else:
         for i in range(32):
@@ -811,6 +824,23 @@ async def test_mxplus_yaml(dut):
         dut._log.info("Skipping MX+ YAML Test (SUPPORT_MX_PLUS=0)")
         return
     await run_yaml_file(dut, "TEST_MXPLUS.yaml")
+
+@cocotb.test()
+async def test_mxfp4_input_buffering(dut):
+    # Check if input buffering is supported
+    support_buf = get_param(dut, "SUPPORT_INPUT_BUFFERING", 0)
+    if not support_buf:
+        dut._log.info("Skipping Input Buffering FP4 Test (SUPPORT_INPUT_BUFFERING=0)")
+        return
+
+    dut._log.info("Start Input Buffering FP4 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x04] * 32 # 1.0 in E2M1
+    b_elements = [0x04] * 32
+    # Expected: 32 * 1.0 * 1.0 = 32. Fixed bit 8=1 -> 32*256 = 8192
+    await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
 @cocotb.test()
 async def test_mxfp8_subnormals(dut):

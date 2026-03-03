@@ -187,7 +187,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (SIMD Vector Lane)**: Use a wide 8-bit multiplier that can be split into two 4-bit lanes.
 - **Reasoning**: **Variant B** was selected. Given the Tiny Tapeout constraints (10MHz typical, 100MHz peak), spatial parallelism is more robust for timing closure and avoids complex clock-domain-crossing logic required for temporal parallelism.
 
-### Step 12: Buffering & Duty Cycle Reduction (Alternative)
+### Step 12: Buffering & Duty Cycle Reduction (Alternative) (Status: **COMPLETED**)
 - **Goal**: Reduce I/O activity without increasing multiplier area.
 - **Preparation**:
   - Design an 8-bit wide, 16-entry FIFO for activation buffering.
