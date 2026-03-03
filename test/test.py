@@ -807,6 +807,7 @@ async def test_mxplus_yaml(dut):
         dut._log.info("Skipping MX+ YAML Test in Gate-Level Simulation")
         return
     support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    dut._log.info(f"Detected SUPPORT_MX_PLUS = {support_mxplus}")
     if not support_mxplus:
         dut._log.info("Skipping MX+ YAML Test (SUPPORT_MX_PLUS=0)")
         return
