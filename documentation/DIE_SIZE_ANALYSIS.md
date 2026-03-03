@@ -29,23 +29,6 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `ACCUMULATOR_WIDTH` | `24` | Accumulator width. | ~100 (24-bit) |
 | `SERIAL_K_FACTOR` | `8` | Latency scaling factor for serial operation. | N/A |
 
-### 1.2. Recommended Refactorings
-
-#### Multiplier Core (`fp8_mul.v`)
-- **Conditional Decoding**: Use logic pruning based on `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
-- **Bias Simplification**: Bias logic is simplified based on supported formats.
-- **Shared Decoders**: (Optional) Use a single decoder set if `SUPPORT_MIXED_PRECISION` is `0`.
-
-#### Product Aligner (`fp8_aligner.v`)
-- **Configurable Rounding**: Logic for `R_CEL` and `R_FLR` is pruned if `SUPPORT_ADV_ROUNDING` is disabled.
-- **Internal Bit-width**: Fully parameterize the internal registers using `ALIGNER_WIDTH`.
-
-#### Top-Level Integration (`project.v`)
-- **FSM Guarding**: Shared scaling logic and absolute value logic (`acc_abs_val`) are conditionally enabled via `ENABLE_SHARED_SCALING`.
-- **Register Pruning**: (Optional) Conditionally instantiate registers for `format_b`, `scale_b`, and multiplier pipeline.
-- **Fast Start Logic**: Verified correctness with all parameter variants.
-- **FSM State Register Elimination**: The `state` register was removed and replaced with combinatorial logic derived from `cycle_count`.
-
 ## 2. Die Size Analysis (Optimized Architecture)
 
 The implementation has been refactored to support aggressive area optimizations, allowing even the "Full" configuration to approach or fit within a **1x1 Tiny Tapeout tile** (~1500-2500 equivalent gates).
@@ -66,53 +49,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | 10 | ✅ `fp8_aligner` | Saturation & Overflow | 32-bit signed clamping | ~100 |
 | **Total** | | | | **~2590** |
 
-## 3. Implemented Optimizations for 1x1 Tile
-
-### Optimization 1: Downsize the Aligner Path
-- **Change**: Narrowed the internal datapath via the `ALIGNER_WIDTH` parameter.
-- **Impact**: Reducing from 40-bit to 32-bit (combined with 24-bit accumulator) saves **~259 gates**.
-
-### Optimization 2: Offload Shared Scaling to Software
-- **Change**: Controlled via `ENABLE_SHARED_SCALING` parameter.
-- **Impact**: Removes absolute value logic and complex shift logic, saving **~264 gates**.
-
-### Optimization 3: Format Pruning
-- **Change**: Parameters `SUPPORT_MXFP6` and `SUPPORT_MXFP4`.
-- **Impact**: Simplifies decoders and exponent logic, saving **~183** and **~50** gates respectively.
-
-### Optimization 4: Simplify Rounding Modes
-- **Change**: `SUPPORT_ADV_ROUNDING` disables CEIL/FLOOR.
-- **Impact**: Simplifies rounding bit generation, saving **~21 gates**.
-
-### Optimization 5: Remove Mixed-Precision Support
-- **Change**: `SUPPORT_MIXED_PRECISION` shares format for A and B.
-- **Impact**: Eliminates configuration registers and decoders, saving **~107 gates**.
-
-### Optimization 6: Prune INT8 Support
-- **Change**: `SUPPORT_INT8` parameter.
-- **Impact**: Shrinks mantissa multiplier from 8x8 to 4x4, saving **~242 gates**.
-
-### Optimization 7: Datapath Depipelining
-- **Change**: `SUPPORT_PIPELINING` parameter.
-- **Impact**: Removes pipeline registers, saving **~65 gates**.
-
-### Optimization 8: Accumulator Serialization & Register Reuse
-- **Change**: The accumulator register is refactored to act as a shift-register during the output phase.
-- **Impact**: Eliminates the 32-bit output register (`scaled_acc_reg`), saving ~250 gates.
-
-### Optimization 9: Aggressive Width Pruning
-- **Change**: Parameterized `ACCUMULATOR_WIDTH`.
-- **Impact**: Reducing accumulation to 24-bit fits the design into the most restricted 1x1 tile targets.
-
-### Optimization 10: Disable Vector Packing
-- **Change**: `SUPPORT_VECTOR_PACKING` parameter.
-- **Impact**: Removes the second multiplier/aligner lane. Saves **~2309 gates**.
-
-### Optimization 11: Serial Vector Packing
-- **Change**: `SUPPORT_PACKED_SERIAL` parameter.
-- **Impact**: (Deprecated in favor of Input Buffering) Provides a low-area alternative to dual-lane packing.
-
-### Optimization Summary for 1x1 Tile Support
+## 3. Optimization Summary for 1x1 Tile Support
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
