@@ -146,7 +146,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (Power-Aware Simulation)**: Include switching activity analysis (VCD) in tests to measure the energy impact.
 - **Reasoning**: **Variant B** is prioritized for the initial implementation to ensure the FSM and indexing logic are robust, followed by Variant A for general coverage.
 
-### Step 9: Physical Impact Analysis
+### Step 9: Physical Impact Analysis (Status: **COMPLETED**)
 - **Goal**: Measure the gate count delta.
 - **Preparation**:
   - Integrate `SUPPORT_MX_PLUS` into the `test/gate_analysis.py` matrix.
@@ -156,6 +156,10 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant C (Congestion-Aware Synthesis)**: Analyze routing density and pin placement constraints in the 1x2 tile.
   - **Variant D (Thermal Profiling)**: Run gate-level power simulations to check for hotspots.
 - **Reasoning**: Both are used. Variant A provides the final "gate budget" for the Tiny Tapeout tile, while Variant B helps optimize the decoder architecture during Phase 2.
+- **Results**:
+  - **Top-Level Impact**: +557 gates (Baseline build).
+  - **Module-Level Impact**: +170 gates (per `fp8_mul` instance).
+  - **Analysis**: The overhead is primarily due to the 8x8 multiplier requirement for MX+ significands and the additional muxing in the operand decoders.
 
 ---
 

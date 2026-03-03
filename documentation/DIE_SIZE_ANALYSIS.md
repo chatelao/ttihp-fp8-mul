@@ -15,7 +15,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_MXFP4` | `1` | Enables decoding for E2M1 format. | ~13 (Incr.) |
 | `SUPPORT_VECTOR_PACKING` | `1` | Enables dual-lane processing for FP4 (E2M1) inputs. | ~2595 |
 | `SUPPORT_PACKED_SERIAL` | `0` | Enables serial processing of packed FP4 elements. | ~100 |
-| `SUPPORT_MX_PLUS` | `0` | Enables MX+ outlier precision extensions. | ~19 |
+| `SUPPORT_MX_PLUS` | `0` | Enables MX+ outlier precision extensions. | +557 |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL and FLOOR rounding modes. | ~30 |
 | `SUPPORT_MIXED_PRECISION` | `1` | Allows independent format selection for A and B. | ~53 |
 | `USE_LNS_MUL` | `0` | Toggles between standard and approximate LNS multiplier. | ~403 |
@@ -141,22 +141,24 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 6399 | 0 |
-| `SUPPORT_E5M2` | Disable E5M2 | 6232 | -167 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 6215 | -184 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 6352 | -47 |
-| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3542 | -2857 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 6158 | -241 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 6353 | -46 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 6377 | -22 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6325 | -74 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6170 | -229 |
-| **Tiny (All Disabled)** | All features disabled | 2302 | -4097 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2057 | -4342 |
-| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 2124 | -4275 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1787 | -4612 |
-| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 6570 | +171 |
-| **LNS Multiplier (Precise)** | Precise LNS multiplier | 6686 | +287 |
+| **Baseline (Full)** | All features enabled | 6345 | 0 |
+| `SUPPORT_E4M3` | Disable E4M3 | 6287 | -58 |
+| `SUPPORT_E5M2` | Disable E5M2 | 6153 | -192 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 6161 | -184 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 6308 | -37 |
+| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 3464 | -2881 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 6101 | -244 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 6328 | -17 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 6322 | -23 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6238 | -107 |
+| `SUPPORT_MX_PLUS` | Disable MX+ outlier extensions | 5788 | -557 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6093 | -252 |
+| **Tiny (All Disabled)** | All features disabled | 2170 | -4175 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1924 | -4421 |
+| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 1995 | -4350 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1653 | -4692 |
+| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 6510 | +165 |
+| **LNS Multiplier (Precise)** | Precise LNS multiplier | 6629 | +284 |
 
 ## 5. Deployment & CI/CD Progress
 
