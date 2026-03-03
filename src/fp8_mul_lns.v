@@ -21,7 +21,9 @@ module fp8_mul_lns #(
     input  wire       is_bm_b,
     output wire [15:0] prod,    // Mantissa product
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
-    output wire       sign
+    output wire       sign,
+    output wire       nan,
+    output wire       inf
 );
     // Format Selection
     localparam FMT_E4M3 = 3'b000;
@@ -47,6 +49,7 @@ module fp8_mul_lns #(
     reg [15:0] p_res;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
+    reg nan_res, inf_res;
     reg [3:0] m_sum;
 
     // Precise LNS LUT: 64x4 (3 bits M_res, 1 bit carry)
@@ -72,7 +75,9 @@ module fp8_mul_lns #(
         output reg [7:0] mant_out,
         output reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_out,
         output reg zero_out,
-        output reg is_int_out
+        output reg is_int_out,
+        output reg nan_out,
+        output reg inf_out
     );
         begin
             // Defaults for unsupported formats
@@ -82,6 +87,8 @@ module fp8_mul_lns #(
             bias_out = {INTERNAL_BIAS_WIDTH{1'b0}};
             zero_out = 1'b1;
             is_int_out = 1'b0;
+            nan_out = 1'b0;
+            inf_out = 1'b0;
 
             case (fmt)
                 FMT_E4M3: if (SUPPORT_E4M3) begin
@@ -95,6 +102,7 @@ module fp8_mul_lns #(
                         exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
+                        if (data[6:0] == 7'b1111111) nan_out = 1'b1;
                     end
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
@@ -108,6 +116,10 @@ module fp8_mul_lns #(
                         exp_out = (data[6:2] == 5'd0) ? 1 : data[6:2];
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
+                        if (data[6:2] == 5'b11111) begin
+                            if (data[1:0] == 2'b00) inf_out = 1'b1;
+                            else                   nan_out = 1'b1;
+                        end
                     end
                 end
                 FMT_E3M2: if (SUPPORT_MXFP6) begin
@@ -176,20 +188,29 @@ module fp8_mul_lns #(
         end
     endtask
 
+    reg nan_a, inf_a, nan_b, inf_b;
+
     always @(*) begin
         // Operand A Decoding
-        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a, is_inta);
+        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a, is_inta, nan_a, inf_a);
 
         // Operand B Decoding
         if (SUPPORT_MIXED_PRECISION) begin
-            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b, is_intb);
+            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b, is_intb, nan_b, inf_b);
         end else begin
             // Use format_a for both operands to allow hardware sharing
-            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b, is_intb);
+            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b, is_intb, nan_b, inf_b);
         end
 
+        // Special Value Propagation
+        nan_res = nan_a || nan_b || (inf_a && zero_b) || (inf_b && zero_a);
+        inf_res = (inf_a || inf_b) && !nan_res;
+
         // Combined Log-Adder (Mitchell or Precise) or Multiplier (for BM)
-        if (is_inta || is_intb) begin
+        if (nan_res || inf_res) begin
+            p_res = 16'd0;
+            exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
+        end else if (is_inta || is_intb) begin
             // Logarithmic multiplication doesn't apply easily to INT8 in this architecture.
             p_res = 16'd0;
             exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
@@ -219,5 +240,7 @@ module fp8_mul_lns #(
     assign sign = sign_res;
     assign prod = p_res;
     assign exp_sum = exp_sum_res;
+    assign nan = nan_res;
+    assign inf = inf_res;
 
 endmodule
