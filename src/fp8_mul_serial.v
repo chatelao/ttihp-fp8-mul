@@ -20,8 +20,8 @@ module fp8_mul_serial #(
     input  wire        is_bm_a,
     input  wire        is_bm_b,
     output reg [15:0]  prod,
-    output wire signed [EXP_SUM_WIDTH-1:0] exp_sum,
-    output wire        sign
+    output reg signed [EXP_SUM_WIDTH-1:0] exp_sum,
+    output reg         sign
 );
 
     // Format Selection
@@ -170,15 +170,13 @@ module fp8_mul_serial #(
     reg [3:0] bit_cnt;
     reg zero_latched;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_latched;
-    reg signed [EXP_SUM_WIDTH-1:0] exp_sum_output_reg;
     reg sign_latched;
-    reg sign_output_reg;
 
     always @(posedge clk) begin
         if (!rst_n) begin
             prod <= 16'd0;
-            exp_sum_output_reg <= {EXP_SUM_WIDTH{1'b0}};
-            sign_output_reg <= 1'b0;
+            exp_sum <= {EXP_SUM_WIDTH{1'b0}};
+            sign <= 1'b0;
             p_acc <= 16'd0;
             bit_cnt <= 4'd8;
             ma_reg <= 8'd0;
@@ -187,36 +185,26 @@ module fp8_mul_serial #(
             exp_sum_latched <= {EXP_SUM_WIDTH{1'b0}};
             sign_latched <= 1'b0;
         end else if (strobe) begin
-            // 1. Output result of calculation that finished in previous logical cycle
+            // 1. Finalize result for OUTPUT
             prod <= zero_latched ? 16'd0 : p_acc;
-            exp_sum_output_reg <= exp_sum_latched;
-            sign_output_reg <= sign_latched;
+            exp_sum <= exp_sum_latched;
+            sign <= sign_latched;
 
-            // 2. Prepare for new cycle
-            p_acc <= 16'd0;
-            bit_cnt <= 4'd0;
-        end else if (bit_cnt == 4'd0) begin
-            // clock 1 after strobe: inputs are stable
+            // 2. Start NEW calculation
             ma_reg <= ma_dec;
             mb_reg <= mb_dec;
             zero_latched <= zero_a_dec || zero_b_dec;
             sign_latched <= sign_a_dec ^ sign_b_dec;
             exp_sum_latched <= ($signed({2'b0, ea_dec}) + $signed({2'b0, eb_dec}) + 7) - ($signed(bias_a_dec) + $signed(bias_b_dec));
 
-            // bit 0
-            if (ma_dec[0]) p_acc <= {8'd0, mb_dec};
-            else p_acc <= 16'd0;
+            p_acc <= ma_dec[0] ? {8'd0, mb_dec} : 16'd0;
             bit_cnt <= 4'd1;
         end else if (bit_cnt < 4'd8) begin
-            // bits 1-7
             if (ma_reg[bit_cnt[2:0]]) begin
                 p_acc <= p_acc + ({8'd0, mb_reg} << bit_cnt[2:0]);
             end
             bit_cnt <= bit_cnt + 4'd1;
         end
     end
-
-    assign exp_sum = exp_sum_output_reg;
-    assign sign = sign_output_reg;
 
 endmodule

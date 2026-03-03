@@ -564,9 +564,6 @@ module tt_um_chatelao_fp8_multiplier #(
                 .WIDTH(40), // Robust bit-width
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
             ) aligner_lane0_inst (
-                .clk(clk),
-                .rst_n(rst_n),
-                .strobe(strobe),
                 .prod(aligner_lane0_in_prod),
                 .exp_sum(aligner_lane0_in_exp),
                 .sign(aligner_lane0_in_sign),
@@ -610,9 +607,6 @@ module tt_um_chatelao_fp8_multiplier #(
                     .WIDTH(40), // Robust bit-width
                     .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
                 ) aligner_lane1_inst (
-                    .clk(clk),
-                    .rst_n(rst_n),
-                    .strobe(strobe),
                     .prod({16'd0, mul_prod_lane1_val}),
                     .exp_sum(exp_sum_lane1_adj),
                     .sign(mul_sign_lane1_val),

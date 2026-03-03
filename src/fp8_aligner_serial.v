@@ -1,15 +1,14 @@
 `default_nettype none
 
 /**
- * Sequential FP8 Aligner for Tiny-Serial
+ * FP8 Aligner for Tiny-Serial (Combinational)
+ *
+ * Specialized for bit-serial datapath.
  */
 module fp8_aligner_serial #(
     parameter WIDTH = 40,
     parameter SUPPORT_ADV_ROUNDING = 0
 )(
-    input  wire        clk,
-    input  wire        rst_n,
-    input  wire        strobe,
     input  wire [31:0] prod,
     input  wire signed [9:0] exp_sum,
     input  wire        sign,
@@ -23,84 +22,80 @@ module fp8_aligner_serial #(
     localparam R_FLR = 2'b10;
     localparam R_RNE = 2'b11;
 
-    reg [WIDTH-1:0] shifted_reg;
-    reg signed [10:0] shift_amt_reg;
-    reg [1:0] rm_reg;
-    reg sign_reg;
-    reg wrap_reg;
-    reg sticky_reg;
-    reg round_bit_reg;
-    reg huge_reg;
-    reg [6:0] count;
+    // Use wire for shift_amt to avoid implicit declaration issues
+    wire signed [10:0] shift_amt;
+    assign shift_amt = $signed(exp_sum) - 11'sd5;
 
-    always @(posedge clk) begin
-        reg [WIDTH-1:0] base;
-        reg do_inc;
-        reg [WIDTH:0] rounded;
-        reg [31:0] sat_val;
+    // Declarations at module scope to ensure Verilog-2005 compatibility
+    reg [WIDTH-1:0] shifted_int;
+    reg [WIDTH-1:0] base_int;
+    reg [WIDTH:0]   rounded_int;
+    reg             do_inc_int;
+    reg             sticky_int;
+    reg             round_bit_int;
+    reg [10:0]      n_int;
+    reg             huge_int;
+    reg [WIDTH-1:0] mask_int;
 
-        if (!rst_n) begin
-            aligned <= 32'd0;
-            shifted_reg <= {WIDTH{1'b0}};
-            count <= 7'd127;
-            sign_reg <= 1'b0;
-            rm_reg <= 2'b00;
-            wrap_reg <= 1'b0;
-            huge_reg <= 1'b0;
-            sticky_reg <= 1'b0;
-            round_bit_reg <= 1'b0;
-        end else if (strobe) begin
-            // Output result of PREVIOUS alignment
-            if (count != 7'd127) begin
-                base = shifted_reg;
-                do_inc = 1'b0;
-                case (rm_reg)
-                    R_TRN: do_inc = 1'b0;
-                    R_CEL: if (SUPPORT_ADV_ROUNDING) do_inc = (!sign_reg && (round_bit_reg || sticky_reg));
-                    R_FLR: if (SUPPORT_ADV_ROUNDING) do_inc = (sign_reg && (round_bit_reg || sticky_reg));
-                    R_RNE: if (round_bit_reg && (sticky_reg || base[0])) do_inc = 1'b1;
-                    default: do_inc = 1'b0;
-                endcase
+    always @(*) begin : align_logic
+        // Initialize all
+        shifted_int = {{(WIDTH-32){1'b0}}, prod};
+        base_int = {WIDTH{1'b0}};
+        rounded_int = {(WIDTH+1){1'b0}};
+        huge_int = 1'b0;
+        do_inc_int = 1'b0;
+        sticky_int = 1'b0;
+        round_bit_int = 1'b0;
+        mask_int = {WIDTH{1'b0}};
+        n_int = 11'd0;
 
-                rounded = {1'b0, base} + {{(WIDTH){1'b0}}, do_inc};
-                if (sign_reg) begin
-                    if (!wrap_reg && (huge_reg || |(rounded[WIDTH:32]) || (rounded[31] && |rounded[30:0])))
-                        sat_val = 32'h80000000;
-                    else
-                        sat_val = -rounded[31:0];
+        if (shift_amt >= 0) begin
+            // Left Shift
+            if (prod != 32'd0) begin
+                if (shift_amt >= $signed({1'b0, WIDTH[9:0]})) begin
+                    huge_int = 1'b1;
                 end else begin
-                    if (!wrap_reg && (huge_reg || |(rounded[WIDTH:31])))
-                        sat_val = 32'h7FFFFFFF;
-                    else
-                        sat_val = rounded[31:0];
+                    // Check if any bits of shifted will be shifted out of the WIDTH-bit window
+                    if (shift_amt > 0 && |(shifted_int >> ($signed({1'b0, WIDTH[9:0]}) - shift_amt))) huge_int = 1'b1;
+                    base_int = shifted_int << shift_amt;
                 end
-                aligned <= sat_val;
+            end
+        end else begin
+            // Right Shift
+            n_int = -shift_amt;
+            if (n_int >= $signed({1'b0, WIDTH[9:0]})) begin
+                sticky_int = (prod != 32'd0);
+            end else begin
+                base_int = shifted_int >> n_int;
+                round_bit_int = (n_int > 0) ? shifted_int[n_int-1] : 1'b0;
+                if (n_int > 1) begin
+                    mask_int = {WIDTH{1'b1}};
+                    mask_int = ~(mask_int << (n_int-1));
+                    sticky_int = |(shifted_int & mask_int);
+                end
             end
 
-            // Start new alignment
-            sign_reg <= sign;
-            rm_reg <= round_mode;
-            wrap_reg <= overflow_wrap;
-            huge_reg <= 1'b0;
-            sticky_reg <= 1'b0;
-            round_bit_reg <= 1'b0;
-            shifted_reg <= {{(WIDTH-32){1'b0}}, prod};
-            shift_amt_reg <= $signed(exp_sum) - 11'sd5;
-            count <= 7'd0;
-        end else if (count < 7'd63) begin
-            if (shift_amt_reg > 0) begin
-                if (count < shift_amt_reg[6:0]) begin
-                    if (shifted_reg[WIDTH-1]) huge_reg <= 1'b1;
-                    shifted_reg <= shifted_reg << 1;
-                end
-            end else if (shift_amt_reg < 0) begin
-                if (count < -shift_amt_reg[6:0]) begin
-                    sticky_reg <= sticky_reg || round_bit_reg;
-                    round_bit_reg <= shifted_reg[0];
-                    shifted_reg <= shifted_reg >> 1;
-                end
-            end
-            count <= count + 7'd1;
+            case (round_mode)
+                R_TRN: do_inc_int = 1'b0;
+                R_CEL: if (SUPPORT_ADV_ROUNDING) do_inc_int = (!sign && (round_bit_int || sticky_int));
+                R_FLR: if (SUPPORT_ADV_ROUNDING) do_inc_int = (sign && (round_bit_int || sticky_int));
+                R_RNE: if (round_bit_int && (sticky_int || base_int[0])) do_inc_int = 1'b1;
+                default: do_inc_int = 1'b0;
+            endcase
+        end
+
+        rounded_int = {1'b0, base_int} + {{(WIDTH){1'b0}}, do_inc_int};
+
+        if (sign) begin
+            if (!overflow_wrap && (huge_int || |(rounded_int[WIDTH:32]) || (rounded_int[31] && |rounded_int[30:0])))
+                aligned = 32'h80000000;
+            else
+                aligned = -rounded_int[31:0];
+        end else begin
+            if (!overflow_wrap && (huge_int || |(rounded_int[WIDTH:31])))
+                aligned = 32'h7FFFFFFF;
+            else
+                aligned = rounded_int[31:0];
         end
     end
 
