@@ -580,9 +580,14 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Accumulator Control
     // With multiplier pipelining or serial multiplier, aligned products are ready at cycles 4 to last_stream_cycle+1.
     // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = strobe && ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ?
-                     ((logical_cycle >= 7'd4 && logical_cycle <= last_stream_cycle + 7'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 7'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+    wire acc_en;
+    generate
+        if (SUPPORT_PIPELINING || SUPPORT_SERIAL) begin : gen_acc_en_pipelined
+            assign acc_en = strobe && (logical_cycle >= 7'd4 && logical_cycle <= last_stream_cycle + 7'd1) && (state == STATE_STREAM || state == STATE_OUTPUT);
+        end else begin : gen_acc_en_std
+            assign acc_en = strobe && (logical_cycle >= 7'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM);
+        end
+    endgenerate
     wire acc_clear = strobe && (logical_cycle <= 7'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
