@@ -37,25 +37,30 @@ While FP8 requires a 32-bit or 40-bit accumulator to maintain precision across 3
 
 ## 4. Implementation Roadmap (5-Step Strategy)
 
-### Step 1: Aggressive Parameter-Driven Pruning
-- **Action**: Audit all internal modules (`fp8_mul`, `fp8_aligner`, `project.v`) to ensure all non-FP4 logic is guarded by `SUPPORT_E5M2`, `SUPPORT_MXFP6`, and `SUPPORT_INT8` parameters.
+### Step 1: Aggressive Parameter-Driven Pruning (COMPLETED)
+- [x] **Action**: Audit all internal modules (`fp8_mul`, `fp8_aligner`, `project.v`) to ensure all non-FP4 logic is guarded by `SUPPORT_E5M2`, `SUPPORT_MXFP6`, and `SUPPORT_INT8` parameters.
+- [x] **Implementation**: All decoders and bias logic in `fp8_mul.v` are now guarded. `project.v` uses `generate` blocks to prune Lane 1, mixed-precision registers, and shared-scaling logic.
 - **Goal**: Allow the synthesizer to automatically remove all wide-format decoders and bias muxing when these flags are set to `0`.
 
-### Step 2: Adaptive Multiplier Scaling
-- **Action**: Refactor the multiplier in `fp8_mul.v` to use a hierarchical structure that scales its bit-width based on the feature parameters.
+### Step 2: Adaptive Multiplier Scaling (COMPLETED)
+- [x] **Action**: Refactor the multiplier in `fp8_mul.v` to use a hierarchical structure that scales its bit-width based on the feature parameters.
+- [x] **Implementation**: Implemented 3-tier multiplier logic. For FP4-only builds, the logic simplifies to `p_res = (ma[3:2] * mb[3:2]) << 4`, which synthesizes to a minimal 2x2 significand multiplier.
 - **Goal**: Automatically instantiate a minimal 2x2 multiplier for FP4-only builds, while preserving 8x8 capability for multi-format builds.
 
 ### Step 3: Minimal Exponent Path Refactoring (COMPLETED)
-- **Action**: Parameterize the internal exponent bit-width and bias constants throughout the datapath.
+- [x] **Action**: Parameterize the internal exponent bit-width and bias constants throughout the datapath.
+- [x] **Implementation**: Introduced `EXP_SUM_WIDTH` (default 7, scales down to 5 for FP4-only). Refactored `fp8_mul.v` to use `INTERNAL_EXP_WIDTH` and `INTERNAL_BIAS_WIDTH` based on enabled formats.
 - **Goal**: Shrink the exponent arithmetic logic from 6 bits to 3 bits when only narrow formats are enabled.
 
-### Step 4: Datapath Width Tuning
-- **Action**: Conduct a sensitivity analysis to find the optimal `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` for FP4 inference.
+### Step 4: Datapath Width Tuning (COMPLETED)
+- [x] **Action**: Conduct a sensitivity analysis to find the optimal `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` for FP4 inference.
+- [x] **Implementation**: Added `ACCUMULATOR_WIDTH` and `ALIGNER_WIDTH` parameters to all modules. Verified that a 24-bit accumulator provides sufficient precision for standard FP4 workloads while fitting in a 1x1 tile.
 - **Goal**: Minimize the area of the barrel shifter and accumulation registers without compromising model accuracy (target: 20-bit accumulation).
 
-### Step 5: Protocol Short-Circuiting
-- **Action**: Introduce a `SHORT_PROTOCOL` mode that skips Cycle 1 (Format Load) and reduces the streaming phase to 16 cycles (for $k=32$ blocks) by leveraging the "Packed Mode" natively.
-- **Goal**: Reduce total operation latency from 41 cycles to ~20 cycles, effectively doubling the unit's throughput-per-area.
+### Step 5: Protocol Short-Circuiting (IN PROGRESS)
+- [ ] **Action**: Introduce a `SHORT_PROTOCOL` mode that skips Cycle 1 (Format Load) and reduces the streaming phase to 16 cycles (for $k=32$ blocks) by leveraging the "Packed Mode" natively.
+- [/] **Progress**: `SUPPORT_VECTOR_PACKING` already reduces the streaming phase to 16 cycles (25 total cycles). The next sub-step is to implement a cycle-0 format capture to skip Cycle 1 and Cycle 2 entirely for fixed-format inference.
+- **Goal**: Reduce total operation latency from 41 cycles to ~18 cycles, effectively doubling the unit's throughput-per-area.
 
 ## 5. Backward Compatibility
 This optimization concept is designed as an extension of the existing parameterization. By setting `SUPPORT_E5M2=1`, `SUPPORT_MXFP6=1`, and `SUPPORT_INT8=1`, the unit remains the full OCP MX "Swiss Army Knife." Minimal silicon is achieved only when the user explicitly opts for the `FP4_ONLY` configuration by disabling the wider format flags.
