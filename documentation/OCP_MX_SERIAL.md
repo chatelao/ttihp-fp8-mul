@@ -52,9 +52,9 @@ Instead of changing the IO pins or the sequence of data, we scale the time betwe
 The "Tiny-Serial" variant is implemented as a gradual evolution from the "Ultra-Tiny" parallel baseline. This ensures that the unit is testable in CI/CE at every stage.
 
 ### Phase 1: Infrastructure & Protocol (Baseline)
-- [ ] **Step 1: Tiny-Serial Template**: Create the `Tiny-Serial` configuration in CI as a clone of `Ultra-Tiny`.
-- [ ] **Step 2: Stretched FSM**: Modify `src/project.v` to support `SUPPORT_SERIAL` and `SERIAL_K_FACTOR`. The FSM will "wait" $K$ cycles per protocol step.
-- [ ] **Step 3: Testbench Adaptation**: Update `test/test.py` to handle the variable timing based on `SERIAL_K_FACTOR`.
+- [x] **Step 1: Tiny-Serial Template**: Create the `Tiny-Serial` configuration in CI as a clone of `Ultra-Tiny`.
+- [x] **Step 2: Stretched FSM**: Modify `src/project.v` to support `SUPPORT_SERIAL` and `SERIAL_K_FACTOR`. The FSM will "wait" $K$ cycles per protocol step.
+- [x] **Step 3: Testbench Adaptation**: Update `test/test.py` to handle the variable timing based on `SERIAL_K_FACTOR`.
 
 ### Phase 2: Bit-Serial Module Integration
 - [x] **Step 4: Bit-Serial Multiplier**: Replace the parallel `fp8_mul` with a bit-serial multiplier. It will use the $K$ cycles available per element to compute the product.

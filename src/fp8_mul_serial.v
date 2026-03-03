@@ -51,6 +51,8 @@ module fp8_mul_serial #(
     reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_a_dec, bias_b_dec;
     reg zero_a_dec, zero_b_dec;
 
+    /* verilator lint_off WIDTHTRUNC */
+    /* verilator lint_off WIDTHEXPAND */
     task automatic decode_operand(
         input [7:0] data,
         input [2:0] fmt,
@@ -158,10 +160,13 @@ module fp8_mul_serial #(
             endcase
         end
     endtask
+    /* verilator lint_on WIDTHTRUNC */
+    /* verilator lint_on WIDTHEXPAND */
 
     reg [7:0] ma_reg, mb_reg;
     reg [15:0] p_acc;
-    reg [3:0] k_cnt;
+    reg [2:0] k_cnt;
+    reg k_active;
     reg sign_reg;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_reg;
     reg zero_reg;
@@ -171,7 +176,8 @@ module fp8_mul_serial #(
             ma_reg <= 8'd0;
             mb_reg <= 8'd0;
             p_acc <= 16'd0;
-            k_cnt <= 4'd0;
+            k_cnt <= 3'd0;
+            k_active <= 1'b0;
             sign_reg <= 1'b0;
             exp_sum_reg <= {EXP_SUM_WIDTH{1'b0}};
             zero_reg <= 1'b1;
@@ -196,17 +202,18 @@ module fp8_mul_serial #(
 
                 // Initialize P_ACC with bit 0
                 p_acc <= ma_dec[0] ? {8'd0, mb_dec} : 16'd0;
-                k_cnt <= 4'd1;
-            end else if (k_cnt != 4'd0) begin
-                if (k_cnt == 4'd7) begin
+                k_cnt <= 3'd1;
+                k_active <= 1'b1;
+            end else if (k_active) begin
+                if (k_cnt == 3'd7) begin
                     // Final bit and latch output for the logical cycle starting at the NEXT strobe
                     prod <= zero_reg ? 16'd0 : (p_acc + (ma_reg[7] ? ({8'd0, mb_reg} << 7) : 16'd0));
                     exp_sum <= exp_sum_reg;
                     sign <= sign_reg;
-                    k_cnt <= 4'd0;
+                    k_active <= 1'b0;
                 end else begin
                     p_acc <= p_acc + (ma_reg[k_cnt] ? ({8'd0, mb_reg} << k_cnt) : 16'd0);
-                    k_cnt <= k_cnt + 4'd1;
+                    k_cnt <= k_cnt + 3'd1;
                 end
             end
         end
