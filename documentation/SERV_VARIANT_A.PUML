@@ -1,0 +1,32 @@
+@startuml SERV_VARIANT_A
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title SERV Integration - Variant A: Extension Interface (Coprocessor)
+
+Container_Boundary(serv_soc, "SERV-based SoC") {
+    Component(serv_core, "SERV Core", "Bit-serial RISC-V", "Processes 1 bit/cycle")
+
+    Container_Boundary(adapter_block, "Parallel-to-Serial Adapter") {
+        Component(reg_rs1, "32-bit RS1 Reg", "Buffer")
+        Component(reg_rs2, "32-bit RS2 Reg", "Buffer")
+        Component(shift_logic, "Streaming Logic", "FSM", "Shifts 8 bits to OCP MX")
+        Component(reg_rd, "32-bit RD Reg", "Buffer", "Captures OCP MX result")
+    }
+
+    Component(ocp_mx, "OCP MX Unit", "Tiny-Serial (K=8)", "Bit-serial MAC")
+}
+
+Rel_D(serv_core, reg_rs1, "o_ext_rs1", "32-bit Parallel")
+Rel_D(serv_core, reg_rs2, "o_ext_rs2", "32-bit Parallel")
+Rel_D(serv_core, shift_logic, "o_mdu_valid", "Control")
+
+Rel_R(reg_rs1, ocp_mx, "ui_in", "8-bit Stream")
+Rel_R(reg_rs2, ocp_mx, "uio_in", "8-bit Stream")
+Rel_L(ocp_mx, reg_rd, "uo_out", "8-bit Stream")
+
+Rel_U(reg_rd, serv_core, "i_ext_rd", "32-bit Parallel")
+Rel_U(shift_logic, serv_core, "i_ext_ready", "Strobe")
+
+@enduml
