@@ -47,7 +47,8 @@ The implementation has been refactored to support aggressive area optimizations,
 | 8 | ✅ `tt_um_top` | Control FSM & Logic | 6-bit counter and protocol logic | ~120 |
 | 9 | ✅ `fp8_mul` | Exponent Arithmetic | Biased addition/subtraction | ~120 |
 | 10 | ✅ `fp8_aligner` | Saturation & Overflow | 32-bit signed clamping | ~100 |
-| **Total** | | | | **~2590** |
+| 11 | ✅ `tt_um_top` | Sticky Special Values | NaN/Inf tracking & override | ~30 |
+| **Total** | | | | **~2620** |
 
 ## 3. Optimization Summary for 1x1 Tile Support
 

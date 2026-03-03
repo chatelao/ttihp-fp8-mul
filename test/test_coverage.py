@@ -11,7 +11,7 @@ import random
 from test import decode_format, align_model, align_product_model, reset_dut
 
 def get_operand_class(bits, format_val):
-    sign, exp, mant, bias, is_int = decode_format(bits, format_val)
+    sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val)
 
     if is_int:
         val = bits if bits < 128 else bits - 256
@@ -37,11 +37,11 @@ def get_operand_class(bits, format_val):
         else:
             max_exp = 15
 
+        if nan or inf:
+            return "SPECIAL"
         if exp == 0:
             return "ZERO" if mant == 0 else "SUBNORMAL"
         if exp == max_exp:
-            if format_val == 1: # E5M2 has Inf/NaN
-                return "SPECIAL"
             return "MAX_NORMAL"
         return "NORMAL"
 

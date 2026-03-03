@@ -19,7 +19,9 @@ module fp8_mul #(
     input  wire       is_bm_b,
     output wire [15:0] prod,    // Mantissa product
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
-    output wire       sign
+    output wire       sign,
+    output wire       nan,
+    output wire       inf
 );
     // Format Selection
     localparam FMT_E4M3 = 3'b000;
@@ -40,10 +42,14 @@ module fp8_mul #(
     reg [7:0] ma, mb;
     reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_a, bias_b;
     reg zero_a, zero_b;
+    reg nan_a, nan_b;
+    reg inf_a, inf_b;
 
     reg [15:0] p_res;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
+    reg nan_res;
+    reg inf_res;
 
     task automatic decode_operand(
         input [7:0] data,
@@ -53,7 +59,9 @@ module fp8_mul #(
         output reg [INTERNAL_EXP_WIDTH-1:0] exp_out,
         output reg [7:0] mant_out,
         output reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_out,
-        output reg zero_out
+        output reg zero_out,
+        output reg nan_out,
+        output reg inf_out
     );
         begin
             // Defaults for unsupported formats
@@ -62,6 +70,8 @@ module fp8_mul #(
             mant_out = 8'd0;
             bias_out = {INTERNAL_BIAS_WIDTH{1'b0}};
             zero_out = 1'b1;
+            nan_out = 1'b0;
+            inf_out = 1'b0;
 
             case (fmt)
                 FMT_E4M3: if (SUPPORT_E4M3) begin
@@ -75,6 +85,7 @@ module fp8_mul #(
                         exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
+                        if (data[6:0] == 7'b1111111) nan_out = 1'b1;
                     end
                 end
                 FMT_E5M2: if (SUPPORT_E5M2) begin
@@ -88,6 +99,10 @@ module fp8_mul #(
                         exp_out = (data[6:2] == 5'd0) ? 1 : data[6:2];
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
+                        if (data[6:2] == 5'b11111) begin
+                            if (data[1:0] == 2'b00) inf_out = 1'b1;
+                            else                   nan_out = 1'b1;
+                        end
                     end
                 end
                 FMT_E3M2: if (SUPPORT_MXFP6) begin
@@ -156,15 +171,19 @@ module fp8_mul #(
 
     always @(*) begin
         // Operand A Decoding
-        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a);
+        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a, nan_a, inf_a);
 
         // Operand B Decoding
         if (SUPPORT_MIXED_PRECISION) begin
-            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
+            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b, nan_b, inf_b);
         end else begin
             // Use format_a for both operands to allow hardware sharing
-            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
+            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b, nan_b, inf_b);
         end
+
+        // Special Value Propagation
+        nan_res = nan_a || nan_b || (inf_a && zero_b) || (inf_b && zero_a);
+        inf_res = (inf_a || inf_b) && !nan_res;
 
         // 8x8, 4x4 or 2x2 Multiplier (Variant B: Parameterized Multiplier)
         // Synthesis tools will optimize the multiplier width based on the parameters
@@ -182,5 +201,7 @@ module fp8_mul #(
     assign sign = sign_res;
     assign prod = p_res;
     assign exp_sum = exp_sum_res;
+    assign nan = nan_res;
+    assign inf = inf_res;
 
 endmodule
