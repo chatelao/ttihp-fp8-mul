@@ -135,10 +135,10 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (C++ Extension)**: Implement the model in C++ for performance and bind it to Python using pybind11.
 - **Reasoning**: **Variant B** is essential for verification. Bit-level accuracy ensures that quantization edge cases (like rounding near 0.5 LSB) are handled identically by the hardware and the software testbench.
 
-### Step 8: Comprehensive Test Suite
+### Step 8: Comprehensive Test Suite (Status: **COMPLETED**)
 - **Goal**: Add test cases targeting outlier preservation.
 - **Preparation**:
-  - Define specific test vectors in `test/TEST_MX_E2E.YAML`.
+   - Define specific test vectors in `test/TEST_MXPLUS.yaml`.
 - **Variant Analysis**:
   - **Variant A (Random Fuzzing)**: Generate random input blocks and check against the model.
   - **Variant B (Directed Corner Cases)**: Specifically test blocks where the BM is at index 0, 15, or 31.
