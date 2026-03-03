@@ -1,0 +1,48 @@
+make: Entering directory '/app/test'
+rm -f results.xml
+"make" -f Makefile results.xml
+make[1]: Entering directory '/app/test'
+rm -f results.xml
+COCOTB_TEST_MODULES=test,test_coverage,test_performance COCOTB_TESTCASE=test_yaml_cases COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=tb TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/rtl/sim.vvp -fst
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.12.4 interpreter at /home/jules/.pyenv/versions/3.12.12/bin/python3.12
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb                             Seeding Python random module with 1772551001
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb
+     0.00ns WARNING  py.warnings                        /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb/_init.py:102: DeprecationWarning: COCOTB_TESTCASE is deprecated in favor of COCOTB_TEST_FILTER
+                                                          _setup_regression_manager()
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running test.test_yaml_cases (1/1)
+  3300.00ns INFO     cocotb.tb                          Expected: 8192, Actual: 8192
+  6610.00ns INFO     cocotb.tb                          Expected: 8192, Actual: 8192
+  9920.00ns INFO     cocotb.tb                          Expected: 16384, Actual: 16384
+ 13230.00ns INFO     cocotb.tb                          Expected: 4096, Actual: 4096
+ 16540.00ns INFO     cocotb.tb                          Expected: -8192, Actual: -8192
+ 19850.00ns INFO     cocotb.tb                          Expected: 8192, Actual: 8192
+ 23160.00ns INFO     cocotb.tb                          Expected: 1280, Actual: 1280
+ 26470.00ns INFO     cocotb.tb                          Expected: -2147483648, Actual: -2147483648
+ 29780.00ns INFO     cocotb.tb                          Expected: 2147483647, Actual: 2147483647
+ 33090.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 36400.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 39710.00ns INFO     cocotb.tb                          Expected: 3670016, Actual: 3670016
+ 43020.00ns INFO     cocotb.tb                          Expected: 131072, Actual: 131072
+ 46330.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 49640.00ns INFO     cocotb.tb                          Expected: -8388608, Actual: -8388608
+ 52950.00ns INFO     cocotb.tb                          Expected: 4194304, Actual: 4194304
+ 56260.00ns INFO     cocotb.tb                          Expected: 2143289344, Actual: 2143289344
+ 59570.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 62880.00ns INFO     cocotb.tb                          Expected: 49152, Actual: 49152
+ 66190.00ns INFO     cocotb.tb                          Expected: 32768, Actual: 32768
+ 69500.00ns INFO     cocotb.tb                          Expected: 2143289344, Actual: 2143289344
+ 69500.00ns INFO     cocotb.regression                  test.test_yaml_cases passed
+ 69500.00ns INFO     cocotb.regression                  **************************************************************************************
+                                                        ** TEST                          STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        **************************************************************************************
+                                                        ** test.test_yaml_cases           PASS       69500.00           0.83      83639.16  **
+                                                        **************************************************************************************
+                                                        ** TESTS=1 PASS=1 FAIL=0 SKIP=0              69500.00           0.84      82758.99  **
+                                                        **************************************************************************************
+FST info: dumpfile tb.fst opened for output.
+make[1]: Leaving directory '/app/test'
+make: Leaving directory '/app/test'

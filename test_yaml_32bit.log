@@ -1,0 +1,54 @@
+make: Entering directory '/app/test'
+rm -f results.xml
+"make" -f Makefile results.xml
+make[1]: Entering directory '/app/test'
+rm -f results.xml
+COCOTB_TEST_MODULES=test,test_coverage,test_performance COCOTB_TESTCASE=test_yaml_cases COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=tb TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/rtl/sim.vvp -fst
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.12.4 interpreter at /home/jules/.pyenv/versions/3.12.12/bin/python3.12
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb                             Seeding Python random module with 1772550962
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb
+     0.00ns WARNING  py.warnings                        /home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb/_init.py:102: DeprecationWarning: COCOTB_TESTCASE is deprecated in favor of COCOTB_TEST_FILTER
+                                                          _setup_regression_manager()
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running test.test_yaml_cases (1/1)
+  3300.00ns INFO     cocotb.tb                          Expected: 8192, Actual: 8192
+  6610.00ns INFO     cocotb.tb                          Expected: 8192, Actual: 8192
+  9920.00ns INFO     cocotb.tb                          Expected: 16384, Actual: 16384
+ 13230.00ns INFO     cocotb.tb                          Expected: 4096, Actual: 4096
+ 16540.00ns INFO     cocotb.tb                          Expected: -8192, Actual: -8192
+ 19850.00ns INFO     cocotb.tb                          Expected: 8192, Actual: 8192
+ 23160.00ns INFO     cocotb.tb                          Expected: 1280, Actual: 1280
+ 26470.00ns INFO     cocotb.tb                          Expected: -2147483648, Actual: -2147483648
+ 29780.00ns INFO     cocotb.tb                          Expected: 2147483647, Actual: 2147483647
+ 33090.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 36400.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 39710.00ns INFO     cocotb.tb                          Expected: 3670016, Actual: 3670016
+ 43020.00ns INFO     cocotb.tb                          Expected: 131072, Actual: 131072
+ 46330.00ns INFO     cocotb.tb                          Expected: 0, Actual: 0
+ 49640.00ns INFO     cocotb.tb                          Expected: 469762048, Actual: -8388608
+ 49640.00ns WARNING  .. test_yaml_cases.test_yaml_cases assert -8388608 == 469762048
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 349, in test_yaml_cases
+                                                            async def test_yaml_cases(dut): await run_yaml_file(dut, "TEST_MX_E2E.YAML")
+                                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "/app/test/test.py", line 374, in run_yaml_file
+                                                            await run_mac_test(dut, fa, fb, inputs['a_elements'], inputs['b_elements'], inputs.get('scale_a', 127), inputs.get('scale_b', 127), inputs.get('round_mode', 0), inputs.get('overflow_mode', 0), expected, inputs.get('packed_mode', 0), inputs.get('bm_index_a', 0), inputs.get('bm_index_b', 0), inputs.get('nbm_offset_a', 0), inputs.get('nbm_offset_b', 0), inputs.get('mx_plus_mode', 0))
+                                                          File "/app/test/test.py", line 235, in run_mac_test
+                                                            assert actual_s == expected_s
+                                                        AssertionError: assert -8388608 == 469762048
+ 49640.00ns WARNING  cocotb.regression                  test.test_yaml_cases failed
+ 49640.00ns INFO     cocotb.regression                  **************************************************************************************
+                                                        ** TEST                          STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        **************************************************************************************
+                                                        ** test.test_yaml_cases           FAIL       49640.00           0.60      82380.40  **
+                                                        **************************************************************************************
+                                                        ** TESTS=1 PASS=0 FAIL=1 SKIP=0              49640.00           0.62      79990.43  **
+                                                        **************************************************************************************
+FST info: dumpfile tb.fst opened for output.
+make[1]: *** [/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb_tools/makefiles/simulators/Makefile.icarus:67: results.xml] Error 1
+make[1]: Leaving directory '/app/test'
+make: *** [/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cocotb_tools/makefiles/Makefile.inc:17: sim] Error 2
+make: Leaving directory '/app/test'

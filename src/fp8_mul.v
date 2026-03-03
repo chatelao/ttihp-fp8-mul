@@ -51,6 +51,8 @@ module fp8_mul #(
     reg nan_res;
     reg inf_res;
 
+    /* verilator lint_off WIDTHTRUNC */
+    /* verilator lint_off WIDTHEXPAND */
     task automatic decode_operand(
         input [7:0] data,
         input [2:0] fmt,
@@ -168,6 +170,8 @@ module fp8_mul #(
             endcase
         end
     endtask
+    /* verilator lint_on WIDTHTRUNC */
+    /* verilator lint_on WIDTHEXPAND */
 
     always @(*) begin
         // Operand A Decoding

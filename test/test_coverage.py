@@ -11,6 +11,7 @@ import random
 from test import decode_format, align_model, align_product_model, reset_dut
 
 def get_operand_class(bits, format_val):
+    # decode_format now returns 7 values
     sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val)
 
     if is_int:
@@ -141,12 +142,23 @@ async def test_shared_scale_coverage(dut):
 @cocotb.test()
 async def test_randomized_coverage(dut):
     """Run many randomized tests to fill coverage"""
+    from test import get_param
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
+
+    allowed_formats = [0, 5, 6] # E4M3, INT8, INT8_SYM
+    if support_e5m2: allowed_formats.append(1)
+    if support_mxfp6: allowed_formats.extend([2, 3])
+    if support_mxfp4: allowed_formats.append(4)
+
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
     for _ in range(500):
-        fa = random.randint(0, 6)
-        fb = random.randint(0, 6)
+        fa = random.choice(allowed_formats)
+        fb = random.choice(allowed_formats) if support_mixed else fa
         rm = random.randint(0, 3)
         ov = random.randint(0, 1)
         sa = random.randint(0, 255)
