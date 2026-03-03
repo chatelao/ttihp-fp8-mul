@@ -19,7 +19,7 @@ module fp8_mul_serial #(
     input  wire [2:0] format_b,
     input  wire       is_bm_a,
     input  wire       is_bm_b,
-    input  wire [11:0] k_cnt,
+    input  wire [7:0]  k_cnt,
     input  wire       strobe,
     output reg  [15:0] prod,    // Mantissa product (Registered)
     output reg  signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased, Registered)
@@ -151,6 +151,39 @@ module fp8_mul_serial #(
     /* verilator lint_on WIDTHTRUNC */
     /* verilator lint_on WIDTHEXPAND */
 
+    // Decoding Logic (Combinational)
+    wire sign_a_wire, sign_b_wire;
+    wire [INTERNAL_EXP_WIDTH-1:0] ea_wire, eb_wire;
+    wire [7:0] ma_wire, mb_wire;
+    wire signed [INTERNAL_BIAS_WIDTH-1:0] bias_a_wire, bias_b_wire;
+    wire zero_a_wire, zero_b_wire;
+
+    // Use dummy registers for task outputs to be compatible with older Verilog if needed,
+    // but here we just use them in a continuous block.
+    reg t_sa, t_sb, t_za, t_zb;
+    reg [INTERNAL_EXP_WIDTH-1:0] t_ea, t_eb;
+    reg [7:0] t_ma, t_mb;
+    reg signed [INTERNAL_BIAS_WIDTH-1:0] t_ba, t_bb;
+
+    always @(*) begin
+        decode_operand(a, format_a, is_bm_a, t_sa, t_ea, t_ma, t_ba, t_za);
+        if (SUPPORT_MIXED_PRECISION)
+            decode_operand(b, format_b, is_bm_b, t_sb, t_eb, t_mb, t_bb, t_zb);
+        else
+            decode_operand(b, format_a, is_bm_b, t_sb, t_eb, t_mb, t_bb, t_zb);
+    end
+
+    assign sign_a_wire = t_sa;
+    assign ea_wire = t_ea;
+    assign ma_wire = t_ma;
+    assign bias_a_wire = t_ba;
+    assign zero_a_wire = t_za;
+    assign sign_b_wire = t_sb;
+    assign eb_wire = t_eb;
+    assign mb_wire = t_mb;
+    assign bias_b_wire = t_bb;
+    assign zero_b_wire = t_zb;
+
     // Working Registers
     reg [15:0] p_acc;
     reg [7:0] ma_val, mb_val;
@@ -158,12 +191,8 @@ module fp8_mul_serial #(
     reg next_sign_reg;
     reg next_zero_reg;
 
-    // Decoding wires
-    reg sign_a_wire, sign_b_wire;
-    reg [INTERNAL_EXP_WIDTH-1:0] ea_wire, eb_wire;
-    reg [7:0] ma_wire, mb_wire;
-    reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_a_wire, bias_b_wire;
-    reg zero_a_wire, zero_b_wire;
+    wire [15:0] ma_ext = {8'd0, ma_val};
+    wire signed [EXP_SUM_WIDTH+1:0] exp_sum_calc = $signed({2'b0, ea_wire}) + $signed({2'b0, eb_wire}) - ($signed(bias_a_wire) + $signed(bias_b_wire) - 7);
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -178,28 +207,21 @@ module fp8_mul_serial #(
             next_zero_reg <= 1'b1;
         end else if (ena) begin
             if (strobe) begin
-                // Decode current operands
-                decode_operand(a, format_a, is_bm_a, sign_a_wire, ea_wire, ma_wire, bias_a_wire, zero_a_wire);
-                if (SUPPORT_MIXED_PRECISION)
-                    decode_operand(b, format_b, is_bm_b, sign_b_wire, eb_wire, mb_wire, bias_b_wire, zero_b_wire);
-                else
-                    decode_operand(b, format_a, is_bm_b, sign_b_wire, eb_wire, mb_wire, bias_b_wire, zero_b_wire);
-
                 // Initialize next multiplication
                 ma_val <= ma_wire;
                 mb_val <= mb_wire;
                 p_acc <= (zero_a_wire || zero_b_wire) ? 16'd0 : (mb_wire[0] ? {8'd0, ma_wire} : 16'd0);
                 next_sign_reg <= sign_a_wire ^ sign_b_wire;
                 next_zero_reg <= zero_a_wire || zero_b_wire;
-                next_exp_sum_reg <= $signed({2'b0, ea_wire}) + $signed({2'b0, eb_wire}) - ($signed(bias_a_wire) + $signed(bias_b_wire) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'd7}));
-            end else if (k_cnt < 12'd7) begin
+                next_exp_sum_reg <= exp_sum_calc[EXP_SUM_WIDTH-1:0];
+            end else if (k_cnt < 8'd7) begin
                 // Bit-Serial Shift-and-Add (bits 1 to 6)
                 if (mb_val[k_cnt[2:0]]) begin
-                    p_acc <= p_acc + ({8'd0, ma_val} << k_cnt[2:0]);
+                    p_acc <= p_acc + (ma_ext << k_cnt[2:0]);
                 end
-            end else if (k_cnt == 12'd7) begin
+            end else if (k_cnt == 8'd7) begin
                 // Bit 7: Complete and Register for the NEXT logical cycle
-                prod <= next_zero_reg ? 16'd0 : (mb_val[7] ? p_acc + ({8'd0, ma_val} << 7) : p_acc);
+                prod <= next_zero_reg ? 16'd0 : (mb_val[7] ? p_acc + (ma_ext << 7) : p_acc);
                 exp_sum <= next_exp_sum_reg;
                 sign <= next_sign_reg;
             end
