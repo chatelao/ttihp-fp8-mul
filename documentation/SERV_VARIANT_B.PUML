@@ -1,0 +1,25 @@
+@startuml SERV_VARIANT_B
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title SERV Integration - Variant B: Internal Snooping (Tightly Coupled)
+
+Container_Boundary(serv_core, "SERV Core (Internal)") {
+    Component(rf_if, "Register File IF", "serv_rf_if", "Serial bitstream provider")
+    Component(state, "State & Counter", "serv_state", "Execution tracking (cnt[4:0])")
+}
+
+Container_Boundary(ocp_mx_wrapper, "OCP MX Snooping Wrapper") {
+    Component(capture, "Capture Logic", "Shift Regs", "Samples o_rdata0/1 based on cnt")
+    Component(ocp_mx, "OCP MX Unit", "Tiny-Serial (K=8)", "Processes bit-serial MAC")
+}
+
+Rel_D(rf_if, capture, "o_rdata0 (rs1)", "1-bit Serial")
+Rel_D(rf_if, capture, "o_rdata1 (rs2)", "1-bit Serial")
+Rel_D(state, capture, "cnt[4:0], en", "Sync Signals")
+
+Rel_D(capture, ocp_mx, "ui_in, uio_in", "8-bit Internal Strobe")
+Rel_U(ocp_mx, rf_if, "uo_out (Result)", "Optional Feedthrough")
+
+@enduml
