@@ -92,3 +92,32 @@ Performance is measured in clock cycles required to complete OCP MX blocks (32 e
 
 ## 6. Conclusion
 For a **high-throughput systolic array**, the **1x Parallel** implementation is superior due to its better cycles-per-element efficiency. However, for **integration into a bit-serial CPU (like SERV)** or for **ultra-low-power IoT edge devices**, the **4x Serial** approach provides better energy-area scaling and easier timing closure.
+
+## 7. Analysis: 2-bit Digit-Serial vs. 1-bit Bit-Serial
+
+As designs scale, a 1-bit bit-serial approach (Radix-2) may become a performance bottleneck, while a full parallel approach remains too costly in terms of routing or peak power. A **2-bit digit-serial (Radix-4)** implementation offers a middle ground.
+
+### 7.1. Architectural Overview
+- **1-bit (Radix-2)**: Processes 1 bit per cycle. Uses a single full-adder for additions and a shift-and-add multiplier that takes $N$ cycles for an $N$-bit operand.
+- **2-bit (Radix-4)**: Processes 2 bits per cycle. Requires a 2-bit adder (or two 1-bit adders) and a more complex digit-multiplier. Registers shift 2 bits at a time.
+
+### 7.2. Comparative Metrics (Estimated)
+
+| Metric | 1-bit Bit-Serial | 2-bit Digit-Serial | Reasoning |
+|---|---|---|---|
+| **Gate Count** | Baseline (~2,100) | **~1.25x - 1.35x** | Increased complexity in the 2-bit adder and muxing for 2-bit shifts. |
+| **Cycle Count (K=8)** | 328 Cycles | **164 Cycles** | Throughput is doubled as 2 bits are processed per clock. |
+| **Throughput** | 1.0x | **2.0x** | Completion time is halved. |
+| **Routing Density** | Very Low | **Low-Medium** | 2-bit buses are still very manageable compared to 32-bit parallel buses. |
+| **Energy Efficiency** | High | **Superior** | While peak power is higher, the "leakage energy" (static power $\times$ time) is significantly reduced due to faster completion. |
+
+### 7.3. Why Choose 2-bit Digit-Serial?
+1.  **Optimal Energy-Delay Product (EDP)**: 2-bit serial often hits the "sweet spot" where the reduction in execution time outweighs the modest increase in area/power.
+2.  **Frequency Matching**: If the internal fabric can run at 2x the IO frequency, a 2-bit serial unit can match a 4-bit parallel unit's throughput while maintaining the benefits of serial routing.
+3.  **Graceful Scaling**: It provides a path for scaling performance in 1x1 tiles without jumping to a full parallel datapath that might fail placement or timing.
+
+### 7.4. Implementation Complexity
+The transition from 1-bit to 2-bit requires:
+- **Modified Counters**: The bit-counters must increment by 2 or handle half the cycle count.
+- **Digit-Serial Multiplier**: Instead of a simple `AND` gate and shift-and-add, a radix-4 multiplier (e.g., using Modified Booth Encoding or a small 2xN multiplier) is needed.
+- **Wider Shift Registers**: DFFs remain the same, but the connectivity must support 2-bit shifts (Q -> D of two stages away).
