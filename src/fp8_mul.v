@@ -17,9 +17,16 @@ module fp8_mul #(
     input  wire       is_bm_a,
     input  wire       is_bm_b,
     output wire [15:0] prod,    // Mantissa product
-    output wire signed [6:0] exp_sum, // Combined exponent (biased)
+    output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign
 );
+    // Exponent Width Parameterization
+    localparam EA_WIDTH = SUPPORT_E5M2 ? 5 :
+                          SUPPORT_E4M3 ? 4 :
+                          SUPPORT_MXFP6 ? 3 : 2;
+    localparam BIAS_WIDTH = EA_WIDTH + 1;
+    localparam EXP_SUM_WIDTH = (SUPPORT_E5M2 || SUPPORT_E4M3 || SUPPORT_MXFP6) ? 7 : 5;
+
     // Format Selection
     localparam FMT_E4M3 = 3'b000;
     localparam FMT_E5M2 = 3'b001;
@@ -30,13 +37,13 @@ module fp8_mul #(
     localparam FMT_INT8_SYM = 3'b110;
 
     reg sign_a, sign_b;
-    reg [4:0] ea, eb;
+    reg [EA_WIDTH-1:0] ea, eb;
     reg [7:0] ma, mb;
-    reg signed [5:0] bias_a, bias_b;
+    reg signed [BIAS_WIDTH-1:0] bias_a, bias_b;
     reg zero_a, zero_b;
 
     reg [15:0] p_res;
-    reg signed [6:0] exp_sum_res;
+    reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
 
     task automatic decode_operand(
@@ -44,9 +51,9 @@ module fp8_mul #(
         input [2:0] fmt,
         input is_bm,
         output reg sign_out,
-        output reg [4:0] exp_out,
+        output reg [EA_WIDTH-1:0] exp_out,
         output reg [7:0] mant_out,
-        output reg signed [5:0] bias_out,
+        output reg signed [BIAS_WIDTH-1:0] bias_out,
         output reg zero_out
     );
         begin

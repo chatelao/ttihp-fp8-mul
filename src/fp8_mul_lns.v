@@ -19,9 +19,16 @@ module fp8_mul_lns #(
     input  wire       is_bm_a,
     input  wire       is_bm_b,
     output wire [15:0] prod,    // Mantissa product
-    output wire signed [6:0] exp_sum, // Combined exponent (biased)
+    output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign
 );
+    // Exponent Width Parameterization
+    localparam EA_WIDTH = SUPPORT_E5M2 ? 5 :
+                          SUPPORT_E4M3 ? 4 :
+                          SUPPORT_MXFP6 ? 3 : 2;
+    localparam BIAS_WIDTH = EA_WIDTH + 1;
+    localparam EXP_SUM_WIDTH = (SUPPORT_E5M2 || SUPPORT_E4M3 || SUPPORT_MXFP6) ? 7 : 5;
+
     // Format Selection
     localparam FMT_E4M3 = 3'b000;
     localparam FMT_E5M2 = 3'b001;
@@ -32,14 +39,14 @@ module fp8_mul_lns #(
     localparam FMT_INT8_SYM = 3'b110;
 
     reg sign_a, sign_b;
-    reg [4:0] ea, eb;
+    reg [EA_WIDTH-1:0] ea, eb;
     reg [7:0] ma, mb;
-    reg signed [5:0] bias_a, bias_b;
+    reg signed [BIAS_WIDTH-1:0] bias_a, bias_b;
     reg zero_a, zero_b;
     reg is_inta, is_intb;
 
     reg [15:0] p_res;
-    reg signed [6:0] exp_sum_res;
+    reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
     reg [3:0] m_sum;
 
@@ -62,9 +69,9 @@ module fp8_mul_lns #(
         input [2:0] fmt,
         input is_bm,
         output reg sign_out,
-        output reg [4:0] exp_out,
+        output reg [EA_WIDTH-1:0] exp_out,
         output reg [7:0] mant_out,
-        output reg signed [5:0] bias_out,
+        output reg signed [BIAS_WIDTH-1:0] bias_out,
         output reg zero_out,
         output reg is_int_out
     );
@@ -186,11 +193,11 @@ module fp8_mul_lns #(
         if (is_inta || is_intb) begin
             // Logarithmic multiplication doesn't apply easily to INT8 in this architecture.
             p_res = 16'd0;
-            exp_sum_res = 7'sd0;
+            exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         end else begin
             if (zero_a || zero_b) begin
                 p_res = 16'd0;
-                exp_sum_res = 7'sd0;
+                exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
             end else if (SUPPORT_MX_PLUS && (is_bm_a || is_bm_b)) begin
                 // To maintain the precision benefits of MX+, BM elements use a standard multiplier
                 p_res = ma * mb;
@@ -204,7 +211,7 @@ module fp8_mul_lns #(
                     m_sum = ma[2:0] + mb[2:0];
                 end
                 p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7) + $signed({6'b0, m_sum[3]});
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - 7'sd7) + $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
             end
         end
         sign_res = sign_a ^ sign_b;
