@@ -37,15 +37,38 @@ This variant taps into the 1-bit streams of SERV's register file, aligning with 
 - **Pros**: Eliminates 32-bit parallel registers at the interface, saving significant area (estimated ~1000 gates across the system).
 - **Cons**: High coupling; requires internal knowledge of SERV's pipeline and state machine to handle multi-cycle latency.
 
-## 4. Proposed Custom ISA (OCP-MX-V)
-To support OCP MX operations in RISC-V, we define a set of custom instructions using the `custom-0` (0x0b) or `custom-1` (0x2b) opcodes.
+#### Variant B: Snooping Logic & Timing
+The OCP MX unit monitors the following signals from the SERV core:
+- `o_rdata0`: 1-bit serial stream for `rs1`.
+- `o_rdata1`: 1-bit serial stream for `rs2`.
+- `cnt[4:0]`: SERV's execution cycle counter (0 to 31).
+- `en`: High during the 32-cycle execution phase.
 
-| Instruction | Format | Description |
-|-------------|--------|-------------|
-| `MX.SETFMT rd, rs1` | R-Type | Sets the MX format and rounding mode (from `rs1`). |
-| `MX.LOADS  rs1, rs2`| R-Type | Loads Shared Scale A (from `rs1`) and Scale B (from `rs2`). |
-| `MX.MAC    rs1, rs2`| R-Type | Streams two 8-bit elements (packed in `rs1`, `rs2`) into the MAC unit. |
-| `MX.READ   rd`      | R-Type | Reads the 32-bit accumulator result into `rd`. |
+**Mapping Logic**:
+Over the 32-cycle execution window, the OCP MX unit captures 4 elements per register:
+- **Cycles 0-7**: Capture bits into **Element 0** buffer.
+- **Cycles 8-15**: Capture bits into **Element 1** buffer.
+- **Cycles 16-23**: Capture bits into **Element 2** buffer.
+- **Cycles 24-31**: Capture bits into **Element 3** buffer.
+
+As each 8-bit element is completed, the `strobe` signal in the OCP MX datapath is triggered, initiating the $K$-cycle bit-serial MAC operation for that element pair.
+
+## 4. Proposed Custom ISA (OCP-MX-V)
+To support OCP MX operations in RISC-V, we define a set of custom instructions using the `custom-0` (0x0b) opcode. All instructions follow the standard R-type format.
+
+### 4.1. Instruction Encodings
+The following table defines the bitfields for the OCP-MX-V extension:
+
+| Instruction | Opcode | funct3 | funct7 | rs2 | rs1 | rd | Description |
+|-------------|--------|--------|--------|-----|-----|----|-------------|
+| `MX.SETFMT` | 0x0b   | 0x0    | 0x00   | 0x0 | src | dst| Set format/rounding mode from `rs1`. |
+| `MX.LOADS`  | 0x0b   | 0x1    | 0x00   | src2| src1| 0x0| Load Shared Scale A (`rs1`) and B (`rs2`). |
+| `MX.MAC`    | 0x0b   | 0x2    | 0x00   | src2| src1| 0x0| Stream 4+4 packed elements for MAC. |
+| `MX.READ`   | 0x0b   | 0x3    | 0x00   | 0x0 | 0x0 | dst| Read 32-bit accumulator into `rd`. |
+
+### 4.2. Register Bit-Mapping
+- **`MX.SETFMT`**: `rs1[2:0]` = format_a, `rs1[4:3]` = round_mode, `rs1[5]` = overflow_wrap.
+- **`MX.MAC`**: `rs1` contains 4x 8-bit elements (A0-A3), `rs2` contains 4x 8-bit elements (B0-B3).
 
 ## 5. Synchronization & Stretched Protocol
 SERV's execution stage is 32 cycles long. The OCP MX Tiny-Serial unit uses $K$ cycles per element.
@@ -55,3 +78,61 @@ SERV's execution stage is 32 cycles long. The OCP MX Tiny-Serial unit uses $K$ c
 
 ## 6. Implementation Recommendation
 For a 1x1 Tiny Tapeout tile, **Variant B (Internal Snooping)** combined with **Tiny-Serial (K=8)** is recommended. This setup provides the smallest possible footprint for an AI-accelerated RISC-V core by sharing the bit-serial infrastructure for both general-purpose and tensor arithmetic, avoiding the area overhead of parallel 32-bit interfaces.
+
+## 7. Detailed Timing & Synchronization (K=8)
+When `SERIAL_K_FACTOR=8`, the internal clock cycles of the OCP MX unit are aligned with SERV's 32-cycle execution phase.
+
+| SERV Cycle (cnt) | OCP MX Element | OCP MX Internal Activity (K=8) |
+|------------------|----------------|-------------------------------|
+| 0                | Element 0      | Start Capture (Bit 0)         |
+| 7                | Element 0      | End Capture (Bit 7)           |
+| 8                | Element 1      | MAC Element 0 / Start Capture Bit 8 |
+| 15               | Element 1      | End Capture (Bit 15)          |
+| 16               | Element 2      | MAC Element 1 / Start Capture Bit 16|
+| 23               | Element 2      | End Capture (Bit 23)          |
+| 24               | Element 3      | MAC Element 2 / Start Capture Bit 24|
+| 31               | Element 3      | End Capture (Bit 31)          |
+| 32-39            | -              | MAC Element 3                 |
+
+This alignment ensures that exactly 4 MAC operations are performed for every 32-bit register transfer instruction, maintaining a 1:1 ratio between CPU instruction throughput and MAC element throughput (in terms of architecture cycles).
+
+## 8. Software Usage Example
+The following C code snippet demonstrates how to perform a vector-vector dot product using the OCP-MX-V custom instructions on a SERV-based system.
+
+```c
+#include <stdint.h>
+
+// Assembly Macros for OCP-MX-V (Opcode 0x0b)
+#define MX_SETFMT(fmt) asm volatile (".insn r 0x0b, 0, 0, x0, %0, x0" :: "r"(fmt))
+#define MX_LOADS(sa, sb) asm volatile (".insn r 0x0b, 1, 0, x0, %0, %1" :: "r"(sa), "r"(sb))
+#define MX_MAC(va, vb)  asm volatile (".insn r 0x0b, 2, 0, x0, %0, %1" :: "r"(va), "r"(vb))
+#define MX_READ(res)    asm volatile (".insn r 0x0b, 3, 0, %0, x0, x0" : "=r"(res))
+
+void compute_dot_product(uint32_t* vec_a, uint32_t* vec_b, int len, uint32_t fmt, uint32_t sa, uint32_t sb) {
+    uint32_t result;
+
+    // 1. Configure the MAC unit
+    MX_SETFMT(fmt);
+    MX_LOADS(sa, sb);
+
+    // 2. Perform 4 MACs per loop iteration (32-bit packed registers)
+    for (int i = 0; i < len/4; i++) {
+        MX_MAC(vec_a[i], vec_b[i]);
+    }
+
+    // 3. Read the 32-bit accumulated result
+    MX_READ(result);
+}
+```
+
+## 9. Comparison of Integration Variants
+
+| Feature | Variant A: Extension | Variant B: Snooping |
+|---------|----------------------|----------------------|
+| **Logic Area** | Medium (+1000 gates for buffers) | **Minimal** (Uses core registers) |
+| **Control Complexity**| Low (Standard MDU protocol) | High (Requires pipeline tracking) |
+| **Throughput** | 1 element / K cycles | 1 element / K cycles |
+| **Integration** | Tightly coupled (External) | **Fully Integrated** (Internal) |
+| **Tile Target** | 1x2 Tiny Tapeout Tile | **1x1 Tiny Tapeout Tile** |
+
+By choosing **Variant B** and **Tiny-Serial (K=8)**, the OCP-MX-V extension can be integrated into a SERV-based SoC with minimal silicon impact, enabling energy-efficient AI acceleration in ultra-constrained ASIC environments.
