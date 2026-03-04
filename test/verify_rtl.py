@@ -22,6 +22,7 @@ def verify_gowin_top():
         "parameter SUPPORT_MIXED_PRECISION",
         "parameter SUPPORT_VECTOR_PACKING",
         "parameter SUPPORT_PACKED_SERIAL",
+        "parameter SUPPORT_INPUT_BUFFERING",
         "parameter SUPPORT_MX_PLUS",
         "parameter SUPPORT_SERIAL",
         "parameter SERIAL_K_FACTOR",
