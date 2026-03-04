@@ -106,6 +106,19 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
 
     return sign, exp, mant, bias, is_int
 
+def decode_format_robust(bits, format_val, is_bm=False, support_mxplus=False):
+    sign, exp, mant, bias, is_int = decode_format(bits, format_val, is_bm, support_mxplus)
+    nan = False
+    inf = False
+    if not is_int:
+        if format_val == 0: # E4M3
+            if not is_bm and (bits & 0x7F) == 0x7F: nan = True
+        elif format_val == 1: # E5M2
+            if not is_bm and ((bits >> 2) & 0x1F) == 0x1F:
+                if (bits & 0x3) == 0: inf = True
+                else: nan = True
+    return sign, exp, mant, bias, is_int, nan, inf
+
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum - 5
     WIDTH = width
@@ -218,30 +231,44 @@ def get_param(dut, name, default=1):
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
-                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0):
+                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0,
+                        nan_sticky=False, inf_pos_sticky=False, inf_neg_sticky=False):
     # Fallback for unsupported formats in hardware
-    if not support_e5m2 and format_a == 1: return 0
-    if not support_e5m2 and format_b == 1: return 0
-    if not support_mxfp6 and format_a in [2, 3]: return 0
-    if not support_mxfp6 and format_b in [2, 3]: return 0
-    if not support_mxfp4 and format_a == 4: return 0
-    if not support_mxfp4 and format_b == 4: return 0
-    if not support_int8 and format_a in [5, 6]: return 0
-    if not support_int8 and format_b in [5, 6]: return 0
+    if not support_e5m2 and format_a == 1: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_e5m2 and format_b == 1: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_mxfp6 and format_a in [2, 3]: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_mxfp6 and format_b in [2, 3]: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_mxfp4 and format_a == 4: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_mxfp4 and format_b == 4: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_int8 and format_a in [5, 6]: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+    if not support_int8 and format_b in [5, 6]: return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
 
-    sa, ea, ma, ba, inta = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
-    sb, eb, mb, bb, intb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
+    sa, ea, ma, ba, inta, nana, infa = decode_format_robust(a_bits, format_a, is_bm_a, support_mxplus)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format_robust(b_bits, format_b, is_bm_b, support_mxplus)
 
+    zeroa = False
+    zerob = False
+    if not (is_bm_a and support_mxplus):
+        if (not inta and ea == 0 and (ma & 0x7) == 0): zeroa = True
+    if not (is_bm_b and support_mxplus):
+        if (not intb and eb == 0 and (mb & 0x7) == 0): zerob = True
+    if (inta and a_bits == 0): zeroa = True
+    if (intb and b_bits == 0): zerob = True
+
+    nan_res = nana or nanb or (infa and zerob) or (infb and zeroa)
+    inf_res = (infa or infb) and not nan_res
     sign = sa ^ sb
 
-    # Updated: zero check now correctly handles subnormals
-    # For MX+, zero_out is forced to 0 for BM elements
-    if not (is_bm_a and support_mxplus):
-        if (not inta and ea == 0 and (ma & 0x7) == 0): return 0
-    if not (is_bm_b and support_mxplus):
-        if (not intb and eb == 0 and (mb & 0x7) == 0): return 0
-    if (inta and a_bits == 0) or (intb and b_bits == 0):
-        return 0
+    nan_sticky |= nan_res
+    if inf_res:
+        if sign: inf_neg_sticky = True
+        else:    inf_pos_sticky = True
+
+    if nan_res or inf_res:
+        return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
+
+    if zeroa or zerob:
+        return 0, nan_sticky, inf_pos_sticky, inf_neg_sticky
 
     adj_a = 0 if is_bm_a else offset_a
     adj_b = 0 if is_bm_b else offset_b
@@ -283,7 +310,8 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
+    res = align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
+    return res, nan_sticky, inf_pos_sticky, inf_neg_sticky
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -355,16 +383,24 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
+    nan_sticky_model = False
+    inf_pos_sticky_model = False
+    inf_neg_sticky_model = False
+
+    if scale_a == 255 or scale_b == 255:
+        nan_sticky_model = True
+
     # Process elements in groups of 32
     for i, (a, b) in enumerate(zip(a_elements, b_elements)):
         is_bm_a_cur = (i == bm_index_a)
         is_bm_b_cur = (i == bm_index_b)
 
-        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
+        prod, nan_sticky_model, inf_pos_sticky_model, inf_neg_sticky_model = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
                                    support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
                                    is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
                                    offset_a=nbm_offset_a if mx_plus_mode else 0,
-                                   offset_b=nbm_offset_b if mx_plus_mode else 0)
+                                   offset_b=nbm_offset_b if mx_plus_mode else 0,
+                                   nan_sticky=nan_sticky_model, inf_pos_sticky=inf_pos_sticky_model, inf_neg_sticky=inf_neg_sticky_model)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -425,7 +461,16 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    if support_shared:
+    if nan_sticky_model or (inf_pos_sticky_model and inf_neg_sticky_model):
+        expected_final = 0x7FC00000
+        if expected_final & 0x80000000: expected_final -= 0x100000000
+    elif inf_pos_sticky_model:
+        expected_final = 0x7F800000
+        if expected_final & 0x80000000: expected_final -= 0x100000000
+    elif inf_neg_sticky_model:
+        expected_final = 0xFF800000
+        if expected_final & 0x80000000: expected_final -= 0x100000000
+    elif support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
@@ -684,9 +729,16 @@ async def test_fast_start_scale_compression(dut):
 
     expected_acc = 0
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    nan_sticky_model = False
+    inf_pos_sticky_model = False
+    inf_neg_sticky_model = False
+    if scale_a == 255 or scale_b == 255:
+        nan_sticky_model = True
+
     for a, b in zip(a_elements, b_elements):
-        prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
+        prod, nan_sticky_model, inf_pos_sticky_model, inf_neg_sticky_model = align_product_model(a, b, format_a, format_b,
+                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width,
+                                   nan_sticky=nan_sticky_model, inf_pos_sticky=inf_pos_sticky_model, inf_neg_sticky=inf_neg_sticky_model)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -697,7 +749,16 @@ async def test_fast_start_scale_compression(dut):
         else:
             expected_acc = sum_masked
 
-    if support_shared:
+    if nan_sticky_model or (inf_pos_sticky_model and inf_neg_sticky_model):
+        expected_final = 0x7FC00000
+        if expected_final & 0x80000000: expected_final -= 0x100000000
+    elif inf_pos_sticky_model:
+        expected_final = 0x7F800000
+        if expected_final & 0x80000000: expected_final -= 0x100000000
+    elif inf_neg_sticky_model:
+        expected_final = 0xFF800000
+        if expected_final & 0x80000000: expected_final -= 0x100000000
+    elif support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
