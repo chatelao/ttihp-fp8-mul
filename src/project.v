@@ -96,10 +96,14 @@ module tt_um_chatelao_fp8_multiplier #(
                     nbm_offset_b <= 3'd0;
                     mx_plus_en <= 1'b0;
                 end else if (ena && strobe) begin
-                    if (logical_cycle == 12'd0 && !ui_in[7]) begin
-                        bm_index_a <= uio_in[4:0];
-                        nbm_offset_a <= uio_in[7:5];
-                        nbm_offset_b <= ui_in[2:0];
+                    if (logical_cycle == 12'd0) begin
+                        if (!ui_in[7]) begin
+                            bm_index_a <= uio_in[4:0];
+                            nbm_offset_a <= uio_in[7:5];
+                            nbm_offset_b <= ui_in[2:0];
+                        end else begin
+                            mx_plus_en <= uio_in[7];
+                        end
                     end
                     if (logical_cycle == 12'd1) begin
                         mx_plus_en <= uio_in[7];
@@ -184,7 +188,12 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [2:0] format_b;
             always @(posedge clk) begin
                 if (!rst_n) format_b <= 3'd0;
-                else if (ena && strobe && logical_cycle == 12'd2) format_b <= uio_in[2:0];
+                else if (ena && strobe) begin
+                    if (logical_cycle == 12'd0 && ui_in[7])
+                        format_b <= uio_in[2:0];
+                    else if (logical_cycle == 12'd2)
+                        format_b <= uio_in[2:0];
+                end
             end
             assign format_b_val = format_b;
         end else begin : gen_no_format_b
@@ -225,10 +234,13 @@ module tt_um_chatelao_fp8_multiplier #(
             overflow_wrap <= 1'b0;
             packed_mode <= 1'b0;
         end else if (ena && strobe) begin
-            // Fast Start (Scale Compression)
-            if (state == STATE_IDLE && ui_in[7]) begin
-                cycle_count <= 12'd3;
-                packed_mode <= ui_in[6]; // Capture packed mode from compressed start if needed
+            // Fast Start (Scale Compression / Short Protocol)
+            if (logical_cycle == 12'd0 && ui_in[7]) begin
+                cycle_count   <= 12'd3;
+                format_a      <= uio_in[2:0];
+                round_mode    <= uio_in[4:3];
+                overflow_wrap <= uio_in[5];
+                packed_mode   <= uio_in[6] | ui_in[6];
             end else begin
                 cycle_count <= (logical_cycle == last_cycle) ? 12'd0 : logical_cycle + 12'd1;
 
@@ -271,7 +283,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
@@ -563,7 +575,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_en    = strobe && (SUPPORT_PIPELINING ?
                      ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
-    wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
+    wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM) && (cycle_count <= 12'd2);
 
     wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;

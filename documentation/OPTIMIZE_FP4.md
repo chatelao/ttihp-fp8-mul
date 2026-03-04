@@ -57,9 +57,9 @@ While FP8 requires a 32-bit or 40-bit accumulator to maintain precision across 3
 - [x] **Implementation**: Added `ACCUMULATOR_WIDTH` and `ALIGNER_WIDTH` parameters to all modules. Verified that a 24-bit accumulator provides sufficient precision for standard FP4 workloads while fitting in a 1x1 tile.
 - **Goal**: Minimize the area of the barrel shifter and accumulation registers without compromising model accuracy (target: 20-bit accumulation).
 
-### Step 5: Protocol Short-Circuiting (IN PROGRESS)
-- [ ] **Action**: Introduce a `SHORT_PROTOCOL` mode that skips Cycle 1 (Format Load) and reduces the streaming phase to 16 cycles (for $k=32$ blocks) by leveraging the "Packed Mode" natively.
-- [/] **Progress**: `SUPPORT_VECTOR_PACKING` already reduces the streaming phase to 16 cycles (25 total cycles). The next sub-step is to implement a cycle-0 format capture to skip Cycle 1 and Cycle 2 entirely for fixed-format inference.
+### Step 5: Protocol Short-Circuiting (COMPLETED)
+- [x] **Action**: Introduce a `SHORT_PROTOCOL` mode that skips Cycle 1 (Format Load) and reduces the streaming phase to 16 cycles (for $k=32$ blocks) by leveraging the "Packed Mode" natively.
+- [x] **Implementation**: Metadata registers (`format_a`, `round_mode`, `overflow_wrap`, `packed_mode`, `mx_plus_en`) are now captured from `uio_in` during Cycle 0 (IDLE) when `ui_in[7]` is high. This allows skipping the two configuration cycles.
 - **Goal**: Reduce total operation latency from 41 cycles to ~18 cycles, effectively doubling the unit's throughput-per-area.
 
 ## 5. Backward Compatibility
