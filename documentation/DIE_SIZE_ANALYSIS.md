@@ -58,17 +58,18 @@ The implementation has been refactored to support aggressive area optimizations,
 | **Tiny** | All optional features disabled | 2134 | 1x1 |
 | **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1892 | 1x1 |
 | **Tiny-Serial (GDS Default)** | Ultra-Tiny + Serial Infrastructure | 1988 | 1x1 |
+| **Nano** | FP4-LNS config + Min widths (24/20) | 1650 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
 ### Variant Feature Comparison Matrix
 
-| Feature / Parameter | Full | Lite | Tiny | Ultra-Tiny | Tiny-Serial |
-|---|:---:|:---:|:---:|:---:|:---:|
-| `SUPPORT_E4M3` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `SUPPORT_MXFP4` | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Feature / Parameter | Full | Lite | Tiny | Ultra-Tiny | Tiny-Serial | Nano |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `SUPPORT_E4M3` | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `SUPPORT_E5M2` | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP6` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `SUPPORT_MXFP4` | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
 | `SUPPORT_VECTOR_PACKING` | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `SUPPORT_INT8` | ✅ | ✅ | ❌ | ❌ | ❌ |
 | `SUPPORT_PIPELINING` | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -77,10 +78,10 @@ The implementation has been refactored to support aggressive area optimizations,
 | `SUPPORT_MX_PLUS` | ✅ | ❌ | ❌ | ❌ | ❌ |
 | `SUPPORT_INPUT_BUFFERING` | ✅ | ✅ | ❌ | ❌ | ❌ |
 | `ENABLE_SHARED_SCALING` | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `USE_LNS_MUL` | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `SUPPORT_SERIAL` | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** | **32** |
-| `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** | **24** |
+| `USE_LNS_MUL` | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| `SUPPORT_SERIAL` | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| `ALIGNER_WIDTH` | **40** | **40** | **40** | **32** | **32** | **24** |
+| `ACCUMULATOR_WIDTH` | **32** | **32** | **32** | **24** | **24** | **20** |
 
 ## 4. Automated Gate Impact Analysis (Post-Optimization)
 
@@ -113,6 +114,7 @@ The implementation has been refactored to support aggressive area optimizations,
 | Variant | Tile Size | Parameters |
 |---|---|---|
 | **Tiny-Serial (GDS Default)** | 1x1 | `SUPPORT_SERIAL=1`, `SERIAL_K_FACTOR=8`, Ultra-Tiny widths. |
+| **Nano** | 1x1 | FP4-only with LNS (Step 6 Optimized), 24/20 bit widths. |
 | **Ultra-Tiny** | 1x1 | All features disabled, 32/24 bit widths. |
 | **Tiny** | 1x1 | All features disabled, 40/32 bit widths. |
 | **Lite** | 1x1 | `SUPPORT_MXFP6=0`, `SUPPORT_ADV_ROUNDING=0`. |

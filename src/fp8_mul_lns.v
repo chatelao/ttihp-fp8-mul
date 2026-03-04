@@ -49,6 +49,8 @@ module fp8_mul_lns #(
     reg sign_res;
     reg [3:0] m_sum;
 
+    localparam FP4_ONLY = !SUPPORT_E4M3 && !SUPPORT_E5M2 && !SUPPORT_MXFP6 && !SUPPORT_INT8 && SUPPORT_MXFP4 && !SUPPORT_MX_PLUS;
+
     // Precise LNS LUT: 64x4 (3 bits M_res, 1 bit carry)
     // Mapping: {ma[2:0], mb[2:0]} -> {carry, m_res[2:0]}
     reg [3:0] lns_lut [0:63];
@@ -202,7 +204,10 @@ module fp8_mul_lns #(
                 p_res = ma * mb;
                 exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
             end else begin
-                if (USE_LNS_MUL_PRECISE) begin
+                // Optimization: Hard-Wired FP4-LNS Lookup (Step 6 of OPTIMIZE_FP4)
+                if (FP4_ONLY) begin
+                    m_sum = {ma[2] & mb[2], ma[2] ^ mb[2], 2'b00};
+                end else if (USE_LNS_MUL_PRECISE) begin
                     m_sum = lns_lut[{ma[2:0], mb[2:0]}];
                 end else begin
                     // ma[2:0] are the fractional bits (M)
