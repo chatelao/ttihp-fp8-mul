@@ -59,17 +59,17 @@ jobs:
           if command -v nextpnr-gowin >/dev/null 2>&1; then
             nextpnr-gowin --json build/gowin.json \
                           --write build/gowin_pnr.json \
-                          --device GW1NR-LV9QN88PC6/I5 \
-                          --family GW1N-9C \
+                          --device GW1NSR-LV4CQN48PC6/I5 \
+                          --family GW1NS-4 \
                           --top tt_gowin_top \
                           --freq 27 \
-                          --cst src_gowin/tangnano9k.cst
+                          --cst src_gowin/tangnano4k.cst
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
                                --write build/gowin_pnr.json \
-                               --device GW1NR-LV9QN88PC6/I5 \
-                               --vopt family=GW1N-9C \
-                               --vopt cst=src_gowin/tangnano9k.cst \
+                               --device GW1NSR-LV4CQN48PC6/I5 \
+                               --vopt family=GW1NS-4 \
+                               --vopt cst=src_gowin/tangnano4k.cst \
                                --top tt_gowin_top \
                                --freq 27
           else
@@ -80,7 +80,7 @@ jobs:
       - name: Pack bitstream
         run: |
           if command -v gowin_pack >/dev/null 2>&1; then
-            gowin_pack -d GW1N-9C -o build/tangnano9k_${{ matrix.variant }}.fs build/gowin_pnr.json
+            gowin_pack -d GW1NS-4 -o build/tangnano4k_${{ matrix.variant }}.fs build/gowin_pnr.json
           else
             echo "Error: gowin_pack not found"
             exit 1
@@ -90,4 +90,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gowin_bitstream_${{ matrix.variant }}
-          path: build/tangnano9k_${{ matrix.variant }}.fs
+          path: build/tangnano4k_${{ matrix.variant }}.fs

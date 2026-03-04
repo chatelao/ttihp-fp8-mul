@@ -39,7 +39,7 @@ sudo apt-get install -y yosys
 
 ### C. FPGA Bitstream Generation (OSS CAD Suite)
 
-For Gowin FPGA (Tang Nano 9K) support, it is recommended to use **OSS CAD Suite**, which provides a pre-built collection of open-source tools (Yosys, nextpnr-gowin, gowin_pack).
+For Gowin FPGA (Tang Nano 4K) support, it is recommended to use **OSS CAD Suite**, which provides a pre-built collection of open-source tools (Yosys, nextpnr-gowin, gowin_pack).
 
 1. Download the latest release from [YosysHQ/oss-cad-suite-build](https://github.com/YosysHQ/oss-cad-suite-build/releases).
 2. Extract the archive to a local directory (e.g., `~/oss-cad-suite`).
@@ -95,9 +95,9 @@ mkdir -p build
 # Synthesis
 yosys -p "read_verilog -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
 # Place and Route
-nextpnr-gowin --json build/gowin.json --write build/gowin_pnr.json --device GW1NR-LV9QN88PC6/I5 --family GW1N-9C --top tt_gowin_top --freq 27 --cst src_gowin/tangnano9k.cst
+nextpnr-gowin --json build/gowin.json --write build/gowin_pnr.json --device GW1NSR-LV4CQN48PC6/I5 --family GW1NS-4 --top tt_gowin_top --freq 27 --cst src_gowin/tangnano4k.cst
 # Pack
-gowin_pack -d GW1N-9C -o build/tangnano9k.fs build/gowin_pnr.json
+gowin_pack -d GW1NS-4 -o build/tangnano4k.fs build/gowin_pnr.json
 ```
 
 ## 4. Local ASIC Hardening
