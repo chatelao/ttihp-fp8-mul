@@ -81,13 +81,6 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] buffered_a_lane0;
     wire [7:0] buffered_b_lane0;
 
-    // Sticky registers for special values
-    reg nan_sticky;
-    reg inf_pos_sticky;
-    reg inf_neg_sticky;
-
-
-
     generate
         if (SUPPORT_MX_PLUS) begin : gen_mx_plus
             reg [4:0] bm_index_a;
@@ -607,6 +600,25 @@ module tt_um_chatelao_fp8_multiplier #(
                      ((logical_cycle >= 12'd4 && logical_cycle <= last_stream_cycle + 12'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 12'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
     wire acc_clear = strobe && (logical_cycle <= 12'd2) && (state != STATE_STREAM);
+    // Sticky registers for special values
+    reg nan_sticky;
+    reg inf_pos_sticky;
+    reg inf_neg_sticky;
+
+    wire block_nan_val = (mul_nan_lane0_val || (SUPPORT_VECTOR_PACKING && mul_nan_lane1_val));
+    wire block_inf_pos_val = (mul_inf_lane0_val && !mul_sign_lane0_val) || (SUPPORT_VECTOR_PACKING && mul_inf_lane1_val && !mul_sign_lane1_val);
+    wire block_inf_neg_val = (mul_inf_lane0_val && mul_sign_lane0_val)  || (SUPPORT_VECTOR_PACKING && mul_inf_lane1_val && mul_sign_lane1_val);
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            nan_sticky <= 1'b0;            inf_pos_sticky <= 1'b0;
+            inf_neg_sticky <= 1'b0;        end else if (ena) begin            if (strobe) begin                if (logical_cycle == 12'd0) begin
+                    nan_sticky <= 1'b0;                    inf_pos_sticky <= 1'b0;
+                    inf_neg_sticky <= 1'b0;                end else if (logical_cycle == 12'd1 || logical_cycle == 12'd2) begin                    if (ui_in == 8'hFF) nan_sticky <= 1'b1;                end            end            if (acc_en) begin                if (block_nan_val)     nan_sticky     <= 1'b1;
+                if (block_inf_pos_val) inf_pos_sticky <= 1'b1;                if (block_inf_neg_val) inf_neg_sticky <= 1'b1;
+            end
+        end
+    end
 
     wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;
