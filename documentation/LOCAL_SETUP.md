@@ -95,9 +95,9 @@ mkdir -p build
 # Synthesis
 yosys -p "read_verilog -sv src/project.v src_gowin/tt_gowin_top.v; hierarchy -top tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
 # Place and Route
-nextpnr-gowin --json build/gowin.json --write build/gowin_pnr.json --device GW1NSR-LV4CQN48PC6/I5 --family GW1NSR-4C --top tt_gowin_top --freq 27 --cst src_gowin/tangnano4k.cst
+nextpnr-gowin --json build/gowin.json --write build/gowin_pnr.json --device GW1NSR-LV4CQN48PC6/I5 --family GW1NS-4 --top tt_gowin_top --freq 27 --cst src_gowin/tangnano4k.cst
 # Pack
-gowin_pack -d GW1NSR-4C -o build/tangnano4k.fs build/gowin_pnr.json
+gowin_pack -d GW1NS-4 -o build/tangnano4k.fs build/gowin_pnr.json
 ```
 
 ## 4. Local ASIC Hardening

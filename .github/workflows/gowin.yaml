@@ -60,7 +60,7 @@ jobs:
             nextpnr-gowin --json build/gowin.json \
                           --write build/gowin_pnr.json \
                           --device GW1NSR-LV4CQN48PC6/I5 \
-                          --family GW1NSR-4C \
+                          --family GW1NS-4 \
                           --top tt_gowin_top \
                           --freq 27 \
                           --cst src_gowin/tangnano4k.cst
@@ -68,7 +68,7 @@ jobs:
             nextpnr-himbaechel --json build/gowin.json \
                                --write build/gowin_pnr.json \
                                --device GW1NSR-LV4CQN48PC6/I5 \
-                               --vopt family=GW1NSR-4C \
+                               --vopt family=GW1NS-4 \
                                --vopt cst=src_gowin/tangnano4k.cst \
                                --top tt_gowin_top \
                                --freq 27
@@ -80,7 +80,7 @@ jobs:
       - name: Pack bitstream
         run: |
           if command -v gowin_pack >/dev/null 2>&1; then
-            gowin_pack -d GW1NSR-4C -o build/tangnano4k_${{ matrix.variant }}.fs build/gowin_pnr.json
+            gowin_pack -d GW1NS-4 -o build/tangnano4k_${{ matrix.variant }}.fs build/gowin_pnr.json
           else
             echo "Error: gowin_pack not found"
             exit 1
