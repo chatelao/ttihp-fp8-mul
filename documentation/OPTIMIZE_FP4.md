@@ -62,6 +62,11 @@ While FP8 requires a 32-bit or 40-bit accumulator to maintain precision across 3
 - [x] **Implementation**: Metadata registers (`format_a`, `round_mode`, `overflow_wrap`, `packed_mode`, `mx_plus_en`) are now captured from `uio_in` during Cycle 0 (IDLE) when `ui_in[7]` is high. This allows skipping the two configuration cycles.
 - **Goal**: Reduce total operation latency from 41 cycles to ~18 cycles, effectively doubling the unit's throughput-per-area.
 
+### Step 6: Hard-Wired FP4-LNS Lookup (COMPLETED)
+- [x] **Action**: Replace the 3-bit LNS adder with a minimal 16-entry LUT or combinatorial logic specifically for FP4 (E2M1) multiplications.
+- [x] **Implementation**: Introduced a specialized combinatorial logic path in `fp8_mul_lns.v` using XOR/AND gates to calculate the FP4-LNS product. This avoids the area overhead of a multi-bit adder when only the minimal format is enabled.
+- **Goal**: Reach the "logical floor" of area for FP4 multiplication, reducing the core significantly and enabling the "Nano" variant.
+
 ## 5. Backward Compatibility
 This optimization concept is designed as an extension of the existing parameterization. By setting `SUPPORT_E5M2=1`, `SUPPORT_MXFP6=1`, and `SUPPORT_INT8=1`, the unit remains the full OCP MX "Swiss Army Knife." Minimal silicon is achieved only when the user explicitly opts for the `FP4_ONLY` configuration by disabling the wider format flags.
 
