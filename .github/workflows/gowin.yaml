@@ -3,13 +3,19 @@ name: gowin
 on:
   push:
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   gowin:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        variant: [Full, Lite, Tiny, Ultra-Tiny]
+        variant: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial]
+
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -36,13 +42,15 @@ jobs:
       - name: Set parameters
         run: |
           if [ "${{ matrix.variant }}" == "Full" ]; then
-            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1" >> $GITHUB_ENV
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1 -set SUPPORT_MX_PLUS 1 -set SUPPORT_INPUT_BUFFERING 1 -set SUPPORT_SERIAL 0" >> $GITHUB_ENV
           elif [ "${{ matrix.variant }}" == "Lite" ]; then
-            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 1" >> $GITHUB_ENV
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 1 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 0" >> $GITHUB_ENV
           elif [ "${{ matrix.variant }}" == "Tiny" ]; then
-            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0" >> $GITHUB_ENV
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 0 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 0" >> $GITHUB_ENV
           elif [ "${{ matrix.variant }}" == "Ultra-Tiny" ]; then
-            echo "PARAMS=" >> $GITHUB_ENV
+            echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 24 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 0 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 0" >> $GITHUB_ENV
+          elif [ "${{ matrix.variant }}" == "Tiny-Serial" ]; then
+            echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 24 -set SUPPORT_E4M3 0 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 1" >> $GITHUB_ENV
           fi
 
       - name: Synthesis
@@ -85,6 +93,14 @@ jobs:
             echo "Error: gowin_pack not found"
             exit 1
           fi
+
+      - name: Upload Release Assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/tangnano4k_${{ matrix.variant }}.fs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload bitstream
         uses: actions/upload-artifact@v4
