@@ -43,6 +43,46 @@ jobs:
       - name: GL test
         uses: TinyTapeout/tt-gds-action/gl_test@ttihp26a
 
+  name: gds
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  gds:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build GDS
+        uses: TinyTapeout/tt-gds-action@ttihp26a
+        with:
+          pdk: ihp-sg13g2
+          librelane-version: 3.0.0.dev44
+
+  precheck:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Run Tiny Tapeout Precheck
+        uses: TinyTapeout/tt-gds-action/precheck@ttihp26a
+
+  gl_test:
+    needs: gds
+    runs-on: ubuntu-24.04
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: GL test
+        uses: TinyTapeout/tt-gds-action/gl_test@ttihp26a
+
   viewer:
     needs: gds
     runs-on: ubuntu-24.04
@@ -50,26 +90,4 @@ jobs:
       pages: write # to deploy to Pages
       id-token: write # to verify the deployment originates from an appropriate source
     steps:
-      - name: checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Download Layout Artifacts
-        uses: actions/download-artifact@v4
-
-      - name: Diagnostic Path List
-        run: ls -R
-
-      - name: Generate Colored Visualization
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
-          pip install klayout
-          xvfb-run python3 scripts/gds_colorizer.py
-      - name: Upload Colored Visualization
-        uses: actions/upload-artifact@v4
-        with:
-          name: gds_colored_zones
-          path: gds_colored_zones.png
-
       - uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
