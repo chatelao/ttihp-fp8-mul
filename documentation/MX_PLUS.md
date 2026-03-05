@@ -187,7 +187,7 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant D (SIMD Vector Lane)**: Use a wide 8-bit multiplier that can be split into two 4-bit lanes.
 - **Reasoning**: **Variant B** was selected. Given the Tiny Tapeout constraints (10MHz typical, 100MHz peak), spatial parallelism is more robust for timing closure and avoids complex clock-domain-crossing logic required for temporal parallelism.
 
-### Step 12: Buffering & Duty Cycle Reduction (Alternative)
+### Step 12: Buffering & Duty Cycle Reduction (Alternative) (Status: **COMPLETED**)
 - **Goal**: Reduce I/O activity without increasing multiplier area.
 - **Preparation**:
   - Design an 8-bit wide, 16-entry FIFO for activation buffering.
@@ -197,6 +197,18 @@ By preserving the precision of the outlier, MX+ achieves a **10x reduction in qu
   - **Variant C (Compressed Streaming)**: Use a simple RLE (Run Length Encoding) for the 4-bit elements.
   - **Variant D (Circular Buffer)**: Use a dual-port RAM for simultaneous load and process.
 - **Reasoning**: **Variant A** is preferred for duty cycle reduction. It allows the system to burst-load activations and then potentially enter a low-power state or free the bus for other devices while the MAC unit processes the block.
+
+### Step 13: Exception Handling & Robustness (Status: **COMPLETED**)
+- **Goal**: Implement block-level sticky registers for NaN and Infinity tracking.
+- **Preparation**:
+  - Update `fp8_mul.v` and `fp8_mul_lns.v` to detect special values.
+  - Define sticky registers in `src/project.v`.
+- **Variant Analysis**:
+  - **Variant A (Accumulator-Integrated)**: Pass NaN/Inf flags into the accumulator and let it handle the override.
+  - **Variant B (Control-Path Sticky Registers)**: Latch flags in the top-level FSM and use a MUX at the output stage to override the result.
+  - **Variant C (IEEE-754 Pattern Propagation)**: Propagate special patterns through the arithmetic datapath (Aligner/Adder) to naturally produce the correct result.
+  - **Variant D (Interrupt-Based)**: Signal the host via a dedicated pin/interrupt when an exception occurs.
+- **Reasoning**: **Variant B** is selected. It avoids increasing the complexity of the arithmetic datapath (which is optimized for area) while ensuring strict adherence to the OCP MX Shared Scale NaN Rule and special value propagation rules.
 
 ---
 
@@ -219,6 +231,7 @@ A comprehensive audit of the RTL against this roadmap confirms that all 12 steps
 | 10 | Packed Protocol | **[x]** | Cocotb (`test_mxfp4_packed`) |
 | 11 | Multi-Lane/Serial Packing| **[x]** | Cocotb (`test_mxfp4_packed_serial`) |
 | 12 | Input Buffering | **[x]** | Cocotb (`test_mxfp4_input_buffering`) |
+| 13 | Exception Robustness | **[x]** | Cocotb (`test_mxfp8_sticky_flags`) |
 
 ### Conclusion
 The OCP MX+ MAC Unit now provides a complete implementation of the "Extended Block Max Precision" extension. The design maintains a minimal area footprint (as shown in the gate analysis) while significantly reducing quantization error for outliers. The addition of **Input Buffering** (Step 12) completes the high-performance path for FP4 processing, enabling efficient burst-loading of weights and activations.
