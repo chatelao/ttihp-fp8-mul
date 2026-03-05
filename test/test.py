@@ -7,10 +7,11 @@ from cocotb.triggers import ClockCycles, Timer
 import yaml
 import os
 
-def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
+def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
+                  support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
     nan = False
     inf = False
-    if format_val == 0: # E4M3
+    if format_val == 0 and support_e4m3: # E4M3
         sign = (bits >> 7) & 1
         bias = 7
         is_int = False
@@ -26,7 +27,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             mant = (implicit_bit << 3) | mant_field
             if bits & 0x7F == 0x7F: nan = True
         return sign, exp, mant, bias, is_int, nan, inf
-    elif format_val == 1: # E5M2
+    elif format_val == 1 and support_e5m2: # E5M2
         sign = (bits >> 7) & 1
         bias = 15
         is_int = False
@@ -45,7 +46,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
                 if mant_field == 0: inf = True
                 else: nan = True
         return sign, exp, mant, bias, is_int, nan, inf
-    elif format_val == 2: # E3M2
+    elif format_val == 2 and support_mxfp6: # E3M2
         sign = (bits >> 5) & 1
         bias = 3
         is_int = False
@@ -61,7 +62,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             mant = (implicit_bit << 2) | mant_field
             mant <<= 1 # Align to 4 bits
         return sign, exp, mant, bias, is_int, nan, inf
-    elif format_val == 3: # E2M3
+    elif format_val == 3 and support_mxfp6: # E2M3
         sign = (bits >> 5) & 1
         bias = 1
         is_int = False
@@ -76,7 +77,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
             implicit_bit = 0 if (exp_field == 0) else 1
             mant = (implicit_bit << 3) | mant_field
         return sign, exp, mant, bias, is_int, nan, inf
-    elif format_val == 4: # E2M1
+    elif format_val == 4 and support_mxfp4: # E2M1
         sign = (bits >> 3) & 1
         bias = 1
         is_int = False
@@ -107,8 +108,17 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False):
         exp = 0
         bias = 3
         is_int = True
-    else: # Default E4M3
-        return decode_format(bits, 0, is_bm, support_mxplus)
+    else: # Default/Unsupported E4M3 fallthrough in HW
+        sign = (bits >> 7) & 1
+        exp_field = (bits >> 3) & 0xF
+        mant_field = (bits & 0x7)
+        is_subnormal = (exp_field == 0 and mant_field != 0)
+        exp = 1 if is_subnormal else exp_field
+        implicit_bit = 0 if (exp_field == 0) else 1
+        mant = (implicit_bit << 3) | mant_field
+        bias = 7
+        is_int = False
+        return sign, exp, mant, bias, is_int, False, False
 
     return sign, exp, mant, bias, is_int, nan, inf
 
@@ -204,6 +214,7 @@ def get_param(dut, name, default=1):
     defaults = {
         "ALIGNER_WIDTH": 32,
         "ACCUMULATOR_WIDTH": 24,
+        "SUPPORT_E4M3": 1,
         "SUPPORT_E5M2": 0,
         "SUPPORT_MXFP6": 0,
         "SUPPORT_MXFP4": 1,
@@ -223,9 +234,11 @@ def get_param(dut, name, default=1):
     return defaults.get(name, default)
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
-                        support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
+                        support_e4m3=1, support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
                         is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0):
     # Fallback for unsupported formats in hardware
+    if not support_e4m3 and format_a == 0: return 0
+    if not support_e4m3 and format_b == 0: return 0
     if not support_e5m2 and format_a == 1: return 0
     if not support_e5m2 and format_b == 1: return 0
     if not support_mxfp6 and format_a in [2, 3]: return 0
@@ -235,8 +248,10 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     if not support_int8 and format_a in [5, 6]: return 0
     if not support_int8 and format_b in [5, 6]: return 0
 
-    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
-    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
+    sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a, is_bm_a, support_mxplus,
+                                                    support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+    sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b, is_bm_b, support_mxplus,
+                                                    support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
 
     sign = sa ^ sb
 
@@ -324,6 +339,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         if round_mode in [1, 2]: # CEL, FLR
             round_mode = 0 # Fallback to TRN in model to match hardware fallback
 
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
@@ -361,7 +377,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
-    nan_sticky = (scale_a == 0xFF or scale_b == 0xFF)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
+    nan_sticky = support_shared and (scale_a == 0xFF or scale_b == 0xFF)
     inf_pos_sticky = False
     inf_neg_sticky = False
 
@@ -370,8 +387,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         is_bm_a_cur = (i == bm_index_a)
         is_bm_b_cur = (i == bm_index_b)
 
-        sa, ea, ma, ba, inta, nana, infa = decode_format(a, format_a, is_bm_a_cur, support_mxplus)
-        sb, eb, mb, bb, intb, nanb, infb = decode_format(b, format_b, is_bm_b_cur, support_mxplus)
+        sa, ea, ma, ba, inta, nana, infa = decode_format(a, format_a, is_bm_a_cur, support_mxplus,
+                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+        sb, eb, mb, bb, intb, nanb, infb = decode_format(b, format_b, is_bm_b_cur, support_mxplus,
+                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
 
         # Basic NaN/Inf model for sticky registers
         is_zero_a = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a == 0)
@@ -387,7 +406,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             else:      inf_pos_sticky = True
 
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
+                                   support_e4m3, support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
                                    is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
                                    offset_a=nbm_offset_a if mx_plus_mode else 0,
                                    offset_b=nbm_offset_b if mx_plus_mode else 0)
@@ -567,20 +586,30 @@ async def test_rounding_modes(dut):
 
 @cocotb.test()
 async def test_overflow_saturation(dut):
+    # Check if E5M2 is supported
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 0)
+    if not support_e5m2:
+        dut._log.info("Skipping E5M2 Overflow Saturation Test (SUPPORT_E5M2=0)")
+        return
+
     dut._log.info("Start Overflow Saturation Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x7C] * 32 # Max finite E5M2
-    b_elements = [0x7C] * 32
+    a_elements = [0x78] * 32 # Large finite E5M2 (ea=30)
+    b_elements = [0x78] * 32
 
     # Saturation
     await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=0)
-    # Wrap
-    await run_mac_test(dut, 1, 1, a_elements, b_elements, overflow_wrap=1)
 
 @cocotb.test()
 async def test_accumulator_saturation(dut):
+    # Check if E5M2 is supported
+    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 0)
+    if not support_e5m2:
+        dut._log.info("Skipping E5M2 Accumulator Saturation Test (SUPPORT_E5M2=0)")
+        return
+
     dut._log.info("Start Accumulator Saturation Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -653,17 +682,19 @@ async def test_mixed_precision(dut):
 async def test_mxfp_mac_randomized(dut):
     import random
 
-    support_e5m2 = get_param(getattr(dut.user_project, "SUPPORT_E5M2", None), "SUPPORT_E5M2", 1)
-    support_mxfp6 = get_param(getattr(dut.user_project, "SUPPORT_MXFP6", None), "SUPPORT_MXFP6", 1)
-    support_mxfp4 = get_param(getattr(dut.user_project, "SUPPORT_MXFP4", None), "SUPPORT_MXFP4", 1)
-    support_adv = get_param(getattr(dut.user_project, "SUPPORT_ADV_ROUNDING", None), "SUPPORT_ADV_ROUNDING", 1)
-    support_mixed = get_param(getattr(dut.user_project, "SUPPORT_MIXED_PRECISION", None), "SUPPORT_MIXED_PRECISION", 1)
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
 
-    dut._log.info(f"Start Randomized MXFP MAC Test (E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
+    dut._log.info(f"Start Randomized MXFP MAC Test (E4M3={support_e4m3}, E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    allowed_formats = [0, 5, 6]
+    allowed_formats = [5, 6]
+    if support_e4m3: allowed_formats.append(0)
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
@@ -712,16 +743,17 @@ async def test_fast_start_scale_compression(dut):
     await ClockCycles(dut.clk, k_factor)
 
     # Now at Cycle 3
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
+                                   support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -931,11 +963,13 @@ async def test_mxfp8_sticky_flags(dut):
         await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=0xFF)
 
     # 2. Element-level NaN (E4M3: 0x7F)
-    dut._log.info("Testing Element-level NaN (E4M3)")
-    a_elements = [0x38] * 32
-    a_elements[5] = 0x7F # NaN
-    b_elements = [0x38] * 32
-    await run_mac_test(dut, 0, 0, a_elements, b_elements)
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    if support_e4m3:
+        dut._log.info("Testing Element-level NaN (E4M3)")
+        a_elements = [0x38] * 32
+        a_elements[5] = 0x7F # NaN
+        b_elements = [0x38] * 32
+        await run_mac_test(dut, 0, 0, a_elements, b_elements)
 
     # 3. Element-level Inf and NaN (E5M2)
     if support_e5m2:

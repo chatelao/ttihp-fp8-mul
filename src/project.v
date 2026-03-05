@@ -284,6 +284,13 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
+    // 5. Accumulator Control (Moved up to support Sticky Latching)
+    // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
+    // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
+    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+                     ((logical_cycle >= 7'd4 && logical_cycle <= last_stream_cycle + 7'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     ((logical_cycle >= 7'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+
     // 1. Multiplier & Pipeline Stage
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
@@ -547,6 +554,12 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 1.5 Sticky Registers for Exception Tracking
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
+    // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
+    // Standard elements at 3..34. Pipelined products at 4..35.
+    // Cycle 35+ products are 0 (safe).
+    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
+    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 7'd4 : 7'd3)) && (logical_cycle <= 7'd35);
+
     always @(posedge clk) begin
         if (!rst_n) begin
             nan_sticky <= 1'b0;
@@ -559,10 +572,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 inf_neg_sticky <= 1'b0;
             end else begin
                 // Latch element-level special values
-                if (state == STATE_STREAM) begin
-                    nan_sticky <= nan_sticky | mul_nan_lane0_val | (actual_packed_mode ? mul_nan_lane1_val : 1'b0);
-                    inf_pos_sticky <= inf_pos_sticky | (mul_inf_lane0_val & ~mul_sign_lane0_val) | (actual_packed_mode ? (mul_inf_lane1_val & ~mul_sign_lane1_val) : 1'b0);
-                    inf_neg_sticky <= inf_neg_sticky | (mul_inf_lane0_val & mul_sign_lane0_val) | (actual_packed_mode ? (mul_inf_lane1_val & mul_sign_lane1_val) : 1'b0);
+                if (sticky_latch_en) begin
+                    nan_sticky <= nan_sticky | mul_nan_lane0_val | mul_nan_lane1_val;
+                    inf_pos_sticky <= inf_pos_sticky | (mul_inf_lane0_val & ~mul_sign_lane0_val) | (mul_inf_lane1_val & ~mul_sign_lane1_val);
+                    inf_neg_sticky <= inf_neg_sticky | (mul_inf_lane0_val & mul_sign_lane0_val) | (mul_inf_lane1_val & mul_sign_lane1_val);
                 end
                 // Latch block-level Shared Scale NaN Rule (Scale=0xFF)
                 if (ENABLE_SHARED_SCALING && (logical_cycle == 7'd1 || logical_cycle == 7'd2)) begin
@@ -654,12 +667,6 @@ module tt_um_chatelao_fp8_multiplier #(
     // 4. Combined Lane Result
     wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
 
-    // 5. Accumulator Control
-    // With multiplier pipelining, aligned products are ready at cycles 4 to last_stream_cycle+1.
-    // Without pipelining, they are ready at cycles 3 to last_stream_cycle.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 7'd4 && logical_cycle <= last_stream_cycle + 7'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 7'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
     wire acc_clear = strobe && (logical_cycle <= 7'd2) && (state != STATE_STREAM) && (cycle_count <= 7'd2);
 
     wire [7:0] acc_shift_out;
@@ -679,7 +686,7 @@ module tt_um_chatelao_fp8_multiplier #(
                                      (inf_pos_sticky && inf_neg_sticky) ? 32'h7FC00000 : 32'd0;
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = sticky_any ? sticky_override_val : (ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext);
+    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
 
     accumulator #(
         .WIDTH(ACCUMULATOR_WIDTH)
@@ -698,7 +705,10 @@ module tt_um_chatelao_fp8_multiplier #(
     );
 
     // 6. Output Logic
-    assign uo_out = (state == STATE_OUTPUT && logical_cycle > capture_cycle) ? acc_shift_out : 8'h00;
+    // Optimization: Standardized exception patterns applied at the output mux to break long combinatorial paths
+    assign uo_out = (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
+                    (sticky_any ? sticky_override_val[(7'd4 - (logical_cycle - capture_cycle))*8 +: 8] : acc_shift_out) :
+                    8'h00;
 
 `ifdef FORMAL
     // 0. Formal-only capture register for serialization verification
