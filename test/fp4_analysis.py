@@ -48,7 +48,11 @@ align_40_gates = get_yosys_stats("fp8_aligner", align_params_40, "src/fp8_aligne
 align_32_gates = get_yosys_stats("fp8_aligner", align_params_32, "src/fp8_aligner.v")
 align_24_gates = get_yosys_stats("fp8_aligner", align_params_24, "src/fp8_aligner.v")
 
+align_fp4_opt = {"WIDTH": 24, "SUPPORT_ADV_ROUNDING": 0, "OPTIMIZE_FOR_FP4": 1}
+align_fp4_opt_gates = get_yosys_stats("fp8_aligner", align_fp4_opt, "src/fp8_aligner.v")
+
 print(f"fp8_aligner (40-bit, Adv): {align_40_gates} gates")
+print(f"fp8_aligner (24-bit, FP4 Opt): {align_fp4_opt_gates} gates")
 print(f"fp8_aligner (32-bit, Basic): {align_32_gates} gates")
 print(f"fp8_aligner (24-bit, Basic): {align_24_gates} gates")
 
@@ -73,4 +77,7 @@ full_fp4_gates = get_yosys_stats("tt_um_chatelao_fp8_multiplier", full_fp4_only,
 
 print(f"Full Unit (Baseline): {full_base_gates} gates")
 print(f"Full Unit (FP4-only Optimized): {full_fp4_gates} gates")
-print(f"Total Savings: {full_base_gates - full_fp4_gates} gates")
+if full_base_gates is not None and full_fp4_gates is not None:
+    print(f"Total Savings: {full_base_gates - full_fp4_gates} gates")
+else:
+    print("Full Unit synthesis failed for one or more configurations.")

@@ -81,6 +81,8 @@ module tt_um_chatelao_fp8_multiplier #(
                                     SUPPORT_MXFP6 ? 3'd2 :
                                     SUPPORT_MXFP4 ? 3'd4 :
                                     SUPPORT_INT8  ? 3'd5 : 3'd0;
+    localparam IS_FP4_ONLY = (SUPPORT_MXFP4 == 1) && (SUPPORT_E4M3 == 0) && (SUPPORT_E5M2 == 0) &&
+                             (SUPPORT_MXFP6 == 0) && (SUPPORT_INT8 == 0) && (SUPPORT_MX_PLUS == 0);
     localparam CAN_PACK = SUPPORT_VECTOR_PACKING || SUPPORT_INPUT_BUFFERING || SUPPORT_PACKED_SERIAL;
 
     // MXFP Registers
@@ -557,7 +559,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [31:0] aligned_lane0_res;
     fp8_aligner #(
         .WIDTH(ALIGNER_WIDTH),
-        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+        .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
+        .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
     ) aligner_lane0_inst (
         .prod(aligner_lane0_in_prod),
         .exp_sum(aligner_lane0_in_exp),
@@ -574,7 +577,8 @@ module tt_um_chatelao_fp8_multiplier #(
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             fp8_aligner #(
                 .WIDTH(ALIGNER_WIDTH),
-                .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING)
+                .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
+                .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
                 .prod({16'd0, mul_prod_lane1_val}),
                 .exp_sum(exp_sum_lane1_adj),
