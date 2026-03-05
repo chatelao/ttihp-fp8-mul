@@ -62,6 +62,16 @@ While FP8 requires a 32-bit or 40-bit accumulator to maintain precision across 3
 - [x] **Implementation**: Metadata registers (`format_a`, `round_mode`, `overflow_wrap`, `packed_mode`, `mx_plus_en`) are now captured from `uio_in` during Cycle 0 (IDLE) when `ui_in[7]` is high. This allows skipping the two configuration cycles.
 - **Goal**: Reduce total operation latency from 41 cycles to ~18 cycles, effectively doubling the unit's throughput-per-area.
 
+### Step 6: Control Logic & Register Pruning (COMPLETED)
+- [x] **Action**: Narrow the FSM counters and prune configuration registers that are constant in FP4-only builds.
+- [x] **Implementation**: Reduced `cycle_count` and `k_counter` to 7 bits. Used `generate` blocks in `src/project.v` to replace configuration registers with wires/localparams and provided a direct bit-extraction path in `src/fp8_mul.v` for FP4-only builds.
+- **Goal**: Eliminate ~150-200 gates of redundant control logic and registers in the most minimal configurations.
+
+### Step 7: Specialized FP4 Aligner (PLANNED)
+- [ ] **Action**: Create a hard-wired alignment path for FP4 that avoids the full 32-bit barrel shifter.
+- [ ] **Implementation**: Since FP4 has limited dynamic range, many shift amounts are impossible or lead to zero. A dedicated 16-bit to 24-bit aligner with fewer stages can be used.
+- **Goal**: Reduce the aligner area by an additional 30%.
+
 ## 5. Backward Compatibility
 This optimization concept is designed as an extension of the existing parameterization. By setting `SUPPORT_E5M2=1`, `SUPPORT_MXFP6=1`, and `SUPPORT_INT8=1`, the unit remains the full OCP MX "Swiss Army Knife." Minimal silicon is achieved only when the user explicitly opts for the `FP4_ONLY` configuration by disabling the wider format flags.
 

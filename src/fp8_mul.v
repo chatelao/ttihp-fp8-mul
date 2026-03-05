@@ -45,6 +45,10 @@ module fp8_mul #(
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
 
+    // Optimization Step 6: Simplified decoder for FP4-only builds
+    localparam IS_FP4_ONLY = (SUPPORT_MXFP4 == 1) && (SUPPORT_E4M3 == 0) && (SUPPORT_E5M2 == 0) &&
+                             (SUPPORT_MXFP6 == 0) && (SUPPORT_INT8 == 0) && (SUPPORT_MX_PLUS == 0);
+
     task automatic decode_operand(
         input [7:0] data,
         input [2:0] fmt,
@@ -154,30 +158,53 @@ module fp8_mul #(
         end
     endtask
 
-    always @(*) begin
-        // Operand A Decoding
-        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a);
+    generate
+        if (IS_FP4_ONLY) begin : gen_fp4_only
+            always @(*) begin
+                // Optimized FP4-only decoding (Step 6)
+                sign_a = a[3];
+                ea = (a[2:1] == 2'd0) ? 2'd1 : a[2:1];
+                ma = {4'b0, (a[2:1] != 2'd0), a[0], 2'b0};
+                bias_a = 3'sd1;
+                zero_a = (a[2:0] == 3'd0);
 
-        // Operand B Decoding
-        if (SUPPORT_MIXED_PRECISION) begin
-            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
-        end else begin
-            // Use format_a for both operands to allow hardware sharing
-            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
+                sign_b = b[3];
+                eb = (b[2:1] == 2'd0) ? 2'd1 : b[2:1];
+                mb = {4'b0, (b[2:1] != 2'd0), b[0], 2'b0};
+                bias_b = 3'sd1;
+                zero_b = (b[2:0] == 3'd0);
+
+                p_res = (zero_a || zero_b) ? 16'd0 : ({{14{1'b0}}, ma[3:2]} * {{14{1'b0}}, mb[3:2]}) << 4;
+
+                sign_res = sign_a ^ sign_b;
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+            end
+        end else begin : gen_multi_format
+            always @(*) begin
+                // Operand A Decoding
+                decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a);
+
+                // Operand B Decoding
+                if (SUPPORT_MIXED_PRECISION) begin
+                    decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
+                end else begin
+                    // Use format_a for both operands to allow hardware sharing
+                    decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b);
+                end
+
+                // 8x8, 4x4 or 2x2 Multiplier (Variant B: Parameterized Multiplier)
+                if (SUPPORT_INT8 || SUPPORT_MX_PLUS)
+                    p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
+                else if (SUPPORT_E4M3 || SUPPORT_E5M2 || SUPPORT_MXFP6)
+                    p_res = (zero_a || zero_b) ? 16'd0 : ({4'b0, ma[3:0]} * {4'b0, mb[3:0]});
+                else
+                    p_res = (zero_a || zero_b) ? 16'd0 : ({{14{1'b0}}, ma[3:2]} * {{14{1'b0}}, mb[3:2]}) << 4;
+
+                sign_res = sign_a ^ sign_b;
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+            end
         end
-
-        // 8x8, 4x4 or 2x2 Multiplier (Variant B: Parameterized Multiplier)
-        // Synthesis tools will optimize the multiplier width based on the parameters
-        if (SUPPORT_INT8 || SUPPORT_MX_PLUS)
-            p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
-        else if (SUPPORT_E4M3 || SUPPORT_E5M2 || SUPPORT_MXFP6)
-            p_res = (zero_a || zero_b) ? 16'd0 : ({4'b0, ma[3:0]} * {4'b0, mb[3:0]});
-        else
-            p_res = (zero_a || zero_b) ? 16'd0 : ({{14{1'b0}}, ma[3:2]} * {{14{1'b0}}, mb[3:2]}) << 4;
-
-        sign_res = sign_a ^ sign_b;
-        exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
-    end
+    endgenerate
 
     assign sign = sign_res;
     assign prod = p_res;
