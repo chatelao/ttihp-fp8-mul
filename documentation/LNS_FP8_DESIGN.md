@@ -191,9 +191,9 @@ A bit-serial LNS implementation represents the "logical floor" of OCP MX hardwar
 ## 10. Implementation Roadmap: LNS Evolution & Bit-Serial Integration
 This roadmap outlines the future development phases for LNS-based optimizations in the OCP MX MAC unit.
 
-### 10.1. Phase A: Robustness & Special Value Handling [>]
-*   [x] **NaN/Infinity Detection**: Added element-wise detection for IEEE-754 NaNs and Infinities in the bit-serial core.
-*   [ ] **Sticky Registers**: Implement sticky status registers that latch NaN/Overflow flags during the 32-element block processing in the top-level unit.
+### 10.1. Phase A: Robustness & Special Value Handling [x]
+*   [x] **NaN/Infinity Detection**: Added element-wise detection for IEEE-754 NaNs and Infinities in the parallel and bit-serial cores.
+*   [x] **Sticky Registers**: Implemented sticky status registers (`nan_sticky`, `inf_pos_sticky`, `inf_neg_sticky`) that latch special values during block processing.
 *   [x] **Subnormal Support**: Currently handled via Flush-to-Zero (FTZ) to minimize area.
 
 ### 10.2. Phase B: Bit-Serial LNS Core (Step 4 Extension) [x]

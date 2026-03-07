@@ -10,8 +10,11 @@ import random
 # Reuse the model from test.py
 from test import decode_format, align_model, align_product_model, reset_dut
 
-def get_operand_class(bits, format_val):
-    sign, exp, mant, bias, is_int = decode_format(bits, format_val)
+def get_operand_class(bits, format_val,
+                      support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
+    sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val,
+                                                          support_e4m3=support_e4m3, support_e5m2=support_e5m2,
+                                                          support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
 
     if is_int:
         val = bits if bits < 128 else bits - 256
@@ -60,15 +63,23 @@ def sample_coverage(format_a, format_b, round_mode, overflow_wrap, op_class_a, o
     pass
 
 # We'll use a wrapper to sample
-def do_sample(format_a, format_b, round_mode, overflow_wrap, bits_a, bits_b):
-    op_class_a = get_operand_class(bits_a, format_a)
-    op_class_b = get_operand_class(bits_b, format_b)
+def do_sample(format_a, format_b, round_mode, overflow_wrap, bits_a, bits_b,
+              support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
+    op_class_a = get_operand_class(bits_a, format_a, support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+    op_class_b = get_operand_class(bits_b, format_b, support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
     sample_coverage(format_a, format_b, round_mode, overflow_wrap, op_class_a, op_class_b)
 
 async def run_mac_test_covered(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0):
+    from test import get_param
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+
     # Sample coverage for each element pair
     for a, b in zip(a_elements, b_elements):
-        do_sample(format_a, format_b, round_mode, overflow_wrap, a, b)
+        do_sample(format_a, format_b, round_mode, overflow_wrap, a, b,
+                  support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
 
     # Actually run the test (reusing logic from test.py)
     from test import run_mac_test
@@ -80,11 +91,15 @@ async def test_exhaustive_formats_subset(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    formats_to_test = [
-        (0, 0), # E4M3 x E4M3
-        (1, 1), # E5M2 x E5M2
-        (5, 5), # INT8 x INT8
-    ]
+    from test import get_param
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+
+    formats_to_test = []
+    if support_e4m3: formats_to_test.append((0, 0))
+    if support_e5m2: formats_to_test.append((1, 1))
+    if support_int8: formats_to_test.append((5, 5))
 
     for fa, fb in formats_to_test:
         dut._log.info(f"Exhaustive test for {fa} x {fb}")
@@ -108,7 +123,18 @@ async def test_edge_cases(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
+    from test import get_param
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+
     for fmt in range(7):
+        if fmt == 1 and not support_e5m2: continue
+        if fmt in [2, 3] and not support_mxfp6: continue
+        if fmt == 4 and not support_mxfp4: continue
+        if fmt in [5, 6] and not support_int8: continue
+
         # Zero, Min, Max, Special
         elements = [0x00, 0x7F, 0x80, 0xFF]
         # Pad to 32
@@ -116,14 +142,15 @@ async def test_edge_cases(dut):
         await run_mac_test_covered(dut, fmt, fmt, elements, elements)
 
     # E5M2 Infinities and NaNs
-    # E5M2: exp is bits [6:2]. exp=31 is special.
-    # 0x7C is +Inf (0 11111 00)
-    # 0xFC is -Inf (1 11111 00)
-    # 0x7D is NaN
-    specials = [0x7C, 0xFC, 0x7D, 0x7E]
-    a_els = specials + [0x00] * (32 - len(specials))
-    b_els = [0x3C] * 32 # 1.0 in E5M2
-    await run_mac_test_covered(dut, 1, 1, a_els, b_els)
+    if support_e5m2:
+        # E5M2: exp is bits [6:2]. exp=31 is special.
+        # 0x7C is +Inf (0 11111 00)
+        # 0xFC is -Inf (1 11111 00)
+        # 0x7D is NaN
+        specials = [0x7C, 0xFC, 0x7D, 0x7E]
+        a_els = specials + [0x00] * (32 - len(specials))
+        b_els = [0x3C] * 32 # 1.0 in E5M2
+        await run_mac_test_covered(dut, 1, 1, a_els, b_els)
 
 @cocotb.test()
 async def test_shared_scale_coverage(dut):
@@ -144,9 +171,22 @@ async def test_randomized_coverage(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
+    from test import get_param
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
+
+    allowed_formats = [0]
+    if support_e5m2: allowed_formats.append(1)
+    if support_mxfp6: allowed_formats.extend([2, 3])
+    if support_mxfp4: allowed_formats.append(4)
+    if support_int8: allowed_formats.extend([5, 6])
+
     for _ in range(500):
-        fa = random.randint(0, 6)
-        fb = random.randint(0, 6)
+        fa = random.choice(allowed_formats)
+        fb = random.choice(allowed_formats) if support_mixed else fa
         rm = random.randint(0, 3)
         ov = random.randint(0, 1)
         sa = random.randint(0, 255)
