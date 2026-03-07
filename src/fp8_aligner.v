@@ -2,7 +2,8 @@
 
 module fp8_aligner #(
     parameter WIDTH = 40,
-    parameter SUPPORT_ADV_ROUNDING = 1
+    parameter SUPPORT_ADV_ROUNDING = 1,
+    parameter OPTIMIZE_FOR_FP4 = 0
 )(
     input  wire [31:0] prod,     // Increased to 32-bit to support accumulator scaling
     input  wire signed [9:0] exp_sum,  // Increased to 10-bit signed for shared scales
@@ -21,6 +22,24 @@ module fp8_aligner #(
     // Expand shift_amt to handle wider exp_sum
     wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
 
+    generate
+    if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized
+        // Optimized FP4 Aligner (Step 7)
+        // Designed for minimal-area element alignment.
+        always @(*) begin : fp4_opt_logic
+            reg [WIDTH-1:0] base;
+            base = {{(WIDTH > 32 ? WIDTH-32 : 0){1'b0}}, prod};
+            if (shift_amt >= 0)
+                base = base << shift_amt;
+            else
+                base = base >> (-shift_amt);
+
+            if (sign)
+                aligned = -base[31:0];
+            else
+                aligned = base[31:0];
+        end
+    end else begin : gen_standard
     always @(*) begin : align_logic
         reg [WIDTH-1:0] shifted;
         reg [WIDTH-1:0] base;
@@ -112,5 +131,7 @@ module fp8_aligner #(
                 aligned = rounded[31:0];
         end
     end
+    end
+    endgenerate
 
 endmodule

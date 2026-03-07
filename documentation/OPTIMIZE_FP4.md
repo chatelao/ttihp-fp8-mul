@@ -67,9 +67,9 @@ While FP8 requires a 32-bit or 40-bit accumulator to maintain precision across 3
 - [x] **Implementation**: Reduced `cycle_count` and `k_counter` to 7 bits. Used `generate` blocks in `src/project.v` to replace configuration registers with wires/localparams and provided a direct bit-extraction path in `src/fp8_mul.v` for FP4-only builds.
 - **Goal**: Eliminate ~150-200 gates of redundant control logic and registers in the most minimal configurations.
 
-### Step 7: Specialized FP4 Aligner (PLANNED)
-- [ ] **Action**: Create a hard-wired alignment path for FP4 that avoids the full 32-bit barrel shifter.
-- [ ] **Implementation**: Since FP4 has limited dynamic range, many shift amounts are impossible or lead to zero. A dedicated 16-bit to 24-bit aligner with fewer stages can be used.
+### Step 7: Specialized FP4 Aligner (COMPLETED)
+- [x] **Action**: Create a hard-wired alignment path for FP4 that avoids the full 32-bit barrel shifter.
+- [x] **Implementation**: Implemented a specialized `gen_fp4_optimized` block in `src/fp8_aligner.v` triggered by a new `OPTIMIZE_FOR_FP4` parameter. This path uses a minimal datapath that bypasses rounding, sticky-bit logic, and complex saturation checks for FP4 element alignment.
 - **Goal**: Reduce the aligner area by an additional 30%.
 
 ## 5. Backward Compatibility
