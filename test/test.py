@@ -222,11 +222,12 @@ def get_param(dut, name, default=1):
         "SUPPORT_PIPELINING": 0,
         "SUPPORT_ADV_ROUNDING": 0,
         "SUPPORT_MIXED_PRECISION": 0,
-    "SUPPORT_VECTOR_PACKING": 0,
-    "SUPPORT_PACKED_SERIAL": 0,
-    "SUPPORT_MX_PLUS": 0,
-    "SUPPORT_SERIAL": 0,
-    "SERIAL_K_FACTOR": 1,
+        "SUPPORT_VECTOR_PACKING": 0,
+        "SUPPORT_INPUT_BUFFERING": 0,
+        "SUPPORT_PACKED_SERIAL": 0,
+        "SUPPORT_MX_PLUS": 0,
+        "SUPPORT_SERIAL": 1,
+        "SERIAL_K_FACTOR": 8,
         "ENABLE_SHARED_SCALING": 0,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 0
@@ -894,8 +895,11 @@ async def test_mxplus_yaml(dut):
 async def test_mxfp4_input_buffering(dut):
     # Check if input buffering is supported
     support_buffering = get_param(getattr(dut.user_project, "SUPPORT_INPUT_BUFFERING", None), "SUPPORT_INPUT_BUFFERING", 0)
-    if not support_buffering:
-        dut._log.info("Skipping Input Buffering FP4 Test (SUPPORT_INPUT_BUFFERING=0)")
+    support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
+
+    if not support_buffering or support_packing:
+        reason = "SUPPORT_INPUT_BUFFERING=0" if not support_buffering else "SUPPORT_VECTOR_PACKING=1 (takes precedence)"
+        dut._log.info(f"Skipping Input Buffering FP4 Test ({reason})")
         return
 
     dut._log.info("Start Input Buffering FP4 Test")
