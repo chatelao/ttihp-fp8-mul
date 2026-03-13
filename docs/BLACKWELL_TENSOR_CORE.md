@@ -5,9 +5,9 @@ The NVIDIA Blackwell architecture introduces the **5th Generation Tensor Cores**
 
 ## Architecture Diagram
 
-![NVIDIA 5th Gen Tensor Core (Blackwell) Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/documentation/BLACKWELL_TENSOR_CORE.PUML)
+![NVIDIA 5th Gen Tensor Core (Blackwell) Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/BLACKWELL_TENSOR_CORE.PUML)
 
-*Source: [documentation/BLACKWELL_TENSOR_CORE.PUML](BLACKWELL_TENSOR_CORE.PUML)*
+*Source: [docs/BLACKWELL_TENSOR_CORE.PUML](BLACKWELL_TENSOR_CORE.PUML)*
 
 ## Key Features
 - **Native FP4 and FP6 Support**: Blackwell Tensor Cores provide native hardware acceleration for 4-bit and 6-bit floating-point formats, doubling the throughput compared to FP8.
