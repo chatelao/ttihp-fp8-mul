@@ -80,11 +80,12 @@ module fp8_mul #(
                     sign_out = data[7];
                     bias_out = 7;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 11; // 15 - 4 (mantissa shift compensation)
+                        exp_out = (INTERNAL_EXP_WIDTH > 4) ? {{(INTERNAL_EXP_WIDTH-4){1'b0}}, 4'd11} : 4'd11; // 15 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
+                        exp_out = (data[6:3] == 4'd0) ? (INTERNAL_EXP_WIDTH > 1 ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1) :
+                                  (INTERNAL_EXP_WIDTH > 4) ? {{(INTERNAL_EXP_WIDTH-4){1'b0}}, data[6:3]} : data[6:3];
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
                         if (data[6:0] == 7'b1111111) nan_out = 1'b1;
@@ -94,11 +95,12 @@ module fp8_mul #(
                     sign_out = data[7];
                     bias_out = 15;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 26; // 30 - 4 (mantissa shift compensation)
+                        exp_out = (INTERNAL_EXP_WIDTH > 5) ? {{(INTERNAL_EXP_WIDTH-5){1'b0}}, 5'd26} : 5'd26; // 30 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:2] == 5'd0) ? 1 : data[6:2];
+                        exp_out = (data[6:2] == 5'd0) ? (INTERNAL_EXP_WIDTH > 1 ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1) :
+                                  (INTERNAL_EXP_WIDTH > 5) ? {{(INTERNAL_EXP_WIDTH-5){1'b0}}, data[6:2]} : data[6:2];
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
                         if (data[6:2] == 5'b11111) begin
@@ -111,11 +113,12 @@ module fp8_mul #(
                     sign_out = data[5];
                     bias_out = 3;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5; // 7 - 2 (mantissa shift compensation)
+                        exp_out = (INTERNAL_EXP_WIDTH > 3) ? {{(INTERNAL_EXP_WIDTH-3){1'b0}}, 3'd5} : 3'd5; // 7 - 2 (mantissa shift compensation)
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:2] == 3'd0) ? 1 : data[4:2];
+                        exp_out = (data[4:2] == 3'd0) ? (INTERNAL_EXP_WIDTH > 1 ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1) :
+                                  (INTERNAL_EXP_WIDTH > 3) ? {{(INTERNAL_EXP_WIDTH-3){1'b0}}, data[4:2]} : data[4:2];
                         mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
                         zero_out = (data[4:0] == 5'd0);
                     end
@@ -124,11 +127,12 @@ module fp8_mul #(
                     sign_out = data[5];
                     bias_out = 1;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 1; // 3 - 2 (mantissa shift compensation)
+                        exp_out = (INTERNAL_EXP_WIDTH > 1) ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1; // 3 - 2 (mantissa shift compensation)
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:3] == 2'd0) ? 1 : data[4:3];
+                        exp_out = (data[4:3] == 2'd0) ? (INTERNAL_EXP_WIDTH > 1 ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1) :
+                                  (INTERNAL_EXP_WIDTH > 2) ? {{(INTERNAL_EXP_WIDTH-2){1'b0}}, data[4:3]} : data[4:3];
                         mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
                         zero_out = (data[4:0] == 5'd0);
                     end
@@ -137,11 +141,12 @@ module fp8_mul #(
                     sign_out = data[3];
                     bias_out = 1;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 3; // No compensation needed (shift 0)
+                        exp_out = (INTERNAL_EXP_WIDTH > 2) ? {{(INTERNAL_EXP_WIDTH-2){1'b0}}, 2'd3} : 2'd3; // No compensation needed (shift 0)
                         mant_out = {4'b0, 1'b1, data[2:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[2:1] == 2'd0) ? 1 : data[2:1];
+                        exp_out = (data[2:1] == 2'd0) ? (INTERNAL_EXP_WIDTH > 1 ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1) :
+                                  (INTERNAL_EXP_WIDTH > 2) ? {{(INTERNAL_EXP_WIDTH-2){1'b0}}, data[2:1]} : data[2:1];
                         mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
                         zero_out = (data[2:0] == 3'd0);
                     end
@@ -162,7 +167,8 @@ module fp8_mul #(
                 end
                 default: begin
                     sign_out = data[7];
-                    exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
+                    exp_out = (data[6:3] == 4'd0) ? (INTERNAL_EXP_WIDTH > 1 ? {{(INTERNAL_EXP_WIDTH-1){1'b0}}, 1'b1} : 1'b1) :
+                              (INTERNAL_EXP_WIDTH > 4) ? {{(INTERNAL_EXP_WIDTH-4){1'b0}}, data[6:3]} : data[6:3];
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 7;
                     zero_out = (data[6:0] == 7'd0);
