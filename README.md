@@ -19,7 +19,7 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 *Source: [docs/CONTEXT_DIAGRAM.PUML](docs/CONTEXT_DIAGRAM.PUML)*
 
-- [Read the documentation for project](docs/INFO.md)
+- [Read the documentation for project](docs/info.md)
 - [Project Concept & Roadmap](docs/MXFP8_CONCEPT.md)
 - [MX+ Implementation Roadmap](docs/MX_PLUS.md)
 - [VMXDOTP Paper Summary](docs/VMXDOTP_PAPER.md)
@@ -150,7 +150,7 @@ To learn more and get started, visit https://tinytapeout.com.
 
 1. Add your Verilog files to the `src` folder.
 2. Edit the [info.yaml](info.yaml) and update information about your project, paying special attention to the `source_files` and `top_module` properties. If you are upgrading an existing Tiny Tapeout project, check out our [online info.yaml migration tool](https://tinytapeout.github.io/tt-yaml-upgrade-tool/).
-3. Edit [docs/INFO.md](docs/INFO.md) and add a description of your project.
+3. Edit [docs/info.md](docs/info.md) and add a description of your project.
 4. Adapt the testbench to your design. See [test/README.md](test/README.md) for more information.
 
 The GitHub action will automatically build the ASIC files using [LibreLane](https://www.zerotoasiccourse.com/terminology/librelane/).
