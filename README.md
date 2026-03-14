@@ -21,7 +21,11 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 - [Read the documentation for project](docs/INFO.md)
 - [Project Concept & Roadmap](docs/MXFP8_CONCEPT.md)
-- [RISC-V CSR Mapping Concept](docs/CSR_MAPPING.md)
+- [MX+ Implementation Roadmap](docs/MX_PLUS.md)
+- [VMXDOTP Paper Summary](docs/VMXDOTP_PAPER.md)
+- [VMXDOTP SERV Integration Roadmap](docs/VMXDOTP_SERV_ROADMAP.md)
+- [RISC-V CSR Mapping Concept](docs/CSR_RVV_CONCEPT_AND_ROADMAP.md)
+- [Local Setup Guide (WSL2)](docs/LOCAL_SETUP.md)
 
 ## Protocol Description (MCU to TT/FPGA)
 
@@ -56,8 +60,6 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 ### Fast Start (Scale Compression)
 If `ui_in[7]` is set to `1` during **STATE_IDLE** (Cycle 0), the unit immediately jumps to **Cycle 3**. It reuses the **Scales**, **Formats**, and **Rounding Modes** from the previous operation, saving 3 clock cycles.
 
-- [MX+ Implementation Roadmap](docs/MX_PLUS.md)
-- [Local Setup Guide (WSL2)](docs/LOCAL_SETUP.md)
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
 ### MicroPython Example (TT DevKit)
