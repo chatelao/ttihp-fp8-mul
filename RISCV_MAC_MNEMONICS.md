@@ -68,8 +68,8 @@ These IDs are used in `MX.SETFMT` and `vmxfmt`.
 ---
 
 ## References
-- `docs/SERV_INTEGRATION_CONCEPT.md`
-- `docs/CSR_RVV_CONCEPT_AND_ROADMAP.md`
-- `docs/ZvfofpXmin_GAP.md`
-- `docs/RISCV/OCP-MICROSCALING-FORMATS-MX-V1-0-SPEC.PDF`
-- `docs/RISCV/2510.14557V1.PDF`
+- `docs/integration/SERV_INTEGRATION_CONCEPT.md`
+- `docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md`
+- `docs/integration/ZvfofpXmin_GAP.md`
+- `docs/research/reference/OCP-MICROSCALING-FORMATS-MX-V1-0-SPEC.PDF`
+- `docs/research/reference/2510.14557V1.PDF`

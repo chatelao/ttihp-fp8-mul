@@ -8,5 +8,5 @@
 - Each test case in the YAML file must include a comment describing its derivation from the specification.
 
 # Documentation
-- Update the die sizes for each option after each change in Verilog files in docs/DIE_SIZE_ANALYSIS.md
+- Update the die sizes for each option after each change in Verilog files in docs/hardware/DIE_SIZE_ANALYSIS.md
 - Describe current active configuration to be deliverd to Tiny-Tape in the SHIPPED_FEATURES.me
