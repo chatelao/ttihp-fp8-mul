@@ -1,0 +1,8 @@
+@startbitfield
+0-2: FMT_A
+3-4: RM
+5: OVF
+6: PACK
+7: EXT
+8-31: Reserved
+@endbitfield
