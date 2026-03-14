@@ -1,8 +1,0 @@
-@startbitfield
-title vmxfmt CSR (0x800)
-31-8: Reserved
-7: Extended Accuracy (MX+)
-6: Overflow Mode (OVF)
-5-3: Format B (FMT_B)
-2-0: Format A (FMT_A)
-@endbitfield

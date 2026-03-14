@@ -103,7 +103,7 @@ The unit communicates with a host using a strictly timed protocol:
 
 **Table 2: Input `uio_in` (Bidirectional)**
 
-![OCP MX Hardware Config Bitfield](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)
+![OCP MX Hardware Config Bitfield](https://wavedrom.com/api/bitfield?src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/OCP_MX_CONFIG_BITFIELD.json)
 
 | Phase | Cycles | Bits [7:0] | Function | Description |
 |-------|--------|------------|----------|-------------|

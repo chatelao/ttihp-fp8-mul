@@ -1,9 +1,0 @@
-@startbitfield
-title MX.SETFMT Instruction Register (rs1)
-31-8: Reserved
-7: MX+ Enable (EXT)
-6: Packed Mode
-5: Overflow Mode (OVF)
-4-3: Rounding Mode
-2-0: Format A
-@endbitfield

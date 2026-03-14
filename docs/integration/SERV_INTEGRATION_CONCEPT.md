@@ -72,7 +72,7 @@ The following table defines the bitfields for the OCP-MX-V extension:
 
 ### 4.2. Register Bit-Mapping
 
-![MX.SETFMT Bitfield](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/MX_SETFMT_BITFIELD.PUML)
+![MX.SETFMT Bitfield](https://wavedrom.com/api/bitfield?src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/MX_SETFMT_BITFIELD.json)
 
 - **`MX.SETFMT`**: `rs1[2:0]` = format_a, `rs1[4:3]` = round_mode, `rs1[5]` = overflow_wrap, `rs1[6]` = packed_mode, `rs1[7]` = mx_plus_en.
 - **`MX.MAC`**: `rs1` contains 4x 8-bit elements (A0-A3), `rs2` contains 4x 8-bit elements (B0-B3).
