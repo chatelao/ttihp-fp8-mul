@@ -44,7 +44,7 @@ Optimize area by removing 32-bit parallel buffers and snooping the RF directly.
 ## 5. Phase 4: Robustness & Benchmarking
 Ensure the implementation adheres to the shared-scale rules and handles exceptions.
 
-- **Special Values**: Implement sticky registers for NaN/Infinity propagation as defined in `docs/LNS_FP8_DESIGN.md`.
+- **Special Values**: Implement sticky registers for NaN/Infinity propagation as defined in `docs/architecture/LNS_FP8_DESIGN.md`.
 - **LLM Serving**: Benchmark the system using the `vLLM` and `lm-evaluation-harness` methodologies described in the VMXDOTP paper.
 - **Verification**: Run the full `test/test_lns_robustness.py` and `test/test_short_protocol.py` suite on the integrated core.
 
