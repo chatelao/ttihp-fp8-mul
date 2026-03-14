@@ -195,3 +195,39 @@ A comprehensive list of terms and acronyms used in this project can be found in 
   - Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
   - X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
   - Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+
+## Compilation Options
+
+The MAC unit is highly configurable through Verilog parameters. These can be adjusted to balance feature support against hardware area (gate count).
+
+### Hardware Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `ALIGNER_WIDTH` | 32 | Bit-width of the internal alignment datapath. |
+| `ACCUMULATOR_WIDTH` | 24 | Bit-width of the fixed-point accumulator. |
+| `SUPPORT_E4M3` | 1 | Enable support for E4M3 (MXFP8) format. |
+| `SUPPORT_E5M2` | 0 | Enable support for E5M2 (MXFP8) format. |
+| `SUPPORT_MXFP6` | 0 | Enable support for E3M2 and E2M3 (MXFP6) formats. |
+| `SUPPORT_MXFP4` | 1 | Enable support for E2M1 (MXFP4) format. |
+| `SUPPORT_INT8` | 0 | Enable support for INT8 and INT8_SYM formats. |
+| `SUPPORT_PIPELINING` | 0 | Enable multiplier pipelining for higher clock frequencies. |
+| `SUPPORT_ADV_ROUNDING` | 0 | Enable advanced rounding modes (RNE, CEL, FLR). |
+| `SUPPORT_MIXED_PRECISION`| 0 | Allow different formats for Operand A and B. |
+| `SUPPORT_VECTOR_PACKING` | 0 | Enable 2x throughput for FP4 using vector packing. |
+| `SUPPORT_PACKED_SERIAL` | 0 | Enable bit-serial throughput for packed FP4 formats. |
+| `SUPPORT_INPUT_BUFFERING` | 0 | Enable input buffering for FP4 formats. |
+| `SUPPORT_MX_PLUS` | 0 | Enable MX+ extensions (Repurposed Exponents). |
+| `SUPPORT_SERIAL` | 1 | Enable bit-serial multiplier core (reduces area). |
+| `SERIAL_K_FACTOR` | 8 | Bit-serial period (typically 8 for FP8). |
+| `ENABLE_SHARED_SCALING` | 0 | Enable OCP MX Shared Scaling logic. |
+| `USE_LNS_MUL` | 0 | Use Logarithmic Number System (LNS) multiplier core. |
+| `USE_LNS_MUL_PRECISE` | 0 | Use precise LUT-based LNS (higher area). |
+
+### Pre-defined Variants
+
+The project includes a configuration script (`scripts/configure_variant.py`) to quickly switch between common profiles:
+
+- **Baseline**: Full feature set enabled, 40-bit aligner, 32-bit accumulator, parallel multipliers.
+- **Light/Lite**: Balanced configuration with MXFP6, Vector Packing, and MX+ disabled.
+- **Tiny**: Minimal footprint with only essential FP8 support enabled.
