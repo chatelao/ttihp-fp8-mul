@@ -163,7 +163,7 @@ The ASIC performs the summation and the intermediate exponent arithmetic. The fi
 This section identifies features described in the concept that are currently unimplemented or require further refinement.
 
 ### GAP: NaN and Infinity Propagation
-- [ ] **Full Support for Special Values**: While the design supports subnormals and prioritizes saturation, comprehensive propagation of IEEE-754 NaNs and Infinities (specifically for E5M2) and OCP-specified NaN encodings for other formats is not yet fully implemented in the datapath and sticky registers.
+- [x] **Full Support for Special Values**: While the design supports subnormals and prioritizes saturation, comprehensive propagation of IEEE-754 NaNs and Infinities (specifically for E5M2) and OCP-specified NaN encodings for other formats is fully implemented in the datapath and sticky registers.
 
 ### GAP: Parameterized Block Size
 - [ ] **Dynamic Block Size**: The current implementation is optimized for a fixed block size of $k=32$ (or $k=16$ in packed mode). Future versions should allow parameterization of the block size via Verilog parameters.

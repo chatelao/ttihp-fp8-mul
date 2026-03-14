@@ -20,7 +20,8 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 *Source: [docs/CONTEXT_DIAGRAM.PUML](docs/CONTEXT_DIAGRAM.PUML)*
 
 - [Read the documentation for project](docs/info.md)
-- [Project Concept & Roadmap](docs/MXFP8_CONCEPT.md)
+- [Consolidated Project Roadmap](ROADMAP.md)
+- [Project Concept & Detailed Roadmap](docs/MXFP8_CONCEPT.md)
 - [MX+ Implementation Roadmap](docs/MX_PLUS.md)
 - [VMXDOTP Paper Summary](docs/VMXDOTP_PAPER.md)
 - [VMXDOTP SERV Integration Roadmap](docs/VMXDOTP_SERV_ROADMAP.md)
