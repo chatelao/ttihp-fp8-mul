@@ -28,22 +28,22 @@ jobs:
 
       - name: Generate Logic Diagrams
         run: |
-          # Use yq to extract project metadata from info.yaml
-          TOP_MODULE=$(yq -r '.project.top_module' info.yaml)
-          SOURCES=$(yq -r '.project.source_files[]' info.yaml | sed 's|^|src/|' | tr '\n' ' ')
+          # Use python to extract project metadata from info.yaml (more robust than yq in some environments)
+          TOP_MODULE=$(python3 -c "import yaml; print(yaml.safe_load(open('info.yaml'))['project']['top_module'])")
+          SOURCES=$(python3 -c "import yaml; print(' '.join(['src/' + s for s in yaml.safe_load(open('info.yaml'))['project']['source_files']]))")
 
           echo "Top Module: $TOP_MODULE"
           echo "Sources: $SOURCES"
 
           # 1. Standard Logic Diagram
-          yosys -p "read_verilog $SOURCES; hierarchy -top $TOP_MODULE; proc; opt; show -format dot -prefix logic_diagram $TOP_MODULE"
+          yosys -p "read_verilog -Isrc $SOURCES; hierarchy -top $TOP_MODULE; proc; opt; show -format dot -prefix logic_diagram $TOP_MODULE"
           timeout 180 dot -Tpng logic_diagram.dot -o logic_diagram.png
           timeout 180 dot -Tsvg logic_diagram.dot -o logic_diagram.svg
           timeout 180 bash -c "tred logic_diagram.dot | dot -Tpng > logic_diagram_tred.png"
           timeout 180 bash -c "tred logic_diagram.dot | dot -Tsvg > logic_diagram_tred.svg"
 
           # 2. Flattened RTL Logic Diagram (Resolution level +/- between top-level and flatten)
-          yosys -p "read_verilog $SOURCES; hierarchy -top $TOP_MODULE; proc; flatten; opt; show -format dot -prefix logic_diagram_rtl $TOP_MODULE"
+          yosys -p "read_verilog -Isrc $SOURCES; hierarchy -top $TOP_MODULE; proc; flatten; opt; show -format dot -prefix logic_diagram_rtl $TOP_MODULE"
           timeout 180 dot -Tpng logic_diagram_rtl.dot -o logic_diagram_rtl.png
           timeout 180 dot -Tsvg logic_diagram_rtl.dot -o logic_diagram_rtl.svg
           timeout 180 bash -c "tred logic_diagram_rtl.dot | dot -Tpng > logic_diagram_rtl_tred.png"
@@ -54,7 +54,7 @@ jobs:
             echo "Executing full render steps..."
 
             # Gate-Level Diagram
-            yosys -p "read_verilog $SOURCES; hierarchy -top $TOP_MODULE; proc; flatten; synth -top $TOP_MODULE; show -format dot -prefix logic_diagram_flattened $TOP_MODULE"
+            yosys -p "read_verilog -Isrc $SOURCES; hierarchy -top $TOP_MODULE; proc; flatten; synth -top $TOP_MODULE; show -format dot -prefix logic_diagram_flattened $TOP_MODULE"
             timeout 180 dot -Tpng logic_diagram_flattened.dot -o logic_diagram_flattened.png
             timeout 180 dot -Tsvg logic_diagram_flattened.dot -o logic_diagram_flattened.svg
 
