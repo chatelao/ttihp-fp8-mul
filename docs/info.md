@@ -42,8 +42,3 @@ The design uses a clocked FSM. To test:
 
 A Cocotb testbench in `test/test.py` performs this protocol and verifies the results.
 
-## Documentation References
-- [MX+ (VMXDOTP) Paper Summary](VMXDOTP_PAPER.md)
-- [VMXDOTP SERV Integration Roadmap](VMXDOTP_SERV_ROADMAP.md)
-- [MX+ Implementation Roadmap](MX_PLUS.md)
-- [Project Concept & Roadmap](MXFP8_CONCEPT.md)

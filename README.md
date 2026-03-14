@@ -9,7 +9,6 @@ This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible wi
 This project incorporates logic and concepts from several open-source resources:
 - [fp8_mul](https://github.com/cchan/fp8_mul) by Clive Chan (Arithmetic logic).
 - [Tiny Tapeout Verilog Template](https://github.com/TinyTapeout/ttihp-verilog-template) (Project structure).
-- [OCP Microscaling Formats (MX) Specification v1.0](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf) (Numerical and Protocol Specification).
 
 We gratefully acknowledge these contributions to the open-source hardware and AI communities.
 
@@ -20,13 +19,6 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 *Source: [docs/CONTEXT_DIAGRAM.PUML](docs/CONTEXT_DIAGRAM.PUML)*
 
 - [Read the documentation for project](docs/info.md)
-- [Consolidated Project Roadmap](ROADMAP.md)
-- [Project Concept & Detailed Roadmap](docs/MXFP8_CONCEPT.md)
-- [MX+ Implementation Roadmap](docs/MX_PLUS.md)
-- [VMXDOTP Paper Summary](docs/VMXDOTP_PAPER.md)
-- [VMXDOTP SERV Integration Roadmap](docs/VMXDOTP_SERV_ROADMAP.md)
-- [RISC-V CSR Mapping Concept](docs/CSR_RVV_CONCEPT_AND_ROADMAP.md)
-- [Local Setup Guide (WSL2)](docs/LOCAL_SETUP.md)
 
 ## Protocol Description (MCU to TT/FPGA)
 
