@@ -65,10 +65,13 @@ module fp8_mul #(
         output reg nan_out,
         output reg inf_out
     );
+        /* verilator lint_off UNUSEDSIGNAL */
+        reg [7:0] tmp_exp;
+        /* verilator lint_on UNUSEDSIGNAL */
         begin
             // Defaults for unsupported formats
             sign_out = 1'b0;
-            exp_out = {INTERNAL_EXP_WIDTH{1'b0}};
+            tmp_exp = 8'd0;
             mant_out = 8'd0;
             bias_out = {INTERNAL_BIAS_WIDTH{1'b0}};
             zero_out = 1'b1;
@@ -80,11 +83,11 @@ module fp8_mul #(
                     sign_out = data[7];
                     bias_out = 7;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 11; // 15 - 4 (mantissa shift compensation)
+                        tmp_exp = 11; // 15 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
+                        tmp_exp = (data[6:3] == 4'd0) ? 1 : {4'd0, data[6:3]};
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
                         if (data[6:0] == 7'b1111111) nan_out = 1'b1;
@@ -94,11 +97,11 @@ module fp8_mul #(
                     sign_out = data[7];
                     bias_out = 15;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 26; // 30 - 4 (mantissa shift compensation)
+                        tmp_exp = 26; // 30 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[6:2] == 5'd0) ? 1 : data[6:2];
+                        tmp_exp = (data[6:2] == 5'd0) ? 1 : {3'd0, data[6:2]};
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
                         if (data[6:2] == 5'b11111) begin
@@ -111,11 +114,11 @@ module fp8_mul #(
                     sign_out = data[5];
                     bias_out = 3;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 5; // 7 - 2 (mantissa shift compensation)
+                        tmp_exp = 5; // 7 - 2 (mantissa shift compensation)
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:2] == 3'd0) ? 1 : data[4:2];
+                        tmp_exp = (data[4:2] == 3'd0) ? 1 : {5'd0, data[4:2]};
                         mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
                         zero_out = (data[4:0] == 5'd0);
                     end
@@ -124,11 +127,11 @@ module fp8_mul #(
                     sign_out = data[5];
                     bias_out = 1;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 1; // 3 - 2 (mantissa shift compensation)
+                        tmp_exp = 1; // 3 - 2 (mantissa shift compensation)
                         mant_out = {2'b0, 1'b1, data[4:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[4:3] == 2'd0) ? 1 : data[4:3];
+                        tmp_exp = (data[4:3] == 2'd0) ? 1 : {6'd0, data[4:3]};
                         mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
                         zero_out = (data[4:0] == 5'd0);
                     end
@@ -137,11 +140,11 @@ module fp8_mul #(
                     sign_out = data[3];
                     bias_out = 1;
                     if (is_bm && SUPPORT_MX_PLUS) begin
-                        exp_out = 3; // No compensation needed (shift 0)
+                        tmp_exp = 3; // No compensation needed (shift 0)
                         mant_out = {4'b0, 1'b1, data[2:0]};
                         zero_out = 1'b0;
                     end else begin
-                        exp_out = (data[2:1] == 2'd0) ? 1 : data[2:1];
+                        tmp_exp = (data[2:1] == 2'd0) ? 1 : {6'd0, data[2:1]};
                         mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
                         zero_out = (data[2:0] == 3'd0);
                     end
@@ -149,25 +152,26 @@ module fp8_mul #(
                 FMT_INT8: if (SUPPORT_INT8) begin
                     sign_out = data[7];
                     mant_out = data[7] ? -data : data;
-                    exp_out = 0;
+                    tmp_exp = 0;
                     bias_out = 3;
                     zero_out = (data == 8'd0);
                 end
                 FMT_INT8_SYM: if (SUPPORT_INT8) begin
                     sign_out = data[7];
                     mant_out = (data == 8'h80) ? 8'd127 : (data[7] ? -data : data);
-                    exp_out = 0;
+                    tmp_exp = 0;
                     bias_out = 3;
                     zero_out = (data == 8'd0);
                 end
                 default: begin
                     sign_out = data[7];
-                    exp_out = (data[6:3] == 4'd0) ? 1 : data[6:3];
+                    tmp_exp = (data[6:3] == 4'd0) ? 1 : {4'd0, data[6:3]};
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                     bias_out = 7;
                     zero_out = (data[6:0] == 7'd0);
                 end
             endcase
+            exp_out = tmp_exp[INTERNAL_EXP_WIDTH-1:0];
         end
     endtask
 

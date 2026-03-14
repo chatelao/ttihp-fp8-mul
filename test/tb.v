@@ -37,11 +37,11 @@ module tb ();
   parameter SUPPORT_PACKED_SERIAL = 0;
   parameter SUPPORT_INPUT_BUFFERING = 0;
   parameter SUPPORT_MX_PLUS = 0;
-  parameter SUPPORT_SERIAL = 1;
+  parameter SUPPORT_SERIAL = 0;
   parameter SERIAL_K_FACTOR = 8;
-  parameter ENABLE_SHARED_SCALING = 0;
+  parameter ENABLE_SHARED_SCALING = 1;
   parameter USE_LNS_MUL = 0;
-  parameter USE_LNS_MUL_PRECISE = 0;
+  parameter USE_LNS_MUL_PRECISE = 1;
   parameter SUPPORT_DEBUG = 1;
 
 `ifdef GL_TEST

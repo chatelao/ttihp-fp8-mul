@@ -226,11 +226,11 @@ def get_param(dut, name, default=1):
         "SUPPORT_INPUT_BUFFERING": 0,
         "SUPPORT_PACKED_SERIAL": 0,
         "SUPPORT_MX_PLUS": 0,
-        "SUPPORT_SERIAL": 1,
+        "SUPPORT_SERIAL": 0,
         "SERIAL_K_FACTOR": 8,
-        "ENABLE_SHARED_SCALING": 0,
+        "ENABLE_SHARED_SCALING": 1,
         "USE_LNS_MUL": 0,
-        "USE_LNS_MUL_PRECISE": 0
+        "USE_LNS_MUL_PRECISE": 1
     }
     return defaults.get(name, default)
 
@@ -332,7 +332,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     actual_serial = support_serial and not support_packing and not actual_buffering and packed_mode and (format_a == 4) and (format_b == 4)
 
     # Tiny-Serial timing parameters
-    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
     cycles_per_element = k_factor
 
     support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 0)
@@ -741,7 +742,9 @@ async def test_fast_start_scale_compression(dut):
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
-    await ClockCycles(dut.clk, k_factor)
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor_eff = k_factor if support_serial_hw else 1
+    await ClockCycles(dut.clk, k_factor_eff)
 
     # Now at Cycle 3
     support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
@@ -776,15 +779,15 @@ async def test_fast_start_scale_compression(dut):
     for i in range(32):
         dut.ui_in.value = a_elements[i]
         dut.uio_in.value = b_elements[i]
-        await ClockCycles(dut.clk, k_factor)
+        await ClockCycles(dut.clk, k_factor_eff)
 
-    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 2 * k_factor_eff) # Flush + Shared Scale
 
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, k_factor)
+        await ClockCycles(dut.clk, k_factor_eff)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final
