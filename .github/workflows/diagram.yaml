@@ -24,6 +24,7 @@ jobs:
         uses: YosysHQ/setup-oss-cad-suite@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: '2026-03-13'
 
       - name: Generate Logic Diagrams
         run: |
