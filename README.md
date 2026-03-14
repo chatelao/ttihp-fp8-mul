@@ -15,18 +15,18 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 ## System Context
 
-![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/CONTEXT_DIAGRAM.PUML)
+![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/CONTEXT_DIAGRAM.PUML)
 
-*Source: [docs/CONTEXT_DIAGRAM.PUML](docs/CONTEXT_DIAGRAM.PUML)*
+*Source: [docs/diagrams/CONTEXT_DIAGRAM.PUML](docs/diagrams/CONTEXT_DIAGRAM.PUML)*
 
 - [Read the documentation for project](docs/info.md)
 - [Consolidated Project Roadmap](ROADMAP.md)
-- [Project Concept & Detailed Roadmap](docs/MXFP8_CONCEPT.md)
-- [MX+ Implementation Roadmap](docs/MX_PLUS.md)
-- [VMXDOTP Paper Summary](docs/VMXDOTP_PAPER.md)
-- [VMXDOTP SERV Integration Roadmap](docs/VMXDOTP_SERV_ROADMAP.md)
-- [RISC-V CSR Mapping Concept](docs/CSR_RVV_CONCEPT_AND_ROADMAP.md)
-- [Local Setup Guide (WSL2)](docs/LOCAL_SETUP.md)
+- [Project Concept & Detailed Roadmap](docs/architecture/MXFP8_CONCEPT.md)
+- [MX+ Implementation Roadmap](docs/architecture/MX_PLUS.md)
+- [VMXDOTP Paper Summary](docs/research/VMXDOTP_PAPER.md)
+- [VMXDOTP SERV Integration Roadmap](docs/integration/VMXDOTP_SERV_ROADMAP.md)
+- [RISC-V CSR Mapping Concept](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md)
+- [Local Setup Guide (WSL2)](docs/hardware/LOCAL_SETUP.md)
 
 ## Protocol Description (MCU to TT/FPGA)
 
