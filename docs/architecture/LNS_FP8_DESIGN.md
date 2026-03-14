@@ -212,4 +212,4 @@ This roadmap outlines the future development phases for LNS-based optimizations 
     2.  Parallel Mitchell LNS
     3.  Bit-Serial Mitchell LNS
 *   **Power Profiling**: Utilize gate-level simulation (GLS) with switching activity (VCD) to quantify the power reduction achieved by the minimal switching of the 1-bit LNS adder.
-*   **Final Report**: Document the results in `docs/DIE_SIZE_ANALYSIS.md`.
+*   **Final Report**: Document the results in `../hardware/DIE_SIZE_ANALYSIS.md`.
