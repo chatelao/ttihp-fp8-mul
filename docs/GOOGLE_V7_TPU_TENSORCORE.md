@@ -7,9 +7,9 @@ A defining feature of the v7 architecture is its native hardware support for the
 
 ## Architecture Diagram
 
-![Google TPU v7 TensorCore Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/documentation/GOOGLE_V7_TPU_TENSORCORE.PUML)
+![Google TPU v7 TensorCore Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/GOOGLE_V7_TPU_TENSORCORE.PUML)
 
-*Source: [documentation/GOOGLE_V7_TPU_TENSORCORE.PUML](GOOGLE_V7_TPU_TENSORCORE.PUML)*
+*Source: [docs/GOOGLE_V7_TPU_TENSORCORE.PUML](GOOGLE_V7_TPU_TENSORCORE.PUML)*
 
 ## 4-Level Circuit Hierarchy
 The TPU v7 TensorCore is organized into a nested hierarchy to manage complexity and data distribution:
