@@ -1,0 +1,8 @@
+@startbitfield
+title OCP MX Hardware Config Byte (uio_in Cycle 1)
+7: MX+ Enable
+6: Packed Mode
+5: Overflow Mode (SAT/WRAP)
+4-3: Rounding Mode
+2-0: Format A
+@endbitfield

@@ -71,7 +71,10 @@ The following table defines the bitfields for the OCP-MX-V extension:
 | `MX.READ`   | 0x0b   | 0x3    | 0x00   | 0x0 | 0x0 | dst| Read 32-bit accumulator into `rd`. |
 
 ### 4.2. Register Bit-Mapping
-- **`MX.SETFMT`**: `rs1[2:0]` = format_a, `rs1[4:3]` = round_mode, `rs1[5]` = overflow_wrap.
+
+![MX.SETFMT Bitfield](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/MX_SETFMT_BITFIELD.PUML)
+
+- **`MX.SETFMT`**: `rs1[2:0]` = format_a, `rs1[4:3]` = round_mode, `rs1[5]` = overflow_wrap, `rs1[6]` = packed_mode, `rs1[7]` = mx_plus_en.
 - **`MX.MAC`**: `rs1` contains 4x 8-bit elements (A0-A3), `rs2` contains 4x 8-bit elements (B0-B3).
 
 ## 5. Synchronization & Stretched Protocol

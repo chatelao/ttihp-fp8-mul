@@ -8,6 +8,8 @@ To manage the specific requirements of OCP Microscaling Formats (MX), a new cust
 
 ### 1.1. `vmxfmt` (Custom Read/Write CSR, Address 0x800)
 
+![vmxfmt Bitfield](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/VMXFMT_BITFIELD.PUML)
+
 | Bits | Name | Description | OCP MX Cycle 1 Mapping |
 |:---|:---|:---|:---|
 | [2:0] | **FMT_A** | Element Format for Tensor A. | `uio_in[2:0]` |
