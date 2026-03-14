@@ -22,14 +22,16 @@ async def test_debug_loopback(dut):
     cocotb.start_soon(clock.start())
 
     # Enable Loopback in Cycle 0 (loopback_en=1)
+    # Ensure uio_in is 0
+    dut.uio_in.value = 0
     await reset_with_debug(dut, loopback_en=1)
 
-    # In Loopback mode, uo_out should follow ui_in immediately
+    # In Loopback mode, uo_out should follow ui_in immediately (as ui_in ^ 0)
     for val in [0x55, 0xAA, 0x00, 0xFF]:
         dut.ui_in.value = val
         await Timer(1, unit="ns")
         actual = int(dut.uo_out.value)
-        dut._log.info(f"Loopback: in={val:02x}, out={actual:02x}")
+        dut._log.info(f"Loopback: ui_in={val:02x}, out={actual:02x}")
         assert actual == val
 
 @cocotb.test()
@@ -113,3 +115,77 @@ async def test_debug_metadata_echo(dut):
     actual = int(dut.uo_out.value)
     dut._log.info(f"Metadata Echo, Cycle 35: out={actual:02x}, expected={expected:02x}")
     assert actual == expected
+
+@cocotb.test()
+async def test_uio_loopback(dut):
+    dut._log.info("Start UIO Loopback Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # Enable Loopback in Cycle 0
+    await reset_with_debug(dut, loopback_en=1)
+    # Set ui_in to 0 after loopback is enabled
+    dut.ui_in.value = 0
+
+    # uio_oe should be 0x00 (all inputs to avoid combinational loops)
+    await Timer(1, unit="ns")
+    assert int(dut.uio_oe.value) == 0x00
+
+    # uo_out should reflect ui_in ^ uio_in. Since ui_in=0, uo_out == uio_in.
+    for val in [0x55, 0xAA, 0x00, 0xFF]:
+        dut.uio_in.value = val
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+        dut._log.info(f"UIO Loopback check on uo_out: uio_in={val:02x}, out={actual:02x}")
+        assert actual == val
+
+@cocotb.test()
+async def test_loopback_persistence(dut):
+    dut._log.info("Start Loopback Persistence Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    k = get_param(dut, "SERIAL_K_FACTOR", 1)
+
+    # Enable Loopback in Cycle 0
+    await reset_with_debug(dut, loopback_en=1)
+
+    # Release loopback_en in Cycle 1
+    dut.ui_in.value = 0
+    await ClockCycles(dut.clk, k * 45) # Run past a full 41-cycle operation
+
+    # Should still be in loopback
+    dut.ui_in.value = 0x12
+    await Timer(1, unit="ns")
+    assert int(dut.uo_out.value) == 0x12
+
+@cocotb.test()
+async def test_debug_no_packed_interference(dut):
+    dut._log.info("Start Debug No Packed Interference Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    k = get_param(dut, "SERIAL_K_FACTOR", 1)
+
+    # Fast Start with Debug Enable (ui_in[6]=1, ui_in[7]=1)
+    # But uio_in[6] (Packed Mode) is 0.
+    dut.ena.value = 1
+    dut.ui_in.value = 0xC0 # ui_in[7]=1 (Fast Start), ui_in[6]=1 (Debug En)
+    dut.uio_in.value = 0x00 # All other config 0, including uio_in[6] (Packed Mode)
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1) # Samples Cycle 0
+
+    # Now cycle_count should be 3 (jumped from 0 to 3)
+    await Timer(1, unit="ns")
+    assert int(dut.user_project.cycle_count.value) == 3
+
+    # Verify packed_mode_reg is 0
+    # metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg}
+    # at Cycle 35
+    await ClockCycles(dut.clk, (35-3) * k)
+    await Timer(1, unit="ns")
+    actual = int(dut.uo_out.value)
+    dut._log.info(f"Metadata Echo: {actual:02x}")
+    assert (actual >> 6) & 1 == 0 # packed_mode_reg should be 0
