@@ -1,0 +1,7 @@
+[
+  {"bits": 3, "name": "Format A", "attr": "FFF"},
+  {"bits": 2, "name": "Rounding", "attr": "WW"},
+  {"bits": 1, "name": "Overflow", "attr": "O"},
+  {"bits": 1, "name": "Packed", "attr": "P"},
+  {"bits": 1, "name": "MX+ Enable", "attr": "X"}
+]
