@@ -10,21 +10,21 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 
 | Parameter | Default (src) | Description | Gate Impact (vs Full) |
 |---|---|---|---|
-| `SUPPORT_E4M3` | `1` | Enables E4M3 (OCP) format. | -72 |
-| `SUPPORT_E5M2` | `0` | Enables E5M2 format. | -192 |
-| `SUPPORT_MXFP6` | `0` | Enables E3M2/E2M3 formats. | -183 |
-| `SUPPORT_MXFP4` | `1` | Enables E2M1 (FP4) format. | -50 |
-| `SUPPORT_VECTOR_PACKING` | `0` | Enables dual-lane FP4 processing. | -2309 |
-| `SUPPORT_INT8` | `0` | Enables INT8/INT8_SYM formats. | -242 |
-| `SUPPORT_PIPELINING` | `0` | Inserts register stage in datapath. | -65 |
-| `SUPPORT_ADV_ROUNDING` | `0` | Enables CEIL/FLOOR modes. | -21 |
-| `SUPPORT_MIXED_PRECISION`| `0` | Allows independent A/B formats. | -107 |
-| `SUPPORT_INPUT_BUFFERING`| `0` | Enables 16-entry input FIFO. | +7 |
-| `SUPPORT_MX_PLUS` | `0` | Enables MX+ outlier extensions. | -567 |
-| `ENABLE_SHARED_SCALING` | `0` | Enables HW shared scaling. | -264 |
-| `USE_LNS_MUL` | `0` | Toggles Mitchell LNS multiplier. | +162 |
-| `USE_LNS_MUL_PRECISE` | `0` | Precise LNS (64x4 LUT). | +278 |
-| `SUPPORT_SERIAL` | `1` | Enables bit-serial infrastructure. | +69 |
+| `SUPPORT_E4M3` | `1` | Enables E4M3 (OCP) format. | -137 |
+| `SUPPORT_E5M2` | `0` | Enables E5M2 format. | -274 |
+| `SUPPORT_MXFP6` | `0` | Enables E3M2/E2M3 formats. | -214 |
+| `SUPPORT_MXFP4` | `1` | Enables E2M1 (FP4) format. | -78 |
+| `SUPPORT_VECTOR_PACKING` | `0` | Enables dual-lane FP4 processing. | -2368 |
+| `SUPPORT_INT8` | `0` | Enables INT8/INT8_SYM formats. | -264 |
+| `SUPPORT_PIPELINING` | `0` | Inserts register stage in datapath. | -96 |
+| `SUPPORT_ADV_ROUNDING` | `0` | Enables CEIL/FLOOR modes. | -31 |
+| `SUPPORT_MIXED_PRECISION`| `0` | Allows independent A/B formats. | -130 |
+| `SUPPORT_INPUT_BUFFERING`| `0` | Enables 16-entry input FIFO. | -30 |
+| `SUPPORT_MX_PLUS` | `0` | Enables MX+ outlier extensions. | -572 |
+| `ENABLE_SHARED_SCALING` | `0` | Enables HW shared scaling. | -297 |
+| `USE_LNS_MUL` | `0` | Toggles Mitchell LNS multiplier. | +143 |
+| `USE_LNS_MUL_PRECISE` | `0` | Precise LNS (64x4 LUT). | +249 |
+| `SUPPORT_SERIAL` | `1` | Enables bit-serial infrastructure. | +28 |
 | `ALIGNER_WIDTH` | `32` | Internal aligner width. | ~150 (32-bit) |
 | `ACCUMULATOR_WIDTH` | `24` | Accumulator width. | ~100 (24-bit) |
 | `SERIAL_K_FACTOR` | `8` | Latency scaling factor for serial operation. | N/A |
@@ -53,11 +53,11 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 6471 | 1x1* |
-| **Lite** | Disable MXFP6/4/Adv/VP | 3799 | 1x1* |
-| **Tiny** | All optional features disabled | 2125 | 1x1 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1878 | 1x1 |
-| **Tiny-Serial (GDS Default)** | Ultra-Tiny + Serial Infrastructure | 1873 | 1x1 |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6645 | 1x1* |
+| **Lite** | Disable MXFP6/4/Adv/VP | 3911 | 1x1* |
+| **Tiny** | All optional features disabled | 2270 | 1x1 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2030 | 1x1 |
+| **Tiny-Serial (GDS Default)** | Ultra-Tiny + Serial Infrastructure | 1381 | 1x1 |
 
 *\*The "Full" and "Lite" builds now approach the 1x1 tile limit thanks to the register reuse and FSM optimizations.*
 
@@ -86,25 +86,25 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Feature Flag | Configuration | Total Cells | Delta (vs Full) |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled | 6471 | 0 |
-| `SUPPORT_E4M3` | Disable E4M3 | 6374 | -97 |
-| `SUPPORT_E5M2` | Disable E5M2 | 6251 | -220 |
-| `SUPPORT_MXFP6` | Disable MXFP6 | 6295 | -176 |
-| `SUPPORT_MXFP4` | Disable MXFP4 | 6419 | -52 |
-| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 4133 | -2338 |
-| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 6238 | -233 |
-| `SUPPORT_PIPELINING` | Disable Pipelining | 6426 | -45 |
-| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 6451 | -20 |
-| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6376 | -95 |
-| `SUPPORT_INPUT_BUFFERING`| Disable Input Buffering | 6478 | 7 |
-| `SUPPORT_MX_PLUS` | Disable MX+ outlier extensions | 5924 | -547 |
-| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6216 | -255 |
-| **Tiny (All Disabled)** | All features disabled | 2125 | -4346 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1878 | -4593 |
-| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 1873 | -4598 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1609 | -4862 |
-| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 6635 | +164 |
-| **LNS Multiplier (Precise)** | Precise LNS multiplier | 6751 | +280 |
+| **Baseline (Full)** | All features enabled | 6645 | 0 |
+| `SUPPORT_E4M3` | Disable E4M3 | 6508 | -137 |
+| `SUPPORT_E5M2` | Disable E5M2 | 6371 | -274 |
+| `SUPPORT_MXFP6` | Disable MXFP6 | 6431 | -214 |
+| `SUPPORT_MXFP4` | Disable MXFP4 | 6567 | -78 |
+| `SUPPORT_VECTOR_PACKING` | Disable Vector Packing | 4277 | -2368 |
+| `SUPPORT_INT8` | Disable INT8 (4x4 mult) | 6381 | -264 |
+| `SUPPORT_PIPELINING` | Disable Pipelining | 6549 | -96 |
+| `SUPPORT_ADV_ROUNDING` | Disable Adv. Rounding | 6614 | -31 |
+| `SUPPORT_MIXED_PRECISION`| Disable Mixed Precision| 6515 | -130 |
+| `SUPPORT_INPUT_BUFFERING`| Disable Input Buffering | 6615 | -30 |
+| `SUPPORT_MX_PLUS` | Disable MX+ outlier extensions | 6073 | -572 |
+| `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6348 | -297 |
+| **Tiny (All Disabled)** | All features disabled | 2270 | -4375 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2030 | -4615 |
+| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 1381 | -5264 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1757 | -4888 |
+| **LNS Multiplier (Mitchell)** | Mitchell multiplier | 6788 | +143 |
+| **LNS Multiplier (Precise)** | Precise LNS multiplier | 6894 | +249 |
 
 ## 5. Deployment & CI/CD Progress
 
