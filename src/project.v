@@ -272,7 +272,7 @@ module tt_um_chatelao_fp8_multiplier #(
             if (logical_cycle == 7'd0) begin
                 debug_en_reg    <= ui_in[6];
                 probe_sel_reg   <= uio_in[3:0];
-                loopback_en_reg <= ui_in[5];
+                loopback_en_reg <= loopback_en_reg | ui_in[5];
             end
 
             // Fast Start (Scale Compression / Short Protocol)
@@ -281,7 +281,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 if (!FIXED_FORMAT) format_a_reg   <= uio_in[2:0];
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
-                if (CAN_PACK) packed_mode_reg     <= uio_in[6] | ui_in[6];
+                if (CAN_PACK) packed_mode_reg     <= uio_in[6];
             end else begin
                 cycle_count <= (logical_cycle == last_cycle) ? 7'd0 : logical_cycle + 7'd1;
 
@@ -738,7 +738,7 @@ module tt_um_chatelao_fp8_multiplier #(
                             (probe_sel_reg == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} : 8'h00;
 
     // Optimization: Standardized exception patterns applied at the output mux to break long combinatorial paths
-    assign uo_out = loopback_en_reg ? ui_in :
+    assign uo_out = loopback_en_reg ? (ui_in ^ uio_in) :
                     (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
                     (sticky_any ? sticky_override_val[(7'd4 - (logical_cycle - capture_cycle))*8 +: 8] : acc_shift_out) :
                     (debug_en_reg && logical_cycle == capture_cycle - 7'd1) ? metadata_echo :

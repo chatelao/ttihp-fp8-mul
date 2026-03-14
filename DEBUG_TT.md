@@ -31,9 +31,10 @@ A "Debug Instruction" is sampled in **Cycle 0** (STATE_IDLE):
 To verify the PCB/Socket connectivity and the TT infrastructure before running complex arithmetic, a transparent loopback mode is provided.
 
 - **Trigger**: `ui_in[5]` is set to `1` in **Cycle 0**.
-- **Behavior**: The unit enters a persistent "Transparent Mode" until reset.
-  - `uo_out = ui_in`
-  - `uio_out = uio_in` (if `uio_oe` is configured for output)
+- **Behavior**: The unit enters a persistent "Loopback Mode" until reset.
+  - `uo_out = ui_in ^ uio_in`
+  - `uio_oe = 8'h00` (All pins remain inputs to avoid combinational loops)
+  - This allows verifying all 16 input pins (`ui_in[7:0]` and `uio_in[7:0]`) via the `uo_out` port.
   - This bypasses all FSM logic.
 
 ## 3. Metadata Echo
