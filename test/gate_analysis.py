@@ -40,7 +40,8 @@ def main():
         "SUPPORT_MX_PLUS",
         "ENABLE_SHARED_SCALING",
         "USE_LNS_MUL",
-        "SUPPORT_SERIAL"
+        "SUPPORT_SERIAL",
+        "SUPPORT_DEBUG"
     ]
 
     baseline_params = {f: 1 for f in features}

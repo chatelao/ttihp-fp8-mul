@@ -29,7 +29,8 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SUPPORT_DEBUG = 1
 )(
     input  wire [7:0] ui_in,    // Scale/Elements
     output wire [7:0] uo_out,   // Result
@@ -91,10 +92,38 @@ module tt_um_chatelao_fp8_multiplier #(
     reg       overflow_wrap_reg;
     reg       packed_mode_reg;
 
-    // Debug Registers
-    reg       debug_en_reg;
-    reg [3:0] probe_sel_reg;
-    reg       loopback_en_reg;
+    // Debug Logic (Optional)
+    wire       debug_en_val;
+    wire [3:0] probe_sel_val;
+    wire       loopback_en_val;
+
+    generate
+        if (SUPPORT_DEBUG) begin : gen_debug
+            reg       debug_en_reg;
+            reg [3:0] probe_sel_reg;
+            reg       loopback_en_reg;
+
+            always @(posedge clk) begin
+                if (!rst_n) begin
+                    debug_en_reg <= 1'b0;
+                    probe_sel_reg <= 4'd0;
+                    loopback_en_reg <= 1'b0;
+                end else if (ena && strobe && logical_cycle == 7'd0) begin
+                    debug_en_reg    <= ui_in[6];
+                    probe_sel_reg   <= uio_in[3:0];
+                    loopback_en_reg <= loopback_en_reg | ui_in[5];
+                end
+            end
+
+            assign debug_en_val = debug_en_reg;
+            assign probe_sel_val = probe_sel_reg;
+            assign loopback_en_val = loopback_en_reg;
+        end else begin : gen_no_debug
+            assign debug_en_val = 1'b0;
+            assign probe_sel_val = 4'd0;
+            assign loopback_en_val = 1'b0;
+        end
+    endgenerate
 
     wire [2:0] format_a      = FIXED_FORMAT ? CONST_FORMAT : format_a_reg;
     wire [1:0] round_mode    = round_mode_reg;
@@ -248,9 +277,6 @@ module tt_um_chatelao_fp8_multiplier #(
         round_mode_reg = 2'd0;
         overflow_wrap_reg = 1'b0;
         packed_mode_reg = 1'b0;
-        debug_en_reg = 1'b0;
-        probe_sel_reg = 4'd0;
-        loopback_en_reg = 1'b0;
     end
 
     // 1. Configure UIO as inputs
@@ -265,16 +291,7 @@ module tt_um_chatelao_fp8_multiplier #(
             round_mode_reg <= 2'd0;
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
-            debug_en_reg <= 1'b0;
-            probe_sel_reg <= 4'd0;
-            loopback_en_reg <= 1'b0;
         end else if (ena && strobe) begin
-            if (logical_cycle == 7'd0) begin
-                debug_en_reg    <= ui_in[6];
-                probe_sel_reg   <= uio_in[3:0];
-                loopback_en_reg <= loopback_en_reg | ui_in[5];
-            end
-
             // Fast Start (Scale Compression / Short Protocol)
             if (logical_cycle == 7'd0 && ui_in[7]) begin
                 cycle_count   <= 7'd3;
@@ -726,23 +743,33 @@ module tt_um_chatelao_fp8_multiplier #(
     );
 
     // 6. Output Logic
-    wire [7:0] metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
-    wire [7:0] probe_data = (probe_sel_reg == 4'h1) ? {state, logical_cycle[5:0]} :
-                            (probe_sel_reg == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
-                            (probe_sel_reg == 4'h3) ? acc_out_ext[31:24] :
-                            (probe_sel_reg == 4'h4) ? acc_out_ext[23:16] :
-                            (probe_sel_reg == 4'h5) ? acc_out_ext[15:8] :
-                            (probe_sel_reg == 4'h6) ? acc_out_ext[7:0] :
-                            (probe_sel_reg == 4'h7) ? mul_prod_lane0_val[15:8] :
-                            (probe_sel_reg == 4'h8) ? mul_prod_lane0_val[7:0] :
-                            (probe_sel_reg == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} : 8'h00;
+    wire [7:0] metadata_echo;
+    wire [7:0] probe_data;
+
+    generate
+        if (SUPPORT_DEBUG) begin : gen_debug_output
+            assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
+            assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
+                                (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
+                                (probe_sel_val == 4'h3) ? acc_out_ext[31:24] :
+                                (probe_sel_val == 4'h4) ? acc_out_ext[23:16] :
+                                (probe_sel_val == 4'h5) ? acc_out_ext[15:8] :
+                                (probe_sel_val == 4'h6) ? acc_out_ext[7:0] :
+                                (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
+                                (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
+                                (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} : 8'h00;
+        end else begin : gen_no_debug_output
+            assign metadata_echo = 8'h00;
+            assign probe_data = 8'h00;
+        end
+    endgenerate
 
     // Optimization: Standardized exception patterns applied at the output mux to break long combinatorial paths
-    assign uo_out = loopback_en_reg ? (ui_in ^ uio_in) :
+    assign uo_out = loopback_en_val ? (ui_in ^ uio_in) :
                     (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
                     (sticky_any ? sticky_override_val[(7'd4 - (logical_cycle - capture_cycle))*8 +: 8] : acc_shift_out) :
-                    (debug_en_reg && logical_cycle == capture_cycle - 7'd1) ? metadata_echo :
-                    (debug_en_reg && logical_cycle < capture_cycle) ? probe_data :
+                    (debug_en_val && logical_cycle == capture_cycle - 7'd1) ? metadata_echo :
+                    (debug_en_val && logical_cycle < capture_cycle) ? probe_data :
                     8'h00;
 
 `ifdef FORMAL

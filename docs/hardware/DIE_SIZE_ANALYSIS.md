@@ -25,6 +25,7 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `USE_LNS_MUL` | `0` | Toggles Mitchell LNS multiplier. | +143 |
 | `USE_LNS_MUL_PRECISE` | `0` | Precise LNS (64x4 LUT). | +249 |
 | `SUPPORT_SERIAL` | `1` | Enables bit-serial infrastructure. | +28 |
+| `SUPPORT_DEBUG` | `1` | Enables metadata/probe debug logic. | -143 |
 | `ALIGNER_WIDTH` | `32` | Internal aligner width. | ~150 (32-bit) |
 | `ACCUMULATOR_WIDTH` | `24` | Accumulator width. | ~100 (24-bit) |
 | `SERIAL_K_FACTOR` | `8` | Latency scaling factor for serial operation. | N/A |
@@ -99,10 +100,11 @@ The implementation has been refactored to support aggressive area optimizations,
 | `SUPPORT_INPUT_BUFFERING`| Disable Input Buffering | 6615 | -30 |
 | `SUPPORT_MX_PLUS` | Disable MX+ outlier extensions | 6073 | -572 |
 | `ENABLE_SHARED_SCALING` | Disable hardware scaling | 6348 | -297 |
-| **Tiny (All Disabled)** | All features disabled | 2270 | -4375 |
-| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 2030 | -4615 |
-| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 1381 | -5264 |
-| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1757 | -4888 |
+| `SUPPORT_DEBUG` | Disable debug logic | 6479 | -143 |
+| **Tiny (All Disabled)** | All features disabled | 2124 | -4498 |
+| **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1886 | -4736 |
+| **Tiny-Serial** | Ultra-Tiny + Serial Infra | 1231 | -5391 |
+| **1x1 Tile Target (Min)**| Min. widths (24/20) | 1616 | -5006 |
 | **LNS Multiplier (Mitchell)** | Mitchell multiplier | 6788 | +143 |
 | **LNS Multiplier (Precise)** | Precise LNS multiplier | 6894 | +249 |
 
