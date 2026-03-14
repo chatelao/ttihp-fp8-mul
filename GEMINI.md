@@ -9,4 +9,4 @@
 
 # Documentation
 - Update the die sizes for each option after each change in Verilog files in docs/DIE_SIZE_ANALYSIS.md
-- Docuemnt the exact current active/passive configuration delivered to Tiny-Tape in the README.me
+- Document the exact current active/passive configuration delivered to Tiny-Tape in the README.me
