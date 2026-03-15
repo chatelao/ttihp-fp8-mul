@@ -1,0 +1,7 @@
+@startbitfield
+0-2: NBM Offset B
+3-4: Reserved
+5: Loopback En
+6: Debug En
+7: Short Protocol
+@endbitfield

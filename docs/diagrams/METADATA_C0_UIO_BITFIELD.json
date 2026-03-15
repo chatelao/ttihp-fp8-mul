@@ -1,0 +1,4 @@
+{ "reg": [
+  {"name": "BM Index A", "bits": 5},
+  {"name": "NBM Offset A", "bits": 3}
+]}

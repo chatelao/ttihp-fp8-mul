@@ -36,9 +36,9 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 | Cycle | Input `ui_in[7:0]` | Input `uio_in[7:0]` | Output `uo_out[7:0]` | Description |
 |-------|--------------------|---------------------|----------------------|-------------|
-| 0     | -                  | -                   | 0x00                 | **IDLE**: Waiting for start. |
+| 0     | **Metadata 0**     | **Metadata 1**      | 0x00                 | **IDLE**: Load MX+ / Debug or Start Fast Protocol. |
 | 1     | **Scale A**        | **Config Byte**     | 0x00                 | Load Scale A and Operation Mode. |
-| 2     | **Scale B**        | **Format B**        | 0x00                 | Load Scale B and Format B. |
+| 2     | **Scale B**        | **MX+ / Format B**  | 0x00                 | Load Scale B, Format B, and BM Index B. |
 | 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements (Standard).* |
 | 35    | -                  | -                   | 0x00                 | Pipeline flush. |
 | 36    | -                  | -                   | 0x00                 | Final Shared Scaling calculation. |
@@ -49,23 +49,32 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 *\*Note: For 4-bit formats (MXFP4), the unit supports **Vector Packing** (uio_in[6]=1 in Cycle 1). This reduces the STREAM phase to 16 cycles (Cycles 3-18) and the total sequence to 25 cycles.*
 
-### Configuration Byte (Cycle 1, `uio_in`)
+### Metadata Mapping
 
+#### Cycle 0: IDLE / Initial Metadata
+- **Standard Start (`ui_in[7]=0`)**:
+  - `ui_in[2:0]`: **NBM Offset B** (MX++)
+  - `ui_in[5]`: **Loopback Enable** (Debug)
+  - `ui_in[6]`: **Debug Enable** (Enables metadata echo at Cycle 35/19)
+  - `uio_in[4:0]`: **BM Index A** (MX+)
+  - `uio_in[7:5]`: **NBM Offset A** (MX++)
+- **Short Protocol (`ui_in[7]=1`)**:
+  - Immediately jumps to Cycle 3, reusing previous Scales.
+  - `uio_in[2:0]`, `[4:3]`, `[5]`, `[6]` are captured as Format, Rounding, Overflow, and Packed Mode respectively.
+
+#### Cycle 1: Configuration Byte (`uio_in`)
 ![Configuration Byte Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)
-
 *Source: [docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML](docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)*
-
 - `[2:0]`: **Format A** (0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM)
 - `[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
 - `[5]`: **Overflow Mode** (0: SAT, 1: WRAP)
 - `[6]`: **Packed Mode** (1: Enable Vector Packing for FP4/MXFP4)
 - `[7]`: **MX+ Enable** (1: Enable MX+ extensions)
 
-### Format B Byte (Cycle 2, `uio_in`)
-- `[2:0]`: **Format B** (Same encoding as Format A)
-
-### Fast Start (Scale Compression)
-If `ui_in[7]` is set to `1` during **STATE_IDLE** (Cycle 0), the unit immediately jumps to **Cycle 3**. It reuses the **Scales**, **Formats**, and **Rounding Modes** from the previous operation, saving 3 clock cycles.
+#### Cycle 2: Scale B / MX+ Metadata
+- `ui_in[7:0]`: **Scale B**
+- `uio_in[2:0]`: **Format B** (Enabled if `SUPPORT_MIXED_PRECISION=1`)
+- `uio_in[7:3]`: **BM Index B** (MX+)
 
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
