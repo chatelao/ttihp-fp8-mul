@@ -63,8 +63,8 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
   - `uio_in[2:0]`, `[4:3]`, `[5]`, `[6]` are captured as Format, Rounding, Overflow, and Packed Mode respectively.
 
 #### Cycle 1: Configuration Byte (`uio_in`)
-![Configuration Byte Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)
-*Source: [docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML](docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)*
+![Configuration Byte Diagram](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22Format%20A%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%5D%7D)
+*Source: [docs/diagrams/OCP_MX_CONFIG_BITFIELD.json](docs/diagrams/OCP_MX_CONFIG_BITFIELD.json)*
 - `[2:0]`: **Format A** (0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM)
 - `[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
 - `[5]`: **Overflow Mode** (0: SAT, 1: WRAP)
