@@ -51,15 +51,9 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 ### Configuration Byte (Cycle 1, `uio_in`)
 
-```wavedrom
-{ "reg": [
-  {"name": "Format A", "bits": 3},
-  {"name": "Rounding", "bits": 2},
-  {"name": "Overflow", "bits": 1},
-  {"name": "Packed", "bits": 1},
-  {"name": "MX+ Enable", "bits": 1}
-]}
-```
+![Configuration Byte Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)
+
+*Source: [docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML](docs/diagrams/OCP_MX_CONFIG_BITFIELD.PUML)*
 
 - `[2:0]`: **Format A** (0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM)
 - `[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
