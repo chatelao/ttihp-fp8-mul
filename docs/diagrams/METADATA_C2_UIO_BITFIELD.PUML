@@ -1,0 +1,4 @@
+@startbitfield
+0-2: Format B
+3-7: BM Index B
+@endbitfield

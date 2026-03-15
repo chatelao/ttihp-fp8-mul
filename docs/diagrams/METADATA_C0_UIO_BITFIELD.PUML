@@ -1,0 +1,4 @@
+@startbitfield
+0-4: BM Index A
+5-7: NBM Offset A
+@endbitfield
