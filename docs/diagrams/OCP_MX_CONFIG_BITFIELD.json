@@ -4,4 +4,4 @@
   {"name": "Overflow", "bits": 1},
   {"name": "Packed", "bits": 1},
   {"name": "MX+ Enable", "bits": 1}
-]}
+], "config": {"bits": 8}}
