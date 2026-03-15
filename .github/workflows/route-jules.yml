@@ -1,0 +1,16 @@
+name: Route Jules Issues to Project
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  assign_project:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'jules')
+    steps:
+      - name: Add to Project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          # You must replace these with your actual URL and a valid PAT secret
+          project-url: https://github.com/users/chatelao/projects/14
+          github-token: ${{ secrets.PROJECT_PAT }}
