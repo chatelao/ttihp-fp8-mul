@@ -1,0 +1,8 @@
+{ "reg": [
+  {"name": "FMT_A", "bits": 3},
+  {"name": "RM", "bits": 2},
+  {"name": "OVF", "bits": 1},
+  {"name": "PACK", "bits": 1},
+  {"name": "EXT", "bits": 1},
+  {"name": "Reserved", "bits": 24}
+]}
