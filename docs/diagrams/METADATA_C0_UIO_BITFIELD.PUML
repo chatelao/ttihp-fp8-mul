@@ -1,4 +1,7 @@
 @startbitfield
-0-4: BM Index A
-5-7: NBM Offset A
+0-2: NBM Offset B
+3-4: Rounding Mode
+5: Overflow Mode
+6: Packed Mode
+7: MX+ Enable
 @endbitfield
