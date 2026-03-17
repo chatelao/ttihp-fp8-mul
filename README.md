@@ -74,6 +74,8 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 - `[7]`: **MX+ Enable** (1: Enable MX+ extensions)
 
 #### Cycle 2: Scale B / MX+ Metadata
+![Metadata 2 (uio_in) Diagram](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22Format%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22BM%20Index%20B%22%2C%20%22bits%22%3A%205%7D%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
+*Source: [docs/diagrams/METADATA_C2_UIO_BITFIELD.json](docs/diagrams/METADATA_C2_UIO_BITFIELD.json)*
 - `ui_in[7:0]`: **Scale B**
 - `uio_in[2:0]`: **Format B** (Enabled if `SUPPORT_MIXED_PRECISION=1`)
 - `uio_in[7:3]`: **BM Index B** (MX+)
