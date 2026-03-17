@@ -237,7 +237,7 @@ def get_param(dut, name, default=1):
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e4m3=1, support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
-                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0):
+                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0):
     # Fallback for unsupported formats in hardware
     if not support_e4m3 and format_a == 0: return 0
     if not support_e4m3 and format_b == 0: return 0
@@ -270,11 +270,16 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     adj_b = 0 if is_bm_b else offset_b
 
     if use_lns:
-        if inta or intb: return 0 # No INT8 support in LNS mode
-        if support_mxplus and (is_bm_a or is_bm_b):
+        # lns_mode: 0=Normal, 1=LNS, 2=Hybrid/Both
+        if lns_mode == 0:
+            prod = ma * mb
+            exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
+        elif lns_mode == 2 and support_mxplus and (is_bm_a or is_bm_b):
             # To maintain the precision benefits of MX+, BM elements use a standard multiplier
             prod = ma * mb
             exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
+        elif inta or intb:
+            return 0 # No INT8 support in LNS/Hybrid mode for non-BM
         else:
             if use_lns_precise:
                 # Precise LNS LUT logic
@@ -317,7 +322,7 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0):
     # Enforce parameter constraints in model
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
@@ -356,12 +361,13 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.ena.value = 1
     # Cycle 0: Initial Metadata
     # ui_in[2:0]: NBM Offset B
+    # ui_in[4:3]: LNS Mode
     # uio_in[2:0]: NBM Offset A
     # uio_in[4:3]: Rounding Mode
     # uio_in[5]: Overflow Mode
     # uio_in[6]: Packed Mode
     # uio_in[7]: MX+ Enable
-    dut.ui_in.value = (nbm_offset_b & 0x7)
+    dut.ui_in.value = (nbm_offset_b & 0x7) | (lns_mode << 3)
     dut.uio_in.value = (nbm_offset_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
 
     dut.rst_n.value = 0
@@ -412,7 +418,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
                                    support_e4m3, support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
                                    is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
                                    offset_a=nbm_offset_a if mx_plus_mode else 0,
-                                   offset_b=nbm_offset_b if mx_plus_mode else 0)
+                                   offset_b=nbm_offset_b if mx_plus_mode else 0,
+                                   lns_mode=lns_mode)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -725,6 +732,7 @@ async def test_fast_start_scale_compression(dut):
     overflow_wrap = 0
     packed_mode = 0
     mx_plus_mode = 0
+    lns_mode = 0
     scale_a = 128
     scale_b = 127
     a_elements = [0x38] * 32 # 1.0
@@ -765,7 +773,7 @@ async def test_fast_start_scale_compression(dut):
     expected_acc = 0
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width)
+                                   support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width, lns_mode=lns_mode)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -833,6 +841,7 @@ async def run_yaml_file(dut, filename):
             continue
 
         inputs = case['inputs']
+        lns_mode_case = inputs.get('lns_mode', 0)
         expected = case['expected_output']
         comment = case.get('comment', '')
 
@@ -881,7 +890,8 @@ async def run_yaml_file(dut, filename):
                            bm_index_b=inputs.get('bm_index_b', 0),
                            nbm_offset_a=inputs.get('nbm_offset_a', 0),
                            nbm_offset_b=inputs.get('nbm_offset_b', 0),
-                           mx_plus_mode=inputs.get('mx_plus_mode', 0))
+                           mx_plus_mode=inputs.get('mx_plus_mode', 0),
+                           lns_mode=lns_mode_case)
 
 @cocotb.test()
 async def test_yaml_cases(dut):
@@ -1013,6 +1023,44 @@ async def test_mxfp8_sticky_flags(dut):
         a_elements[10] = 0x7C # +Inf
         b_elements[10] = 0x00 # Zero
         await run_mac_test(dut, 1, 1, a_elements, b_elements)
+
+@cocotb.test()
+async def test_lns_modes(dut):
+    dut._log.info("Start LNS Modes Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    use_lns = get_param(dut, "USE_LNS_MUL", 0)
+    if not use_lns:
+        dut._log.info("Skipping LNS Modes Test (USE_LNS_MUL=0)")
+        return
+
+    a_elements = [0x39] * 32 # 1.125 in E4M3
+    b_elements = [0x3A] * 32 # 1.25 in E4M3
+    # Exact product: 1.125 * 1.25 = 1.40625. Sum of 32 = 45.0. Fixed bit 8=1 -> 45*256 = 11520.
+    # LNS (Mitchell): log2(1.125) approx 0.125, log2(1.25) approx 0.25. Sum = 0.375.
+    # 2^0.375 approx 1 + 0.375 = 1.375. Sum of 32 = 44.0. Fixed -> 44*256 = 11264.
+
+    # 1. Normal Mode (lns_mode=0)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, lns_mode=0)
+
+    # 2. LNS Mode (lns_mode=1)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, lns_mode=1)
+
+    # 3. Hybrid Mode (lns_mode=2) with MX+
+    # Elements are NOT BM, so they use LNS
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, lns_mode=2, mx_plus_mode=1, bm_index_a=31, bm_index_b=31)
+
+    # BM element at index 0. It should use exact multiplier.
+    # We test this by making it high precision and seeing if it matches exact.
+    # But it's hard to isolate one element in a sum of 32.
+    # Let's use 1 BM element and 31 zeros.
+    a_elements_bm = [0x00] * 32
+    b_elements_bm = [0x00] * 32
+    a_elements_bm[0] = 0x39
+    b_elements_bm[0] = 0x3A
+    # Expected: 1.125 * 1.25 = 1.40625. Fixed -> 1.40625 * 256 = 360.
+    await run_mac_test(dut, 0, 0, a_elements_bm, b_elements_bm, lns_mode=2, mx_plus_mode=1, bm_index_a=0, bm_index_b=0)
 
 @cocotb.test()
 async def test_mxfp8_subnormals(dut):

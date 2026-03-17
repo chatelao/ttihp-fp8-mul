@@ -91,6 +91,7 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [1:0] round_mode_reg;
     reg       overflow_wrap_reg;
     reg       packed_mode_reg;
+    reg [1:0] lns_mode_reg;
 
     // Debug Logic (Optional)
     wire       debug_en_val;
@@ -281,6 +282,7 @@ module tt_um_chatelao_fp8_multiplier #(
         round_mode_reg = 2'd0;
         overflow_wrap_reg = 1'b0;
         packed_mode_reg = 1'b0;
+        lns_mode_reg = 2'd0;
     end
 
     // 1. Configure UIO as inputs
@@ -295,12 +297,14 @@ module tt_um_chatelao_fp8_multiplier #(
             round_mode_reg <= 2'd0;
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
+            lns_mode_reg <= 2'd0;
         end else if (ena && strobe) begin
             if (logical_cycle == 7'd0) begin
                 // Capture Rounding, Overflow, and Packed Mode in Cycle 0 for both protocols
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
+                lns_mode_reg      <= ui_in[4:3];
 
                 if (ui_in[7]) begin
                     // Fast Start (Scale Compression / Short Protocol)
@@ -397,6 +401,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .format_b(format_b_val),
                 .is_bm_a(is_bm_a_lane0),
                 .is_bm_b(is_bm_b_lane0),
+                .lns_mode(lns_mode_reg),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
                 .sign(mul_sign_lane0),
@@ -421,6 +426,7 @@ module tt_um_chatelao_fp8_multiplier #(
                     .format_b(format_b_val),
                     .is_bm_a(is_bm_a_lane1),
                     .is_bm_b(is_bm_b_lane1),
+                    .lns_mode(lns_mode_reg),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
                     .sign(mul_sign_lane1),
@@ -451,6 +457,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .format_b(format_b_val),
                 .is_bm_a(is_bm_a_lane0),
                 .is_bm_b(is_bm_b_lane0),
+                .lns_mode(lns_mode_reg),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
                 .sign(mul_sign_lane0),
@@ -474,6 +481,7 @@ module tt_um_chatelao_fp8_multiplier #(
                     .format_b(format_b_val),
                     .is_bm_a(is_bm_a_lane1),
                     .is_bm_b(is_bm_b_lane1),
+                    .lns_mode(lns_mode_reg),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
                     .sign(mul_sign_lane1),
