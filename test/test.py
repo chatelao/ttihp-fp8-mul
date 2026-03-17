@@ -360,15 +360,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
     # Cycle 0: Initial Metadata
-    # ui_in[2:0]: NBM Offset B
+    # ui_in[2:0]: NBM Offset A
     # ui_in[4:3]: LNS Mode
-    # uio_in[2:0]: NBM Offset A
+    # uio_in[2:0]: NBM Offset B
     # uio_in[4:3]: Rounding Mode
     # uio_in[5]: Overflow Mode
     # uio_in[6]: Packed Mode
     # uio_in[7]: MX+ Enable
-    dut.ui_in.value = (nbm_offset_b & 0x7) | (lns_mode << 3)
-    dut.uio_in.value = (nbm_offset_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3)
+    dut.uio_in.value = (nbm_offset_b & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
 
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)

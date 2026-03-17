@@ -160,8 +160,8 @@ module tt_um_chatelao_fp8_multiplier #(
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
                             // NBM Offsets captured in Cycle 0 (Standard Start)
-                            nbm_offset_a <= uio_in[2:0];
-                            nbm_offset_b <= ui_in[2:0];
+                            nbm_offset_a <= ui_in[2:0];
+                            nbm_offset_b <= uio_in[2:0];
                         end
                     end
                     if (logical_cycle == 7'd1) begin

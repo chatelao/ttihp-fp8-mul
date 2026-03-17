@@ -52,12 +52,13 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 ### Metadata Mapping
 
 #### Cycle 0: IDLE / Initial Metadata
-![Metadata 0 (ui_in) Diagram](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22NBM%20Offset%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Reserved%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Loopback%20En%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Debug%20En%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Short%20Protocol%22%2C%20%22bits%22%3A%201%7D%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
+![Metadata 0 (ui_in) Diagram](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22NBM%20Offset%20A%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22LNS%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Loopback%20En%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Debug%20En%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Short%20Protocol%22%2C%20%22bits%22%3A%201%7D%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/METADATA_C0_UI_BITFIELD.json](docs/diagrams/METADATA_C0_UI_BITFIELD.json)*
-![Metadata 1 (uio_in) Diagram](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22NBM%20Offset%20A%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
+![Metadata 1 (uio_in) Diagram](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22NBM%20Offset%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/METADATA_C0_UIO_BITFIELD.json](docs/diagrams/METADATA_C0_UIO_BITFIELD.json)*
 
 - **Common Metadata** (captured in both Standard and Short protocols):
+  - `ui_in[4:3]`: **LNS Mode** (0: Normal, 1: LNS, 2: Hybrid)
   - `ui_in[5]`: **Loopback Enable** (Debug)
   - `ui_in[6]`: **Debug Enable** (Enables metadata echo at Cycle 35/19)
   - `uio_in[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
@@ -65,8 +66,8 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
   - `uio_in[6]`: **Packed Mode** (1: Enable Vector Packing for FP4/MXFP4)
   - `uio_in[7]`: **MX+ Enable** (1: Enable MX+ extensions)
 - **Standard Start (`ui_in[7]=0`)**:
-  - `ui_in[2:0]`: **NBM Offset B** (MX++)
-  - `uio_in[2:0]`: **NBM Offset A** (MX++)
+  - `ui_in[2:0]`: **NBM Offset A** (MX++)
+  - `uio_in[2:0]`: **NBM Offset B** (MX++)
 - **Short Protocol (`ui_in[7]=1`)**:
   - Immediately jumps to Cycle 3, reusing previous Scales.
   - `uio_in[2:0]` is captured as **Format A**.
