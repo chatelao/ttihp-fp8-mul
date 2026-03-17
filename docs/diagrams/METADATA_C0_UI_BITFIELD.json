@@ -1,5 +1,5 @@
 { "reg": [
-  {"name": "NBM Offset B", "bits": 3},
+  {"name": "NBM Offset A", "bits": 3},
   {"name": "Reserved", "bits": 2},
   {"name": "Loopback En", "bits": 1},
   {"name": "Debug En", "bits": 1},
