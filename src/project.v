@@ -11,20 +11,20 @@
 
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
-    parameter ALIGNER_WIDTH = 32,
-    parameter ACCUMULATOR_WIDTH = 24,
+    parameter ALIGNER_WIDTH = 40,
+    parameter ACCUMULATOR_WIDTH = 32,
     parameter SUPPORT_E4M3  = 1,
-    parameter SUPPORT_E5M2  = 0,
-    parameter SUPPORT_MXFP6 = 0,
+    parameter SUPPORT_E5M2  = 1,
+    parameter SUPPORT_MXFP6 = 1,
     parameter SUPPORT_MXFP4 = 1,
-    parameter SUPPORT_INT8  = 0,
-    parameter SUPPORT_PIPELINING = 0,
-    parameter SUPPORT_ADV_ROUNDING = 0,
-    parameter SUPPORT_MIXED_PRECISION = 0,
-    parameter SUPPORT_VECTOR_PACKING = 0,
+    parameter SUPPORT_INT8  = 1,
+    parameter SUPPORT_PIPELINING = 1,
+    parameter SUPPORT_ADV_ROUNDING = 1,
+    parameter SUPPORT_MIXED_PRECISION = 1,
+    parameter SUPPORT_VECTOR_PACKING = 1,
     parameter SUPPORT_PACKED_SERIAL = 0,
-    parameter SUPPORT_INPUT_BUFFERING = 0,
-    parameter SUPPORT_MX_PLUS = 0,
+    parameter SUPPORT_INPUT_BUFFERING = 1,
+    parameter SUPPORT_MX_PLUS = 1,
     parameter SUPPORT_SERIAL = 0,
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 1,
@@ -201,7 +201,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 end
             end
 
-            wire [3:0] read_ptr = (logical_cycle[4:0] - 5'd3) >> 1;
+            /* verilator lint_off UNUSEDSIGNAL */
+            wire [4:0] read_ptr_full = (logical_cycle[4:0] - 5'd3) >> 1;
+            /* verilator lint_on UNUSEDSIGNAL */
+            wire [3:0] read_ptr = read_ptr_full[3:0];
             wire [7:0] a_byte = (logical_cycle == 7'd3) ? ui_in : fifo_a[read_ptr];
             wire [7:0] b_byte = (logical_cycle == 7'd3) ? uio_in : fifo_b[read_ptr];
             wire use_low = ((logical_cycle - 7'd3) & 7'd1) == 7'd0;
