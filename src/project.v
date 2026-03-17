@@ -201,7 +201,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 end
             end
 
+            /* verilator lint_off UNUSEDSIGNAL */
             wire [4:0] read_ptr_full = (logical_cycle[4:0] - 5'd3) >> 1;
+            /* verilator lint_on UNUSEDSIGNAL */
             wire [3:0] read_ptr = read_ptr_full[3:0];
             wire [7:0] a_byte = (logical_cycle == 7'd3) ? ui_in : fifo_a[read_ptr];
             wire [7:0] b_byte = (logical_cycle == 7'd3) ? uio_in : fifo_b[read_ptr];

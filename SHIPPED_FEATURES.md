@@ -3,7 +3,7 @@
 This document describes the active hardware configuration for the OCP MXFP8 Streaming MAC Unit as of March 2025.
 
 ## 1. Overview
-The design is currently configured for the **"Full" edition**, targeting a **1x2 tile** footprint on Tiny Tapeout. This edition provides the maximum feature set and numerical precision supported by the architecture.
+The design is currently configured for the **"Full" edition**, targeting a **2x2 tile** footprint on Tiny Tapeout. This edition provides the maximum feature set and numerical precision supported by the architecture.
 
 ## 2. Key Features
 - **OCP MX Compliance**: Full support for E4M3 and E5M2 formats.
@@ -26,5 +26,5 @@ The design is currently configured for the **"Full" edition**, targeting a **1x2
 
 ## 4. Physical Metrics
 - **Gate Count**: ~6,609 cells (IHP SG13G2).
-- **Area**: 1x2 Tiles.
+- **Area**: 2x2 Tiles.
 - **Throughput**: up to 1.28 MAC ops/cycle (FP4).

@@ -54,13 +54,13 @@ The implementation has been refactored to support aggressive area optimizations,
 
 | Build Variant | Parameter Configuration | Gates (Cells) | Tile Size |
 |---|---|---|---|
-| **Baseline (Full)** | All features enabled, 40/32 width | 6609 | 1x2* |
+| **Baseline (Full)** | All features enabled, 40/32 width | 6609 | 2x2* |
 | **Lite** | Disable MXFP6/4/Adv/VP | 3944 | 1x1 |
 | **Tiny** | All optional features disabled | 2124 | 1x1 |
 | **Ultra-Tiny** | Tiny config + Reduced widths (32/24) | 1886 | 1x1 |
 | **Tiny-Serial (GDS Default)** | Ultra-Tiny + Serial Infrastructure | 1231 | 1x1 |
 
-*\*The "Full" variant is deployed in a 1x2 tile configuration to ensure routing success at ~6,600 gates.*
+*\*The "Full" variant is deployed in a 2x2 tile configuration to ensure routing success at ~6,600 gates.*
 
 ### Variant Feature Comparison Matrix
 
