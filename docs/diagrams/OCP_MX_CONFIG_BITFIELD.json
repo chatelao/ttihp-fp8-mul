@@ -1,7 +1,4 @@
 { "reg": [
   {"name": "Format A", "bits": 3},
-  {"name": "Rounding", "bits": 2},
-  {"name": "Overflow", "bits": 1},
-  {"name": "Packed", "bits": 1},
-  {"name": "MX+ Enable", "bits": 1}
+  {"name": "BM Index A", "bits": 5}
 ], "config": {"bits": 8}}
