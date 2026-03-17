@@ -58,7 +58,6 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 - **Short Protocol (`ui_in[7]=1`)**:
   - Immediately jumps to Cycle 3, reusing previous Scales.
-  - `uio_in[2:0]` is captured as **Format A**.
 - **Standard Start (`ui_in[7]=0`)**:
   - `ui_in[2:0]`: **NBM Offset A** (MX++)
 - **Common Metadata** (captured in both Standard and Short protocols):
@@ -70,6 +69,8 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 ![Metadata 1 (uio_in) Diagram](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22NBM%20Offset%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/METADATA_C0_UIO_BITFIELD.json](docs/diagrams/METADATA_C0_UIO_BITFIELD.json)*
 
+- **Short Protocol (`ui_in[7]=1`)**:
+  - `uio_in[2:0]` is captured as **Format A**.
 - **Standard Start (`ui_in[7]=0`)**:
   - `uio_in[2:0]`: **NBM Offset B** (MX++)
 - **Common Metadata** (captured in both Standard and Short protocols):
