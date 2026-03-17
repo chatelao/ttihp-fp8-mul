@@ -57,34 +57,35 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 ![Metadata 1 (uio_in) Diagram](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22NBM%20Offset%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/METADATA_C0_UIO_BITFIELD.json](docs/diagrams/METADATA_C0_UIO_BITFIELD.json)*
 
-- **Common Metadata** (captured in both Standard and Short protocols):
-  - `ui_in[4:3]`: **LNS Mode** (0: Normal, 1: LNS, 2: Hybrid)
-  - `ui_in[5]`: **Loopback Enable** (Debug)
-  - `ui_in[6]`: **Debug Enable** (Enables metadata echo at Cycle 35/19)
-  - `uio_in[4:3]`: **Rounding Mode** (0: TRN, 1: CEL, 2: FLR, 3: RNE)
-  - `uio_in[5]`: **Overflow Mode** (0: SAT, 1: WRAP)
-  - `uio_in[6]`: **Packed Mode** (1: Enable Vector Packing for FP4/MXFP4)
-  - `uio_in[7]`: **MX+ Enable** (1: Enable MX+ extensions)
-- **Standard Start (`ui_in[7]=0`)**:
-  - `ui_in[2:0]`: **NBM Offset A** (MX++)
-  - `uio_in[2:0]`: **NBM Offset B** (MX++)
-- **Short Protocol (`ui_in[7]=1`)**:
-  - Immediately jumps to Cycle 3, reusing previous Scales.
-  - `uio_in[2:0]` is captured as **Format A**.
+#### Comprehensive Metadata Table
+
+| Port | Cycle | Bit Range | Field Name | Description / Values |
+| :--- | :--- | :--- | :--- | :--- |
+| `ui_in` | 0 | [2:0] | NBM Offset A | Bias offset for Norm-Based Microscaling (MX++). Only captured if `ui_in[7]=0`. |
+| `ui_in` | 0 | [4:3] | LNS Mode | 00: Normal, 01: LNS, 10: Hybrid (BM=Normal, Else=LNS). |
+| `ui_in` | 0 | [5] | Loopback En | Debug mode: `uo_out = ui_in ^ uio_in`. |
+| `ui_in` | 0 | [6] | Debug En | Enables metadata echo at cycle 35 (Standard) or 19 (Packed). |
+| `ui_in` | 0 | [7] | Short Protocol | 0: Standard 41-cycle protocol; 1: Short 23-cycle protocol (reuses scales). |
+| `uio_in` | 0 | [2:0] | NBM Offset B / Format A | **Standard (`ui_in[7]=0`)**: NBM Offset B.<br>**Short (`ui_in[7]=1`)**: Format A. |
+| `uio_in` | 0 | [4:3] | Rounding Mode | 00: TRN (Truncate), 01: CEL (Ceil), 10: FLR (Floor), 11: RNE (Nearest-Even). |
+| `uio_in` | 0 | [5] | Overflow Mode | 0: SAT (Saturate), 1: WRAP. |
+| `uio_in` | 0 | [6] | Packed Mode | 1: Enable Vector Packing for 4-bit formats (MXFP4/E2M1). |
+| `uio_in` | 0 | [7] | MX+ Enable | 1: Enable MX+ extensions (BM Index, NBM Offsets). |
+| `uio_in` | 0 | [3:0] | Probe Sel | Captured if `SUPPORT_DEBUG=1`. Selects internal signal for `uo_out` probing. |
+| `ui_in` | 1 | [7:0] | Scale A | Shared Scale for Operand A (UE8M0 format, Bias 127). |
+| `uio_in` | 1 | [2:0] | Format A | 0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM. |
+| `uio_in` | 1 | [7:3] | BM Index A | Block Max Index for Operand A (0-31). Only if `MX+ Enable=1`. |
+| `ui_in` | 2 | [7:0] | Scale B | Shared Scale for Operand B (UE8M0 format, Bias 127). |
+| `uio_in` | 2 | [2:0] | Format B | Element Format for Operand B (if `SUPPORT_MIXED_PRECISION=1`). |
+| `uio_in` | 2 | [7:3] | BM Index B | Block Max Index for Operand B (0-31). Only if `MX+ Enable=1`. |
 
 #### Cycle 1: Configuration Byte (`uio_in`)
 ![Configuration Byte Diagram](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22Format%20A%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22BM%20Index%20A%22%2C%20%22bits%22%3A%205%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/OCP_MX_CONFIG_BITFIELD.json](docs/diagrams/OCP_MX_CONFIG_BITFIELD.json)*
-- `ui_in[7:0]`: **Scale A**
-- `uio_in[2:0]`: **Format A** (0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM)
-- `uio_in[7:3]`: **BM Index A** (MX+)
 
 #### Cycle 2: Scale B / MX+ Metadata
 ![Metadata 2 (uio_in) Diagram](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22Format%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22BM%20Index%20B%22%2C%20%22bits%22%3A%205%7D%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/METADATA_C2_UIO_BITFIELD.json](docs/diagrams/METADATA_C2_UIO_BITFIELD.json)*
-- `ui_in[7:0]`: **Scale B**
-- `uio_in[2:0]`: **Format B** (Enabled if `SUPPORT_MIXED_PRECISION=1`)
-- `uio_in[7:3]`: **BM Index B** (MX+)
 
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
 
