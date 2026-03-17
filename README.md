@@ -60,6 +60,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
   - `ui_in[6]`: **Debug Enable** (Enables metadata echo at Cycle 35/19)
   - `uio_in[4:0]`: **BM Index A** (MX+)
   - `uio_in[7:5]`: **NBM Offset A** (MX++)
+
 ![Metadata 1 (uio_in) Diagram](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22BM%20Index%20A%22%2C%20%22bits%22%3A%205%7D%2C%20%7B%22name%22%3A%20%22NBM%20Offset%20A%22%2C%20%22bits%22%3A%203%7D%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
 *Source: [docs/diagrams/METADATA_C0_UIO_BITFIELD.json](docs/diagrams/METADATA_C0_UIO_BITFIELD.json)*
 - **Short Protocol (`ui_in[7]=1`)**:
