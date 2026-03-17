@@ -70,7 +70,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 *Source: [docs/diagrams/METADATA_C0_UIO_BITFIELD.json](docs/diagrams/METADATA_C0_UIO_BITFIELD.json)*
 
 - **Short Protocol (`ui_in[7]=1`)**:
-  - `uio_in[2:0]` is captured as **Format A**.
+  - `uio_in[2:0]` is captured as **Format A & B**.
 - **Standard Start (`ui_in[7]=0`)**:
   - `uio_in[2:0]`: **NBM Offset B** (MX++)
 - **Common Metadata** (captured in both Standard and Short protocols):

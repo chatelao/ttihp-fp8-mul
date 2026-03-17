@@ -1,5 +1,5 @@
 { "reg": [
-  {"name": "NBM Offset B", "bits": 3},
+  {"name": "NBM Offset B / Format A/B", "bits": 3},
   {"name": "Rounding Mode", "bits": 2},
   {"name": "Overflow Mode", "bits": 1},
   {"name": "Packed Mode", "bits": 1},

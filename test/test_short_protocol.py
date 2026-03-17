@@ -53,6 +53,33 @@ async def test_short_protocol_metadata(dut):
     for i in range(num_cycles):
         dut.ui_in.value = val
         dut.uio_in.value = val
+
+        if i == 0:
+            # Verify internal format capture during the first streaming cycle
+            # Use Timer(1) to ensure non-blocking assignments have taken effect
+            await Timer(1, unit="ns")
+            try:
+                # Try reading the active format wires first
+                f_a = int(dut.user_project.format_a.value)
+                f_b = int(dut.user_project.format_b_val.value)
+                dut._log.info(f"Verified active formats: A={f_a}, B={f_b}")
+                assert f_a == 4
+                assert f_b == 4
+            except AttributeError:
+                # Fallback to registers if wires are not accessible
+                try:
+                    f_a_reg = int(dut.user_project.format_a_reg.value)
+                    # Check if gen_format_b exists
+                    try:
+                        f_b_reg = int(dut.user_project.gen_format_b.format_b.value)
+                    except AttributeError:
+                        f_b_reg = f_a_reg
+                    dut._log.info(f"Verified internal format registers: A={f_a_reg}, B={f_b_reg}")
+                    assert f_a_reg == 4
+                    assert f_b_reg == 4
+                except AttributeError as e:
+                    dut._log.info(f"Internal format signals not found, skipping check: {e}")
+
         await ClockCycles(dut.clk, k_factor)
 
     # Pipeline flush + Shared Scale

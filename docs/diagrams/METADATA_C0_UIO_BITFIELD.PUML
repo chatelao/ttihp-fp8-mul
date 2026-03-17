@@ -1,5 +1,5 @@
 @startbitfield
-0-2: NBM Offset B
+0-2: NBM Offset B / Format A/B
 3-4: Rounding Mode
 5: Overflow Mode
 6: Packed Mode
