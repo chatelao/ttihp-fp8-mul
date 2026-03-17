@@ -4,4 +4,4 @@
   {"name": "Loopback En", "bits": 1},
   {"name": "Debug En", "bits": 1},
   {"name": "Short Protocol", "bits": 1}
-]}
+], "config": {"bits": 8}}
