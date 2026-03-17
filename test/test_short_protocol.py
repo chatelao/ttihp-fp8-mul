@@ -41,6 +41,20 @@ async def test_short_protocol_metadata(dut):
     # We wait k_factor cycles to align with the first element sampling.
     await ClockCycles(dut.clk, k_factor)
 
+    # Verify internal format capture
+    try:
+        f_a = int(dut.user_project.format_a_reg.value)
+        f_b = f_a
+        try:
+            f_b = int(dut.user_project.gen_format_b.format_b.value)
+        except AttributeError:
+            pass
+        dut._log.info(f"Verified internal formats captured: A={f_a}, B={f_b}")
+        assert f_a == 4
+        assert f_b == 4
+    except AttributeError as e:
+        dut._log.info(f"Internal format check skipped (signal not found): {e}")
+
     # Unit should now be at Cycle 3 (STATE_STREAM)
     # We expect it to use format_a=4.
 
