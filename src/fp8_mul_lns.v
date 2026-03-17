@@ -19,6 +19,7 @@ module fp8_mul_lns #(
     input  wire [2:0] format_b,
     input  wire       is_bm_a,
     input  wire       is_bm_b,
+    input  wire [1:0] lns_mode,
     output wire [15:0] prod,    // Mantissa product
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign,
@@ -214,29 +215,33 @@ module fp8_mul_lns #(
         end
 
         // Combined Log-Adder (Mitchell or Precise) or Multiplier (for BM)
-        if (is_inta || is_intb) begin
-            // Logarithmic multiplication doesn't apply easily to INT8 in this architecture.
+        if (lns_mode == 2'b00) begin
+            // Normal Mode: Always use standard multiplier
+            p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
+            exp_sum_res = (zero_a || zero_b) ? {EXP_SUM_WIDTH{1'b0}} :
+                          $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+        end else if (zero_a || zero_b) begin
+            p_res = 16'd0;
+            exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
+        end else if (lns_mode == 2'b10 && SUPPORT_MX_PLUS && (is_bm_a || is_bm_b)) begin
+            // Both/Hybrid Mode: BM uses standard multiplier
+            p_res = ma * mb;
+            exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+        end else if (is_inta || is_intb) begin
+            // LNS mode or Hybrid (non-BM) doesn't support INT8 easily.
             p_res = 16'd0;
             exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         end else begin
-            if (zero_a || zero_b) begin
-                p_res = 16'd0;
-                exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
-            end else if (SUPPORT_MX_PLUS && (is_bm_a || is_bm_b)) begin
-                // To maintain the precision benefits of MX+, BM elements use a standard multiplier
-                p_res = ma * mb;
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+            // LNS Mode (01) or Both (10) for non-BM elements
+            if (USE_LNS_MUL_PRECISE) begin
+                m_sum = lns_lut[{ma[2:0], mb[2:0]}];
             end else begin
-                if (USE_LNS_MUL_PRECISE) begin
-                    m_sum = lns_lut[{ma[2:0], mb[2:0]}];
-                end else begin
-                    // ma[2:0] are the fractional bits (M)
-                    // (1 + Ma) * (1 + Mb) \approx 1 + Ma + Mb
-                    m_sum = ma[2:0] + mb[2:0];
-                end
-                p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7})) + $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
+                // ma[2:0] are the fractional bits (M)
+                // (1 + Ma) * (1 + Mb) \approx 1 + Ma + Mb
+                m_sum = ma[2:0] + mb[2:0];
             end
+            p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
+            exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7})) + $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
         end
         sign_res = sign_a ^ sign_b;
         nan_res = nan_a | nan_b | (inf_a & zero_b) | (inf_b & zero_a);

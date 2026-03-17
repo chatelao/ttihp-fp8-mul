@@ -17,6 +17,7 @@ module fp8_mul #(
     input  wire [2:0] format_b,
     input  wire       is_bm_a,
     input  wire       is_bm_b,
+    input  wire [1:0] lns_mode, // Unused in standard multiplier
     output wire [15:0] prod,    // Mantissa product
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign,
