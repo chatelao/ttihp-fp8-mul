@@ -354,29 +354,29 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
-    if support_mxplus_hw:
-        dut.ui_in.value = (nbm_offset_b & 0x7)
-        dut.uio_in.value = (bm_index_a & 0x1F) | ((nbm_offset_a & 0x7) << 5)
-    else:
-        dut.ui_in.value = 0
-        dut.uio_in.value = 0
+    # Cycle 0: Initial Metadata
+    # ui_in[2:0]: NBM Offset B
+    # uio_in[2:0]: NBM Offset A
+    # uio_in[4:3]: Rounding Mode
+    # uio_in[5]: Overflow Mode
+    # uio_in[6]: Packed Mode
+    # uio_in[7]: MX+ Enable
+    dut.ui_in.value = (nbm_offset_b & 0x7)
+    dut.uio_in.value = (nbm_offset_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 1) # This edge samples bm_index_a and moves to Cycle 1
+    await ClockCycles(dut.clk, 1) # This edge samples metadata and moves to Cycle 1
 
-    # Cycle 1: Load Scale A and Format/Numerical Control
+    # Cycle 1: Load Scale A and BM Index A
     dut.ui_in.value = scale_a
-    # For MX+, we use bit 7 of Cycle 1 to enable the extension semantics.
-    dut.uio_in.value = format_a | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    dut.uio_in.value = (format_a & 0x7) | ((bm_index_a & 0x1F) << 3)
     await ClockCycles(dut.clk, cycles_per_element)
 
-    # Cycle 2: Load Scale B and Format B
+    # Cycle 2: Load Scale B and BM Index B
     dut.ui_in.value = scale_b
-    if support_mxplus:
-        dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
-    else:
-        dut.uio_in.value = format_b
+    dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
     await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
@@ -721,6 +721,10 @@ async def test_fast_start_scale_compression(dut):
 
     format_a = 0 # E4M3
     format_b = 0
+    round_mode = 0
+    overflow_wrap = 0
+    packed_mode = 0
+    mx_plus_mode = 0
     scale_a = 128
     scale_b = 127
     a_elements = [0x38] * 32 # 1.0
@@ -742,7 +746,10 @@ async def test_fast_start_scale_compression(dut):
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
+    # Also need to provide metadata in uio_in
+    # uio_in[2:0]: Format A, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
     dut.ui_in.value = 0x80
+    dut.uio_in.value = (format_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
     k_factor_eff = k_factor if support_serial_hw else 1
     await ClockCycles(dut.clk, k_factor_eff)
@@ -920,12 +927,22 @@ async def test_mxfp4_input_buffering(dut):
     # 1. Reset
     await reset_dut(dut)
 
-    # 2. Cycle 1: Load Config (packed_mode=1)
+    # 2. Cycle 0: Load Config (packed_mode=1)
+    # We need to redo this because the previous reset_dut used 0
+    dut.ena.value = 1
+    dut.ui_in.value = 0
+    dut.uio_in.value = (1 << 6) # packed_mode=1
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 10)
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 1)
+
+    # 3. Cycle 1: Load Scale A
     dut.ui_in.value = 127 # scale_a
-    dut.uio_in.value = 4 | (0 << 3) | (0 << 5) | (1 << 6) # E2M1, TRN, SAT, packed_mode=1
+    dut.uio_in.value = 4 # format_a=4 (E2M1)
     await ClockCycles(dut.clk, k_factor)
 
-    # 3. Cycle 2: Load Scale B
+    # 4. Cycle 2: Load Scale B
     dut.ui_in.value = 127
     dut.uio_in.value = 4 # format_b
     await ClockCycles(dut.clk, k_factor)

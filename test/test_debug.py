@@ -3,10 +3,16 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
 from test import get_param
 
-async def reset_with_debug(dut, debug_en=0, probe_sel=0, loopback_en=0):
+async def reset_with_debug(dut, debug_en=0, probe_sel=0, loopback_en=0, rm=0, overflow=0, packed=0, mx_plus=0):
     dut.ena.value = 1
+    # ui_in[6]=Debug En, [5]=Loopback En
     dut.ui_in.value = (debug_en << 6) | (loopback_en << 5)
-    dut.uio_in.value = probe_sel & 0xF
+    # uio_in[3:0]=Probe Sel, [4]=RM[1], [5]=Overflow, [6]=Packed, [7]=MX+ En
+    # Note: uio_in[3] is also RM[0]. So Probe Sel bits 3 and RM[0] are same.
+    uio_val = (probe_sel & 0xF) | ((rm & 2) << 3) | (overflow << 5) | (packed << 6) | (mx_plus << 7)
+    # Ensure RM[0] is consistent with probe_sel[3] if we want to be pedantic
+    # but here we just follow the requested bit mapping.
+    dut.uio_in.value = uio_val
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
@@ -40,7 +46,8 @@ async def test_debug_probes(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    k = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
 
     # Probe 1: FSM State & Logical Cycle
     await reset_with_debug(dut, debug_en=1, probe_sel=1)
@@ -82,38 +89,65 @@ async def test_debug_metadata_echo(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    k = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
     can_pack = get_param(dut, "SUPPORT_VECTOR_PACKING", 0) or \
                get_param(dut, "SUPPORT_INPUT_BUFFERING", 0) or \
                get_param(dut, "SUPPORT_PACKED_SERIAL", 0)
 
-    # Enable debug
-    await reset_with_debug(dut, debug_en=1)
+    # Enable debug and load metadata in Cycle 0
+    # format_a=4 (FP4), RM=3 (RNE), Wrap=1, Packed=1
+    # Note: reset_with_debug sets uio_in.
+    # We want RM=3, so rm=3. Probe sel 0.
+    # uio_in[3:0]=0, [4]=RM[1]=1. RM[0] is uio_in[3], which is 0.
+    # So if we want RM=3, we need probe_sel[3]=1.
+    await reset_with_debug(dut, debug_en=1, probe_sel=8, rm=3, overflow=1, packed=1, mx_plus=0)
 
-    # Cycle 1: Load config: format_a=4 (FP4), RM=3 (RNE), Wrap=1, Packed=1
-    # uio_in[2:0]=4, [4:3]=3, [5]=1, [6]=1 -> 01111100 = 0x7C
+    # Cycle 1: Load Scale A and Format A
+    # BM Index A = 0
     dut.ui_in.value = 127
-    dut.uio_in.value = 0x7C
+    dut.uio_in.value = 4 # format_a=4, bm_index_a=0
     await ClockCycles(dut.clk, k)
 
-    # Cycle 2: format_b=4
+    # Cycle 2: Load Scale B and Format B
+    # BM Index B = 0
     dut.ui_in.value = 127
-    dut.uio_in.value = 4
+    dut.uio_in.value = 4 # format_b=4, bm_index_b=0
     await ClockCycles(dut.clk, k)
 
-    # capture_cycle is 36 for standard mode.
-    # metadata echo happens at capture_cycle - 1 = 35.
-    await ClockCycles(dut.clk, 32 * k)
+    # We just finished the strobe for Cycle 2. cycle_count is now 3.
+    # The first element is sampled at cycle_count=3.
+    # format_a and format_b are both 4, so if packing is supported, it will be in packed mode.
+    is_packed = can_pack
+    capture_cycle = 20 if is_packed else 36
 
-    # At Cycle 35, should see metadata_echo
+    # We are at the end of Cycle 2 (strobe just finished).
+    # cycle_count is now 3.
+    # We need to wait until Cycle capture_cycle - 1.
+    # wait = (capture_cycle - 1 - 3) * k + (k-1) to reach the end of that cycle
+    wait_cycles = (capture_cycle - 1 - 3) * k + (k - 1)
+    if wait_cycles > 0:
+        await ClockCycles(dut.clk, wait_cycles)
+
+    # Now at Cycle capture_cycle - 1, should see metadata_echo
     await Timer(1, unit="ns")
     # metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg}
-    # {0, (can_pack ? 1 : 0), 1, 3, 4}
-    # If can_pack=0: 0_0_1_11_100 -> 00111100 -> 0x3C
-    # If can_pack=1: 0_1_1_11_100 -> 01111100 -> 0x7C
-    expected = 0x7C if can_pack else 0x3C
+    # {0, (is_packed ? 1 : 0), 1, 3, 4}
+    # 0_1_1_11_100 = 01111100 = 0x7C
+    expected = 0x7C if is_packed else 0x3C
     actual = int(dut.uo_out.value)
-    dut._log.info(f"Metadata Echo, Cycle 35: out={actual:02x}, expected={expected:02x}")
+    cur_cycle = int(dut.user_project.cycle_count.value)
+    dut._log.info(f"Metadata Echo, Cycle {cur_cycle} (expected {capture_cycle-1}): out={actual:02x}, expected={expected:02x}")
+
+    if actual != expected:
+        # Check internal registers
+        pa = int(dut.user_project.packed_mode_reg.value)
+        ov = int(dut.user_project.overflow_wrap_reg.value)
+        rm = int(dut.user_project.round_mode_reg.value)
+        fa = int(dut.user_project.format_a_reg.value)
+        mx = int(dut.user_project.mx_plus_en_val.value)
+        dut._log.info(f"Internal: mx={mx}, packed={pa}, overflow={ov}, rm={rm}, fa={fa}")
+
     assert actual == expected
 
 @cocotb.test()
@@ -145,7 +179,8 @@ async def test_loopback_persistence(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    k = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
 
     # Enable Loopback in Cycle 0
     await reset_with_debug(dut, loopback_en=1)
@@ -165,7 +200,8 @@ async def test_debug_no_packed_interference(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    k = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
 
     # Fast Start with Debug Enable (ui_in[6]=1, ui_in[7]=1)
     # But uio_in[6] (Packed Mode) is 0.

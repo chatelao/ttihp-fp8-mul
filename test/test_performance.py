@@ -28,14 +28,14 @@ async def performance_sweep(dut):
     start_time = time.time()
 
     for block in range(num_blocks):
-        # Cycle 1: Load Scale A and Format/Numerical Control
+        # Cycle 1: Load Scale A and BM Index A
         dut.ui_in.value = 127
-        dut.uio_in.value = 0 # E4M3, TRN, SAT
+        dut.uio_in.value = 0 # Format A=0, BM Index A=0
         await ClockCycles(dut.clk, 1)
 
-        # Cycle 2: Load Scale B and Format B
-        dut.ui_in.value = 0 # E4M3
-        dut.uio_in.value = 127
+        # Cycle 2: Load Scale B and BM Index B
+        dut.ui_in.value = 127
+        dut.uio_in.value = 0 # Format B=0, BM Index B=0
         await ClockCycles(dut.clk, 1)
 
         # STREAM: 32 elements
@@ -71,6 +71,7 @@ async def high_switching_activity(dut):
     # Use "Fast Start" to maximize streaming time
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     dut.ui_in.value = 0x80
+    dut.uio_in.value = 0 # All metadata 0
     await ClockCycles(dut.clk, 1)
 
     # We run 1000 iterations of STREAM phase to get a good power signature
@@ -94,6 +95,7 @@ async def high_switching_activity(dut):
 
         # Back to IDLE (Cycle 0), trigger Fast Start again
         dut.ui_in.value = 0x80
+        dut.uio_in.value = 0
         await ClockCycles(dut.clk, 1)
 
     dut._log.info("High switching activity sequence complete.")

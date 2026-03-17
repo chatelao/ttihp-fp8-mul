@@ -32,7 +32,7 @@ async def test_short_protocol_metadata(dut):
     # Bit 6 of uio_in is Packed Mode in CONFIG cycle
     packed_en = support_packing
     dut.ui_in.value = 0x80
-    dut.uio_in.value = 4 | (packed_en << 6) # E2M1
+    dut.uio_in.value = 4 | (0 << 3) | (0 << 5) | (packed_en << 6) # E2M1, TRN, SAT, Packed
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1

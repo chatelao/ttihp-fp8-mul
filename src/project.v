@@ -155,16 +155,17 @@ module tt_um_chatelao_fp8_multiplier #(
                     mx_plus_en <= 1'b0;
                 end else if (ena && strobe) begin
                     if (logical_cycle == 7'd0) begin
+                        // Capture MX+ Enable in Cycle 0 for both protocols
+                        mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
-                            bm_index_a <= uio_in[4:0];
-                            nbm_offset_a <= uio_in[7:5];
+                            // NBM Offsets captured in Cycle 0 (Standard Start)
+                            nbm_offset_a <= uio_in[2:0];
                             nbm_offset_b <= ui_in[2:0];
-                        end else begin
-                            mx_plus_en <= uio_in[7];
                         end
                     end
                     if (logical_cycle == 7'd1) begin
-                        mx_plus_en <= uio_in[7];
+                        // BM Index A captured in Cycle 1
+                        bm_index_a <= uio_in[7:3];
                     end
                     if (logical_cycle == 7'd2)
                         bm_index_b <= uio_in[7:3];
@@ -295,21 +296,25 @@ module tt_um_chatelao_fp8_multiplier #(
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
         end else if (ena && strobe) begin
-            // Fast Start (Scale Compression / Short Protocol)
-            if (logical_cycle == 7'd0 && ui_in[7]) begin
-                cycle_count   <= 7'd3;
-                if (!FIXED_FORMAT) format_a_reg   <= uio_in[2:0];
+            if (logical_cycle == 7'd0) begin
+                // Capture Rounding, Overflow, and Packed Mode in Cycle 0 for both protocols
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
-                if (CAN_PACK) packed_mode_reg     <= uio_in[6];
+                if (CAN_PACK) packed_mode_reg <= uio_in[6];
+
+                if (ui_in[7]) begin
+                    // Fast Start (Scale Compression / Short Protocol)
+                    cycle_count <= 7'd3;
+                    if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
+                end else begin
+                    cycle_count <= 7'd1;
+                end
             end else begin
                 cycle_count <= (logical_cycle == last_cycle) ? 7'd0 : logical_cycle + 7'd1;
 
                 if (logical_cycle == 7'd1) begin
-                    if (!FIXED_FORMAT) format_a_reg   <= uio_in[2:0];
-                    round_mode_reg    <= uio_in[4:3];
-                    overflow_wrap_reg <= uio_in[5];
-                    if (CAN_PACK) packed_mode_reg     <= uio_in[6];
+                    // format_a_reg captured in Cycle 1 for standard protocol
+                    if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
                 end
             end
         end
@@ -829,19 +834,29 @@ module tt_um_chatelao_fp8_multiplier #(
     // 5. Register Stability
     always @(posedge clk) begin
         if (f_past_valid && $past(rst_n) && rst_n && $past(strobe)) begin
-            // format_a, round_mode, overflow_wrap loaded at cycle 1
-            if ($past(logical_cycle) != 7'd1 && !($past(state) == STATE_IDLE && $past(ui_in[7]))) begin
-                assert(format_a      == $past(format_a));
+            // round_mode, overflow_wrap loaded at cycle 0
+            if ($past(logical_cycle) != 7'd0) begin
                 assert(round_mode    == $past(round_mode));
                 assert(overflow_wrap == $past(overflow_wrap));
+                assert(packed_mode   == $past(packed_mode));
+            end
+
+            // format_a loaded at cycle 0 (Short) or 1 (Standard)
+            if ($past(logical_cycle) != 7'd1 && !($past(logical_cycle) == 7'd0 && $past(ui_in[7]))) begin
+                assert(format_a      == $past(format_a));
             end
 
             if (SUPPORT_MX_PLUS) begin
-                if ($past(logical_cycle) != 7'd0 || ($past(logical_cycle) == 7'd0 && $past(ui_in[7]))) begin
+                // bm_index_a loaded at cycle 1
+                if ($past(logical_cycle) != 7'd1) begin
                     assert(bm_index_a_val == $past(bm_index_a_val));
                 end
                 if ($past(logical_cycle) != 7'd2) begin
                     assert(bm_index_b_val == $past(bm_index_b_val));
+                end
+                // mx_plus_en loaded at cycle 0
+                if ($past(logical_cycle) != 7'd0) begin
+                    assert(mx_plus_en_val == $past(mx_plus_en_val));
                 end
             end
         end
