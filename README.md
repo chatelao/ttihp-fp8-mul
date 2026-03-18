@@ -99,17 +99,38 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 ### MicroPython Example (TT DevKit)
 
-You can run a single MAC operation on the Tiny Tapeout DevKit using the onboard RP2040 with MicroPython. The following script performs a 32-element dot product of $1.0 \times 1.0$ with no scaling.
+You can run a single MAC operation on the Tiny Tapeout DevKit using the onboard RP2040 or RP2350 with MicroPython. The following script performs a 32-element dot product of $1.0 \times 1.0$ with no scaling.
+
+#### Tiny Tapeout DevKit Pin Mapping
+
+| Signal | RP2040 (v2.0/v3.1) | RP2350 (v3.2) |
+|--------|-------------------|---------------|
+| `ui_in[7:0]` | GPIO 0-7 | GPIO 17-24 |
+| `uo_out[7:0]` | GPIO 8-15 | GPIO 33-40 |
+| `uio[7:0]` | GPIO 16-23 | GPIO 25-32 |
+| `clk` | GPIO 24 | GPIO 16 |
+| `rst_n` | GPIO 25 | GPIO 14 |
+| `ena` | GPIO 26 | GPIO 15 |
 
 ```python
 import machine
+import os
 import time
 
-# Pin Mapping for TT DevKit RP2040
-UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(8)]
-UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(8, 16)]
-UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(16, 24)]
-CLK, RST_N, ENA = machine.Pin(24, machine.Pin.OUT), machine.Pin(25, machine.Pin.OUT), machine.Pin(26, machine.Pin.OUT)
+# Identify board version based on machine info
+is_rp2350 = "RP2350" in os.uname().machine
+
+# Pin Mapping for TT DevKit
+if is_rp2350: # v3.2 (RP2350)
+    UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(17, 25)]
+    UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(33, 41)]
+    UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(25, 33)]
+    CLK, RST_N, ENA = machine.Pin(16, machine.Pin.OUT), machine.Pin(14, machine.Pin.OUT), machine.Pin(15, machine.Pin.OUT)
+else: # v2.0/v3.1 (RP2040)
+    UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(8)]
+    UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(8, 16)]
+    UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(16, 24)]
+    CLK, RST_N, ENA = machine.Pin(24, machine.Pin.OUT), machine.Pin(25, machine.Pin.OUT), machine.Pin(26, machine.Pin.OUT)
 
 def clock_step():
     CLK.value(1); time.sleep_us(10); CLK.value(0); time.sleep_us(10)
