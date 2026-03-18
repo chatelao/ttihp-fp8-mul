@@ -3,19 +3,35 @@ MicroPython MAC Runner for TT DevKit (RP2040)
 This script runs one 32-element MAC operation using the 41-cycle protocol.
 """
 import machine
+import os
 import time
 
-# Pin Configuration (Standard TT DevKit RP2040 Mapping)
-# ui_in: GP0-GP7
-UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(8)]
-# uo_out: GP8-GP15
-UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(8, 16)]
-# uio: GP16-GP23
-UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(16, 24)]
-# Control Pins
-CLK = machine.Pin(24, machine.Pin.OUT)
-RST_N = machine.Pin(25, machine.Pin.OUT)
-ENA = machine.Pin(26, machine.Pin.OUT)
+# Identify board version based on machine info
+is_rp2350 = "RP2350" in os.uname().machine
+
+# Pin Configuration for TT DevKit
+if is_rp2350: # v3.2 (RP2350)
+    # ui_in: GP17-GP24
+    UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(17, 25)]
+    # uo_out: GP33-GP40
+    UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(33, 41)]
+    # uio: GP25-GP32
+    UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(25, 33)]
+    # Control Pins
+    CLK = machine.Pin(16, machine.Pin.OUT)
+    RST_N = machine.Pin(14, machine.Pin.OUT)
+    ENA = machine.Pin(15, machine.Pin.OUT)
+else: # v2.0/v3.1 (RP2040)
+    # ui_in: GP0-GP7
+    UI_IN = [machine.Pin(i, machine.Pin.OUT) for i in range(8)]
+    # uo_out: GP8-GP15
+    UO_OUT = [machine.Pin(i, machine.Pin.IN) for i in range(8, 16)]
+    # uio: GP16-GP23
+    UIO = [machine.Pin(i, machine.Pin.OUT) for i in range(16, 24)]
+    # Control Pins
+    CLK = machine.Pin(24, machine.Pin.OUT)
+    RST_N = machine.Pin(25, machine.Pin.OUT)
+    ENA = machine.Pin(26, machine.Pin.OUT)
 
 def set_ui_in(val):
     for i in range(8):
