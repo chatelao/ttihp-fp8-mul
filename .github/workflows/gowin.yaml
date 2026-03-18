@@ -71,7 +71,7 @@ jobs:
                           --device GW1NSR-LV4CQN48PC6/I5 \
                           --family GW1NS-4 \
                           --top tt_gowin_top \
-                          --freq 27 \
+                          --freq 20 \
                           --cst src_gowin/tangnano4k.cst
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
@@ -80,7 +80,7 @@ jobs:
                                --vopt family=GW1NS-4 \
                                --vopt cst=src_gowin/tangnano4k.cst \
                                --top tt_gowin_top \
-                               --freq 27
+                               --freq 20
           else
             echo "Error: No nextpnr binary found for Gowin"
             exit 1
