@@ -139,6 +139,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire       mx_plus_en_val;
     wire [7:0] buffered_a_lane0;
     wire [7:0] buffered_b_lane0;
+    wire is_bm_a_lane0_raw;
+    wire is_bm_b_lane0_raw;
+    wire is_bm_a_lane1_raw;
+    wire is_bm_b_lane1_raw;
     wire is_bm_a_lane0_val;
     wire is_bm_b_lane0_val;
     wire is_bm_a_lane1_val;
@@ -191,20 +195,20 @@ module tt_um_chatelao_fp8_multiplier #(
             wire [4:0] element_index_lane0_reg = element_index_lane0_full[4:0];
             wire [4:0] element_index_lane1_reg = element_index_lane1_full[4:0];
 
-            assign is_bm_a_lane0_val = mx_plus_en && (state == STATE_STREAM) && (element_index_lane0_reg == bm_index_a);
-            assign is_bm_b_lane0_val = mx_plus_en && (state == STATE_STREAM) && (element_index_lane0_reg == bm_index_b);
-            assign is_bm_a_lane1_val = mx_plus_en && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1_reg == bm_index_a);
-            assign is_bm_b_lane1_val = mx_plus_en && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1_reg == bm_index_b);
+            assign is_bm_a_lane0_raw = mx_plus_en && (state == STATE_STREAM) && (element_index_lane0_reg == bm_index_a);
+            assign is_bm_b_lane0_raw = mx_plus_en && (state == STATE_STREAM) && (element_index_lane0_reg == bm_index_b);
+            assign is_bm_a_lane1_raw = mx_plus_en && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1_reg == bm_index_a);
+            assign is_bm_b_lane1_raw = mx_plus_en && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1_reg == bm_index_b);
         end else begin : gen_no_mx_plus
             assign bm_index_a_val = 5'd0;
             assign bm_index_b_val = 5'd0;
             assign nbm_offset_a_val = 3'd0;
             assign nbm_offset_b_val = 3'd0;
             assign mx_plus_en_val = 1'b0;
-            assign is_bm_a_lane0_val = 1'b0;
-            assign is_bm_b_lane0_val = 1'b0;
-            assign is_bm_a_lane1_val = 1'b0;
-            assign is_bm_b_lane1_val = 1'b0;
+            assign is_bm_a_lane0_raw = 1'b0;
+            assign is_bm_b_lane0_raw = 1'b0;
+            assign is_bm_a_lane1_raw = 1'b0;
+            assign is_bm_b_lane1_raw = 1'b0;
         end
 
         if (SUPPORT_INPUT_BUFFERING) begin : gen_input_buffering
@@ -408,8 +412,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .b(b_lane0),
                 .format_a(format_a),
                 .format_b(format_b_val),
-                .is_bm_a(is_bm_a_lane0_val),
-                .is_bm_b(is_bm_b_lane0_val),
+                .is_bm_a(is_bm_a_lane0_raw),
+                .is_bm_b(is_bm_b_lane0_raw),
                 .lns_mode(lns_mode_reg),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
@@ -433,8 +437,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .b(b_lane1),
                     .format_a(format_a),
                     .format_b(format_b_val),
-                    .is_bm_a(is_bm_a_lane1_val),
-                    .is_bm_b(is_bm_b_lane1_val),
+                    .is_bm_a(is_bm_a_lane1_raw),
+                    .is_bm_b(is_bm_b_lane1_raw),
                     .lns_mode(lns_mode_reg),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
@@ -464,8 +468,8 @@ module tt_um_chatelao_fp8_multiplier #(
                 .b(b_lane0),
                 .format_a(format_a),
                 .format_b(format_b_val),
-                .is_bm_a(is_bm_a_lane0_val),
-                .is_bm_b(is_bm_b_lane0_val),
+                .is_bm_a(is_bm_a_lane0_raw),
+                .is_bm_b(is_bm_b_lane0_raw),
                 .lns_mode(lns_mode_reg),
                 .prod(mul_prod_lane0),
                 .exp_sum(mul_exp_sum_lane0),
@@ -488,8 +492,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     .b(b_lane1),
                     .format_a(format_a),
                     .format_b(format_b_val),
-                    .is_bm_a(is_bm_a_lane1_val),
-                    .is_bm_b(is_bm_b_lane1_val),
+                    .is_bm_a(is_bm_a_lane1_raw),
+                    .is_bm_b(is_bm_b_lane1_raw),
                     .lns_mode(lns_mode_reg),
                     .prod(mul_prod_lane1),
                     .exp_sum(mul_exp_sum_lane1),
@@ -515,8 +519,6 @@ module tt_um_chatelao_fp8_multiplier #(
     wire mul_nan_lane0_val, mul_nan_lane1_val;
     wire mul_inf_lane0_val, mul_inf_lane1_val;
     /* verilator lint_on UNUSEDSIGNAL */
-    wire is_bm_a_lane0_val, is_bm_b_lane0_val;
-    wire is_bm_a_lane1_val, is_bm_b_lane1_val;
 
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
@@ -541,8 +543,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     mul_sign_lane0_reg <= mul_sign_lane0;
                     mul_nan_lane0_reg <= mul_nan_lane0;
                     mul_inf_lane0_reg <= mul_inf_lane0;
-                    is_bm_a_lane0_reg <= is_bm_a_lane0;
-                    is_bm_b_lane0_reg <= is_bm_b_lane0;
+                    is_bm_a_lane0_reg <= is_bm_a_lane0_raw;
+                    is_bm_b_lane0_reg <= is_bm_b_lane0_raw;
                 end
             end
             assign mul_prod_lane0_val = mul_prod_lane0_reg;
@@ -575,8 +577,8 @@ module tt_um_chatelao_fp8_multiplier #(
                         mul_sign_lane1_reg <= mul_sign_lane1;
                         mul_nan_lane1_reg <= mul_nan_lane1;
                         mul_inf_lane1_reg <= mul_inf_lane1;
-                        is_bm_a_lane1_reg <= is_bm_a_lane1;
-                        is_bm_b_lane1_reg <= is_bm_b_lane1;
+                        is_bm_a_lane1_reg <= is_bm_a_lane1_raw;
+                        is_bm_b_lane1_reg <= is_bm_b_lane1_raw;
                     end
                 end
                 assign mul_prod_lane1_val = mul_prod_lane1_reg;
@@ -601,15 +603,15 @@ module tt_um_chatelao_fp8_multiplier #(
             assign mul_sign_lane0_val = mul_sign_lane0;
             assign mul_nan_lane0_val = mul_nan_lane0;
             assign mul_inf_lane0_val = mul_inf_lane0;
-            assign is_bm_a_lane0_val = is_bm_a_lane0;
-            assign is_bm_b_lane0_val = is_bm_b_lane0;
+            assign is_bm_a_lane0_val = is_bm_a_lane0_raw;
+            assign is_bm_b_lane0_val = is_bm_b_lane0_raw;
             assign mul_prod_lane1_val = mul_prod_lane1;
             assign mul_exp_sum_lane1_val = mul_exp_sum_lane1;
             assign mul_sign_lane1_val = mul_sign_lane1;
             assign mul_nan_lane1_val = mul_nan_lane1;
             assign mul_inf_lane1_val = mul_inf_lane1;
-            assign is_bm_a_lane1_val = is_bm_a_lane1;
-            assign is_bm_b_lane1_val = is_bm_b_lane1;
+            assign is_bm_a_lane1_val = is_bm_a_lane1_raw;
+            assign is_bm_b_lane1_val = is_bm_b_lane1_raw;
         end
     endgenerate
 
@@ -887,39 +889,50 @@ module tt_um_chatelao_fp8_multiplier #(
     // 6. Output Gating & Serialization
     always @(*) begin
         if (rst_n) begin
-            if (state != STATE_OUTPUT) begin
-                assert(uo_out == 8'd0);
+            if (loopback_en_val) begin
+                assert(uo_out == (ui_in ^ uio_in));
+            end else if (state == STATE_OUTPUT && logical_cycle > capture_cycle) begin
+                if (sticky_any) begin
+                    assert(uo_out == sticky_byte);
+                end else begin
+                    case (logical_cycle - capture_cycle)
+                        6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
+                        6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
+                        6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
+                        6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
+                        default: assert(uo_out == 8'd0);
+                    endcase
+                end
+            end else if (debug_en_val && logical_cycle == capture_cycle - 6'd1) begin
+                assert(uo_out == metadata_echo);
+            end else if (debug_en_val && logical_cycle < capture_cycle) begin
+                assert(uo_out == probe_data);
             end else begin
-                case (logical_cycle - capture_cycle)
-                    6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
-                    6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
-                    6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
-                    6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
-                    default: assert(uo_out == 8'd0);
-                endcase
+                assert(uo_out == 8'd0);
             end
         end
     end
 
     // 7. MX+ Block Max Detection
+    // Note: assertions must account for 1 cycle pipeline delay if active
     always @(posedge clk) begin
         if (rst_n && SUPPORT_MX_PLUS && state == STATE_STREAM) begin
-            // Internal signals from gen_mx_plus
-            if (gen_mx_plus.element_index_lane0_reg == bm_index_a_val) assert(is_bm_a_lane0_val);
-            else assert(!is_bm_a_lane0_val);
+            // Internal signals from gen_mx_plus (match elements being processed by multipliers)
+            if (gen_mx_plus.element_index_lane0_reg == bm_index_a_val) assert(is_bm_a_lane0_raw);
+            else assert(!is_bm_a_lane0_raw);
 
-            if (gen_mx_plus.element_index_lane0_reg == bm_index_b_val) assert(is_bm_b_lane0_val);
-            else assert(!is_bm_b_lane0_val);
+            if (gen_mx_plus.element_index_lane0_reg == bm_index_b_val) assert(is_bm_b_lane0_raw);
+            else assert(!is_bm_b_lane0_raw);
 
             if (actual_packed_mode) begin
-                if (gen_mx_plus.element_index_lane1_reg == bm_index_a_val) assert(is_bm_a_lane1_val);
-                else assert(!is_bm_a_lane1_val);
+                if (gen_mx_plus.element_index_lane1_reg == bm_index_a_val) assert(is_bm_a_lane1_raw);
+                else assert(!is_bm_a_lane1_raw);
 
-                if (gen_mx_plus.element_index_lane1_reg == bm_index_b_val) assert(is_bm_b_lane1_val);
-                else assert(!is_bm_b_lane1_val);
+                if (gen_mx_plus.element_index_lane1_reg == bm_index_b_val) assert(is_bm_b_lane1_raw);
+                else assert(!is_bm_b_lane1_raw);
             end else begin
-                assert(!is_bm_a_lane1_val);
-                assert(!is_bm_b_lane1_val);
+                assert(!is_bm_a_lane1_raw);
+                assert(!is_bm_b_lane1_raw);
             end
         end
     end
