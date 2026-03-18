@@ -606,7 +606,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 1.5 Sticky Registers for Exception Tracking
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
-    // Sticky latching is restricted to the element streaming phase (plus one cycle for pipelining).
+    // Protocol-aware sticky latching window restricted to the element streaming phase.
     wire [COUNTER_WIDTH-1:0] sticky_end_cycle = SUPPORT_PIPELINING ? last_stream_cycle + 7'd1 : last_stream_cycle;
     wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 7'd4 : 7'd3)) &&
                            (logical_cycle <= sticky_end_cycle) && (state == STATE_STREAM);

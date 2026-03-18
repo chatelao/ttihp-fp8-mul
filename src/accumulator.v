@@ -29,6 +29,7 @@ module accumulator #(
     wire [WIDTH-1:0] sum = sum_full[WIDTH-1:0];
 
     // Check overflow: signs of inputs are same, but sign of sum is different.
+    // Using bit-level comparison to avoid potential signed comparison pitfalls in synthesis.
     wire overflow = (acc_reg[WIDTH-1] == data_in[WIDTH-1]) && (sum[WIDTH-1] != acc_reg[WIDTH-1]);
 
     always @(posedge clk) begin
