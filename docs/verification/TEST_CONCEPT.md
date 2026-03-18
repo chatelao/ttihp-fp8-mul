@@ -63,7 +63,7 @@ Tests include mid-point values to ensure RNE "ties-to-even" logic is correct.
 
 ### 7.1. Aims
 - Validate RTL behavior on real hardware logic gates.
-- Verify timing closure at the target frequency (27MHz).
+- Verify timing closure at the target frequency (20MHz).
 - Ensure the 41-cycle protocol is stable under physical clock conditions.
 
 ### 7.2. HW / SW Setup
