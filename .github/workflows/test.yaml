@@ -56,7 +56,7 @@ jobs:
           fst2vcd -f test/tb.fst -o test/tb.vcd
 
       - name: Test Summary
-        uses: test-summary/action@v2.3
+        uses: test-summary/action@v2.4
         with:
           paths: "test/results.xml"
         if: always()
