@@ -88,6 +88,8 @@ python3 test/gate_analysis.py
 
 ### Generate FPGA Bitstream (Gowin)
 
+For a comprehensive walkthrough on building, flashing, and testing specifically for the **Tang Nano 4K**, see the [Tang Nano 4K Guide](TANG_NANO_4K_GUIDE.md).
+
 Ensure OSS CAD Suite is in your path, then run:
 
 ```bash
