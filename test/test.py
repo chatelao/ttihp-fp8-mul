@@ -1080,3 +1080,38 @@ async def test_mxfp8_subnormals(dut):
     b_elements = [0x38] * 32
 
     await run_mac_test(dut, 0, 0, a_elements, b_elements)
+
+@cocotb.test()
+async def test_lane_overflow(dut):
+    """
+    Specifically test that dual-lane addition in Packed Mode saturates
+    before hitting the accumulator, preventing intermediate 32-bit wrap-around.
+    """
+    support_packing = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
+    if not support_packing:
+        dut._log.info("Skipping Lane Overflow Test (SUPPORT_VECTOR_PACKING=0)")
+        return
+
+    dut._log.info("Start Lane Overflow Test (Packed Mode)")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # We want each lane to produce a value that, when combined, overflows 32-bit signed.
+    # Lane 0 product -> Aligned -> 0x60000000
+    # Lane 1 product -> Aligned -> 0x60000000
+    # Combined sum = 0xC0000000 (Negative if not saturated)
+
+    # E2M1: 0x02 is 1.0. 1.0 * 1.0 = 1.0.
+    # To get 0x60000000: magnitude must be 0x60000000 / 256 = 0x600000 = 6,291,456.
+    # 2^22 approx 4 million. 2^23 approx 8 million.
+    # exp_sum - 5 = 22 -> exp_sum = 27.
+    # Standard exp_sum for E2M1 is 9.
+    # We use shared scaling to add 18. scale_a + scale_b - 254 = 18.
+    # scale_a = 145, scale_b = 127 -> 145 + 127 - 254 = 18.
+
+    a_elements = [0x02] * 32 # 1.0
+    b_elements = [0x02] * 32 # 1.0
+
+    # We only need one cycle of overflow to test it.
+    # The model handles this correctly as it saturates at each element addition.
+    await run_mac_test(dut, 4, 4, a_elements, b_elements, scale_a=157, scale_b=127, packed_mode=1)
