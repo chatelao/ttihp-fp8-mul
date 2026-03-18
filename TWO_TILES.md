@@ -1,14 +1,13 @@
-# Proposed 2-Tile Configuration: OCP MX-Vector Lite
+# Multi-Tile Configurations: OCP MX-Vector Lite and Full
 
-This document proposes a **2-tile (1x2)** configuration for the OCP MXFP8 Streaming MAC Unit on Tiny Tapeout. By doubling the available area, we can enable high-performance features like **Vector Packing** and **Shared Scaling** that are difficult to fit into a single 1x1 tile.
+This document describes the multi-tile configurations for the OCP MXFP8 Streaming MAC Unit on Tiny Tapeout. Scaling beyond a single tile enables high-performance features like **Vector Packing** and **Shared Scaling** while ensuring reliable routing and timing closure on the IHP SG13G2 process.
 
-## 1. Configuration Summary: "OCP MX-Vector Lite"
+## 1. Configuration Summary
 
-The "OCP MX-Vector Lite" variant is designed for maximum throughput and precision in OCP-standard workloads (E4M3/FP4) while omitting more specialized research features (like MX+ or LNS) to ensure comfortable routing and timing closure within two tiles.
-
-| Parameter | Value | Reason |
+| Feature | OCP MX-Vector Lite | OCP MX-Vector Full (Active) |
 |---|---|---|
-| **Tile Size** | **1x2** | Provides ~4,000 - 6,000 gate capacity. |
+| **Tile Size** | **1x2** | **2x2** |
+| **Gate Capacity** | ~4,000 - 6,000 | ~10,000 - 15,000 |
 | `SUPPORT_VECTOR_PACKING` | `1` | **High Performance**: Enables 1.64x throughput for FP4. |
 | `SUPPORT_E4M3` | `1` | Core OCP format support. |
 | `SUPPORT_E5M2` | `1` | Standard FP8 format support. |
@@ -47,9 +46,9 @@ By enabling `SUPPORT_VECTOR_PACKING`, this 2-tile configuration significantly ou
 
 The inclusion of `ENABLE_SHARED_SCALING` allows the unit to perform 32-bit absolute value and shift operations in hardware (Cycle 36), offloading this computationally expensive task from the host processor and improving overall system efficiency.
 
-## 4. Why 2 Tiles?
+## 4. Why 4 Tiles (2x2)?
 
-While a single 1x1 tile can fit the "Lite" variant (~3,800 gates), it requires aggressive pruning of features and often leads to congestion during physical implementation. A 2-tile (1x2) footprint allows for:
-1. **Vector Packing**: The ~2,300 gate cost of dual-lane processing is easily absorbed.
-2. **Timing Closure**: `SUPPORT_PIPELINING` and wider datapaths can be implemented without sacrificing area.
-3. **Routing Ease**: Reduced cell density improves the likelihood of successful GDS generation at higher clock speeds.
+While the "Lite" variant fits in 2 tiles (1x2), the **"Full" edition** (active for March 2025 shipping) requires a **2x2 footprint** due to its ~6,600 gate complexity.
+1. **High Logic Density**: The combination of MX+, Vector Packing, and 40-bit datapaths creates high routing congestion.
+2. **Timing Closure**: `SUPPORT_PIPELINING` is essential for 50MHz+ operation, and the extra area allows for buffer insertion to meet slack requirements.
+3. **Physical Robustness**: A 2x2 tile ensures that the OpenROAD flow can achieve 100% routing completion with the IHP SG13G2 PDK.

@@ -606,11 +606,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 1.5 Sticky Registers for Exception Tracking
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
-    // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Standard elements at 3..34. Pipelined products at 4..35.
-    // Cycle 35+ products are 0 (safe).
-    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 7'd4 : 7'd3)) && (logical_cycle <= 7'd35);
+    // Sticky latching window restricted to element streaming phase (plus one cycle for pipelining)
+    wire [COUNTER_WIDTH-1:0] sticky_end_cycle = SUPPORT_PIPELINING ? last_stream_cycle + 7'd1 : last_stream_cycle;
+    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 7'd4 : 7'd3)) &&
+                           (logical_cycle <= sticky_end_cycle) &&
+                           (state == STATE_STREAM);
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -719,7 +719,16 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0] + aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    // Saturated addition for dual lanes to prevent intermediate overflow before the accumulator.
+    wire signed [32:0] lane0_full = $signed({aligned_lane0_res[31], aligned_lane0_res});
+    wire signed [32:0] lane1_full = $signed({aligned_lane1_res[31], aligned_lane1_res});
+    wire signed [32:0] comb_full  = lane0_full + lane1_full;
+    wire [ACCUMULATOR_WIDTH-1:0] comb_sat_pos = {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}};
+    wire [ACCUMULATOR_WIDTH-1:0] comb_sat_neg = {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}};
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = overflow_wrap ? comb_full[ACCUMULATOR_WIDTH-1:0] :
+                                                    (comb_full > $signed({1'b0, comb_sat_pos})) ? comb_sat_pos :
+                                                    (comb_full < $signed({1'b1, comb_sat_neg})) ? comb_sat_neg :
+                                                    comb_full[ACCUMULATOR_WIDTH-1:0];
 
     wire acc_clear = strobe && (logical_cycle <= 7'd2) && (state != STATE_STREAM) && (cycle_count <= 7'd2);
 
