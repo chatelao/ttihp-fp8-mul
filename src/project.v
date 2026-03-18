@@ -606,11 +606,10 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 1.5 Sticky Registers for Exception Tracking
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
-    // Sticky latching window restricted to element streaming phase (plus one cycle for pipelining)
+    // Sticky latching is restricted to the element streaming phase (plus one cycle for pipelining).
     wire [COUNTER_WIDTH-1:0] sticky_end_cycle = SUPPORT_PIPELINING ? last_stream_cycle + 7'd1 : last_stream_cycle;
     wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 7'd4 : 7'd3)) &&
-                           (logical_cycle <= sticky_end_cycle) &&
-                           (state == STATE_STREAM);
+                           (logical_cycle <= sticky_end_cycle) && (state == STATE_STREAM);
 
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -720,15 +719,13 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 4. Combined Lane Result
     // Saturated addition for dual lanes to prevent intermediate overflow before the accumulator.
-    wire signed [32:0] lane0_full = $signed({aligned_lane0_res[31], aligned_lane0_res});
-    wire signed [32:0] lane1_full = $signed({aligned_lane1_res[31], aligned_lane1_res});
-    wire signed [32:0] comb_full  = lane0_full + lane1_full;
-    wire [ACCUMULATOR_WIDTH-1:0] comb_sat_pos = {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}};
-    wire [ACCUMULATOR_WIDTH-1:0] comb_sat_neg = {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}};
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = overflow_wrap ? comb_full[ACCUMULATOR_WIDTH-1:0] :
-                                                    (comb_full > $signed({1'b0, comb_sat_pos})) ? comb_sat_pos :
-                                                    (comb_full < $signed({1'b1, comb_sat_neg})) ? comb_sat_neg :
-                                                    comb_full[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] l0_raw = aligned_lane0_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] l1_raw = aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] l_sum = l0_raw + l1_raw;
+    wire l_ovfl = (l0_raw[ACCUMULATOR_WIDTH-1] == l1_raw[ACCUMULATOR_WIDTH-1]) && (l_sum[ACCUMULATOR_WIDTH-1] != l0_raw[ACCUMULATOR_WIDTH-1]);
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (l_ovfl && !overflow_wrap) ?
+        (l0_raw[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
+        l_sum;
 
     wire acc_clear = strobe && (logical_cycle <= 7'd2) && (state != STATE_STREAM) && (cycle_count <= 7'd2);
 
