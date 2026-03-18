@@ -28,3 +28,20 @@ The design is currently configured for the **"Full" edition**, targeting a **2x2
 - **Gate Count**: ~6,609 cells (IHP SG13G2).
 - **Area**: 2x2 Tiles.
 - **Throughput**: up to 1.28 MAC ops/cycle (FP4).
+
+## 5. Compliance Verification (OCP MX 1.0)
+The implementation was verified against the OCP Microscaling Formats (MX) Specification v1.0 in March 2025.
+
+### Verified Features
+- **Numerical Formats**:
+  - E4M3 (Bias 7): Full encoding and NaN (0x7F) support.
+  - E5M2 (Bias 15): Full encoding, NaN, and Infinity support.
+  - E3M2 (Bias 3), E2M3 (Bias 1), E2M1 (Bias 1): Full support.
+  - INT8/INT8_SYM (Bias 3): Correct mapping for -128 to -127 in symmetric mode.
+- **Shared Scaling**:
+  - Shared Exponent: Correctly implements $S = X_A + X_B - 254$ for UE8M0 scales.
+  - Shared Scale NaN Rule: Latching of `nan_sticky` on 0xFF scale input.
+- **Rounding Modes**: Verified TRN, CEL, FLR, and RNE.
+- **Overflow Methods**: Verified SAT (Saturation) and WRAP (Wrapping).
+- **Subnormal Support**: RTL implements standard subnormal support (implicit bit 0, exponent 1), providing higher precision for small values than the minimum OCP requirement.
+- **Protocol**: 41-cycle (Standard) and 23-cycle (Short) protocols verified for data and metadata capture.
