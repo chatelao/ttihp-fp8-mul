@@ -10,13 +10,15 @@
     - [x] Implement low-level UART drivers (`uart_putc`, `uart_puts`, `uart_getc`).
     - [x] Implement `clock_tick()` with software delay loops.
     - [x] Implement `run_mac_test()` to drive the 41-cycle MAC protocol (Enhanced March 2025).
-    - [x] Develop interactive CLI in `main()` with support for E4M3, E5M2, Packed, and Short Protocol tests.
+    - [x] Develop interactive CLI in `main()` with support for E4M3, E5M2, INT8, Packed, MX+, and Short Protocol tests.
+    - [x] Implement LNS mode toggling for dynamic multiplier research.
 3. [x] **Toolchain and Compilation**
-    - [x] Set up Arm GNU Toolchain (`arm-none-eabi-gcc`) (Installed in environment).
+    - [x] Set up Arm GNU Toolchain (`arm-none-eabi-gcc`).
     - [x] Obtain/configure linker script (`link.ld`) for the GW1NSR-4C memory map (Implemented in `src_m3/link.ld`).
     - [x] Compile `main.c` and use `objcopy` to generate raw binary (`testbench.bin`) (Automated with `src_m3/Makefile`).
+    - [x] Create integration utility `src_m3/bin2mi.py` to convert `.bin` to Gowin `.mi` format.
 4. [ ] **Integration and Execution**
-    - [ ] Point Gowin EDA EMPU IP "Instruction Memory" path to `testbench.bin`.
+    - [ ] Point Gowin EDA EMPU IP "Instruction Memory" path to `testbench.mi` (Use `src_m3/bin2mi.py`).
     - [ ] Execute Synthesis and Place & Route (PNR) using `src_gowin/tangnano4k_m3.cst`.
     - [ ] Flash the resulting bitstream (`.fs`) to the Tang Nano 4K.
     - [ ] Connect serial terminal at 115200 baud to pins 18/19.
