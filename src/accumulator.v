@@ -1,3 +1,5 @@
+`ifndef __ACCUMULATOR_V__
+`define __ACCUMULATOR_V__
 `default_nettype none
 
 module accumulator #(
@@ -50,3 +52,4 @@ module accumulator #(
     end
 
 endmodule
+`endif
