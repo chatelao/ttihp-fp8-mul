@@ -17,31 +17,33 @@ async def test_short_protocol_metadata(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial else 1
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     if not support_mxfp4:
         dut._log.info("Skipping Short Protocol Test (SUPPORT_MXFP4=0)")
         return
 
-    # 1. Reset with Short Protocol pins already set
+    # 1. Reset with Short Protocol pins set
+    # Sampling Cycle 0 happens at the very first edge where rst_n is high and ena is high
     dut.ena.value = 1
     dut.ui_in.value = 0x80 # Short Protocol = 1
     dut.uio_in.value = 4    # Format A/B = 4 (E2M1)
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
+    await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
 
-    # samples metadata on the first strobe of logical cycle 0 (immediately after reset)
-    # wait for that edge
+    # samples at Cycle 0, FSM moves to Cycle 3 immediately
     await RisingEdge(dut.clk)
 
-    # FSM should have sampled and jumped to Cycle 3 immediately
+    # Now at Cycle 3. Verify format capture if accessible.
     await Timer(1, "ns")
     try:
-        curr_cycle = int(dut.user_project.cycle_count.value)
-        dut._log.info(f"FSM State after Cycle 0 jump: {curr_cycle}")
+        f_a = int(dut.user_project.format_a.value)
+        dut._log.info(f"Verified active format A: {f_a}")
+        assert f_a == 4
     except AttributeError:
-        pass
+        dut._log.info("Signals not accessible")
 
     # Finish block with 1.0 * 1.0 (0x02 * 0x02)
     for _ in range(32):
@@ -53,7 +55,7 @@ async def test_short_protocol_metadata(dut):
 
     # Read Result (Cycle 37-40)
     actual_acc = 0
-    for i in range(4):
+    for _ in range(4):
         await Timer(1, "ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
         await ClockCycles(dut.clk, k_factor)
@@ -74,7 +76,8 @@ async def test_short_protocol_nan_scale_reuse(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial else 1
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if not support_shared:
         dut._log.info("Skipping test (ENABLE_SHARED_SCALING=0)")
@@ -85,10 +88,10 @@ async def test_short_protocol_nan_scale_reuse(dut):
     dut.ui_in.value = 0x00
     dut.uio_in.value = 0x00
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
+    await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
 
-    # samples Cycle 0 (Standard), moves to Cycle 1
+    # samples metadata, moves to Cycle 1
     await ClockCycles(dut.clk, k_factor)
 
     # Cycle 1: Load Scale A = 0xFF
@@ -111,17 +114,15 @@ async def test_short_protocol_nan_scale_reuse(dut):
 
     # Output Phase (Cycles 37, 38, 39, 40)
     for i in range(4):
-        # We must set ui_in[7] for the NEXT block's Cycle 0
-        # Sampling for the next block happens on the edge that transitions FROM 40 TO 0
         if i == 3:
+            # Setting pins at the start of physical Cycle 40 (last cycle of block 1)
+            # Sampling for block 2's Cycle 0 happens on the next rising edge
             dut.ui_in.value = 0x80 # Short Protocol = 1
             dut.uio_in.value = 0
         await ClockCycles(dut.clk, k_factor)
 
-    # Transition to next block (sampling happens here)
-    await Timer(1, "ns") # Check state after jump
-
-    # 2. Now at start of logical Cycle 3.
+    # Now at Cycle 3 of next block (due to immediate jump)
+    await Timer(1, "ns")
     try:
         nan_sticky = int(dut.user_project.nan_sticky.value)
         curr_cycle = int(dut.user_project.cycle_count.value)

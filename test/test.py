@@ -205,10 +205,10 @@ def get_param(dut, name, default=1):
     # 2. Try to get from COMPILE_ARGS environment variable
     compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
-    # Match -P name=val, -P tb.name=val, -P tb.user_project.name=val
-    matches = re.findall(r"[\s\.]" + name + r"=(\d+)", compile_args)
-    if matches:
-        return int(matches[-1]) # Use the last one if multiple
+    # Match -P flat_name=val or -P hierarchical.prefix.name=val
+    match = re.search(r"[\s\.]" + name + r"=(\d+)", compile_args)
+    if match:
+        return int(match.group(1))
 
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
