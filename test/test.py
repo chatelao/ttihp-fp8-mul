@@ -203,12 +203,15 @@ def get_param(dut, name, default=1):
             pass
 
     # 2. Try to get from COMPILE_ARGS environment variable
-    compile_args = os.environ.get("COMPILE_ARGS", "")
+    # Parameters can be passed as -Pname=val or -Phierarchy.name=val
+    compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
-    # Match both -P name=val and -P tb.name=val
-    matches = re.findall(r"-P\s+(?:\w+\.)?" + name + r"=(\d+)", compile_args)
-    if matches:
-        return int(matches[-1]) # Use the last one if multiple
+    # Match -Pname=val, -P hierarchy.name=val, etc.
+    # regex looks for either whitespace or a dot before the name to avoid partial matches
+    pattern = r"[\s\.]" + re.escape(name) + r"=(\d+)"
+    match = re.search(pattern, compile_args)
+    if match:
+        return int(match.group(1))
 
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {

@@ -112,7 +112,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 end else if (ena && strobe && logical_cycle == 6'd0) begin
                     debug_en_reg    <= ui_in[6];
                     probe_sel_reg   <= uio_in[3:0];
-                    loopback_en_reg <= loopback_en_reg | ui_in[5];
+                    loopback_en_reg <= ui_in[5];
                 end
             end
 
@@ -629,7 +629,8 @@ module tt_um_chatelao_fp8_multiplier #(
             inf_neg_sticky <= 1'b0;
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
-                nan_sticky <= 1'b0;
+                // Check if we are starting a Short Protocol block with NaN scales already loaded
+                nan_sticky <= ENABLE_SHARED_SCALING && ui_in[7] && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
                 inf_pos_sticky <= 1'b0;
                 inf_neg_sticky <= 1'b0;
             end else begin
@@ -735,7 +736,7 @@ module tt_um_chatelao_fp8_multiplier #(
                                                      (aligned_lane0_res[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
                                                      combined_full[ACCUMULATOR_WIDTH-1:0];
 
-    wire acc_clear = strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
+    wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;

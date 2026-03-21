@@ -189,7 +189,7 @@ This implementation follows the **OCP Microscaling Formats (MX) Specification (v
 - **Efficiency**: 41-cycle pipelined streaming protocol with **Fast Start** (Scale Compression) to reuse scales/formats across consecutive blocks.
 
 ### Omitted Features & Deviations
-- **Subnormal Support**: Subnormal elements are **flushed to zero** (Denormals-Are-Zero) to reduce hardware area.
+- **Subnormal Support**: The RTL fully supports subnormal elements (denormals) for all floating-point formats, providing high numerical accuracy for small values.
 - **Fixed Block Size**: The unit is hard-coded for a block size of **$k=32$** elements.
 - **NaN/Infinity Handling**:
   - **E5M2** fully supports IEEE-754 style Infinities and NaNs.
