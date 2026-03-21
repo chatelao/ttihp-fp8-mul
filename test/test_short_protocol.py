@@ -6,7 +6,7 @@ import sys
 
 # Add current directory to path to import test
 sys.path.append(os.path.dirname(__file__))
-from test import get_param, decode_format, align_product_model, align_model, reset_dut
+from test import run_mac_test, get_param, decode_format, align_product_model, align_model, reset_dut
 
 @cocotb.test()
 async def test_short_protocol_metadata(dut):
@@ -111,3 +111,59 @@ async def test_short_protocol_metadata(dut):
 
     dut._log.info(f"Actual Result: {actual_acc}, Expected: {expected}")
     assert actual_acc == expected
+
+@cocotb.test()
+async def test_short_protocol_nan_scale_reuse(dut):
+    """
+    Test that starting a Short Protocol block with reused NaN (0xFF) scales
+    correctly latches the nan_sticky bit.
+    """
+    dut._log.info("Start Short Protocol NaN Scale Reuse Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
+    if not support_shared:
+        dut._log.info("Skipping test (ENABLE_SHARED_SCALING=0)")
+        return
+
+    # 1. First, run a standard block with scale_a = 0xFF to set the register
+    await run_mac_test(dut, format_a=0, format_b=0, a_elements=[0x38]*32, b_elements=[0x38]*32, scale_a=0xFF, scale_b=127)
+
+    # 2. Now start a Short Protocol block. It should reuse the 0xFF scale.
+    # ui_in[7]=1
+    dut.ui_in.value = 0x80
+    dut.uio_in.value = 0 | (0 << 3) | (0 << 5) | (0 << 6) # E4M3, TRN, SAT, No Packed
+
+    # Rising edge samples metadata and ui_in[7], jumping to Cycle 3
+    await ClockCycles(dut.clk, 1)
+
+    # Check nan_sticky immediately in the next cycle (Cycle 3)
+    # The fix ensures nan_sticky is latched during the IDLE -> STREAM transition
+    await Timer(1, unit="ns")
+    try:
+        nan_sticky = int(dut.user_project.nan_sticky.value)
+        dut._log.info(f"nan_sticky value after Short Protocol start: {nan_sticky}")
+        assert nan_sticky == 1
+    except AttributeError:
+        dut._log.info("nan_sticky signal not accessible for direct assertion")
+
+    # Finish the block and check output
+    for i in range(32):
+        dut.ui_in.value = 0x38
+        dut.uio_in.value = 0x38
+        await ClockCycles(dut.clk, k_factor)
+
+    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
+
+    # Read Result
+    actual_acc = 0
+    for i in range(4):
+        await Timer(1, unit="ns")
+        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        await ClockCycles(dut.clk, k_factor)
+
+    # Result should be NaN (0x7FC00000)
+    dut._log.info(f"Actual Result: 0x{actual_acc:08X}, Expected: 0x7FC00000")
+    assert actual_acc == 0x7FC00000
