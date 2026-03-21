@@ -32,7 +32,7 @@ This document analyzes the architectural and functional gaps between the current
 - **ZvfofpXmin**: OCP MX scales are likely handled as metadata associated with vector registers or stored in specific scale-vector registers. A significant gap exists in how the ISA handles the "shared" nature of the scale across a vector block.
 
 ### 3.2. Subnormal Handling
-- **Streaming MAC**: Flushes subnormals to zero (DAZ) to save area in 1x1/1x2 tiles.
+- **Streaming MAC**: Fully supports subnormal elements (denormals) across all floating-point formats, ensuring high numerical accuracy for small values.
 - **ZvfofpXmin**: Even a "Minimal" (Xmin) extension might require configurable subnormal support or specific IEEE-754 exception flags (`fflags`) which are currently omitted.
 
 ### 3.3. Accumulator Precision

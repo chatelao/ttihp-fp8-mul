@@ -70,6 +70,6 @@ These IDs are used in `MX.SETFMT` and `vmxfmt`.
 ## References
 - `docs/integration/SERV_INTEGRATION_CONCEPT.md`
 - `docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md`
-- `docs/research/ZvfofpXmin_GAP.md`
+- `docs/research/ZVFOFPXMIN_GAP.md`
 - `docs/integration/RISCV/OCP-MICROSCALING-FORMATS-MX-V1-0-SPEC.PDF`
 - `docs/integration/RISCV/2510.14557V1.PDF`

@@ -9,4 +9,4 @@
 
 # Documentation
 - Update the die sizes for each option after each change in Verilog files in docs/hardware/DIE_SIZE_ANALYSIS.md
-- Describe current active configuration to be deliverd to Tiny-Tape in the SHIPPED_FEATURES.me
+- Describe current active configuration to be delivered to Tiny-Tape in the SHIPPED_FEATURES.md
