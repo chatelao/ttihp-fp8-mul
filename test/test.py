@@ -203,15 +203,12 @@ def get_param(dut, name, default=1):
             pass
 
     # 2. Try to get from COMPILE_ARGS environment variable
-    compile_args = os.environ.get("COMPILE_ARGS", "")
+    compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
-    # Match both -P name=val and -P tb.name=val
-    # Fixed: Support signal names with underscores
-    matches = re.findall(r"-P\s+(?:[\w\.]+)?\." + name + r"=(\d+)|-P\s+" + name + r"=(\d+)", compile_args)
+    # Match -P name=val, -P tb.name=val, -P tb.user_project.name=val
+    matches = re.findall(r"[\s\.]" + name + r"=(\d+)", compile_args)
     if matches:
-        # Each match is a tuple (group1, group2). Filter out empty strings.
-        results = [m[0] or m[1] for m in matches]
-        return int(results[-1]) # Use the last one if multiple
+        return int(matches[-1]) # Use the last one if multiple
 
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
