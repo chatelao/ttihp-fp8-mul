@@ -4,12 +4,8 @@
  * OCP MXFP8 Streaming MAC Unit
  */
 
-`include "fp8_mul.v"
-`include "fp8_mul_lns.v"
-`include "fp8_aligner.v"
-`include "accumulator.v"
-
 /* verilator lint_off DECLFILENAME */
+/* verilator lint_off MODDUP */
 module tt_um_chatelao_fp8_multiplier #(
     parameter ALIGNER_WIDTH = 40,
     parameter ACCUMULATOR_WIDTH = 32,
