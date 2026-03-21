@@ -206,9 +206,12 @@ def get_param(dut, name, default=1):
     compile_args = os.environ.get("COMPILE_ARGS", "")
     import re
     # Match both -P name=val and -P tb.name=val
-    matches = re.findall(r"-P\s+(?:\w+\.)?" + name + r"=(\d+)", compile_args)
+    # Fixed: Support signal names with underscores
+    matches = re.findall(r"-P\s+(?:[\w\.]+)?\." + name + r"=(\d+)|-P\s+" + name + r"=(\d+)", compile_args)
     if matches:
-        return int(matches[-1]) # Use the last one if multiple
+        # Each match is a tuple (group1, group2). Filter out empty strings.
+        results = [m[0] or m[1] for m in matches]
+        return int(results[-1]) # Use the last one if multiple
 
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
