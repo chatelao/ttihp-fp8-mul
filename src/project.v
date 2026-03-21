@@ -630,7 +630,7 @@ module tt_um_chatelao_fp8_multiplier #(
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                 // Check if we are starting a Short Protocol block with NaN scales already loaded
-                nan_sticky <= ui_in[7] && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
+                nan_sticky <= ENABLE_SHARED_SCALING && ui_in[7] && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
                 inf_pos_sticky <= 1'b0;
                 inf_neg_sticky <= 1'b0;
             end else begin

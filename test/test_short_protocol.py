@@ -164,6 +164,11 @@ async def test_short_protocol_nan_scale_reuse(dut):
     dut.uio_in.value = 0 # Format A = 0
     await ClockCycles(dut.clk, k_factor)
 
+    # Cycle 0: Metadata sampling cycle. Hold values.
+    # In serial mode, this cycle is SERIAL_K_FACTOR cycles long.
+    # After this, the FSM should jump to Cycle 3.
+    await ClockCycles(dut.clk, k_factor)
+
     # 2. Now we are at Cycle 3 of the Short Protocol block
     # Check nan_sticky immediately
     await Timer(1, unit="ns")
