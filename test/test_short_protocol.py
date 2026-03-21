@@ -129,27 +129,57 @@ async def test_short_protocol_nan_scale_reuse(dut):
         return
 
     # 1. First, run a standard block with scale_a = 0xFF to set the register
-    await run_mac_test(dut, format_a=0, format_b=0, a_elements=[0x38]*32, b_elements=[0x38]*32, scale_a=0xFF, scale_b=127)
+    # We use a manual protocol here to ensure we control the transition to the next block
+    await reset_dut(dut)
 
-    # 2. Now start a Short Protocol block. It should reuse the 0xFF scale.
-    # ui_in[7]=1
-    dut.ui_in.value = 0x80
-    dut.uio_in.value = 0 | (0 << 3) | (0 << 5) | (0 << 6) # E4M3, TRN, SAT, No Packed
+    # Cycle 0: Standard Protocol Start
+    dut.ui_in.value = 0x00
+    dut.uio_in.value = 0x00
+    await ClockCycles(dut.clk, k_factor)
 
-    # Rising edge samples metadata and ui_in[7], jumping to Cycle 3
-    await ClockCycles(dut.clk, 1)
+    # Cycle 1: Load Scale A = 0xFF
+    dut.ui_in.value = 0xFF
+    dut.uio_in.value = 0 # Format A = E4M3
+    await ClockCycles(dut.clk, k_factor)
 
-    # Check nan_sticky immediately in the next cycle (Cycle 3)
-    # The fix ensures nan_sticky is latched during the IDLE -> STREAM transition
+    # Cycle 2: Load Scale B = 127
+    dut.ui_in.value = 127
+    dut.uio_in.value = 0 # Format B = E4M3
+    await ClockCycles(dut.clk, k_factor)
+
+    # Stream 32 elements
+    for _ in range(32):
+        dut.ui_in.value = 0x38
+        dut.uio_in.value = 0x38
+        await ClockCycles(dut.clk, k_factor)
+
+    # Flush & Shared Scale (Cycle 35, 36)
+    await ClockCycles(dut.clk, 2 * k_factor)
+
+    # Output Phase (Cycle 37, 38, 39)
+    await ClockCycles(dut.clk, 3 * k_factor)
+
+    # Cycle 40: Last cycle. Set pins for the NEXT block's Cycle 0.
+    dut.ui_in.value = 0x80 # Short Protocol = 1
+    dut.uio_in.value = 0 # Format A = 0
+    await ClockCycles(dut.clk, k_factor)
+
+    # 2. Now we are at Cycle 3 of the Short Protocol block
+    # Check nan_sticky immediately
     await Timer(1, unit="ns")
     try:
+        # Check if we are actually at Cycle 3
+        curr_cycle = int(dut.user_project.cycle_count.value)
+        dut._log.info(f"Current cycle count: {curr_cycle}")
+        assert curr_cycle == 3
+
         nan_sticky = int(dut.user_project.nan_sticky.value)
         dut._log.info(f"nan_sticky value after Short Protocol start: {nan_sticky}")
         assert nan_sticky == 1
     except AttributeError:
-        dut._log.info("nan_sticky signal not accessible for direct assertion")
+        dut._log.info("Signals not accessible for direct assertion")
 
-    # Finish the block and check output
+    # Finish the second block
     for i in range(32):
         dut.ui_in.value = 0x38
         dut.uio_in.value = 0x38
@@ -157,7 +187,7 @@ async def test_short_protocol_nan_scale_reuse(dut):
 
     await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
 
-    # Read Result
+    # Read Result (Cycle 37-40)
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
