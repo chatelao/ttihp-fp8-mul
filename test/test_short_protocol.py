@@ -33,10 +33,11 @@ async def test_short_protocol_metadata(dut):
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
 
-    # samples at Cycle 0, FSM moves to Cycle 3 immediately
+    # Wait for the edge that samples Cycle 0 metadata and moves to Cycle 3
     await RisingEdge(dut.clk)
+    # Now at start of Cycle 3 (Logical)
 
-    # Now at Cycle 3. Verify format capture if accessible.
+    # Verify format capture if accessible.
     await Timer(1, "ns")
     try:
         f_a = int(dut.user_project.format_a.value)
@@ -113,15 +114,17 @@ async def test_short_protocol_nan_scale_reuse(dut):
     await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
 
     # Output Phase (Cycles 37, 38, 39, 40)
-    for i in range(4):
-        if i == 3:
-            # Setting pins at the start of physical Cycle 40 (last cycle of block 1)
-            # Sampling for block 2's Cycle 0 happens on the next rising edge
-            dut.ui_in.value = 0x80 # Short Protocol = 1
-            dut.uio_in.value = 0
+    for _ in range(4):
         await ClockCycles(dut.clk, k_factor)
 
-    # Now at Cycle 3 of next block (due to immediate jump)
+    # Now at start of logical Cycle 0 of next block
+    # Sample metadata for second block
+    dut.ui_in.value = 0x80 # Short Protocol = 1
+    dut.uio_in.value = 0    # Format A = E4M3
+
+    await ClockCycles(dut.clk, k_factor)
+    # Now at start of logical Cycle 3
+
     await Timer(1, "ns")
     try:
         nan_sticky = int(dut.user_project.nan_sticky.value)
@@ -129,7 +132,7 @@ async def test_short_protocol_nan_scale_reuse(dut):
         dut._log.info(f"nan_sticky at start of Short Protocol (Cycle {curr_cycle}): {nan_sticky}")
         assert nan_sticky == 1
     except AttributeError:
-        pass
+        dut._log.info("Signals not accessible")
 
     # Finish second block
     for _ in range(32):

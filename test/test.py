@@ -203,10 +203,13 @@ def get_param(dut, name, default=1):
             pass
 
     # 2. Try to get from COMPILE_ARGS environment variable
+    # Parameters can be passed as -Pname=val or -Phierarchy.name=val
     compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
-    # Match -P flat_name=val or -P hierarchical.prefix.name=val
-    match = re.search(r"[\s\.]" + name + r"=(\d+)", compile_args)
+    # Match -Pname=val, -P hierarchy.name=val, etc.
+    # regex looks for either whitespace or a dot before the name to avoid partial matches
+    pattern = r"[\s\.]" + re.escape(name) + r"=(\d+)"
+    match = re.search(pattern, compile_args)
     if match:
         return int(match.group(1))
 
