@@ -13,11 +13,6 @@
  */
 
 `include "fp8_defs.vh"
-`include "fp8_decoder.v"
-`include "fp8_mul.v"
-`include "fp8_mul_lns.v"
-`include "fp8_aligner.v"
-`include "accumulator.v"
 
 /* verilator lint_off DECLFILENAME */
 /* verilator lint_off MODDUP */

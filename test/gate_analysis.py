@@ -7,7 +7,16 @@ def get_yosys_stats(params, top_module="tt_um_chatelao_fp8_multiplier", source_f
     for k, v in params.items():
         param_str += f"chparam -set {k} {v} {top_module}; "
 
-    cmd = f"yosys -p \"read_verilog -Isrc {source_file}; {param_str} synth -top {top_module}; stat\""
+    # For modular analysis, we need to read the dependencies first
+    # However, since we list all files in info.yaml, we should probably read them all here too
+    # or at least the ones required by the module being analyzed.
+    if top_module == "tt_um_chatelao_fp8_multiplier":
+        read_cmd = "read_verilog -Isrc src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_decoder.v src/fp8_aligner.v src/accumulator.v;"
+    else:
+        # Assume module-level analysis needs the decoder
+        read_cmd = f"read_verilog -Isrc src/fp8_decoder.v {source_file};"
+
+    cmd = f"yosys -p \"{read_cmd} {param_str} synth -top {top_module}; stat\""
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
     # Extract total number of cells from the last "design hierarchy" section
