@@ -70,7 +70,7 @@ The following C program implements the 41-cycle MAC protocol and provides a comp
 - **GPIO0**: `0x40010000`
 
 ### `main.c` Reference
-For the full source, refer to `src_m3/main.c`. Below are the core driver and interactive loop details.
+For the full source, refer to `main.c`. Below are the core driver and interactive loop details.
 
 #### Interactive CLI Commands
 
@@ -118,7 +118,7 @@ Once the firmware is running, you can verify the design by sending commands thro
 ## 6. Execution
 
 ### Step 1: Compilation
-Use the **Arm GNU Toolchain** (`arm-none-eabi-gcc`) to compile the firmware. The project includes a `Makefile` in `src_m3/` to simplify this process.
+Use the **Arm GNU Toolchain** (`arm-none-eabi-gcc`) to compile the firmware. The project includes a `Makefile` in the current directory to simplify this process.
 
 ```bash
 cd src_m3

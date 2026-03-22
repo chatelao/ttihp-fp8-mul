@@ -23,11 +23,11 @@ Alternatively, you can use the official **Gowin EDA**.
 The project supports multiple variants. Use the following commands to generate the bitstream (`.fs` file) using the open-source toolchain.
 
 ### Step 1: Synthesis (Yosys)
-Replace `${PARAMS}` with the desired variant configuration (see `.github/workflows/gowin.yaml` for exact sets).
+Replace `${PARAMS}` with the desired variant configuration (see `../.github/workflows/gowin.yaml` for exact sets).
 
 ```bash
 # Example for 'Full' variant
-yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; \
+yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top.v; \
          chparam -set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 \
                  -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 1 -set SUPPORT_MXFP4 1 \
                  -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 \
@@ -46,7 +46,7 @@ nextpnr-gowin --json build/gowin.json \
               --family GW1NS-4 \
               --top tt_gowin_top \
               --freq 20 \
-              --cst src_gowin/tangnano4k.cst
+              --cst tangnano4k.cst
 ```
 
 ### Step 3: Pack Bitstream
@@ -131,7 +131,7 @@ Verify that the configuration logic is correctly sampling your inputs.
    - `uo_out[7]`: Latched `mx_plus_en`
 
 ### Step C: Standard MAC Operation
-Run a full 32-element dot product. You can use a MicroPython script (see `test/TT_MAC_RUN.PY`) or a logic analyzer.
+Run a full 32-element dot product. You can use a MicroPython script (see `../test/TT_MAC_RUN.PY`) or a logic analyzer.
 
 **Example: 32.0 Dot Product ($1.0 \times 1.0$ for 32 elements)**
 1. **Cycle 0**: `ui_in = 0x00`, `uio_in = 0x00` (Standard Start).
@@ -144,6 +144,6 @@ Run a full 32-element dot product. You can use a MicroPython script (see `test/T
 
 ## 6. Automating Tests with MicroPython
 
-If you have a Raspberry Pi Pico or similar MCU connected to the Tang Nano 4K pins, you can use the `test/TT_MAC_RUN.PY` script as a template.
+If you have a Raspberry Pi Pico or similar MCU connected to the Tang Nano 4K pins, you can use the `../test/TT_MAC_RUN.PY` script as a template.
 
 **Connection Tip**: Ensure a common ground between the Tang Nano 4K and your test controller. The Tang Nano 4K uses 3.3V logic levels.
