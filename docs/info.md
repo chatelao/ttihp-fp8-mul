@@ -40,16 +40,6 @@ The unit captures configuration and scaling data during the first three cycles o
 #### Cycle 0: Metadata 0 (`ui_in`)
 ![Metadata 0](metadata_c0_ui.svg)
 
-```json
-{ "reg": [
-  {"name": "NBM Offset A", "bits": 3},
-  {"name": "LNS Mode", "bits": 2},
-  {"name": "Loopback En", "bits": 1},
-  {"name": "Debug En", "bits": 1},
-  {"name": "Short Protocol", "bits": 1}
-], "config": {"bits": 8}}
-```
-
 - **Short Protocol (`[7]`)**: 1: Reuse previous scales/formats; immediately jump to Cycle 3.
 - **Debug En (`[6]`)**: 1: Enable internal probing and metadata echo at the end of the block.
 - **Loopback En (`[5]`)**: 1: Direct input-to-output mapping for physical connectivity testing.
@@ -61,16 +51,6 @@ The unit captures configuration and scaling data during the first three cycles o
 
 #### Cycle 0: Metadata 1 (`uio_in`)
 ![Metadata 1](metadata_c0_uio.svg)
-
-```json
-{ "reg": [
-  {"name": "NBM Offset B / Format A/B", "bits": 3},
-  {"name": "Rounding Mode", "bits": 2},
-  {"name": "Overflow Mode", "bits": 1},
-  {"name": "Packed Mode", "bits": 1},
-  {"name": "MX+ Enable", "bits": 1}
-], "config": {"bits": 8}}
-```
 
 - **MX+ Enable (`[7]`)**: 1: Enable OCP MX+ extensions (Repurposed exponents and Block Max tracking).
 - **Packed Mode (`[6]`)**: 1: Enable Vector Packing for 4-bit formats (2 elements per byte, Cycles 3-18).
@@ -85,21 +65,14 @@ The unit captures configuration and scaling data during the first three cycles o
   - **Short Protocol**: Combined Format A & B selection.
 
 #### Cycle 1: Scale A (`ui_in`) & Config A (`uio_in`)
-![Config A](ocp_mx_config.svg)
 
 **Scale A (`ui_in[7:0]`)**:
-```json
-{ "reg": [ {"name": "Scale A", "bits": 8} ], "config": {"bits": 8}}
-```
+![Scale A](scale_a.svg)
+
 - **Shared Scale A**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand A.
 
 **Config A (`uio_in[7:0]`)**:
-```json
-{ "reg": [
-  {"name": "Format A", "bits": 3},
-  {"name": "BM Index A", "bits": 5}
-], "config": {"bits": 8}}
-```
+![Config A](config_a.svg)
 - **BM Index A (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand A (used in MX+ mode).
 - **Format A (`[2:0]`)**:
   - `0`: E4M3, `1`: E5M2, `2`: E3M2, `3`: E2M3, `4`: E2M1, `5`: INT8, `6`: INT8_SYM.
@@ -107,18 +80,12 @@ The unit captures configuration and scaling data during the first three cycles o
 #### Cycle 2: Scale B (`ui_in`) & Config B (`uio_in`)
 
 **Scale B (`ui_in[7:0]`)**:
-```json
-{ "reg": [ {"name": "Scale B", "bits": 8} ], "config": {"bits": 8}}
-```
+![Scale B](scale_b.svg)
+
 - **Shared Scale B**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand B.
 
 **Config B (`uio_in[7:0]`)**:
-```json
-{ "reg": [
-  {"name": "Format B", "bits": 3},
-  {"name": "BM Index B", "bits": 5}
-], "config": {"bits": 8}}
-```
+![Config B](config_b.svg)
 - **BM Index B (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand B.
 - **Format B (`[2:0]`)**: Independent format for Operand B (Enabled if `SUPPORT_MIXED_PRECISION=1`).
 
