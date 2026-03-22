@@ -4,6 +4,9 @@
 
 // This file implements an FP8 multiplier using Logarithmic Number System (LNS).
 // It replaces the 4x4/8x8 multiplier with a simple adder or LUT.
+`include "fp8_defs.vh"
+`include "fp8_decoder.v"
+
 /**
  * FP8 Multiplier Module (Logarithmic Number System - LNS)
  *
@@ -38,27 +41,18 @@ module fp8_mul_lns #(
     output wire       nan,
     output wire       inf
 );
-    // Format selection constants.
-    localparam FMT_E4M3 = 3'b000;
-    localparam FMT_E5M2 = 3'b001;
-    localparam FMT_E3M2 = 3'b010;
-    localparam FMT_E2M3 = 3'b011;
-    localparam FMT_E2M1 = 3'b100;
-    localparam FMT_INT8 = 3'b101;
-    localparam FMT_INT8_SYM = 3'b110;
-
     localparam INTERNAL_EXP_WIDTH = (SUPPORT_E5M2) ? 5 :
                                     (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 4 :
                                     (SUPPORT_MXFP6) ? 3 : 2;
     localparam INTERNAL_BIAS_WIDTH = INTERNAL_EXP_WIDTH + 1;
 
-    reg sign_a, sign_b;
-    reg [INTERNAL_EXP_WIDTH-1:0] ea, eb;
-    reg [7:0] ma, mb;
-    reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_a, bias_b;
-    reg zero_a, zero_b;
-    reg nan_a, nan_b, inf_a, inf_b;
-    reg is_inta, is_intb;
+    wire sign_a, sign_b;
+    wire [INTERNAL_EXP_WIDTH-1:0] ea, eb;
+    wire [7:0] ma, mb;
+    wire signed [INTERNAL_BIAS_WIDTH-1:0] bias_a, bias_b;
+    wire zero_a, zero_b;
+    wire nan_a, nan_b, inf_a, inf_b;
+    wire is_inta, is_intb;
 
     reg [15:0] p_res;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
@@ -84,141 +78,51 @@ module fp8_mul_lns #(
         lns_lut[56] = 4'h7; lns_lut[57] = 4'h8; lns_lut[58] = 4'h9; lns_lut[59] = 4'ha; lns_lut[60] = 4'hb; lns_lut[61] = 4'hc; lns_lut[62] = 4'hd; lns_lut[63] = 4'he;
     end
 
-    /**
-     * Decoding Task
-     * A 'task' in Verilog is like a procedure or function that can be reused.
-     * It breaks down the 8-bit input 'data' into its sign, exponent, and mantissa.
-     */
-    task automatic decode_operand(
-        input [7:0] data,
-        input [2:0] fmt,
-        input is_bm,
-        output reg sign_out,
-        output reg [INTERNAL_EXP_WIDTH-1:0] exp_out,
-        output reg [7:0] mant_out,
-        output reg signed [INTERNAL_BIAS_WIDTH-1:0] bias_out,
-        output reg zero_out,
-        output reg nan_out,
-        output reg inf_out,
-        output reg is_int_out
+    fp8_decoder #(
+        .SUPPORT_E4M3(SUPPORT_E4M3),
+        .SUPPORT_E5M2(SUPPORT_E5M2),
+        .SUPPORT_MXFP6(SUPPORT_MXFP6),
+        .SUPPORT_MXFP4(SUPPORT_MXFP4),
+        .SUPPORT_INT8(SUPPORT_INT8),
+        .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+        .INTERNAL_EXP_WIDTH(INTERNAL_EXP_WIDTH),
+        .INTERNAL_BIAS_WIDTH(INTERNAL_BIAS_WIDTH)
+    ) decoder_a (
+        .data(a),
+        .fmt(format_a),
+        .is_bm(is_bm_a),
+        .sign_out(sign_a),
+        .exp_out(ea),
+        .mant_out(ma),
+        .bias_out(bias_a),
+        .zero_out(zero_a),
+        .nan_out(nan_a),
+        .inf_out(inf_a),
+        .is_int_out(is_inta)
     );
-        /* verilator lint_off UNUSEDSIGNAL */
-        reg [7:0] tmp_exp;
-        /* verilator lint_on UNUSEDSIGNAL */
-        begin
-            // Set default values.
-            sign_out = 1'b0;
-            tmp_exp = 8'd0;
-            mant_out = 8'd0;
-            bias_out = {INTERNAL_BIAS_WIDTH{1'b0}};
-            zero_out = 1'b1;
-            nan_out = 1'b0;
-            inf_out = 1'b0;
-            is_int_out = 1'b0;
 
-            case (fmt)
-                FMT_E4M3: if (SUPPORT_E4M3) begin
-                    sign_out = data[7];
-                    bias_out = 7;
-                    if (is_bm && SUPPORT_MX_PLUS) begin
-                        // MX+ Extension: Block Max treatment for E4M3.
-                        tmp_exp = 11; // 15 - 4 (mantissa shift compensation)
-                        mant_out = {1'b1, data[6:0]};
-                        zero_out = 1'b0;
-                    end else begin
-                        // Standard E4M3: [S][EEEE][MMM]
-                        tmp_exp = (data[6:3] == 4'd0) ? 1 : {4'd0, data[6:3]};
-                        mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
-                        zero_out = (data[6:0] == 7'd0);
-                        if (data[6:0] == 7'b1111111) nan_out = 1'b1;
-                    end
-                end
-                FMT_E5M2: if (SUPPORT_E5M2) begin
-                    sign_out = data[7];
-                    bias_out = 15;
-                    if (is_bm && SUPPORT_MX_PLUS) begin
-                        tmp_exp = 26; // 30 - 4 (mantissa shift compensation)
-                        mant_out = {1'b1, data[6:0]};
-                        zero_out = 1'b0;
-                    end else begin
-                        // Standard E5M2: [S][EEEEE][MM]
-                        tmp_exp = (data[6:2] == 5'd0) ? 1 : {3'd0, data[6:2]};
-                        mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
-                        zero_out = (data[6:0] == 7'd0);
-                        if (data[6:2] == 5'b11111) begin
-                            if (data[1:0] == 2'b00) inf_out = 1'b1;
-                            else                   nan_out = 1'b1;
-                        end
-                    end
-                end
-                FMT_E3M2: if (SUPPORT_MXFP6) begin
-                    sign_out = data[5];
-                    bias_out = 3;
-                    if (is_bm && SUPPORT_MX_PLUS) begin
-                        tmp_exp = 5; // 7 - 2 (mantissa shift compensation)
-                        mant_out = {2'b0, 1'b1, data[4:0]};
-                        zero_out = 1'b0;
-                    end else begin
-                        tmp_exp = (data[4:2] == 3'd0) ? 1 : {5'd0, data[4:2]};
-                        mant_out = {4'b0, (data[4:2] != 3'd0), data[1:0], 1'b0};
-                        zero_out = (data[4:0] == 5'd0);
-                    end
-                end
-                FMT_E2M3: if (SUPPORT_MXFP6) begin
-                    sign_out = data[5];
-                    bias_out = 1;
-                    if (is_bm && SUPPORT_MX_PLUS) begin
-                        tmp_exp = 1; // 3 - 2 (mantissa shift compensation)
-                        mant_out = {2'b0, 1'b1, data[4:0]};
-                        zero_out = 1'b0;
-                    end else begin
-                        tmp_exp = (data[4:3] == 2'd0) ? 1 : {6'd0, data[4:3]};
-                        mant_out = {4'b0, (data[4:3] != 2'd0), data[2:0]};
-                        zero_out = (data[4:0] == 5'd0);
-                    end
-                end
-                FMT_E2M1: if (SUPPORT_MXFP4) begin
-                    sign_out = data[3];
-                    bias_out = 1;
-                    if (is_bm && SUPPORT_MX_PLUS) begin
-                        tmp_exp = 3; // No compensation needed (shift 0)
-                        mant_out = {4'b0, 1'b1, data[2:0]};
-                        zero_out = 1'b0;
-                    end else begin
-                        tmp_exp = (data[2:1] == 2'd0) ? 1 : {6'd0, data[2:1]};
-                        mant_out = {4'b0, (data[2:1] != 2'd0), data[0], 2'b0};
-                        zero_out = (data[2:0] == 3'd0);
-                    end
-                end
-                FMT_INT8: if (SUPPORT_INT8) begin
-                    // 8-bit Integer treatment.
-                    sign_out = data[7];
-                    mant_out = data[7] ? -data : data;
-                    tmp_exp = 0;
-                    bias_out = 3;
-                    zero_out = (data == 8'd0);
-                    is_int_out = 1'b1;
-                end
-                FMT_INT8_SYM: if (SUPPORT_INT8) begin
-                    sign_out = data[7];
-                    mant_out = (data == 8'h80) ? 8'd127 : (data[7] ? -data : data);
-                    tmp_exp = 0;
-                    bias_out = 3;
-                    zero_out = (data == 8'd0);
-                    is_int_out = 1'b1;
-                end
-                default: begin
-                    // Default to E4M3-like structure for unknown formats.
-                    sign_out = data[7];
-                    tmp_exp = (data[6:3] == 4'd0) ? 1 : {4'd0, data[6:3]};
-                    mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
-                    bias_out = 7;
-                    zero_out = (data[6:0] == 7'd0);
-                end
-            endcase
-            exp_out = tmp_exp[INTERNAL_EXP_WIDTH-1:0];
-        end
-    endtask
+    fp8_decoder #(
+        .SUPPORT_E4M3(SUPPORT_E4M3),
+        .SUPPORT_E5M2(SUPPORT_E5M2),
+        .SUPPORT_MXFP6(SUPPORT_MXFP6),
+        .SUPPORT_MXFP4(SUPPORT_MXFP4),
+        .SUPPORT_INT8(SUPPORT_INT8),
+        .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
+        .INTERNAL_EXP_WIDTH(INTERNAL_EXP_WIDTH),
+        .INTERNAL_BIAS_WIDTH(INTERNAL_BIAS_WIDTH)
+    ) decoder_b (
+        .data(b),
+        .fmt(SUPPORT_MIXED_PRECISION ? format_b : format_a),
+        .is_bm(is_bm_b),
+        .sign_out(sign_b),
+        .exp_out(eb),
+        .mant_out(mb),
+        .bias_out(bias_b),
+        .zero_out(zero_b),
+        .nan_out(nan_b),
+        .inf_out(inf_b),
+        .is_int_out(is_intb)
+    );
 
     always @(*) begin
         // Initialize to avoid hardware latches.
@@ -228,17 +132,6 @@ module fp8_mul_lns #(
         nan_res = 1'b0;
         inf_res = 1'b0;
         m_sum = 4'd0;
-
-        // Decode operands.
-        decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a, nan_a, inf_a, is_inta);
-
-        // Operand B Decoding
-        if (SUPPORT_MIXED_PRECISION) begin
-            decode_operand(b, format_b, is_bm_b, sign_b, eb, mb, bias_b, zero_b, nan_b, inf_b, is_intb);
-        end else begin
-            // Use format_a for both operands to allow hardware sharing
-            decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b, nan_b, inf_b, is_intb);
-        end
 
         // Multiplication Logic Selection.
         if (lns_mode == 2'b00) begin

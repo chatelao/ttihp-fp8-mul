@@ -1,4 +1,5 @@
 `default_nettype none
+`include "fp8_defs.vh"
 
 // Bit-Serial LNS Multiplier Core (Mitchell Approximation)
 // Processes Log(A) + Log(B) - Bias bit-by-bit.
@@ -48,11 +49,11 @@ module fp8_mul_serial_lns #(
     function automatic [3:0] get_m_width(input [2:0] fmt);
         begin
             case (fmt)
-                3'b000: get_m_width = 4'd3; // E4M3
-                3'b001: get_m_width = 4'd2; // E5M2
-                3'b010: get_m_width = 4'd2; // E3M2
-                3'b011: get_m_width = 4'd3; // E2M3
-                3'b100: get_m_width = 4'd1; // E2M1
+                `FMT_E4M3: get_m_width = 4'd3; // E4M3
+                `FMT_E5M2: get_m_width = 4'd2; // E5M2
+                `FMT_E3M2: get_m_width = 4'd2; // E3M2
+                `FMT_E2M3: get_m_width = 4'd3; // E2M3
+                `FMT_E2M1: get_m_width = 4'd1; // E2M1
                 default: get_m_width = 4'd3;
             endcase
         end
@@ -61,9 +62,9 @@ module fp8_mul_serial_lns #(
     function automatic [3:0] get_sign_pos(input [2:0] fmt);
         begin
             case (fmt)
-                3'b000, 3'b001: get_sign_pos = 4'd7;
-                3'b010, 3'b011: get_sign_pos = 4'd5;
-                3'b100:         get_sign_pos = 4'd3;
+                `FMT_E4M3, `FMT_E5M2: get_sign_pos = 4'd7;
+                `FMT_E3M2, `FMT_E2M3: get_sign_pos = 4'd5;
+                `FMT_E2M1:         get_sign_pos = 4'd3;
                 default:        get_sign_pos = 4'd7;
             endcase
         end
@@ -72,11 +73,11 @@ module fp8_mul_serial_lns #(
     function automatic [7:0] get_bias(input [2:0] fmt);
         begin
             case (fmt)
-                3'b000: get_bias = 8'd7;
-                3'b001: get_bias = 8'd15;
-                3'b010: get_bias = 8'd3;
-                3'b011: get_bias = 8'd1;
-                3'b100: get_bias = 8'd1;
+                `FMT_E4M3: get_bias = 8'd7;
+                `FMT_E5M2: get_bias = 8'd15;
+                `FMT_E3M2: get_bias = 8'd3;
+                `FMT_E2M3: get_bias = 8'd1;
+                `FMT_E2M1: get_bias = 8'd1;
                 default: get_bias = 8'd7;
             endcase
         end
@@ -205,12 +206,12 @@ module fp8_mul_serial_lns #(
     assign special_zero = !a_any_nonzero || !b_any_nonzero;
 
     // Detect if operands are special values (NaN or Infinity).
-    wire a_is_nan_inf = ( (format_a == 3'b001 && a_e_all_ones) || (format_a == 3'b000 && a_e_all_ones && a_m_any_nonzero) );
-    wire b_is_nan_inf = ( (format_b == 3'b001 && b_e_all_ones) || (format_b == 3'b000 && b_e_all_ones && b_m_any_nonzero) );
+    wire a_is_nan_inf = ( (format_a == `FMT_E5M2 && a_e_all_ones) || (format_a == `FMT_E4M3 && a_e_all_ones && a_m_any_nonzero) );
+    wire b_is_nan_inf = ( (format_b == `FMT_E5M2 && b_e_all_ones) || (format_b == `FMT_E4M3 && b_e_all_ones && b_m_any_nonzero) );
 
-    assign special_nan = (a_is_nan_inf && (format_a != 3'b001 || a_m_any_nonzero)) ||
-                         (b_is_nan_inf && (format_b != 3'b001 || b_m_any_nonzero));
-    assign special_inf = (a_is_nan_inf && format_a == 3'b001 && !a_m_any_nonzero) ||
-                         (b_is_nan_inf && format_b == 3'b001 && !b_m_any_nonzero);
+    assign special_nan = (a_is_nan_inf && (format_a != `FMT_E5M2 || a_m_any_nonzero)) ||
+                         (b_is_nan_inf && (format_b != `FMT_E5M2 || b_m_any_nonzero));
+    assign special_inf = (a_is_nan_inf && format_a == `FMT_E5M2 && !a_m_any_nonzero) ||
+                         (b_is_nan_inf && format_b == `FMT_E5M2 && !b_m_any_nonzero);
 
 endmodule
