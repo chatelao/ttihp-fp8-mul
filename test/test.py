@@ -905,6 +905,10 @@ async def test_mx_fp4_yaml(dut):
     await run_yaml_file(dut, "TEST_MX_FP4.yaml")
 
 @cocotb.test()
+async def test_min_max_zero_yaml(dut):
+    await run_yaml_file(dut, "TEST_MIN_MAX_ZERO.yaml")
+
+@cocotb.test()
 async def test_mxplus_yaml(dut):
     if os.environ.get("GATES") == "yes":
         dut._log.info("Skipping MX+ YAML Test in Gate-Level Simulation")
