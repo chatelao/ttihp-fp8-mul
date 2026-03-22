@@ -50,7 +50,12 @@ To maintain a minimal IO footprint (8-bit ports), the unit uses a **41-cycle str
 #### Cycle 1: UIO_IN (Config A)
 ![Config A](ocp_mx_config.svg)
 
-- **Format A (`[2:0]`)**: 0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM. *(Note: All formats support LNS optimization)*
+- **Format A (`[2:0]`)**: 0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM.
+- **BM Index A (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand A, used for MX+ exponent repurposing.
+
+#### Cycle 2: UIO_IN (Config B)
+- **Format B (`[2:0]`)**: Independent format for Operand B (Enabled if `SUPPORT_MIXED_PRECISION=1`).
+- **BM Index B (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand B.
 
 ## How to test
 
