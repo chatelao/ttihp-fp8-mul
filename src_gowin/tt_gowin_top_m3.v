@@ -24,8 +24,8 @@ module tt_gowin_top_m3 #(
     input  wire       ext_clk,   // External 20MHz crystal
     input  wire       ext_rst_n, // S1 button
     output wire [7:0] uo_out,    // Physical pins for logic analyzer
-    output wire       uart_tx,   // Pin 18
-    input  wire       uart_rx    // Pin 19
+    output wire       uart_tx,   // Pin 19
+    input  wire       uart_rx    // Pin 18
 );
 
     // M3 Peripheral Buses

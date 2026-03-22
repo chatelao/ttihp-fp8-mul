@@ -4,9 +4,9 @@ IO_LOC "ext_rst_n" 15;
 IO_PORT "ext_rst_n" PULL_MODE=UP;
 
 // UART0 Mapped through fabric to on-board BL616/CH552 bridge
-IO_LOC "uart_tx" 18;
+IO_LOC "uart_tx" 19;
 IO_PORT "uart_tx" PULL_MODE=UP IO_TYPE=LVCMOS33;
-IO_LOC "uart_rx" 19;
+IO_LOC "uart_rx" 18;
 IO_PORT "uart_rx" PULL_MODE=UP IO_TYPE=LVCMOS33;
 
 // MAC output monitoring pins (optional, for logic analyzer)

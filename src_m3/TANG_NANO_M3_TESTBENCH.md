@@ -28,8 +28,8 @@ If you prefer to use an external serial adapter (e.g., FT232R, CP2102), connect 
 
 | Tang Nano 4K Pin | Signal | External Adapter Pin |
 |:---:|:---:|:---:|
-| **18** | `uart_tx` | RXD |
-| **19** | `uart_rx` | TXD |
+| **18** | `uart_rx` | TXD |
+| **19** | `uart_tx` | RXD |
 | **GND** | Ground | GND |
 
 *Note: Ensure your adapter is set to **3.3V logic levels**. Connecting a 5V adapter may damage the FPGA.*
