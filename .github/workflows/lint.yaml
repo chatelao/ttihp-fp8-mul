@@ -13,4 +13,4 @@ jobs:
 
       - name: Run Verilator Lint
         shell: bash
-        run: verilator --lint-only -Wall -Isrc/ --top-module tt_um_chatelao_fp8_multiplier src/project.v
+        run: verilator --lint-only -Wall -Isrc/ --top-module tt_um_chatelao_fp8_multiplier src/*.v

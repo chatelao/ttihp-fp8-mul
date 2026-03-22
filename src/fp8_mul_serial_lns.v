@@ -1,3 +1,5 @@
+`ifndef __FP8_MUL_SERIAL_LNS_V__
+`define __FP8_MUL_SERIAL_LNS_V__
 `default_nettype none
 `include "fp8_defs.vh"
 
@@ -215,3 +217,4 @@ module fp8_mul_serial_lns #(
                          (b_is_nan_inf && format_b == `FMT_E5M2 && !b_m_any_nonzero);
 
 endmodule
+`endif

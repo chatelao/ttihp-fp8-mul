@@ -1,3 +1,5 @@
+`ifndef __PROJECT_V__
+`define __PROJECT_V__
 `default_nettype none
 
 /**
@@ -971,3 +973,4 @@ module tt_um_chatelao_fp8_multiplier #(
 `endif
 
 endmodule
+`endif

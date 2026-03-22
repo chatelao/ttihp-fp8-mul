@@ -46,4 +46,4 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Verilator linting:
 lint:
-	cd $(SRC_DIR) && verilator --lint-only -Wall project.v --top-module tt_um_chatelao_fp8_multiplier
+	cd $(SRC_DIR) && verilator --lint-only -Wall *.v --top-module tt_um_chatelao_fp8_multiplier

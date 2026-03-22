@@ -52,10 +52,6 @@ module fp8_mul #(
     wire signed [INTERNAL_BIAS_WIDTH-1:0] bias_a, bias_b;
     wire zero_a, zero_b;
     wire nan_a, nan_b, inf_a, inf_b;
-    /* verilator lint_off UNUSED */
-    wire is_inta, is_intb;
-    /* verilator lint_on UNUSED */
-
     reg [15:0] p_res;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
     reg sign_res;
@@ -94,6 +90,10 @@ module fp8_mul #(
             end
         end else begin : gen_multi_format
             // Standard path for multiple formats.
+            /* verilator lint_off UNUSED */
+            wire is_inta, is_intb;
+            /* verilator lint_on UNUSED */
+
             fp8_decoder #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
