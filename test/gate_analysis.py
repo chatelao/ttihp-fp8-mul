@@ -140,11 +140,17 @@ def main():
     mul_params = {f: 1 for f in mul_features}
     mul_params["SUPPORT_MX_PLUS"] = 0
     mul_baseline_gates = get_yosys_stats(mul_params, top_module="fp8_mul", source_file="src/fp8_mul.v")
-    print(f"{'fp8_mul (Baseline)':<30} | {mul_baseline_gates:<10} | 0")
+    if mul_baseline_gates is not None:
+        print(f"{'fp8_mul (Baseline)':<30} | {mul_baseline_gates:<10} | 0")
+    else:
+        print(f"{'fp8_mul (Baseline)':<30} | {'FAILED':<10} | N/A")
 
     mul_params["SUPPORT_MX_PLUS"] = 1
     mul_mx_plus_gates = get_yosys_stats(mul_params, top_module="fp8_mul", source_file="src/fp8_mul.v")
-    print(f"{'fp8_mul (With MX+)':<30} | {mul_mx_plus_gates:<10} | {mul_mx_plus_gates - mul_baseline_gates}")
+    if mul_mx_plus_gates is not None and mul_baseline_gates is not None:
+        print(f"{'fp8_mul (With MX+)':<30} | {mul_mx_plus_gates:<10} | {mul_mx_plus_gates - mul_baseline_gates}")
+    else:
+        print(f"{'fp8_mul (With MX+)':<30} | {'FAILED':<10} | N/A")
 
 if __name__ == "__main__":
     main()

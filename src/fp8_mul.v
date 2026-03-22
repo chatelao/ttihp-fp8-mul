@@ -3,6 +3,8 @@
 `default_nettype none
 
 // This file contains logic derived from fp8_mul by Clive Chan (https://github.com/cchan/fp8_mul)
+`include "fp8_defs.vh"
+`include "fp8_decoder.v"
 
 /**
  * FP8 Multiplier Module
