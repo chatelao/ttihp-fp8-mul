@@ -111,8 +111,7 @@ module fp8_mul #(
                 .bias_out(bias_a),
                 .zero_out(zero_a),
                 .nan_out(nan_a),
-                .inf_out(inf_a),
-                .is_int_out()
+                .inf_out(inf_a)
             );
 
             fp8_decoder #(
@@ -134,8 +133,7 @@ module fp8_mul #(
                 .bias_out(bias_b),
                 .zero_out(zero_b),
                 .nan_out(nan_b),
-                .inf_out(inf_b),
-                .is_int_out()
+                .inf_out(inf_b)
             );
 
             always @(*) begin
