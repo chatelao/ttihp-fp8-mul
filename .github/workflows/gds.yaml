@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -51,7 +51,7 @@ jobs:
       id-token: write # to verify the deployment originates from an appropriate source
     steps:
       - name: checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -68,7 +68,7 @@ jobs:
           xvfb-run python3 scripts/gds_colorizer.py
 
       - name: Upload Colored Visualization
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: gds_colored_zones
           path: gds_colored_zones.png
