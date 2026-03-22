@@ -55,23 +55,30 @@ def get_operand_class(bits, format_val,
     CoverPoint("top.round_mode", vname="round_mode", bins=list(range(4)), bins_labels=["TRN", "CEL", "FLR", "RNE"]),
     CoverPoint("top.overflow_wrap", vname="overflow_wrap", bins=list(range(2)), bins_labels=["SAT", "WRAP"]),
     CoverPoint("top.packed_mode", vname="packed_mode", bins=list(range(2)), bins_labels=["OFF", "ON"]),
+    CoverPoint("top.lns_mode", vname="lns_mode", bins=list(range(3)), bins_labels=["NORMAL", "LNS", "HYBRID"]),
+    CoverPoint("top.mx_plus_mode", vname="mx_plus_mode", bins=[0, 1], bins_labels=["OFF", "ON"]),
+    CoverPoint("top.is_bm_a", vname="is_bm_a", bins=[False, True]),
+    CoverPoint("top.is_bm_b", vname="is_bm_b", bins=[False, True]),
     CoverPoint("top.op_class_a", vname="op_class_a", bins=["ZERO", "SUBNORMAL", "NORMAL", "MAX_NORMAL", "SPECIAL", "POSITIVE", "NEGATIVE", "MIN_INT", "MAX_INT"]),
     CoverPoint("top.op_class_b", vname="op_class_b", bins=["ZERO", "SUBNORMAL", "NORMAL", "MAX_NORMAL", "SPECIAL", "POSITIVE", "NEGATIVE", "MIN_INT", "MAX_INT"]),
     CoverCross("top.format_cross", items=["top.format_a", "top.format_b"]),
     CoverCross("top.format_packed_cross", items=["top.format_a", "top.packed_mode"]),
-    CoverCross("top.round_overflow_cross", items=["top.round_mode", "top.overflow_wrap"])
+    CoverCross("top.round_overflow_cross", items=["top.round_mode", "top.overflow_wrap"]),
+    CoverCross("top.lns_format_cross", items=["top.lns_mode", "top.format_a"]),
+    CoverCross("top.mx_plus_bm_a_cross", items=["top.mx_plus_mode", "top.is_bm_a"]),
+    CoverCross("top.mx_plus_bm_b_cross", items=["top.mx_plus_mode", "top.is_bm_b"])
 )
-def sample_coverage(format_a, format_b, round_mode, overflow_wrap, packed_mode, op_class_a, op_class_b):
+def sample_coverage(format_a, format_b, round_mode, overflow_wrap, packed_mode, lns_mode, mx_plus_mode, is_bm_a, is_bm_b, op_class_a, op_class_b):
     pass
 
 # We'll use a wrapper to sample
-def do_sample(format_a, format_b, round_mode, overflow_wrap, packed_mode, bits_a, bits_b,
+def do_sample(format_a, format_b, round_mode, overflow_wrap, packed_mode, lns_mode, mx_plus_mode, is_bm_a, is_bm_b, bits_a, bits_b,
               support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
     op_class_a = get_operand_class(bits_a, format_a, support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
     op_class_b = get_operand_class(bits_b, format_b, support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
-    sample_coverage(format_a, format_b, round_mode, overflow_wrap, packed_mode, op_class_a, op_class_b)
+    sample_coverage(format_a, format_b, round_mode, overflow_wrap, packed_mode, lns_mode, mx_plus_mode, is_bm_a, is_bm_b, op_class_a, op_class_b)
 
-async def run_mac_test_covered(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, packed_mode=0):
+async def run_mac_test_covered(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, packed_mode=0, lns_mode=0, mx_plus_mode=0, bm_index_a=0, bm_index_b=0):
     from test import get_param
     support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
@@ -79,17 +86,20 @@ async def run_mac_test_covered(dut, format_a, format_b, a_elements, b_elements, 
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
 
     # Sample coverage for each element pair
-    for a, b in zip(a_elements, b_elements):
-        do_sample(format_a, format_b, round_mode, overflow_wrap, packed_mode, a, b,
+    for i, (a, b) in enumerate(zip(a_elements, b_elements)):
+        is_bm_a = (i == bm_index_a)
+        is_bm_b = (i == bm_index_b)
+        do_sample(format_a, format_b, round_mode, overflow_wrap, packed_mode, lns_mode, mx_plus_mode, is_bm_a, is_bm_b, a, b,
                   support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
 
     # Actually run the test (reusing logic from test.py)
     from test import run_mac_test
-    await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap, packed_mode=packed_mode)
+    await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap, packed_mode=packed_mode, lns_mode=lns_mode, mx_plus_mode=mx_plus_mode, bm_index_a=bm_index_a, bm_index_b=bm_index_b)
 
 @cocotb.test()
 async def test_exhaustive_formats_subset(dut):
     """Run exhaustive 256x256 for a few key format combinations"""
+    # Start the clock here as this is often the first test to run
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -126,9 +136,7 @@ async def test_exhaustive_formats_subset(dut):
 @cocotb.test()
 async def test_edge_cases(dut):
     """Targeted edge cases for all formats"""
-    clock = Clock(dut.clk, 10, unit="ns")
-    cocotb.start_soon(clock.start())
-
+    # The clock is expected to be started by another test or the driver.
     from test import get_param
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
@@ -161,9 +169,7 @@ async def test_edge_cases(dut):
 @cocotb.test()
 async def test_shared_scale_coverage(dut):
     """Test various shared scale combinations"""
-    clock = Clock(dut.clk, 10, unit="ns")
-    cocotb.start_soon(clock.start())
-
+    # The clock is expected to be started by another test or the driver.
     scales = [0, 127, 128, 255]
     for sa in scales:
         for sb in scales:
@@ -172,17 +178,52 @@ async def test_shared_scale_coverage(dut):
             await run_mac_test_covered(dut, 0, 0, a_els, b_els, scale_a=sa, scale_b=sb)
 
 @cocotb.test()
+async def test_lns_coverage(dut):
+    """Targeted coverage for LNS and Hybrid modes"""
+    # The clock is expected to be started by another test or the driver.
+    from test import get_param
+    use_lns = get_param(dut, "USE_LNS_MUL", 0)
+    if not use_lns:
+        dut._log.info("Skipping LNS Coverage Test (USE_LNS_MUL=0)")
+        return
+
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
+
+    allowed_formats = []
+    if support_e4m3: allowed_formats.append(0)
+    if support_e5m2: allowed_formats.append(1)
+    if support_mxfp4: allowed_formats.append(4)
+
+    for fa in allowed_formats:
+        for lm in [1, 2]: # LNS, HYBRID
+            mx = 1 if (lm == 2 and support_mxplus) else 0
+            # Test one full block for each combination
+            a_els = [0x38] * 32
+            b_els = [0x38] * 32
+            # Use appropriate elements for E5M2/E2M1
+            if fa == 1: # E5M2: 1.0 is 0x3C
+                a_els = [0x3C] * 32
+                b_els = [0x3C] * 32
+            elif fa == 4: # E2M1: 1.0 is 0x02
+                a_els = [0x02] * 32
+                b_els = [0x02] * 32
+            await run_mac_test_covered(dut, fa, fa, a_els, b_els, lns_mode=lm, mx_plus_mode=mx)
+
+@cocotb.test()
 async def test_randomized_coverage(dut):
     """Run many randomized tests to fill coverage"""
-    clock = Clock(dut.clk, 10, unit="ns")
-    cocotb.start_soon(clock.start())
-
+    # The clock is expected to be started by another test or the driver.
     from test import get_param
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     support_int8 = get_param(dut, "SUPPORT_INT8", 0)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
+    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
+    use_lns = get_param(dut, "USE_LNS_MUL", 0)
 
     allowed_formats = [0]
     if support_e5m2: allowed_formats.append(1)
@@ -198,16 +239,20 @@ async def test_randomized_coverage(dut):
         pm = random.choice([0, 1]) if (fa == 4 and fb == 4) else 0
         sa = random.randint(0, 255)
         sb = random.randint(0, 255)
+        lm = random.randint(0, 2) if use_lns else 0
+        mx = random.randint(0, 1) if support_mxplus else 0
+        bma = random.randint(0, 31) if mx else 0
+        bmb = random.randint(0, 31) if mx else 0
         el_mask = 0xF if pm else 0xFF
         a_els = [random.randint(0, 255) & el_mask for _ in range(32)]
         b_els = [random.randint(0, 255) & el_mask for _ in range(32)]
-        await run_mac_test_covered(dut, fa, fb, a_els, b_els, sa, sb, rm, ov, packed_mode=pm)
+        await run_mac_test_covered(dut, fa, fb, a_els, b_els, sa, sb, rm, ov, packed_mode=pm, lns_mode=lm, mx_plus_mode=mx, bm_index_a=bma, bm_index_b=bmb)
 
 @cocotb.test()
 async def test_coverage_report(dut):
     """Print coverage report"""
     dut._log.info("Final Coverage Report:")
     # Log individual coverage points
-    for name in ["top.format_a", "top.format_b", "top.round_mode", "top.overflow_wrap", "top.packed_mode", "top.op_class_a", "top.op_class_b", "top.format_cross", "top.format_packed_cross"]:
+    for name in ["top.format_a", "top.format_b", "top.round_mode", "top.overflow_wrap", "top.packed_mode", "top.lns_mode", "top.mx_plus_mode", "top.is_bm_a", "top.is_bm_b", "top.op_class_a", "top.op_class_b", "top.format_cross", "top.format_packed_cross", "top.round_overflow_cross", "top.lns_format_cross", "top.mx_plus_bm_a_cross", "top.mx_plus_bm_b_cross"]:
         coverage = coverage_db[name].cover_percentage
         dut._log.info(f"  {name}: {coverage:.2f}%")
