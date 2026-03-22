@@ -133,8 +133,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire       packed_mode   = CAN_PACK ? packed_mode_reg : 1'b0;
 
     // MX+ Registers
+    /* verilator lint_off UNUSED */
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
+    /* verilator lint_on UNUSED */
     wire [2:0] nbm_offset_a_val;
     wire [2:0] nbm_offset_b_val;
     wire       mx_plus_en_val;
@@ -189,10 +191,10 @@ module tt_um_chatelao_fp8_multiplier #(
 
             // MX+ Centralized Flagging (Step 3)
             wire [4:0] logical_cycle_idx = logical_cycle[4:0] - 5'd3;
-            /* verilator lint_off UNUSEDSIGNAL */
+            /* verilator lint_off UNUSED */
             wire [5:0] element_index_lane0_full = actual_packed_mode ? { logical_cycle_idx, 1'b0 } : { 1'b0, logical_cycle_idx };
             wire [5:0] element_index_lane1_full = actual_packed_mode ? { logical_cycle_idx, 1'b1 } : 6'd0;
-            /* verilator lint_on UNUSEDSIGNAL */
+            /* verilator lint_on UNUSED */
             wire [4:0] element_index_lane0_reg = element_index_lane0_full[4:0];
             wire [4:0] element_index_lane1_reg = element_index_lane1_full[4:0];
 
@@ -230,9 +232,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 end
             end
 
-            /* verilator lint_off UNUSEDSIGNAL */
+            /* verilator lint_off UNUSED */
             wire [4:0] read_ptr_full = (logical_cycle[4:0] - 5'd3) >> 1;
-            /* verilator lint_on UNUSEDSIGNAL */
+            /* verilator lint_on UNUSED */
             wire [3:0] read_ptr = read_ptr_full[3:0];
             wire [7:0] a_byte = (logical_cycle == 6'd3) ? ui_in : fifo_a[read_ptr];
             wire [7:0] b_byte = (logical_cycle == 6'd3) ? uio_in : fifo_b[read_ptr];
@@ -390,10 +392,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
-    /* verilator lint_off UNUSEDSIGNAL */
+    /* verilator lint_off UNUSED */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
-    /* verilator lint_on UNUSEDSIGNAL */
+    /* verilator lint_on UNUSED */
 
 
     generate
@@ -513,13 +515,13 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // Pipeline registers for multiplier output
-    /* verilator lint_off UNUSEDSIGNAL */
+    /* verilator lint_off UNUSED */
     wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
     wire mul_sign_lane0_val, mul_sign_lane1_val;
     wire mul_nan_lane0_val, mul_nan_lane1_val;
     wire mul_inf_lane0_val, mul_inf_lane1_val;
-    /* verilator lint_on UNUSEDSIGNAL */
+    /* verilator lint_on UNUSED */
 
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
@@ -672,11 +674,11 @@ module tt_um_chatelao_fp8_multiplier #(
                                           (is_bm_a_lane0_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                           (is_bm_b_lane0_val ? 10'd0 : {7'd0, nbm_offset_b_val});
 
-    /* verilator lint_off UNUSEDSIGNAL */
+    /* verilator lint_off UNUSED */
     wire signed [9:0] exp_sum_lane1_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane1_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane1_val} -
                                           (is_bm_a_lane1_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
-    /* verilator lint_on UNUSEDSIGNAL */
+    /* verilator lint_on UNUSED */
 
     // Shift aligner inputs by 1 cycle due to multiplier pipeline (if enabled)
     wire [31:0] aligner_lane0_in_prod_acc;
@@ -708,9 +710,9 @@ module tt_um_chatelao_fp8_multiplier #(
         .aligned(aligned_lane0_res)
     );
 
-    /* verilator lint_off UNUSEDSIGNAL */
+    /* verilator lint_off UNUSED */
     wire [31:0] aligned_lane1_res;
-    /* verilator lint_on UNUSEDSIGNAL */
+    /* verilator lint_on UNUSED */
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             fp8_aligner #(

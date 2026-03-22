@@ -19,7 +19,9 @@ module fp8_mul #(
     input  wire [2:0] format_b,
     input  wire       is_bm_a,
     input  wire       is_bm_b,
+    /* verilator lint_off UNUSED */
     input  wire [1:0] lns_mode, // Unused in standard multiplier
+    /* verilator lint_on UNUSED */
     output wire [15:0] prod,    // Mantissa product
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign,
@@ -68,9 +70,9 @@ module fp8_mul #(
         output reg nan_out,
         output reg inf_out
     );
-        /* verilator lint_off UNUSEDSIGNAL */
+        /* verilator lint_off UNUSED */
         reg [7:0] tmp_exp;
-        /* verilator lint_on UNUSEDSIGNAL */
+        /* verilator lint_on UNUSED */
         begin
             // Defaults for unsupported formats
             sign_out = 1'b0;
