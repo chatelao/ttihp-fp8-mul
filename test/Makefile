@@ -38,7 +38,7 @@ VERILOG_SOURCES += $(PWD)/tb.v
 TOPLEVEL = tb
 
 # List test modules to run, separated by commas and without the .py suffix:
-COCOTB_TEST_MODULES = test,test_coverage,test_performance,test_short_protocol
+COCOTB_TEST_MODULES = test,test_coverage,test_performance,test_short_protocol,test_exhaustive
 MODULE = $(COCOTB_TEST_MODULES)
 
 # include cocotb's make rules to take care of the simulator setup
