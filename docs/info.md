@@ -126,4 +126,4 @@ The unit captures configuration and scaling data during the first three cycles o
 
 ## Thank you!
 
-A massive thank you to **Matt Venn**, **Uri Shaked**, **Sophie**, and the entire **Tiny Tapeout / Efabless** community for making open-source silicon a reality. This project was built on the foundation of your incredible tools and dedication.
+A massive thank you to **Matt Venn**, **Uri Shaked**, **Sophie**, and the entire **Tiny Tapeout / IHP** community for making open-source silicon a reality. This project was built on the foundation of your incredible tools and dedication.
