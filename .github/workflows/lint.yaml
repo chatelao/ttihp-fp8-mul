@@ -1,0 +1,16 @@
+name: lint
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+
+      - name: Install Verilator
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y verilator
+
+      - name: Run Verilator Lint
+        shell: bash
+        run: verilator --lint-only -Wall -Isrc/ --top-module tt_um_chatelao_fp8_multiplier src/project.v

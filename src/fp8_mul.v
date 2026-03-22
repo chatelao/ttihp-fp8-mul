@@ -28,7 +28,9 @@ module fp8_mul #(
     input  wire [2:0] format_b,              // Format selection for B.
     input  wire       is_bm_a,               // 1 = Operand A is a "Block Max" (MX+ extension).
     input  wire       is_bm_b,               // 1 = Operand B is a "Block Max" (MX+ extension).
+    /* verilator lint_off UNUSED */
     input  wire [1:0] lns_mode,              // Unused in this standard parallel multiplier.
+    /* verilator lint_on UNUSED */
     output wire [15:0] prod,                 // The product of the mantissas.
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // The combined and biased output exponent.
     output wire       sign,                  // The sign of the result (XOR of signs).
