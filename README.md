@@ -19,6 +19,12 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 *Source: [docs/diagrams/CONTEXT_DIAGRAM.PUML](docs/diagrams/CONTEXT_DIAGRAM.PUML)*
 
+## MAC Core Architecture
+
+![MAC Core Diagram](docs/diagrams/MAC_CORE_SCHEMDRAW.svg)
+
+*Source: [scripts/generate_mac_diagram.py](scripts/generate_mac_diagram.py)*
+
 - [Read the documentation for project](docs/info.md)
 - [Consolidated Project Roadmap](ROADMAP.md)
 - [Project Concept & Detailed Roadmap](docs/architecture/MXFP8_CONCEPT.md)
