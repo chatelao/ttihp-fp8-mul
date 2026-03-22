@@ -17,6 +17,7 @@ The unit is configured in its "Full" edition (2x2 tiles), featuring:
 - **Shared Scaling (UE8M0)**: Automatic application of 8-bit exponents ($2^{E-127}$) to element blocks.
 - **Flexible Rounding**: Support for Truncate (TRN), Ceil (CEL), Floor (FLR), and Round-to-Nearest-Even (RNE).
 - **Mixed Precision**: Independent format control for Operand A and Operand B within a single MAC block.
+- **Logarithmic Multiplier (LNS)**: Optional area-optimized path using Mitchell's Approximation to reduce multiplier area by >50%.
 
 ### Streaming Protocol
 To maintain a minimal IO footprint (8-bit ports), the unit uses a **41-cycle streaming protocol** to process a block of 32 elements ($k=32$).
@@ -38,7 +39,7 @@ To maintain a minimal IO footprint (8-bit ports), the unit uses a **41-cycle str
 ![Metadata 0](metadata_c0_ui.svg)
 
 - **Short Protocol (`[7]`)**: Reuse previous scales/formats; jump to Cycle 3.
-- **LNS Mode (`[4:3]`)**: 0: Normal, 1: LNS, 2: Hybrid.
+- **LNS Mode (`[4:3]`)**: 0: Normal (Exact), 1: LNS (Mitchell Approximation), 2: Hybrid (Standard for Block Max elements, LNS for others).
 
 #### Cycle 0: UIO_IN (Metadata 1)
 ![Metadata 1](metadata_c0_uio.svg)
