@@ -4,8 +4,6 @@
 
 // This file implements an FP8 multiplier using Logarithmic Number System (LNS).
 // It replaces the 4x4/8x8 multiplier with a simple adder or LUT.
-`include "fp8_defs.vh"
-`include "fp8_decoder.v"
 
 /**
  * FP8 Multiplier Module (Logarithmic Number System - LNS)

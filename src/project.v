@@ -12,6 +12,8 @@
  * (ui_in, uo_out, uio_in, uio_out, uio_oe, ena, clk, rst_n).
  */
 
+`include "fp8_defs.vh"
+`include "fp8_decoder.v"
 `include "fp8_mul.v"
 `include "fp8_mul_lns.v"
 `include "fp8_aligner.v"

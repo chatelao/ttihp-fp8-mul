@@ -3,8 +3,6 @@
 `default_nettype none
 
 // This file contains logic derived from fp8_mul by Clive Chan (https://github.com/cchan/fp8_mul)
-`include "fp8_defs.vh"
-`include "fp8_decoder.v"
 
 /**
  * FP8 Multiplier Module
@@ -53,6 +51,9 @@ module fp8_mul #(
     wire signed [INTERNAL_BIAS_WIDTH-1:0] bias_a, bias_b;
     wire zero_a, zero_b;
     wire nan_a, nan_b, inf_a, inf_b;
+    /* verilator lint_off UNUSED */
+    wire is_inta, is_intb;
+    /* verilator lint_on UNUSED */
 
     reg [15:0] p_res;
     reg signed [EXP_SUM_WIDTH-1:0] exp_sum_res;
@@ -111,7 +112,8 @@ module fp8_mul #(
                 .bias_out(bias_a),
                 .zero_out(zero_a),
                 .nan_out(nan_a),
-                .inf_out(inf_a)
+                .inf_out(inf_a),
+                .is_int_out(is_inta)
             );
 
             fp8_decoder #(
@@ -133,7 +135,8 @@ module fp8_mul #(
                 .bias_out(bias_b),
                 .zero_out(zero_b),
                 .nan_out(nan_b),
-                .inf_out(inf_b)
+                .inf_out(inf_b),
+                .is_int_out(is_intb)
             );
 
             always @(*) begin

@@ -2,7 +2,6 @@
 `define __FP8_DECODER_V__
 `default_nettype none
 
-`include "fp8_defs.vh"
 
 /**
  * FP8 Operand Decoder Module
