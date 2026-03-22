@@ -108,14 +108,16 @@ async def test_exhaustive_formats_subset(dut):
     for fa, fb, pm in formats_to_test:
         dut._log.info(f"Exhaustive test for {fa} x {fb} (packed={pm})")
         # To avoid taking forever in a single MAC run (32 elements),
-        # we'll do 256*256 / 32 = 2048 MAC runs.
-        # But that's still a lot. Maybe just 1000 random pairs or a smaller exhaustive set.
-        # Let's do 256x256 in chunks.
+        # we'll do a subset of the full range.
+        # For packed mode (4-bit), range is 0..15.
+        max_val = 16 if pm else 256
 
-        all_pairs = [(a, b) for a in range(256) for b in range(256)]
+        all_pairs = [(a, b) for a in range(max_val) for b in range(max_val)]
         random.shuffle(all_pairs)
 
-        for i in range(0, 1024, 32): # Just test 1024 pairs per format to keep it reasonable
+        num_pairs = min(len(all_pairs), 1024)
+
+        for i in range(0, num_pairs, 32): # Just test 1024 pairs per format to keep it reasonable
             chunk = all_pairs[i:i+32]
             a_els = [p[0] for p in chunk]
             b_els = [p[1] for p in chunk]
@@ -196,8 +198,9 @@ async def test_randomized_coverage(dut):
         pm = random.choice([0, 1]) if (fa == 4 and fb == 4) else 0
         sa = random.randint(0, 255)
         sb = random.randint(0, 255)
-        a_els = [random.randint(0, 255) for _ in range(32)]
-        b_els = [random.randint(0, 255) for _ in range(32)]
+        el_mask = 0xF if pm else 0xFF
+        a_els = [random.randint(0, 255) & el_mask for _ in range(32)]
+        b_els = [random.randint(0, 255) & el_mask for _ in range(32)]
         await run_mac_test_covered(dut, fa, fb, a_els, b_els, sa, sb, rm, ov, packed_mode=pm)
 
 @cocotb.test()
