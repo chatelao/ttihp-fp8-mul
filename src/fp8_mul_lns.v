@@ -4,6 +4,16 @@
 
 // This file implements an FP8 multiplier using Logarithmic Number System (LNS).
 // It replaces the 4x4/8x8 multiplier with a simple adder or LUT.
+/**
+ * FP8 Multiplier Module (Logarithmic Number System - LNS)
+ *
+ * This module implements a floating-point multiplier using the Logarithmic Number System.
+ * In LNS, multiplication is simplified to addition of the logarithms of the numbers.
+ *
+ * Beginner Note:
+ * LNS can significantly reduce hardware area (gate count) but may introduce small
+ * approximation errors compared to standard parallel multipliers.
+ */
 module fp8_mul_lns #(
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
@@ -12,7 +22,7 @@ module fp8_mul_lns #(
     parameter SUPPORT_INT8  = 1,
     parameter SUPPORT_MIXED_PRECISION = 1,
     parameter SUPPORT_MX_PLUS = 0,
-    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter USE_LNS_MUL_PRECISE = 0, // 1 = Use a Look-Up Table (LUT) for higher accuracy.
     parameter EXP_SUM_WIDTH = 7
 )(
     input  wire [7:0] a,
@@ -21,14 +31,14 @@ module fp8_mul_lns #(
     input  wire [2:0] format_b,
     input  wire       is_bm_a,
     input  wire       is_bm_b,
-    input  wire [1:0] lns_mode,
+    input  wire [1:0] lns_mode,      // 0: Normal, 1: LNS, 2: Hybrid (Standard for Block Max).
     output wire [15:0] prod,    // Mantissa product
     output wire signed [EXP_SUM_WIDTH-1:0] exp_sum, // Combined exponent (biased)
     output wire       sign,
     output wire       nan,
     output wire       inf
 );
-    // Format Selection
+    // Format selection constants.
     localparam FMT_E4M3 = 3'b000;
     localparam FMT_E5M2 = 3'b001;
     localparam FMT_E3M2 = 3'b010;
@@ -56,8 +66,12 @@ module fp8_mul_lns #(
     reg nan_res, inf_res;
     reg [3:0] m_sum;
 
-    // Precise LNS LUT: 64x4 (3 bits M_res, 1 bit carry)
-    // Mapping: {ma[2:0], mb[2:0]} -> {carry, m_res[2:0]}
+    /**
+     * Precise LNS Look-Up Table (LUT)
+     * This table improves the accuracy of the Mitchell approximation by mapping
+     * the sum of fractional parts to a more precise result.
+     * Mapping: {ma[2:0], mb[2:0]} -> {carry, m_res[2:0]}
+     */
     reg [3:0] lns_lut [0:63];
     initial begin
         lns_lut[0] = 4'h0; lns_lut[1] = 4'h1; lns_lut[2] = 4'h2; lns_lut[3] = 4'h3; lns_lut[4] = 4'h4; lns_lut[5] = 4'h5; lns_lut[6] = 4'h6; lns_lut[7] = 4'h7;
@@ -70,6 +84,11 @@ module fp8_mul_lns #(
         lns_lut[56] = 4'h7; lns_lut[57] = 4'h8; lns_lut[58] = 4'h9; lns_lut[59] = 4'ha; lns_lut[60] = 4'hb; lns_lut[61] = 4'hc; lns_lut[62] = 4'hd; lns_lut[63] = 4'he;
     end
 
+    /**
+     * Decoding Task
+     * A 'task' in Verilog is like a procedure or function that can be reused.
+     * It breaks down the 8-bit input 'data' into its sign, exponent, and mantissa.
+     */
     task automatic decode_operand(
         input [7:0] data,
         input [2:0] fmt,
@@ -87,7 +106,7 @@ module fp8_mul_lns #(
         reg [7:0] tmp_exp;
         /* verilator lint_on UNUSEDSIGNAL */
         begin
-            // Defaults for unsupported formats
+            // Set default values.
             sign_out = 1'b0;
             tmp_exp = 8'd0;
             mant_out = 8'd0;
@@ -102,10 +121,12 @@ module fp8_mul_lns #(
                     sign_out = data[7];
                     bias_out = 7;
                     if (is_bm && SUPPORT_MX_PLUS) begin
+                        // MX+ Extension: Block Max treatment for E4M3.
                         tmp_exp = 11; // 15 - 4 (mantissa shift compensation)
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
+                        // Standard E4M3: [S][EEEE][MMM]
                         tmp_exp = (data[6:3] == 4'd0) ? 1 : {4'd0, data[6:3]};
                         mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
                         zero_out = (data[6:0] == 7'd0);
@@ -120,6 +141,7 @@ module fp8_mul_lns #(
                         mant_out = {1'b1, data[6:0]};
                         zero_out = 1'b0;
                     end else begin
+                        // Standard E5M2: [S][EEEEE][MM]
                         tmp_exp = (data[6:2] == 5'd0) ? 1 : {3'd0, data[6:2]};
                         mant_out = {4'b0, (data[6:2] != 5'd0), data[1:0], 1'b0};
                         zero_out = (data[6:0] == 7'd0);
@@ -169,6 +191,7 @@ module fp8_mul_lns #(
                     end
                 end
                 FMT_INT8: if (SUPPORT_INT8) begin
+                    // 8-bit Integer treatment.
                     sign_out = data[7];
                     mant_out = data[7] ? -data : data;
                     tmp_exp = 0;
@@ -185,6 +208,7 @@ module fp8_mul_lns #(
                     is_int_out = 1'b1;
                 end
                 default: begin
+                    // Default to E4M3-like structure for unknown formats.
                     sign_out = data[7];
                     tmp_exp = (data[6:3] == 4'd0) ? 1 : {4'd0, data[6:3]};
                     mant_out = {4'b0, (data[6:3] != 4'd0), data[2:0]};
@@ -197,7 +221,7 @@ module fp8_mul_lns #(
     endtask
 
     always @(*) begin
-        // Initialize to avoid latches
+        // Initialize to avoid hardware latches.
         p_res = 16'd0;
         exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         sign_res = 1'b0;
@@ -205,7 +229,7 @@ module fp8_mul_lns #(
         inf_res = 1'b0;
         m_sum = 4'd0;
 
-        // Operand A Decoding
+        // Decode operands.
         decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a, nan_a, inf_a, is_inta);
 
         // Operand B Decoding
@@ -216,35 +240,41 @@ module fp8_mul_lns #(
             decode_operand(b, format_a, is_bm_b, sign_b, eb, mb, bias_b, zero_b, nan_b, inf_b, is_intb);
         end
 
-        // Combined Log-Adder (Mitchell or Precise) or Multiplier (for BM)
+        // Multiplication Logic Selection.
         if (lns_mode == 2'b00) begin
-            // Normal Mode: Always use standard multiplier
+            // Normal Mode: Always use standard parallel multiplier.
             p_res = (zero_a || zero_b) ? 16'd0 : (ma * mb);
             exp_sum_res = (zero_a || zero_b) ? {EXP_SUM_WIDTH{1'b0}} :
                           $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
         end else if (zero_a || zero_b) begin
+            // Zero handling.
             p_res = 16'd0;
             exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         end else if (lns_mode == 2'b10 && SUPPORT_MX_PLUS && (is_bm_a || is_bm_b)) begin
-            // Both/Hybrid Mode: BM uses standard multiplier
+            // Hybrid Mode: Block Max elements still use standard multiplication for accuracy.
             p_res = ma * mb;
             exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
         end else if (is_inta || is_intb) begin
-            // LNS mode or Hybrid (non-BM) doesn't support INT8 easily.
+            // LNS doesn't easily support integers.
             p_res = 16'd0;
             exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         end else begin
-            // LNS Mode (01) or Both (10) for non-BM elements
+            // LNS Mode: Transform multiplication into logarithmic addition.
             if (USE_LNS_MUL_PRECISE) begin
+                // Use the LUT for accuracy.
                 m_sum = lns_lut[{ma[2:0], mb[2:0]}];
             end else begin
-                // ma[2:0] are the fractional bits (M)
-                // (1 + Ma) * (1 + Mb) \approx 1 + Ma + Mb
+                // Mitchell Approximation: Log(1+m) \approx m.
+                // ma[2:0] are the fractional bits (M).
                 m_sum = ma[2:0] + mb[2:0];
             end
+
+            // Reconstruct the product from the summed logarithms.
             p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
             exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7})) + $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
         end
+
+        // Finalize result.
         sign_res = sign_a ^ sign_b;
         nan_res = nan_a | nan_b | (inf_a & zero_b) | (inf_b & zero_a);
         inf_res = (inf_a | inf_b) & ~nan_res;
