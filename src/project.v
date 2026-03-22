@@ -148,8 +148,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire       packed_mode   = CAN_PACK ? packed_mode_reg : 1'b0;
 
     // --- MX+ Extension Registers ---
+    /* verilator lint_off UNUSED */
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
+    /* verilator lint_on UNUSED */
     wire [2:0] nbm_offset_a_val;
     wire [2:0] nbm_offset_b_val;
     wire       mx_plus_en_val;
