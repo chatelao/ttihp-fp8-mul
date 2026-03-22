@@ -1,15 +1,23 @@
+# SymbiYosys Configuration File for Formal Verification
+#
+# This file configures 'sby', a tool that uses mathematical solvers to
+# 'prove' that your Verilog design is correct under all possible inputs.
+# This is different from simulation, which only tests specific cases.
+
 [options]
-mode prove
-depth 10
+mode prove      # Try to mathematically prove that all assertions hold true.
+depth 10        # How many clock cycles to look ahead during the proof.
 
 [engines]
-smtbmc z3
+smtbmc z3       # Use the 'Z3' solver engine (a common SMT solver).
 
 [script]
+# These commands tell Yosys (the synthesis tool) how to prepare the design.
 read -formal project.v
 prep -top tt_um_chatelao_fp8_multiplier
 
 [files]
+# List all Verilog files needed for the verification.
 project.v
 fp8_mul.v
 fp8_mul_lns.v
