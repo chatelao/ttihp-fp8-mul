@@ -35,19 +35,19 @@ To maintain a minimal IO footprint (8-bit ports), the unit uses a **41-cycle str
 ### Register Layouts
 
 #### Cycle 0: UI_IN (Metadata 0)
-![Metadata 0](https://svg.wavedrom.com/%7B%22reg%22%3A%20%5B%7B%22name%22%3A%20%22NBM%20Offset%20A%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22LNS%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Loopback%20En%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Debug%20En%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Short%20Protocol%22%2C%20%22bits%22%3A%201%7D%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
+![Metadata 0](metadata_c0_ui.svg)
 
 - **Short Protocol (`[7]`)**: Reuse previous scales/formats; jump to Cycle 3.
 - **LNS Mode (`[4:3]`)**: 0: Normal, 1: LNS, 2: Hybrid.
 
 #### Cycle 0: UIO_IN (Metadata 1)
-![Metadata 1](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22NBM%20Offset%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
+![Metadata 1](metadata_c0_uio.svg)
 
 - **Rounding Mode (`[4:3]`)**: 0: TRN, 1: CEL, 2: FLR, 3: RNE.
 - **Packed Mode (`[6]`)**: Enable 2-elements-per-byte for FP4 formats.
 
 #### Cycle 1: UIO_IN (Config A)
-![Config A](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22Format%20A%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22BM%20Index%20A%22%2C%20%22bits%22%3A%205%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
+![Config A](ocp_mx_config.svg)
 
 - **Format A (`[2:0]`)**: 0: E4M3, 1: E5M2, 2: E3M2, 3: E2M3, 4: E2M1, 5: INT8, 6: INT8_SYM.
 
