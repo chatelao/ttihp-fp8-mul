@@ -1,3 +1,5 @@
+`ifndef __FP8_MUL_LNS_V__
+`define __FP8_MUL_LNS_V__
 `default_nettype none
 
 // This file implements an FP8 multiplier using Logarithmic Number System (LNS).
@@ -255,3 +257,4 @@ module fp8_mul_lns #(
     assign inf = inf_res;
 
 endmodule
+`endif

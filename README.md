@@ -2,7 +2,7 @@
 
 # Tiny Tapeout IHP 26a - OCP MXFP8 Streaming MAC Unit
 
-This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible with the OCP Microscaling Formats (MX) Specification (v1.0). It is designed to fit within a single 1x1 Tiny Tapeout tile using the IHP SG13G2 PDK.
+This project implements a Streaming Multiply-Accumulate (MAC) Unit compatible with the OCP Microscaling Formats (MX) Specification (v1.0). It is designed to fit within a 2x2 Tiny Tapeout tile using the IHP SG13G2 PDK.
 
 ## Attributions
 

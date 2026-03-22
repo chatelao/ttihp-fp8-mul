@@ -10,6 +10,7 @@
 `include "accumulator.v"
 
 /* verilator lint_off DECLFILENAME */
+/* verilator lint_off MODDUP */
 module tt_um_chatelao_fp8_multiplier #(
     parameter ALIGNER_WIDTH = 40,
     parameter ACCUMULATOR_WIDTH = 32,

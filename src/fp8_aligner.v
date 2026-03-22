@@ -1,3 +1,5 @@
+`ifndef __FP8_ALIGNER_V__
+`define __FP8_ALIGNER_V__
 `default_nettype none
 
 module fp8_aligner #(
@@ -135,3 +137,4 @@ module fp8_aligner #(
     endgenerate
 
 endmodule
+`endif

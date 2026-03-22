@@ -898,7 +898,7 @@ async def run_yaml_file(dut, filename):
 
 @cocotb.test()
 async def test_yaml_cases(dut):
-    await run_yaml_file(dut, "TEST_MX_E2E.YAML")
+    await run_yaml_file(dut, "TEST_MX_E2E.yaml")
 
 @cocotb.test()
 async def test_mx_fp4_yaml(dut):

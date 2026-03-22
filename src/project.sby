@@ -12,5 +12,6 @@ prep -top tt_um_chatelao_fp8_multiplier
 [files]
 project.v
 fp8_mul.v
+fp8_mul_lns.v
 fp8_aligner.v
 accumulator.v

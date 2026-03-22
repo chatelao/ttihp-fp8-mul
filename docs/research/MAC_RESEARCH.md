@@ -15,7 +15,7 @@ This document summarizes the research into area-optimized Multiply-Accumulate (M
 | **Mitchell's Approx. Multiplier** | ~5,541 Gates (LNS Variant) | `src/fp8_mul_lns.v` | Logarithmic approximation to avoid full multipliers. | Reduces multiplier area; already integrated as an option. |
 | **Samson et al. FPGA MX** | Unknown | [arXiv:2407.01475](https://arxiv.org/abs/2407.01475) | Uses binary tree summation and Kulisch accumulation. | Optimized for FPGA DSP and LUT structures. |
 | **PULP FPNew (ETH Zurich)** | Variable (Multi-format) | [GitHub](https://github.com/pulp-platform/fpnew) | Support for FP8 (E4M3/E5M2) in CVFPU/FPNew. | Highly configurable; significantly larger than streaming units. |
-| **RISC-V ZvfofpXmin (Est.)** | ~15,000 Gates | [Gap Analysis](ZvfofpXmin_GAP.md) | Proposed minimal vector extension for OCP MX. | Includes VRF and ISA decoding overhead. |
+| **RISC-V ZvfofpXmin (Est.)** | ~15,000 Gates | [Gap Analysis](ZVFOFPXMIN_GAP.md) | Proposed minimal vector extension for OCP MX. | Includes VRF and ISA decoding overhead. |
 | **Berkeley Hardfloat** | Variable | [GitHub](https://github.com/ucb-bar/berkeley-hardfloat) | Parameterized FPU generators (RISC-V compatible). | Industry standard for open-source IEEE-754 logic. |
 | **UCB Gemmini** | Variable | [GitHub](https://github.com/ucb-bar/gemmini) | Full-stack systolic array generator. | Supports quantization and various low-bit formats. |
 | **Vortex GPU** | Variable | [GitHub](https://github.com/vortexgpgpu/vortex) | Open source RISC-V GPGPU. | Focuses on SIMT scalability and GPU-style FP units. |
