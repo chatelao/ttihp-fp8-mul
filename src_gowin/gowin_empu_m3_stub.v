@@ -13,45 +13,37 @@ module Gowin_EMPU_M3 (
     input  wire        RESETN,     // Active-low Reset
     output wire        UART0_TXD,  // UART0 Transmit
     input  wire        UART0_RXD,  // UART0 Receive
+    /* verilator lint_off UNUSED */
     inout  wire [31:0] GPIO0_IO,   // GPIO0 Bidirectional
-    input  wire [31:0] GPIO0_I,    // GPIO0 Input (from fabric)
-    output wire [31:0] GPIO0_O,    // GPIO0 Output (to fabric)
+    /* verilator lint_on UNUSED */
+    input  wire [31:0] GPIO0_I,    // GPIO0 Input (from fabric to CPU)
+    output wire [31:0] GPIO0_O,    // GPIO0 Output (from CPU to fabric)
     output wire [31:0] GPIO0_OE    // GPIO0 Output Enable
 );
 
-    // Bidirectional Mapping for GPIO0_IO to separate I/O/OE buses
-    genvar i;
-    generate
-        for (i = 0; i < 32; i = i + 1) begin : gen_gpio
-            assign GPIO0_IO[i] = GPIO0_OE[i] ? GPIO0_O[i] : 1'bz;
-            assign GPIO0_I[i] = GPIO0_IO[i];
-        end
-    endgenerate
+    wire [15:0] core_gpio_o;
+    wire [15:0] core_gpio_oe;
 
-    // Standard EMCU primitive instantiation
-    // Note: The open-source toolchain (Yosys) expects these specific port names.
     /* verilator lint_off PINMISSING */
     EMCU emcu_inst (
         .CLK(CLK),
         .RESETN(RESETN),
         .UART0TXD(UART0_TXD),
         .UART0RXD(UART0_RXD),
-        .GPIOI(GPIO0_I[15:0]),
-        .GPIOO(GPIO0_O[15:0]),
-        .GPIOEN(GPIO0_OE[15:0]),
-        .AHBADDR(),
-        .AHBDATAOUT(),
-        .AHBWRITE(),
-        .AHBREAD(),
-        .AHBDIN(32'h0)
+        .GPIOI(GPIO0_I[15:0]),     // Standard EMCU GPIO is 16-bit
+        .GPIOO(core_gpio_o),
+        .GPIOEN(core_gpio_oe)
     );
     /* verilator lint_on PINMISSING */
+
+    assign GPIO0_O  = {16'h0, core_gpio_o};
+    assign GPIO0_OE = {16'h0, core_gpio_oe};
 
 endmodule
 
 /**
  * EMCU Primitive Definition
- * Note: The open-source toolchain library (cells_sim.v) defines this module.
+ * Note: The open-source toolchain (Yosys) cell library defines this module.
  */
 (* blackbox *)
 module EMCU (
@@ -61,11 +53,6 @@ module EMCU (
     input  wire        UART0RXD,
     input  wire [15:0] GPIOI,
     output wire [15:0] GPIOO,
-    output wire [15:0] GPIOEN,
-    output wire [15:0] AHBADDR,
-    output wire [31:0] AHBDATAOUT,
-    output wire        AHBWRITE,
-    output wire        AHBREAD,
-    input  wire [31:0] AHBDIN
+    output wire [15:0] GPIOEN
 );
 endmodule
