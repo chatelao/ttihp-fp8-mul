@@ -13,39 +13,39 @@ module Gowin_EMPU_M3 (
     input  wire        RESETN,     // Active-low Reset
     output wire        UART0_TXD,  // UART0 Transmit
     input  wire        UART0_RXD,  // UART0 Receive
-    /* verilator lint_off UNUSED */
     inout  wire [31:0] GPIO0_IO,   // GPIO0 Bidirectional
-    /* verilator lint_on UNUSED */
     input  wire [31:0] GPIO0_I,    // GPIO0 Input (from fabric)
     output wire [31:0] GPIO0_O,    // GPIO0 Output (to fabric)
     output wire [31:0] GPIO0_OE    // GPIO0 Output Enable
 );
 
+    // Bidirectional Mapping for GPIO0_IO to separate I/O/OE buses
+    genvar i;
+    generate
+        for (i = 0; i < 32; i = i + 1) begin : gen_gpio
+            assign GPIO0_IO[i] = GPIO0_OE[i] ? GPIO0_O[i] : 1'bz;
+            assign GPIO0_I[i] = GPIO0_IO[i];
+        end
+    endgenerate
+
+    // Standard EMCU primitive instantiation
+    // Note: The open-source toolchain (Yosys) expects these specific port names.
     /* verilator lint_off PINMISSING */
     EMCU emcu_inst (
         .CLK(CLK),
         .RESETN(RESETN),
         .UART0_TXD(UART0_TXD),
         .UART0_RXD(UART0_RXD),
-        .GPIO(GPIO0_IO[15:0]),     // Standard EMCU GPIO is 16-bit
-        // AHB-Lite Master Interface (for external memory/peripherals)
-        .AHBADDR(),                // 16-bit address
-        .AHBDATAOUT(),             // 32-bit data out
-        .AHBWRITE(),               // Write enable
-        .AHBREAD(),                // Read enable
-        .AHBDATAIN(32'h0)          // 32-bit data in
+        .GPIO(GPIO0_IO[15:0]) // Most open-source models use 16-bit GPIO
     );
     /* verilator lint_on PINMISSING */
-
-    // Map outputs and OEs if needed, though they're already inout in the primitive.
-    assign GPIO0_O[31:16]  = 16'h0;
-    assign GPIO0_OE[31:16] = 16'h0;
 
 endmodule
 
 /**
  * EMCU Primitive Definition
- * Note: The open-source toolchain expect these specific port names.
+ * Note: The open-source toolchain library (cells_sim.v) defines this module.
+ * We provide a blackbox definition here to ensure synthesis knows the ports.
  */
 (* blackbox *)
 module EMCU (
@@ -53,11 +53,6 @@ module EMCU (
     input  wire        RESETN,
     output wire        UART0_TXD,
     input  wire        UART0_RXD,
-    inout  wire [15:0] GPIO,
-    output wire [15:0] AHBADDR,
-    output wire [31:0] AHBDATAOUT,
-    output wire        AHBWRITE,
-    output wire        AHBREAD,
-    input  wire [31:0] AHBDATAIN
+    inout  wire [15:0] GPIO
 );
 endmodule
