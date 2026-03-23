@@ -34,9 +34,16 @@ module Gowin_EMPU_M3 (
     EMCU emcu_inst (
         .CLK(CLK),
         .RESETN(RESETN),
-        .UART0_TXD(UART0_TXD),
-        .UART0_RXD(UART0_RXD),
-        .GPIO(GPIO0_IO[15:0]) // Most open-source models use 16-bit GPIO
+        .UART0TXD(UART0_TXD),
+        .UART0RXD(UART0_RXD),
+        .GPIOI(GPIO0_I[15:0]),
+        .GPIOO(GPIO0_O[15:0]),
+        .GPIOEN(GPIO0_OE[15:0]),
+        .AHBADDR(),
+        .AHBDATAOUT(),
+        .AHBWRITE(),
+        .AHBREAD(),
+        .AHBDIN(32'h0)
     );
     /* verilator lint_on PINMISSING */
 
@@ -45,14 +52,20 @@ endmodule
 /**
  * EMCU Primitive Definition
  * Note: The open-source toolchain library (cells_sim.v) defines this module.
- * We provide a blackbox definition here to ensure synthesis knows the ports.
  */
 (* blackbox *)
 module EMCU (
     input  wire        CLK,
     input  wire        RESETN,
-    output wire        UART0_TXD,
-    input  wire        UART0_RXD,
-    inout  wire [15:0] GPIO
+    output wire        UART0TXD,
+    input  wire        UART0RXD,
+    input  wire [15:0] GPIOI,
+    output wire [15:0] GPIOO,
+    output wire [15:0] GPIOEN,
+    output wire [15:0] AHBADDR,
+    output wire [31:0] AHBDATAOUT,
+    output wire        AHBWRITE,
+    output wire        AHBREAD,
+    input  wire [31:0] AHBDIN
 );
 endmodule

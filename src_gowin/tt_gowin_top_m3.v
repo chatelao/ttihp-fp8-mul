@@ -60,13 +60,12 @@ module tt_gowin_top_m3 #(
     assign uo_out = uo_out_mac;
 
     // Instantiate Gowin EMPU (Cortex-M3)
-    // Note: This is a placeholder for the IP-generated module name
     Gowin_EMPU_M3 m3_inst (
         .CLK           (ext_clk),
         .RESETN        (ext_rst_n),
         .UART0_TXD     (uart_tx),
         .UART0_RXD     (uart_rx),
-        .GPIO0_IO      (), // Not using inout directly
+        .GPIO0_IO      (),
         .GPIO0_I       (m3_gpio_i),
         .GPIO0_O       (m3_gpio_o),
         .GPIO0_OE      (m3_gpio_oe)
