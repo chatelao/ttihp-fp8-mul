@@ -72,8 +72,8 @@ The unit captures configuration and scaling data during the first three cycles o
 - **Shared Scale A**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand A.
 
 **Config A (`uio_in[7:0]`)**:
-![Config A](config_a.svg)
 
+![Config A](config_a.svg)
 - **BM Index A (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand A (used in MX+ mode).
 - **Format A (`[2:0]`)**:
   - `0`: E4M3, `1`: E5M2, `2`: E3M2, `3`: E2M3, `4`: E2M1, `5`: INT8, `6`: INT8_SYM.
@@ -81,13 +81,13 @@ The unit captures configuration and scaling data during the first three cycles o
 #### Cycle 2: Scale B (`ui_in`) & Config B (`uio_in`)
 
 **Scale B (`ui_in[7:0]`)**:
-![Scale B](scale_b.svg)
 
+![Scale B](scale_b.svg)
 - **Shared Scale B**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand B.
 
 **Config B (`uio_in[7:0]`)**:
-![Config B](config_b.svg)
 
+![Config B](config_b.svg)
 - **BM Index B (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand B.
 - **Format B (`[2:0]`)**: Independent format for Operand B (Enabled if `SUPPORT_MIXED_PRECISION=1`).
 
