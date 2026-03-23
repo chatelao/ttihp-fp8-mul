@@ -5,7 +5,7 @@ This guide provides instructions for building, flashing, and verifying the OCP M
 ## 1. Prerequisites
 
 ### Hardware
-- **Sipeed Tang Nano 4K** (Gowin GW1NSR-LV4CQN48PC6/I5)
+- **Sipeed Tang Nano 4K** (Gowin GW1NSR-4C)
 - USB-C cable for flashing and power.
 - (Optional) Logic Analyzer or MicroPython-compatible MCU (e.g., Raspberry Pi Pico) for protocol verification.
 
@@ -42,7 +42,7 @@ yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top.v; \
 ```bash
 nextpnr-gowin --json build/gowin.json \
               --write build/gowin_pnr.json \
-              --device GW1NSR-LV4CQN48PC6/I5 \
+              --device GW1NSR-4C \
               --family GW1NS-4 \
               --top tt_gowin_top \
               --freq 20 \
