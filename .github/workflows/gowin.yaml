@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        variant: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial]
+        variant: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial, M3]
 
     permissions:
       contents: write
@@ -40,6 +40,18 @@ jobs:
         run: |
           python3 test/verify_rtl.py
 
+      - name: Install M3 Toolchain
+        if: matrix.variant == 'M3'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Build M3 Firmware
+        if: matrix.variant == 'M3'
+        run: |
+          make -C src_m3
+          python3 src_m3/bin2mi.py src_m3/testbench.bin src_m3/testbench.mi
+
       - name: Set parameters
         run: |
           if [ "${{ matrix.variant }}" == "Full" ]; then
@@ -52,34 +64,48 @@ jobs:
             echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 24 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 0 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 0" >> $GITHUB_ENV
           elif [ "${{ matrix.variant }}" == "Tiny-Serial" ]; then
             echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 24 -set SUPPORT_E4M3 0 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 1" >> $GITHUB_ENV
+          elif [ "${{ matrix.variant }}" == "M3" ]; then
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1 -set SUPPORT_MX_PLUS 1" >> $GITHUB_ENV
           fi
 
       - name: Synthesis
         run: |
+          TOP=tt_gowin_top
+          SRC="src/project.v src_gowin/tt_gowin_top.v"
+          if [ "${{ matrix.variant }}" == "M3" ]; then
+            TOP=tt_gowin_top_m3
+            SRC="src/project.v src_gowin/tt_gowin_top_m3.v"
+          fi
           if [ -n "${PARAMS}" ]; then
-            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; chparam ${PARAMS} tt_gowin_top; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+            yosys -p "read_verilog -Isrc -sv ${SRC}; chparam ${PARAMS} ${TOP}; synth_gowin -top ${TOP}; write_json build/gowin.json"
           else
-            yosys -p "read_verilog -Isrc -sv src/project.v src_gowin/tt_gowin_top.v; synth_gowin -top tt_gowin_top; write_json build/gowin.json"
+            yosys -p "read_verilog -Isrc -sv ${SRC}; synth_gowin -top ${TOP}; write_json build/gowin.json"
           fi
 
       - name: Place and Route
         run: |
+          TOP=tt_gowin_top
+          CST=src_gowin/tangnano4k.cst
+          if [ "${{ matrix.variant }}" == "M3" ]; then
+            TOP=tt_gowin_top_m3
+            CST=src_gowin/tangnano4k_m3.cst
+          fi
           # Try nextpnr-gowin first, fall back to nextpnr-himbaechel
           if command -v nextpnr-gowin >/dev/null 2>&1; then
             nextpnr-gowin --json build/gowin.json \
                           --write build/gowin_pnr.json \
-                          --device GW1NSR-LV4CQN48PC6/I5 \
+                          --device GW1NSR-4C \
                           --family GW1NS-4 \
-                          --top tt_gowin_top \
+                          --top ${TOP} \
                           --freq 20 \
-                          --cst src_gowin/tangnano4k.cst
+                          --cst ${CST}
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
                                --write build/gowin_pnr.json \
                                --device GW1NSR-LV4CQN48PC6/I5 \
                                --vopt family=GW1NS-4 \
-                               --vopt cst=src_gowin/tangnano4k.cst \
-                               --top tt_gowin_top \
+                               --vopt cst=${CST} \
+                               --top ${TOP} \
                                --freq 20
           else
             echo "Error: No nextpnr binary found for Gowin"

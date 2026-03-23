@@ -17,11 +17,11 @@
     - [x] Obtain/configure linker script (`link.ld`) for the GW1NSR-4C memory map (Implemented in `link.ld`).
     - [x] Compile `main.c` and use `objcopy` to generate raw binary (`testbench.bin`) (Automated with `Makefile`).
     - [x] Create integration utility `bin2mi.py` to convert `.bin` to Gowin `.mi` format.
-4. [ ] **Integration and Execution**
-    - [ ] Point Gowin EDA EMPU IP "Instruction Memory" path to `testbench.mi` (Use `bin2mi.py`).
-    - [ ] Execute Synthesis and Place & Route (PNR) using `../src_gowin/tangnano4k_m3.cst`.
-    - [ ] Flash the resulting bitstream (`.fs`) to the Tang Nano 4K.
-    - [ ] Connect serial terminal at 115200 baud to pins 18/19.
+4. [x] **Integration and Execution**
+    - [x] Point Gowin EDA EMPU IP "Instruction Memory" path to `testbench.mi` (Use `bin2mi.py`).
+    - [x] Execute Synthesis and Place & Route (PNR) using `../src_gowin/tangnano4k_m3.cst` (Automated in CI).
+    - [x] Flash the resulting bitstream (`.fs`) to the Tang Nano 4K.
+    - [x] Connect serial terminal at 115200 baud to pins 18/19.
 5. [x] **Troubleshooting and Refinement**
     - [x] Validate UART0 physical pin mapping (Pins 18/19 assigned in `../src_gowin/tangnano4k_m3.cst`).
     - [x] Verify `clock_tick()` timing for reliable fabric sampling.

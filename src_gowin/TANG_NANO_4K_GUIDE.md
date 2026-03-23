@@ -5,7 +5,7 @@ This guide provides instructions for building, flashing, and verifying the OCP M
 ## 1. Prerequisites
 
 ### Hardware
-- **Sipeed Tang Nano 4K** (Gowin GW1NSR-LV4CQN48PC6/I5)
+- **Sipeed Tang Nano 4K** (Gowin GW1NSR-LV4CQN48PC6/I5 or GW1NSR-4C)
 - USB-C cable for flashing and power.
 - (Optional) Logic Analyzer or MicroPython-compatible MCU (e.g., Raspberry Pi Pico) for protocol verification.
 
@@ -42,7 +42,7 @@ yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top.v; \
 ```bash
 nextpnr-gowin --json build/gowin.json \
               --write build/gowin_pnr.json \
-              --device GW1NSR-LV4CQN48PC6/I5 \
+              --device GW1NSR-4C \
               --family GW1NS-4 \
               --top tt_gowin_top \
               --freq 20 \
@@ -53,6 +53,34 @@ nextpnr-gowin --json build/gowin.json \
 ```bash
 gowin_pack -d GW1NS-4 -o build/tangnano4k.fs build/gowin_pnr.json
 ```
+
+### Step 4: Building the Cortex-M3 Variant (M3)
+The project includes a variant that integrates the Gowin EMPU (Cortex-M3) to drive the MAC unit directly from firmware.
+
+1. **Compile M3 Firmware**:
+   ```bash
+   make -C ../src_m3
+   python3 ../src_m3/bin2mi.py ../src_m3/testbench.bin ../src_m3/testbench.mi
+   ```
+
+2. **Synthesis**:
+   ```bash
+   yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top_m3.v; \
+            chparam -set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 tt_gowin_top_m3; \
+            synth_gowin -top tt_gowin_top_m3; \
+            write_json build/gowin.json"
+   ```
+
+3. **Place & Route**:
+   ```bash
+   nextpnr-gowin --json build/gowin.json \
+                 --write build/gowin_pnr.json \
+                 --device GW1NSR-4C \
+                 --family GW1NS-4 \
+                 --top tt_gowin_top_m3 \
+                 --freq 20 \
+                 --cst tangnano4k_m3.cst
+   ```
 
 ---
 
