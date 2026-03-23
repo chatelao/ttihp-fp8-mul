@@ -67,8 +67,8 @@ The unit captures configuration and scaling data during the first three cycles o
 #### Cycle 1: Scale A (`ui_in`) & Config A (`uio_in`)
 
 **Scale A (`ui_in[7:0]`)**:
-![Scale A](scale_a.svg)
 
+![Scale A](scale_a.svg)
 - **Shared Scale A**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand A.
 
 **Config A (`uio_in[7:0]`)**:
