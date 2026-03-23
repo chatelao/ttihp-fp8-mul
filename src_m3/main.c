@@ -12,13 +12,14 @@
 #define GPIO0_DATA  (*(volatile uint32_t *)(GPIO0_BASE + 0x00))
 #define GPIO0_DIR   (*(volatile uint32_t *)(GPIO0_BASE + 0x04))
 
-// GPIO Bit Offsets (Fabric Mapping)
-#define BIT_UI_IN   0    // GPIO[7:0]   -> ui_in[7:0]
-#define BIT_UIO_IN  8    // GPIO[15:8]  -> uio_in[7:0]
-#define BIT_CLK     16   // GPIO[16]    -> clk
-#define BIT_RST     17   // GPIO[17]    -> rst_n (active low)
-#define BIT_ENA     18   // GPIO[18]    -> ena
-#define BIT_UO_OUT  19   // GPIO[26:19] <- uo_out[7:0] (Input to M3)
+// GPIO Bit Offsets (Fabric Mapping) - Multiplexed 16-bit interface
+#define BIT_DATA     0    // GPIO[7:0]   -> Data Bus
+#define BIT_CLK      8    // GPIO[8]     -> clk
+#define BIT_RST      9    // GPIO[9]     -> rst_n (active low)
+#define BIT_ENA      10   // GPIO[10]    -> ena
+#define BIT_UI_WE    11   // GPIO[11]    -> ui_in_we
+#define BIT_UIO_WE   12   // GPIO[12]    -> uio_in_we
+#define BIT_READ_SEL 13   // GPIO[14:13] -> read_sel
 
 void uart_putc(char c) {
     while (UART0_STATE & 0x01); // Wait if TX full
@@ -54,6 +55,32 @@ void delay(int count) {
     for(volatile int i=0; i < count; i++);
 }
 
+// GPIO Helper Functions
+void set_ui_in(uint8_t val) {
+    // 1. Put data on bus
+    GPIO0_DATA = (GPIO0_DATA & ~0xFF) | val;
+    // 2. Pulse UI_WE
+    GPIO0_DATA |= (1 << BIT_UI_WE);
+    delay(2);
+    GPIO0_DATA &= ~(1 << BIT_UI_WE);
+}
+
+void set_uio_in(uint8_t val) {
+    // 1. Put data on bus
+    GPIO0_DATA = (GPIO0_DATA & ~0xFF) | val;
+    // 2. Pulse UIO_WE
+    GPIO0_DATA |= (1 << BIT_UIO_WE);
+    delay(2);
+    GPIO0_DATA &= ~(1 << BIT_UIO_WE);
+}
+
+uint8_t read_mac_reg(uint8_t sel) {
+    // Set read_sel
+    GPIO0_DATA = (GPIO0_DATA & ~(3 << BIT_READ_SEL)) | ((sel & 3) << BIT_READ_SEL);
+    delay(2);
+    return (uint8_t)(GPIO0_DATA & 0xFF);
+}
+
 void clock_tick() {
     delay(10);
     GPIO0_DATA |= (1 << BIT_CLK);
@@ -63,10 +90,6 @@ void clock_tick() {
 
 /**
  * Enhanced MAC Test Driver
- * @param meta_ui_base: ui_in[7:0] for Cycle 0 (excluding nbm_offset_a)
- * @param meta_uio_base: uio_in[7:0] for Cycle 0 (excluding nbm_offset_b)
- * @param nbm_offset_a/b: MX+ offsets (3 bits)
- * @param bm_index_a/b: MX+ Block Max indices (5 bits)
  */
 uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
                           uint8_t nbm_offset_a, uint8_t nbm_offset_b,
@@ -79,6 +102,7 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 
     // Reset Sequence
     GPIO0_DATA &= ~(1 << BIT_RST);
+    GPIO0_DATA &= ~(1 << BIT_ENA);
     clock_tick();
     clock_tick();
     GPIO0_DATA |= (1 << BIT_RST);
@@ -86,36 +110,40 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
     clock_tick();
 
     // Cycle 0: IDLE / Metadata
-    GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (cycle0_ui << BIT_UI_IN) | (cycle0_uio << BIT_UIO_IN);
+    set_ui_in(cycle0_ui);
+    set_uio_in(cycle0_uio);
     clock_tick();
 
     if (!(cycle0_ui & 0x80)) { // Standard Protocol
         // Cycle 1: Scale A, Format A, BM Index A
         uint8_t cycle1_uio = (bm_index_a << 3) | (format_a & 0x07);
-        GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (scale_a << BIT_UI_IN) | (cycle1_uio << BIT_UIO_IN);
+        set_ui_in(scale_a);
+        set_uio_in(cycle1_uio);
         clock_tick();
 
         // Cycle 2: Scale B, Format B, BM Index B
         uint8_t cycle2_uio = (bm_index_b << 3) | (format_b & 0x07);
-        GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (scale_b << BIT_UI_IN) | (cycle2_uio << BIT_UIO_IN);
+        set_ui_in(scale_b);
+        set_uio_in(cycle2_uio);
         clock_tick();
     }
 
     // Cycles 3-34: Stream elements
-    // In Packed mode, we only stream 16 cycles, but the driver can send 32 without harm (FSM handles it)
     for (int i = 0; i < 32; i++) {
-        GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (element_a << BIT_UI_IN) | (element_b << BIT_UIO_IN);
+        set_ui_in(element_a);
+        set_uio_in(element_b);
         clock_tick();
     }
 
     // Flush
-    GPIO0_DATA &= ~(0xFFFF << BIT_UI_IN);
+    set_ui_in(0);
+    set_uio_in(0);
     clock_tick();
     clock_tick();
 
     // Read Result
     for (int i = 0; i < 4; i++) {
-        uint8_t byte = (GPIO0_DATA >> BIT_UO_OUT) & 0xFF;
+        uint8_t byte = read_mac_reg(0); // uo_out
         result = (result << 8) | byte;
         clock_tick();
     }
@@ -126,9 +154,10 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 int main() {
     UART0_BAUD = 174; // 20MHz / 115200
     UART0_CTRL = 0x03;
-    GPIO0_DIR = 0x0007FFFF;
+    // Set BIT_DATA (0-7), BIT_CLK (8), BIT_RST (9), BIT_ENA (10), BIT_UI_WE (11), BIT_UIO_WE (12), BIT_READ_SEL (13-14) as outputs
+    GPIO0_DIR = 0x00007FFF;
 
-    uart_puts("\r\n--- OCP MXFP8 MAC M3 Testbench (v1.3.0) ---\r\n");
+    uart_puts("\r\n--- OCP MXFP8 MAC M3 Testbench (v1.4.0-MUX) ---\r\n");
     uart_puts("Commands: [t] E4M3, [e] E5M2, [i] INT8, [y] INT8_SYM, [p] Packed, [m] MX+, [s] Short, [l] LNS, [v] Version\r\n");
 
     uint8_t current_lns_mode = 0;
@@ -182,7 +211,7 @@ int main() {
                 uart_puts("\r\n");
                 break;
             case 'v':
-                uart_puts("Firmware Version: 1.3.0-M3-MXFP8\r\n");
+                uart_puts("Firmware Version: 1.4.0-M3-MXFP8-MUX\r\n");
                 break;
             default:
                 uart_puts("Unknown CMD: "); uart_putc(cmd); uart_puts("\r\n");

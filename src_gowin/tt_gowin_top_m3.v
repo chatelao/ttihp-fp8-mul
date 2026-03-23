@@ -28,48 +28,74 @@ module tt_gowin_top_m3 #(
     input  wire       uart_rx    // Pin 18
 );
 
-    // M3 Peripheral Buses
-    wire [31:0] m3_gpio_o;
-    wire [31:0] m3_gpio_i;
-    wire [31:0] m3_gpio_oe;
+    // M3 Peripheral Buses (Restricted to 16 bits as per GW1NSR-4C EMCU)
+    wire [15:0] m3_gpio_o;
+    wire [15:0] m3_gpio_i;
+    wire [15:0] m3_gpio_oe;
 
     // MAC Unit Signals (Internal)
-    wire [7:0] ui_in;
+    reg  [7:0] ui_in_reg;
+    reg  [7:0] uio_in_reg;
     wire [7:0] uo_out_mac;
-    wire [7:0] uio_in;
     wire [7:0] uio_out;
     wire [7:0] uio_oe;
     wire       mac_clk;
     wire       mac_rst_n;
     wire       mac_ena;
 
-    // GPIO Mapping from M3 to MAC
-    // Output from M3 (GPIO[18:0])
-    assign ui_in     = m3_gpio_o[7:0];
-    assign uio_in    = m3_gpio_o[15:8];
-    assign mac_clk   = m3_gpio_o[16];
-    assign mac_rst_n = m3_gpio_o[17];
-    assign mac_ena   = m3_gpio_o[18];
+    // GPIO Mapping from M3 to MAC (Multiplexed)
+    // m3_gpio_o[7:0]   : Data Bus
+    // m3_gpio_o[8]     : mac_clk
+    // m3_gpio_o[9]     : mac_rst_n
+    // m3_gpio_o[10]    : mac_ena
+    // m3_gpio_o[11]    : ui_in_we (Write Enable for ui_in_reg)
+    // m3_gpio_o[12]    : uio_in_we (Write Enable for uio_in_reg)
+    // m3_gpio_o[14:13] : read_sel (0:uo_out, 1:uio_out, 2:uio_oe)
 
-    // Input to M3 (GPIO[26:19])
-    assign m3_gpio_i[26:19] = uo_out_mac;
-    assign m3_gpio_i[18:0]  = 19'b0; // Inputs for M3 outputs are tied to 0
-    assign m3_gpio_i[31:27] = 5'b0;
+    assign mac_clk   = m3_gpio_o[8];
+    assign mac_rst_n = m3_gpio_o[9];
+    assign mac_ena   = m3_gpio_o[10];
+
+    // Latch UI_IN and UIO_IN
+    always @(posedge ext_clk or negedge ext_rst_n) begin
+        if (!ext_rst_n) begin
+            ui_in_reg  <= 8'h0;
+            uio_in_reg <= 8'h0;
+        end else begin
+            if (m3_gpio_o[11]) ui_in_reg  <= m3_gpio_o[7:0];
+            if (m3_gpio_o[12]) uio_in_reg <= m3_gpio_o[7:0];
+        end
+    end
+
+    // Read Multiplexer
+    reg [7:0] mac_read_data;
+    always @(*) begin
+        case (m3_gpio_o[14:13])
+            2'b00:   mac_read_data = uo_out_mac;
+            2'b01:   mac_read_data = uio_out;
+            2'b10:   mac_read_data = uio_oe;
+            default: mac_read_data = 8'h00;
+        endcase
+    end
+
+    // Input to M3
+    assign m3_gpio_i[7:0]  = mac_read_data;
+    assign m3_gpio_i[15:8] = 8'b0;
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
 
     // Instantiate Gowin EMPU (Cortex-M3)
-    // Note: This is a placeholder for the IP-generated module name
+    // Using 16-bit GPIO ports as required for GW1NSR-4C
     Gowin_EMPU_M3 m3_inst (
         .CLK           (ext_clk),
         .RESETN        (ext_rst_n),
         .UART0_TXD     (uart_tx),
         .UART0_RXD     (uart_rx),
-        .GPIO0_IO      (), // Not using inout directly
-        .GPIO0_I       (m3_gpio_i),
-        .GPIO0_O       (m3_gpio_o),
-        .GPIO0_OE      (m3_gpio_oe)
+        .GPIO0_IO      (),
+        .GPIO0_I       ({16'b0, m3_gpio_i}),
+        .GPIO0_O       ({16'b0, m3_gpio_o}),
+        .GPIO0_OE      ({16'b0, m3_gpio_oe})
     );
 
     // Instantiate MAC Unit
@@ -94,9 +120,9 @@ module tt_gowin_top_m3 #(
         .USE_LNS_MUL(USE_LNS_MUL),
         .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
     ) mac_inst (
-        .ui_in(ui_in),
+        .ui_in(ui_in_reg),
         .uo_out(uo_out_mac),
-        .uio_in(uio_in),
+        .uio_in(uio_in_reg),
         .uio_out(uio_out),
         .uio_oe(uio_oe),
         .ena(mac_ena),
