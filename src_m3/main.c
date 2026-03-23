@@ -13,12 +13,14 @@
 #define GPIO0_DIR   (*(volatile uint32_t *)(GPIO0_BASE + 0x04))
 
 // GPIO Bit Offsets (Fabric Mapping)
-#define BIT_UI_IN   0    // GPIO[7:0]   -> ui_in[7:0]
-#define BIT_UIO_IN  8    // GPIO[15:8]  -> uio_in[7:0]
-#define BIT_CLK     16   // GPIO[16]    -> clk
-#define BIT_RST     17   // GPIO[17]    -> rst_n (active low)
-#define BIT_ENA     18   // GPIO[18]    -> ena
-#define BIT_UO_OUT  19   // GPIO[26:19] <- uo_out[7:0] (Input to M3)
+#define BIT_DATA_BUS  0    // GPIO[7:0]   (Multiplexed Data/Scale)
+#define BIT_CLK       8    // GPIO[8]     -> clk
+#define BIT_RST       9    // GPIO[9]     -> rst_n (active low)
+#define BIT_ENA       10   // GPIO[10]    -> ena
+#define BIT_UI_LATCH  11   // GPIO[11]    -> Latch ui_in
+#define BIT_UIO_LATCH 12   // GPIO[12]    -> Latch uio_in
+#define BIT_READ_EN   13   // GPIO[13]    -> Enable Fabric Read-back
+#define BIT_READ_SEL  14   // GPIO[15:14] -> Read-back Selector
 
 void uart_putc(char c) {
     while (UART0_STATE & 0x01); // Wait if TX full
@@ -61,6 +63,47 @@ void clock_tick() {
     GPIO0_DATA &= ~(1 << BIT_CLK);
 }
 
+// MAC Protocol Helpers
+void mac_write_ui(uint8_t val) {
+    // Set data on bus
+    GPIO0_DATA = (GPIO0_DATA & ~0xFF) | val;
+    // Pulse latch
+    GPIO0_DATA |= (1 << BIT_UI_LATCH);
+    delay(2);
+    GPIO0_DATA &= ~(1 << BIT_UI_LATCH);
+}
+
+void mac_write_uio(uint8_t val) {
+    // Set data on bus
+    GPIO0_DATA = (GPIO0_DATA & ~0xFF) | val;
+    // Pulse latch
+    GPIO0_DATA |= (1 << BIT_UIO_LATCH);
+    delay(2);
+    GPIO0_DATA &= ~(1 << BIT_UIO_LATCH);
+}
+
+uint8_t mac_read_bus(uint8_t sel) {
+    uint8_t val;
+    // 1. Set Selector and Enable Read
+    uint32_t ctrl = GPIO0_DATA & ~(0x3 << BIT_READ_SEL);
+    ctrl |= (sel & 0x3) << BIT_READ_SEL;
+    ctrl |= (1 << BIT_READ_EN);
+    GPIO0_DATA = ctrl;
+
+    // 2. Switch Data Bus to Input
+    GPIO0_DIR &= ~0xFF;
+    delay(5);
+
+    // 3. Sample
+    val = GPIO0_DATA & 0xFF;
+
+    // 4. Restore Data Bus to Output
+    GPIO0_DATA &= ~(1 << BIT_READ_EN);
+    GPIO0_DIR |= 0xFF;
+
+    return val;
+}
+
 /**
  * Enhanced MAC Test Driver
  * @param meta_ui_base: ui_in[7:0] for Cycle 0 (excluding nbm_offset_a)
@@ -86,36 +129,41 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
     clock_tick();
 
     // Cycle 0: IDLE / Metadata
-    GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (cycle0_ui << BIT_UI_IN) | (cycle0_uio << BIT_UIO_IN);
+    mac_write_ui(cycle0_ui);
+    mac_write_uio(cycle0_uio);
     clock_tick();
 
     if (!(cycle0_ui & 0x80)) { // Standard Protocol
         // Cycle 1: Scale A, Format A, BM Index A
         uint8_t cycle1_uio = (bm_index_a << 3) | (format_a & 0x07);
-        GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (scale_a << BIT_UI_IN) | (cycle1_uio << BIT_UIO_IN);
+        mac_write_ui(scale_a);
+        mac_write_uio(cycle1_uio);
         clock_tick();
 
         // Cycle 2: Scale B, Format B, BM Index B
         uint8_t cycle2_uio = (bm_index_b << 3) | (format_b & 0x07);
-        GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (scale_b << BIT_UI_IN) | (cycle2_uio << BIT_UIO_IN);
+        mac_write_ui(scale_b);
+        mac_write_uio(cycle2_uio);
         clock_tick();
     }
 
     // Cycles 3-34: Stream elements
     // In Packed mode, we only stream 16 cycles, but the driver can send 32 without harm (FSM handles it)
     for (int i = 0; i < 32; i++) {
-        GPIO0_DATA = (GPIO0_DATA & ~(0xFFFF << BIT_UI_IN)) | (element_a << BIT_UI_IN) | (element_b << BIT_UIO_IN);
+        mac_write_ui(element_a);
+        mac_write_uio(element_b);
         clock_tick();
     }
 
     // Flush
-    GPIO0_DATA &= ~(0xFFFF << BIT_UI_IN);
+    mac_write_ui(0x00);
+    mac_write_uio(0x00);
     clock_tick();
     clock_tick();
 
-    // Read Result
+    // Read Result (4 bytes, MSB first)
     for (int i = 0; i < 4; i++) {
-        uint8_t byte = (GPIO0_DATA >> BIT_UO_OUT) & 0xFF;
+        uint8_t byte = mac_read_bus(0); // Select uo_out
         result = (result << 8) | byte;
         clock_tick();
     }
@@ -126,9 +174,10 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 int main() {
     UART0_BAUD = 174; // 20MHz / 115200
     UART0_CTRL = 0x03;
-    GPIO0_DIR = 0x0007FFFF;
+    // Bits [15:8] Output, [7:0] Output (Initial state)
+    GPIO0_DIR = 0x0000FF00 | 0x000000FF;
 
-    uart_puts("\r\n--- OCP MXFP8 MAC M3 Testbench (v1.3.0) ---\r\n");
+    uart_puts("\r\n--- OCP MXFP8 MAC M3 Testbench (v1.4.0-MUX) ---\r\n");
     uart_puts("Commands: [t] E4M3, [e] E5M2, [i] INT8, [y] INT8_SYM, [p] Packed, [m] MX+, [s] Short, [l] LNS, [v] Version\r\n");
 
     uint8_t current_lns_mode = 0;
@@ -182,7 +231,7 @@ int main() {
                 uart_puts("\r\n");
                 break;
             case 'v':
-                uart_puts("Firmware Version: 1.3.0-M3-MXFP8\r\n");
+                uart_puts("Firmware Version: 1.4.0-M3-MXFP8-MUX\r\n");
                 break;
             default:
                 uart_puts("Unknown CMD: "); uart_putc(cmd); uart_puts("\r\n");

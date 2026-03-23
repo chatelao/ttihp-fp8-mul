@@ -47,17 +47,19 @@ To use the M3, you must instantiate the **Gowin_EMPU_M3** IP core in your projec
    - Enable `GPIO0` (at least 20 bits: 8 for `ui_in`, 8 for `uio_in`, and control signals).
 3. **Memory**: Configure internal SRAM for instruction/data storage (typically 16KB+).
 
-### Fabric Connections
-Map the M3 signals to the MAC Unit top-level (`tt_um_chatelao_fp8_multiplier`):
+### Fabric Connections (Multiplexed 16-bit Interface)
+Map the M3 signals (GPIO[15:0]) to the MAC Unit through the `tt_gowin_top_m3.v` wrapper:
 
-| M3 Signal | MAC Unit Signal | Description |
-|-----------|-----------------|-------------|
-| `GPIO[7:0]` | `ui_in[7:0]` | Data / Scale A |
-| `GPIO[15:8]` | `uio_in[7:0]` | Data / Scale B |
-| `GPIO[16]` | `clk` | System Clock (Driven by M3) |
-| `GPIO[17]` | `rst_n` | Reset (Active Low) |
-| `GPIO[18]` | `ena` | Enable |
-| `uo_out[7:0]` | `GPIO[26:19]` | Result (Read by M3) |
+| M3 GPIO Bit | Signal Name | Direction (M3) | Description |
+|:---:|---|:---:|---|
+| **[7:0]** | `DATA_BUS` | Bidirectional | Multiplexed data for `ui_in`, `uio_in`, and read-back |
+| **8** | `mac_clk` | Output | MAC System Clock |
+| **9** | `mac_rst_n` | Output | Reset (Active Low) |
+| **10** | `mac_ena` | Output | Enable |
+| **11** | `ui_latch` | Output | Pulse to latch `ui_in` from `DATA_BUS` |
+| **12** | `uio_latch` | Output | Pulse to latch `uio_in` from `DATA_BUS` |
+| **13** | `read_en` | Output | Enable Fabric to drive `DATA_BUS` |
+| **[15:14]** | `read_sel` | Output | 0: `uo_out`, 1: `uio_out`, 2: `uio_oe`, 3: `ui_in` echo |
 
 ---
 

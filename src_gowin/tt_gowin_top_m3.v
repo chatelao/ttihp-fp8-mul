@@ -34,27 +34,52 @@ module tt_gowin_top_m3 #(
     wire [31:0] m3_gpio_oe;
 
     // MAC Unit Signals (Internal)
-    wire [7:0] ui_in;
+    reg  [7:0] ui_in;
+    reg  [7:0] uio_in;
     wire [7:0] uo_out_mac;
-    wire [7:0] uio_in;
     wire [7:0] uio_out;
     wire [7:0] uio_oe;
     wire       mac_clk;
     wire       mac_rst_n;
     wire       mac_ena;
 
-    // GPIO Mapping from M3 to MAC
-    // Output from M3 (GPIO[18:0])
-    assign ui_in     = m3_gpio_o[7:0];
-    assign uio_in    = m3_gpio_o[15:8];
-    assign mac_clk   = m3_gpio_o[16];
-    assign mac_rst_n = m3_gpio_o[17];
-    assign mac_ena   = m3_gpio_o[18];
+    // Multiplexed Control Signals (Bits [15:8])
+    assign mac_clk   = m3_gpio_o[8];
+    assign mac_rst_n = m3_gpio_o[9];
+    assign mac_ena   = m3_gpio_o[10];
+    wire ui_latch    = m3_gpio_o[11];
+    wire uio_latch   = m3_gpio_o[12];
+    wire read_en     = m3_gpio_o[13];
+    wire [1:0] read_sel = m3_gpio_o[15:14];
 
-    // Input to M3 (GPIO[26:19])
-    assign m3_gpio_i[26:19] = uo_out_mac;
-    assign m3_gpio_i[18:0]  = 19'b0; // Inputs for M3 outputs are tied to 0
-    assign m3_gpio_i[31:27] = 5'b0;
+    // Latch Logic for ui_in and uio_in
+    always @(posedge ui_latch or negedge mac_rst_n) begin
+        if (!mac_rst_n) ui_in <= 8'b0;
+        else ui_in <= m3_gpio_o[7:0];
+    end
+
+    always @(posedge uio_latch or negedge mac_rst_n) begin
+        if (!mac_rst_n) uio_in <= 8'b0;
+        else uio_in <= m3_gpio_o[7:0];
+    end
+
+    // Read-back Multiplexer (Shared Bus Bits [7:0])
+    reg [7:0] read_data;
+    always @(*) begin
+        case (read_sel)
+            2'b00: read_data = uo_out_mac;
+            2'b01: read_data = uio_out;
+            2'b10: read_data = uio_oe;
+            2'b11: read_data = ui_in; // Echo for verification
+        endcase
+    end
+
+    // Input to M3 (GPIO[15:0])
+    // The first 8 bits are the read-back data if enabled
+    assign m3_gpio_i[7:0]   = read_en ? read_data : 8'b0;
+    // The rest of the signals are echoed back for debug
+    assign m3_gpio_i[15:8]  = m3_gpio_o[15:8];
+    assign m3_gpio_i[31:16] = 16'b0;
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
