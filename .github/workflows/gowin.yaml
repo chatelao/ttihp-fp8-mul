@@ -94,7 +94,7 @@ jobs:
           if command -v nextpnr-gowin >/dev/null 2>&1; then
             nextpnr-gowin --json build/gowin.json \
                           --write build/gowin_pnr.json \
-                          --device GW1NSR-4C \
+                          --device GW1NSR-LV4CQN48PC6/I5 \
                           --family GW1NS-4 \
                           --top ${TOP} \
                           --freq 20 \
@@ -102,7 +102,7 @@ jobs:
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
                                --write build/gowin_pnr.json \
-                               --device GW1NSR-4C \
+                               --device GW1NSR-LV4CQN48PC6/I5 \
                                --vopt family=GW1NS-4 \
                                --vopt cst=${CST} \
                                --top ${TOP} \

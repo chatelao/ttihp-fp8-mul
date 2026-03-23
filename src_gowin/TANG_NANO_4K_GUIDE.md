@@ -42,7 +42,7 @@ yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top.v; \
 ```bash
 nextpnr-gowin --json build/gowin.json \
               --write build/gowin_pnr.json \
-              --device GW1NSR-4C \
+              --device GW1NSR-LV4CQN48PC6/I5 \
               --family GW1NS-4 \
               --top tt_gowin_top \
               --freq 20 \
@@ -75,7 +75,7 @@ The project includes a variant that integrates the Gowin EMPU (Cortex-M3) to dri
    ```bash
    nextpnr-gowin --json build/gowin.json \
                  --write build/gowin_pnr.json \
-                 --device GW1NSR-4C \
+                 --device GW1NSR-LV4CQN48PC6/I5 \
                  --family GW1NS-4 \
                  --top tt_gowin_top_m3 \
                  --freq 20 \
