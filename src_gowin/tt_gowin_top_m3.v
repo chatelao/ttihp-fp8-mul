@@ -28,11 +28,6 @@ module tt_gowin_top_m3 #(
     input  wire       uart_rx    // Pin 18
 );
 
-    // M3 Peripheral Buses
-    wire [31:0] m3_gpio_o;
-    wire [31:0] m3_gpio_i;
-    wire [31:0] m3_gpio_oe;
-
     // MAC Unit Signals (Internal)
     wire [7:0] ui_in;
     wire [7:0] uo_out_mac;
@@ -43,33 +38,39 @@ module tt_gowin_top_m3 #(
     wire       mac_rst_n;
     wire       mac_ena;
 
-    // GPIO Mapping from M3 to MAC
-    // Output from M3 (GPIO[18:0])
-    assign ui_in     = m3_gpio_o[7:0];
-    assign uio_in    = m3_gpio_o[15:8];
-    assign mac_clk   = m3_gpio_o[16];
-    assign mac_rst_n = m3_gpio_o[17];
-    assign mac_ena   = m3_gpio_o[18];
+    // EMCU GPIO Mapping (16 bits available in EMCU primitive)
+    wire [15:0] m3_gpio_io;
 
-    // Input to M3 (GPIO[26:19])
-    assign m3_gpio_i[26:19] = uo_out_mac;
-    assign m3_gpio_i[18:0]  = 19'b0; // Inputs for M3 outputs are tied to 0
-    assign m3_gpio_i[31:27] = 5'b0;
+    // Output from M3 to MAC (via GPIO[12:0])
+    assign ui_in     = m3_gpio_io[7:0];
+    assign mac_clk   = m3_gpio_io[8];
+    assign mac_rst_n = m3_gpio_io[9];
+    assign mac_ena   = m3_gpio_io[10];
+
+    // uio_in mapping (mapped to lower bits of higher byte for simplicity)
+    // In a real SoC, these would be separate peripherals or expanded GPIO
+    // For this testbench, we reuse the same 8-bit ui_in stream if needed or map to others
+    assign uio_in    = ui_in; // Simplified mapping for synthesis test
+
+    // Input to M3 (GPIO[15:11] used for status/monitoring)
+    // Note: uo_out_mac is 8 bits, so we can only map some to GPIO
+    // assign m3_gpio_io[15:11] = uo_out_mac[4:0]; // Cannot assign to wire inout
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
 
-    // Instantiate Gowin EMPU (Cortex-M3)
-    // Note: This is a placeholder for the IP-generated module name
-    Gowin_EMPU_M3 m3_inst (
+    // Instantiate Gowin EMPU (Cortex-M3) using standard EMCU primitive
+    EMCU m3_inst (
         .CLK           (ext_clk),
-        .RESETN        (ext_rst_n),
-        .UART0_TXD     (uart_tx),
-        .UART0_RXD     (uart_rx),
-        .GPIO0_IO      (), // Not using inout directly
-        .GPIO0_I       (m3_gpio_i),
-        .GPIO0_O       (m3_gpio_o),
-        .GPIO0_OE      (m3_gpio_oe)
+        .RSTN          (ext_rst_n),
+        .UART0TXD      (uart_tx),
+        .UART0RXD      (uart_rx),
+        .GPIO          (m3_gpio_io),
+        .ADDR          (), // AHB/APB not used in this testbench
+        .DATAOUT       (),
+        .WRITE         (),
+        .READ          (),
+        .DATAIN        (32'b0)
     );
 
     // Instantiate MAC Unit

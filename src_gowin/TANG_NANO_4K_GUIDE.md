@@ -65,7 +65,7 @@ The project includes a variant that integrates the Gowin EMPU (Cortex-M3) to dri
 
 2. **Synthesis**:
    ```bash
-   yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top_m3.v; \
+   yosys -p "read_verilog -I../src -sv ../src/project.v tt_gowin_top_m3.v gowin_empu_m3_stub.v; \
             chparam -set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 tt_gowin_top_m3; \
             synth_gowin -top tt_gowin_top_m3; \
             write_json build/gowin.json"

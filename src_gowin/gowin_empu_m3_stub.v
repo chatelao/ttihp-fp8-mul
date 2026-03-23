@@ -1,24 +1,25 @@
 `default_nettype none
 
 /**
- * Stub for Gowin_EMPU_M3 (Cortex-M3)
+ * Gowin EMCU Primitive
  *
- * This module provides a blackbox definition for the hard-core M3 processor
- * present in the GW1NSR-4C device. This allows open-source synthesis tools
- * (like Yosys) to process designs referencing the M3 without having access
- * to the proprietary IP definition.
+ * The GW1NSR-4C device contains a hard-core Cortex-M3 processor (EMCU).
+ * This primitive definition allows open-source synthesis tools like Yosys
+ * and nextpnr to correctly identify and place the M3 core.
  */
 
 /* verilator lint_off DECLFILENAME */
-module Gowin_EMPU_M3 (
+module EMCU (
+    output wire [15:0] ADDR,
+    output wire [31:0] DATAOUT,
+    output wire        WRITE,
+    output wire        READ,
+    input  wire [31:0] DATAIN,
     input  wire        CLK,
-    input  wire        RESETN,
-    output wire        UART0_TXD,
-    input  wire        UART0_RXD,
-    inout  wire [31:0] GPIO0_IO,
-    input  wire [31:0] GPIO0_I,
-    output wire [31:0] GPIO0_O,
-    output wire [31:0] GPIO0_OE
+    input  wire        RSTN,
+    output wire        UART0TXD,
+    input  wire        UART0RXD,
+    inout  wire [15:0] GPIO
 );
-    // This is a blackbox for synthesis
+    // Standard Gowin EMCU Primitive
 endmodule
