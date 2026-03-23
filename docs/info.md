@@ -73,6 +73,7 @@ The unit captures configuration and scaling data during the first three cycles o
 
 **Config A (`uio_in[7:0]`)**:
 ![Config A](config_a.svg)
+
 - **BM Index A (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand A (used in MX+ mode).
 - **Format A (`[2:0]`)**:
   - `0`: E4M3, `1`: E5M2, `2`: E3M2, `3`: E2M3, `4`: E2M1, `5`: INT8, `6`: INT8_SYM.
@@ -86,6 +87,7 @@ The unit captures configuration and scaling data during the first three cycles o
 
 **Config B (`uio_in[7:0]`)**:
 ![Config B](config_b.svg)
+
 - **BM Index B (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand B.
 - **Format B (`[2:0]`)**: Independent format for Operand B (Enabled if `SUPPORT_MIXED_PRECISION=1`).
 
