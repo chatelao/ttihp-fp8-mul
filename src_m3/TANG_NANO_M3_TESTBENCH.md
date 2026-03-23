@@ -47,17 +47,28 @@ To use the M3, you must instantiate the **Gowin_EMPU_M3** IP core in your projec
    - Enable `GPIO0` (at least 20 bits: 8 for `ui_in`, 8 for `uio_in`, and control signals).
 3. **Memory**: Configure internal SRAM for instruction/data storage (typically 16KB+).
 
-### Fabric Connections
-Map the M3 signals to the MAC Unit top-level (`tt_um_chatelao_fp8_multiplier`):
+### Fabric Connections (16-bit Multiplexed Interface)
+To accommodate the Cortex-M3's (EMCU) physical **16-pin GPIO limit**, a multiplexed interface is used. This mapping provides full access to the Tiny Tapeout buses (`ui`, `uo`, `uio`, `uioe`) and control signals.
 
-| M3 Signal | MAC Unit Signal | Description |
-|-----------|-----------------|-------------|
-| `GPIO[7:0]` | `ui_in[7:0]` | Data / Scale A |
-| `GPIO[15:8]` | `uio_in[7:0]` | Data / Scale B |
-| `GPIO[16]` | `clk` | System Clock (Driven by M3) |
-| `GPIO[17]` | `rst_n` | Reset (Active Low) |
-| `GPIO[18]` | `ena` | Enable |
-| `uo_out[7:0]` | `GPIO[26:19]` | Result (Read by M3) |
+#### GPIO Pin Mapping
+| M3 GPIO Pin | Signal | Description |
+|:---:|:---:|---|
+| **[7:0]** | `DATA` | 8-bit Bidirectional Data Bus |
+| **[10:8]** | `ADDR` | 3-bit Address Select |
+| **[11]** | `clk` | MAC System Clock (Driven by M3) |
+| **[12]** | `rst_n` | Reset (Active Low) |
+| **[13]** | `ena` | Enable |
+| **[14]** | `WEN` | Write Strobe (Active High) |
+| **[15]** | - | Reserved |
+
+#### Multiplexed Address Map
+| Address (ADDR) | Function | Direction (from M3) |
+|:---:|---|:---:|
+| **0** | `ui_in` | Write |
+| **1** | `uio_in` | Write |
+| **2** | `uo_out` | Read |
+| **3** | `uio_out` | Read |
+| **4** | `uio_oe` | Read |
 
 ---
 
@@ -71,6 +82,17 @@ The following C program implements the 41-cycle MAC protocol and provides a comp
 
 ### `main.c` Reference
 For the full source, refer to `main.c`. Below are the core driver and interactive loop details.
+
+#### Software Access (C Abstraction)
+The firmware handles address selection and data-bus direction switching automatically through helper functions:
+
+```c
+// Latch a value into the MAC's ui_in bus
+void write_ui_in(uint8_t val);
+
+// Read the current output from the MAC's uo_out bus
+uint8_t read_mac_uo();
+```
 
 #### Interactive CLI Commands
 
