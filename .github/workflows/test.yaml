@@ -47,13 +47,24 @@ jobs:
             export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=8"
           fi
           make
-          # make will return success even if the test fails, so check for failure in the results.xml
-          ! grep failure results.xml
+          # make will return success even if the test fails, so check for results.xml
+          if [ ! -f results.xml ]; then
+            echo "Error: results.xml not found. Simulation may have failed to run."
+            exit 1
+          fi
+          if grep -q failure results.xml; then
+            echo "Test failed: $(grep failure results.xml)"
+            exit 1
+          fi
 
       - name: Convert FST to VCD
         if: always()
         run: |
-          fst2vcd -f test/tb.fst -o test/tb.vcd
+          if [ -f test/tb.fst ]; then
+            fst2vcd -f test/tb.fst -o test/tb.vcd
+          else
+            echo "Warning: test/tb.fst not found. Skipping waveform conversion."
+          fi
 
       - name: Test Summary
         uses: test-summary/action@v2.4
