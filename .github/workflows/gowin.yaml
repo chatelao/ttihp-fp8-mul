@@ -102,7 +102,7 @@ jobs:
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
                                --write build/gowin_pnr.json \
-                               --device GW1NSR-LV4CQN48PC6/I5 \
+                               --device GW1NSR-LV4CQN48PC7/I6 \
                                --vopt family=GW1NS-4 \
                                --vopt cst=${CST} \
                                --top ${TOP} \
