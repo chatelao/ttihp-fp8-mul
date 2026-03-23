@@ -43,18 +43,50 @@ module tt_gowin_top_m3 #(
     wire       mac_rst_n;
     wire       mac_ena;
 
-    // GPIO Mapping from M3 to MAC
-    // Output from M3 (GPIO[18:0])
-    assign ui_in     = m3_gpio_o[7:0];
-    assign uio_in    = m3_gpio_o[15:8];
-    assign mac_clk   = m3_gpio_o[16];
-    assign mac_rst_n = m3_gpio_o[17];
-    assign mac_ena   = m3_gpio_o[18];
+    // GPIO Mapping from M3 to MAC (16-bit Multiplexed Interface)
+    // M3 Output GPIO[15:0]:
+    // [7:0]  - Data
+    // [10:8] - Address (0:ui_in, 1:uio_in, 2:uo_out, 3:uio_out, 4:uio_oe)
+    // [11]   - mac_clk
+    // [12]   - mac_rst_n
+    // [13]   - mac_ena
+    // [14]   - write_strobe (WEN)
+    // [15]   - Reserved
 
-    // Input to M3 (GPIO[26:19])
-    assign m3_gpio_i[26:19] = uo_out_mac;
-    assign m3_gpio_i[18:0]  = 19'b0; // Inputs for M3 outputs are tied to 0
-    assign m3_gpio_i[31:27] = 5'b0;
+    reg [7:0] ui_in_reg;
+    reg [7:0] uio_in_reg;
+
+    always @(posedge ext_clk or negedge ext_rst_n) begin
+        if (!ext_rst_n) begin
+            ui_in_reg  <= 8'b0;
+            uio_in_reg <= 8'b0;
+        end else if (m3_gpio_o[14]) begin // write_strobe
+            case (m3_gpio_o[10:8])
+                3'd0: ui_in_reg  <= m3_gpio_o[7:0];
+                3'd1: uio_in_reg <= m3_gpio_o[7:0];
+            endcase
+        end
+    end
+
+    assign ui_in     = ui_in_reg;
+    assign uio_in    = uio_in_reg;
+    assign mac_clk   = m3_gpio_o[11];
+    assign mac_rst_n = m3_gpio_o[12];
+    assign mac_ena   = m3_gpio_o[13];
+
+    // M3 Input GPIO[7:0]: Read data from MAC
+    reg [7:0] m3_gpio_i_data;
+    always @(*) begin
+        case (m3_gpio_o[10:8])
+            3'd2:    m3_gpio_i_data = uo_out_mac;
+            3'd3:    m3_gpio_i_data = uio_out;
+            3'd4:    m3_gpio_i_data = uio_oe;
+            default: m3_gpio_i_data = 8'h0;
+        endcase
+    end
+
+    assign m3_gpio_i[7:0]   = m3_gpio_i_data;
+    assign m3_gpio_i[31:8]  = 24'b0;
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
