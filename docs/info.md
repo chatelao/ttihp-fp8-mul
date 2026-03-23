@@ -165,7 +165,9 @@ To avoid expensive Power/Log circuits, the unit uses **Mitchell’s Approximatio
 $$\log_2(1+m) \approx m, \quad m \in [0, 1)$$
 
 The product of two significands $(1+m_a)$ and $(1+m_b)$ is approximated as:
-$$(1+m_a)(1+m_b) \approx \begin{cases} 1 + m_a + m_b & \text{if } m_a + m_b < 1 \\ 2(1 + m_a + m_b - 1) & \text{if } m_a + m_b \ge 1 \end{cases}$$
+```math
+(1+m_a)(1+m_b) \approx \begin{cases} 1 + m_a + m_b & \text{if } m_a + m_b < 1 \\ 2(m_a + m_b) & \text{if } m_a + m_b \ge 1 \end{cases}
+```
 This allows the multiplier to be replaced by a simple adder and a shift, reducing hardware area by over 50%.
 
 ## Thank you!
