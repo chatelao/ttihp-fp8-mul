@@ -62,15 +62,15 @@ module tt_gowin_top_m3 #(
     // Instantiate Gowin EMPU (Cortex-M3) using standard EMCU primitive
     EMCU m3_inst (
         .CLK           (ext_clk),
-        .RSTN          (ext_rst_n),
-        .UART0TXD      (uart_tx),
-        .UART0RXD      (uart_rx),
+        .RESETN        (ext_rst_n),
+        .UART0_TXD     (uart_tx),
+        .UART0_RXD     (uart_rx),
         .GPIO          (m3_gpio_io),
-        .ADDR          (), // AHB/APB not used in this testbench
-        .DATAOUT       (),
-        .WRITE         (),
-        .READ          (),
-        .DATAIN        (32'b0)
+        .AHBADDR       (), // AHB/APB not used in this testbench
+        .AHBDATAOUT    (),
+        .AHBWRITE      (),
+        .AHBREAD       (),
+        .AHBDATAIN     (32'b0)
     );
 
     // Instantiate MAC Unit
