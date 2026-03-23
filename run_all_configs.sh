@@ -13,8 +13,10 @@ for config in Full Lite Tiny Ultra-Tiny Tiny-Serial; do
   elif [ "$config" == "Tiny-Serial" ]; then
     export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=8"
   fi
-  make > /dev/null 2>&1
-  if grep -q failure results.xml; then
+  make
+  if [ ! -f results.xml ]; then
+    echo "Error: $config results.xml not found. Simulation may have failed to run."
+  elif grep -q failure results.xml; then
     echo "$config FAILED in results.xml"
     grep failure results.xml
   else
