@@ -65,7 +65,7 @@ jobs:
           elif [ "${{ matrix.variant }}" == "Tiny-Serial" ]; then
             echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 24 -set SUPPORT_E4M3 0 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 1" >> $GITHUB_ENV
           elif [ "${{ matrix.variant }}" == "M3" ]; then
-            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1 -set SUPPORT_MX_PLUS 1" >> $GITHUB_ENV
+            echo "PARAMS=-set ALIGNER_WIDTH 40 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 1 -set SUPPORT_MXFP6 1 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 1 -set SUPPORT_PIPELINING 1 -set SUPPORT_ADV_ROUNDING 1 -set SUPPORT_MIXED_PRECISION 1 -set SUPPORT_VECTOR_PACKING 1 -set ENABLE_SHARED_SCALING 1 -set SUPPORT_MX_PLUS 1 -set SUPPORT_INPUT_BUFFERING 1 -set SUPPORT_SERIAL 0 -set SUPPORT_DEBUG 1" >> $GITHUB_ENV
           fi
 
       - name: Synthesis
@@ -102,7 +102,7 @@ jobs:
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
                                --write build/gowin_pnr.json \
-                               --device GW1NSR-LV4CQN48PC6/I5 \
+                               --device GW1NSR-4C \
                                --vopt family=GW1NS-4 \
                                --vopt cst=${CST} \
                                --top ${TOP} \

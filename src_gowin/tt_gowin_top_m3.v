@@ -19,7 +19,8 @@ module tt_gowin_top_m3 #(
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SUPPORT_DEBUG = 1
 )(
     input  wire       ext_clk,   // External 20MHz crystal
     input  wire       ext_rst_n, // S1 button
@@ -53,8 +54,9 @@ module tt_gowin_top_m3 #(
     assign uio_in    = ui_in; // Simplified mapping for synthesis test
 
     // Input to M3 (GPIO[15:11] used for status/monitoring)
-    // Note: uo_out_mac is 8 bits, so we can only map some to GPIO
-    // assign m3_gpio_io[15:11] = uo_out_mac[4:0]; // Cannot assign to wire inout
+    // Using a primitive or continuous assignment with 'assign' is fine for inout wires
+    // if only one driver is active. For simulation/synthesis stubs, we can map bits.
+    assign m3_gpio_io[15:11] = uo_out_mac[4:0];
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
@@ -66,11 +68,11 @@ module tt_gowin_top_m3 #(
         .UART0_TXD     (uart_tx),
         .UART0_RXD     (uart_rx),
         .GPIO          (m3_gpio_io),
-        .AHBADDR       (), // AHB/APB not used in this testbench
-        .AHBDATAOUT    (),
-        .AHBWRITE      (),
-        .AHBREAD       (),
-        .AHBDATAIN     (32'b0)
+        .ADDR          (), // AHB/APB not used in this testbench
+        .DATAOUT       (),
+        .WRITE         (),
+        .READ          (),
+        .DATAIN        (32'b0)
     );
 
     // Instantiate MAC Unit
@@ -93,7 +95,8 @@ module tt_gowin_top_m3 #(
         .SERIAL_K_FACTOR(SERIAL_K_FACTOR),
         .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
         .USE_LNS_MUL(USE_LNS_MUL),
-        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+        .SUPPORT_DEBUG(SUPPORT_DEBUG)
     ) mac_inst (
         .ui_in(ui_in),
         .uo_out(uo_out_mac),
