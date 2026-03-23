@@ -74,7 +74,7 @@ jobs:
           SRC="src/project.v src_gowin/tt_gowin_top.v"
           if [ "${{ matrix.variant }}" == "M3" ]; then
             TOP=tt_gowin_top_m3
-            SRC="src/project.v src_gowin/tt_gowin_top_m3.v"
+            SRC="src/project.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v"
           fi
           if [ -n "${PARAMS}" ]; then
             yosys -p "read_verilog -Isrc -sv ${SRC}; chparam ${PARAMS} ${TOP}; synth_gowin -top ${TOP}; write_json build/gowin.json"

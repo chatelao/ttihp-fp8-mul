@@ -1,8 +1,7 @@
 import sys
 import os
 
-def verify_gowin_top():
-    filepath = "src_gowin/tt_gowin_top.v"
+def verify_gowin_file(filepath):
     if not os.path.exists(filepath):
         print(f"Error: {filepath} not found")
         return False
@@ -54,7 +53,11 @@ def verify_gowin_top():
     return True
 
 if __name__ == "__main__":
-    if verify_gowin_top():
+    success = True
+    success &= verify_gowin_file("src_gowin/tt_gowin_top.v")
+    success &= verify_gowin_file("src_gowin/tt_gowin_top_m3.v")
+
+    if success:
         sys.exit(0)
     else:
         sys.exit(1)
