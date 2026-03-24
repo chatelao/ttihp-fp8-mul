@@ -62,7 +62,8 @@ def verify_gowin_m3_top():
     integration_patterns = [
         (r"generate", "Missing generate block"),
         (r"if\s*\(INTEGRATION_MODE\s*==\s*0\)\s*begin\s*:\s*gen_gpio_integration", "Missing gen_gpio_integration"),
-        (r"else\s*begin\s*:\s*gen_apb_integration", "Missing gen_apb_integration"),
+        (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*1\)\s*begin\s*:\s*gen_apb_integration", "Missing gen_apb_integration"),
+        (r"else\s*begin\s*:\s*gen_ahb2_dma_integration", "Missing gen_ahb2_dma_integration"),
         (r"Gowin_EMPU_M3\s+m3_inst", "Gowin_EMPU_M3 instance not found"),
         (r"\.ADDR\s*\(m3_addr\)", "ADDR port not connected in M3 instance"),
         (r"\.DATAOUT\s*\(m3_data_out\)", "DATAOUT port not connected in M3 instance"),

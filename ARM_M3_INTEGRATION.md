@@ -78,6 +78,38 @@ In this mode, the integration includes a hardware sequencer that acts as a Bus M
 - **Interrupts**: An IRQ informs the M3 when the operation is complete.
 - **Advantages**: Minimal CPU load and maximum throughput (utilizing AHB bursts). Ideal for large-scale calculations such as LLM inference.
 
+### 5.3. AHB2 DMA (Autonomous Master/Slave Hybrid)
+
+This mode combines an AHB Slave for configuration and an AHB Master for autonomous data movement. It is designed for high-throughput batch processing where the CPU only initializes the transfer and is notified upon completion.
+
+#### AHB2 Master Signals (DMA)
+- `HADDR_M`: Address for memory-mapped read/write.
+- `HTRANS_M`: Transfer type (IDLE, NONSEQ, SEQ).
+- `HWRITE_M`: 0 for Read (operands), 1 for Write (result).
+- `HSIZE_M`: Fixed at 32-bit for results, 8-bit/32-bit for operands.
+- `HWDATA_M`: Data to be written to memory (MAC result).
+- `HRDATA_M`: Data read from memory (MAC operands).
+- `HREADY_M`: Wait-state signal from the memory/interconnect.
+
+#### DMA Register Map (Base + 0x20)
+| Offset | Name | Access | Description |
+|:---:|---|:---:|---|
+| `0x20` | **DMA_SRC_A** | RW | Source address for Operand A elements (32-bit). |
+| `0x24` | **DMA_SRC_B** | RW | Source address for Operand B elements (32-bit). |
+| `0x28` | **DMA_DST** | RW | Destination address for the 32-bit result (32-bit). |
+| `0x2C` | **DMA_LEN** | RW | Number of blocks to process (16-bit). |
+| `0x30` | **DMA_CTRL** | RW | Bit 0: Start, Bit 1: IE (Interrupt Enable), Bit 2: Mode. |
+| `0x34` | **DMA_STAT** | R | Bit 0: Busy, Bit 1: Done, Bit 2: Error. |
+
+#### DMA Operation Flow
+1. **Setup**: CPU writes Source A/B, Destination, and Length to the DMA registers via the AHB Slave interface.
+2. **Trigger**: CPU sets the `Start` bit in `DMA_CTRL`.
+3. **Fetch**: The bridge becomes an AHB Master and fetches 32 elements for Operand A and B from SRAM.
+4. **Compute**: The bridge drives the MAC protocol, streaming the fetched elements.
+5. **Writeback**: Once the 32-bit result is ready, the bridge writes it to the `DMA_DST` address.
+6. **Iterate**: If `DMA_LEN > 1`, the bridge increments addresses and repeats the cycle.
+7. **Finish**: The `Done` bit is set, and an optional interrupt is triggered.
+
 ## 6. Comparison of Integration Methods
 
 | Feature | GPIO (Status Quo) | Hybrid (APB/GPIO) | APB (Peripheral) | AHB_SLAVE | AHB_MASTER (DMA) |

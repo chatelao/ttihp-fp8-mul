@@ -20,7 +20,7 @@ module tt_gowin_top_m3 #(
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0,
-    parameter INTEGRATION_MODE = 0, // 0: GPIO, 1: APB
+    parameter INTEGRATION_MODE = 0, // 0: GPIO, 1: APB, 2: AHB2 DMA
     parameter APB_BASE_ADDR = 32'h40020000
 )(
     input  wire       ext_clk,   // External 20MHz crystal
@@ -41,6 +41,17 @@ module tt_gowin_top_m3 #(
     wire        m3_write;
     wire        m3_read;
     wire [31:0] m3_data_in;
+
+    // M3 AHB2 Master Bus (EMCU specific)
+    wire [31:0] m3_haddr_m;
+    wire [1:0]  m3_htrans_m;
+    wire        m3_hwrite_m;
+    wire [2:0]  m3_hsize_m;
+    wire [31:0] m3_hwdata_m;
+    wire [31:0] m3_hrdata_m;
+    wire        m3_hready_m;
+    wire        m3_hreadyout;
+    wire        m3_interrupt;
 
     // MAC Unit Signals (Internal)
     wire [7:0] ui_in;
@@ -109,7 +120,7 @@ module tt_gowin_top_m3 #(
             assign m3_gpio_i[7:0]   = m3_gpio_i_data;
             assign m3_gpio_i[15:8]  = 8'b0;
             assign m3_data_in       = 32'h0;
-        end else begin : gen_apb_integration
+        end else if (INTEGRATION_MODE == 1) begin : gen_apb_integration
             // APB-to-MAC Bridge
             // Register Map (Offset from APB_BASE_ADDR):
             // 0x00: DATA_IN (W: [7:0] ui_in, [15:8] uio_in, triggers mac_clk pulse)
@@ -166,6 +177,38 @@ module tt_gowin_top_m3 #(
 
             // In APB mode, GPIOs are unused
             assign m3_gpio_i = 16'h0;
+        end else begin : gen_ahb2_dma_integration
+            // AHB2 DMA Bridge
+            ahb2_mac_bridge ahb2_bridge_inst (
+                .hclk      (ext_clk),
+                .hresetn   (ext_rst_n),
+                // Slave
+                .hsel      (1'b1), // Simplified addressing for now
+                .haddr     ({16'h0, m3_addr}),
+                .htrans    ({1'b0, m3_read | m3_write}), // Basic mapping
+                .hwrite    (m3_write),
+                .hwdata    (m3_data_out),
+                .hrdata    (m3_data_in),
+                .hreadyout (m3_hreadyout),
+                .hresp     (),
+                // Master
+                .haddr_m   (m3_haddr_m),
+                .htrans_m  (m3_htrans_m),
+                .hwrite_m  (m3_hwrite_m),
+                .hsize_m   (m3_hsize_m),
+                .hwdata_m  (m3_hwdata_m),
+                .hrdata_m  (m3_hrdata_m),
+                .hready_m  (m3_hready_m),
+                // MAC
+                .ui_in     (ui_in),
+                .uio_in    (uio_in),
+                .uo_out    (uo_out_mac),
+                .mac_clk   (mac_clk),
+                .mac_rst_n (mac_rst_n),
+                .mac_ena   (mac_ena),
+                .interrupt (m3_interrupt)
+            );
+            assign m3_gpio_i = 16'h0;
         end
     endgenerate
 
@@ -188,7 +231,15 @@ module tt_gowin_top_m3 #(
         .DATAOUT       (m3_data_out),
         .WRITE         (m3_write),
         .READ          (m3_read),
-        .DATAIN        (m3_data_in)
+        .DATAIN        (m3_data_in),
+        // AHB2 Master Bus (Example ports, names may vary by IP)
+        .HADDR_M       (m3_haddr_m),
+        .HTRANS_M      (m3_htrans_m),
+        .HWRITE_M      (m3_hwrite_m),
+        .HSIZE_M       (m3_hsize_m),
+        .HWDATA_M      (m3_hwdata_m),
+        .HRDATA_M      (m3_hrdata_m),
+        .HREADY_M      (m3_hready_m)
     );
 
     // Instantiate MAC Unit
