@@ -19,7 +19,9 @@ module tt_gowin_top_m3 #(
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter INTEGRATION_MODE = 0, // 0: GPIO, 1: APB
+    parameter APB_BASE_ADDR = 32'h40020000
 )(
     input  wire       ext_clk,   // External 20MHz crystal
     input  wire       ext_rst_n, // S1 button
@@ -32,6 +34,13 @@ module tt_gowin_top_m3 #(
     wire [15:0] m3_gpio_o;
     wire [15:0] m3_gpio_i;
     wire [15:0] m3_gpio_oe;
+
+    // M3 APB-like Peripheral Bus (EMCU specific)
+    wire [15:0] m3_addr;
+    wire [31:0] m3_data_out;
+    wire        m3_write;
+    wire        m3_read;
+    wire [31:0] m3_data_in;
 
     // MAC Unit Signals (Internal)
     wire [7:0] ui_in;
@@ -53,40 +62,112 @@ module tt_gowin_top_m3 #(
     // [14]   - write_strobe (WEN)
     // [15]   - Reserved
 
-    reg [7:0] ui_in_reg;
-    reg [7:0] uio_in_reg;
+    generate
+        if (INTEGRATION_MODE == 0) begin : gen_gpio_integration
+            // GPIO Mapping from M3 to MAC (16-bit Multiplexed Interface)
+            // M3 Output GPIO[15:0]:
+            // [7:0]  - Data
+            // [10:8] - Address (0:ui_in, 1:uio_in, 2:uo_out, 3:uio_out, 4:uio_oe)
+            // [11]   - mac_clk
+            // [12]   - mac_rst_n
+            // [13]   - mac_ena
+            // [14]   - write_strobe (WEN)
+            // [15]   - Reserved
 
-    always @(posedge ext_clk or negedge ext_rst_n) begin
-        if (!ext_rst_n) begin
-            ui_in_reg  <= 8'b0;
-            uio_in_reg <= 8'b0;
-        end else if (m3_gpio_o[14]) begin // write_strobe
-            case (m3_gpio_o[10:8])
-                3'd0: ui_in_reg  <= m3_gpio_o[7:0];
-                3'd1: uio_in_reg <= m3_gpio_o[7:0];
-            endcase
+            reg [7:0] ui_in_reg;
+            reg [7:0] uio_in_reg;
+
+            always @(posedge ext_clk or negedge ext_rst_n) begin
+                if (!ext_rst_n) begin
+                    ui_in_reg  <= 8'b0;
+                    uio_in_reg <= 8'b0;
+                end else if (m3_gpio_o[14]) begin // write_strobe
+                    case (m3_gpio_o[10:8])
+                        3'd0: ui_in_reg  <= m3_gpio_o[7:0];
+                        3'd1: uio_in_reg <= m3_gpio_o[7:0];
+                    endcase
+                end
+            end
+
+            assign ui_in     = ui_in_reg;
+            assign uio_in    = uio_in_reg;
+            assign mac_clk   = m3_gpio_o[11];
+            assign mac_rst_n = m3_gpio_o[12];
+            assign mac_ena   = m3_gpio_o[13];
+
+            // M3 Input GPIO[7:0]: Read data from MAC
+            reg [7:0] m3_gpio_i_data;
+            always @(*) begin
+                case (m3_gpio_o[10:8])
+                    3'd2:    m3_gpio_i_data = uo_out_mac;
+                    3'd3:    m3_gpio_i_data = uio_out;
+                    3'd4:    m3_gpio_i_data = uio_oe;
+                    default: m3_gpio_i_data = 8'h0;
+                endcase
+            end
+
+            assign m3_gpio_i[7:0]   = m3_gpio_i_data;
+            assign m3_gpio_i[15:8]  = 8'b0;
+            assign m3_data_in       = 32'h0;
+        end else begin : gen_apb_integration
+            // APB-to-MAC Bridge
+            // Register Map (Offset from APB_BASE_ADDR):
+            // 0x00: DATA_IN (W: [7:0] ui_in, [15:8] uio_in, triggers mac_clk pulse)
+            // 0x04: DATA_OUT (R: [7:0] uo_out_mac, [15:8] uio_out)
+            // 0x08: CTRL (RW: [0] mac_ena, [1] mac_rst_n)
+
+            reg [7:0] ui_in_reg;
+            reg [7:0] uio_in_reg;
+            reg       mac_ena_reg;
+            reg       mac_rst_n_reg;
+            reg       apb_mac_clk_reg;
+
+            always @(posedge ext_clk or negedge ext_rst_n) begin
+                if (!ext_rst_n) begin
+                    ui_in_reg       <= 8'b0;
+                    uio_in_reg      <= 8'b0;
+                    mac_ena_reg     <= 1'b0;
+                    mac_rst_n_reg   <= 1'b0;
+                    apb_mac_clk_reg <= 1'b0;
+                end else begin
+                    apb_mac_clk_reg <= 1'b0; // Default to 0, single pulse on write to DATA_IN
+                    if (m3_write) begin
+                        case (m3_addr[7:0])
+                            8'h00: begin
+                                ui_in_reg       <= m3_data_out[7:0];
+                                uio_in_reg      <= m3_data_out[15:8];
+                                apb_mac_clk_reg <= 1'b1;
+                            end
+                            8'h08: begin
+                                mac_ena_reg     <= m3_data_out[0];
+                                mac_rst_n_reg   <= m3_data_out[1];
+                            end
+                        endcase
+                    end
+                end
+            end
+
+            assign ui_in     = ui_in_reg;
+            assign uio_in    = uio_in_reg;
+            assign mac_clk   = apb_mac_clk_reg;
+            assign mac_rst_n = mac_rst_n_reg;
+            assign mac_ena   = mac_ena_reg;
+
+            reg [31:0] prdata_reg;
+            always @(*) begin
+                case (m3_addr[7:0])
+                    8'h00:   prdata_reg = {16'h0, uio_in_reg, ui_in_reg};
+                    8'h04:   prdata_reg = {16'h0, uio_out, uo_out_mac};
+                    8'h08:   prdata_reg = {30'h0, mac_rst_n_reg, mac_ena_reg};
+                    default: prdata_reg = 32'h0;
+                endcase
+            end
+            assign m3_data_in = prdata_reg;
+
+            // In APB mode, GPIOs are unused
+            assign m3_gpio_i = 16'h0;
         end
-    end
-
-    assign ui_in     = ui_in_reg;
-    assign uio_in    = uio_in_reg;
-    assign mac_clk   = m3_gpio_o[11];
-    assign mac_rst_n = m3_gpio_o[12];
-    assign mac_ena   = m3_gpio_o[13];
-
-    // M3 Input GPIO[7:0]: Read data from MAC
-    reg [7:0] m3_gpio_i_data;
-    always @(*) begin
-        case (m3_gpio_o[10:8])
-            3'd2:    m3_gpio_i_data = uo_out_mac;
-            3'd3:    m3_gpio_i_data = uio_out;
-            3'd4:    m3_gpio_i_data = uio_oe;
-            default: m3_gpio_i_data = 8'h0;
-        endcase
-    end
-
-    assign m3_gpio_i[7:0]   = m3_gpio_i_data;
-    assign m3_gpio_i[15:8]  = 8'b0;
+    endgenerate
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
@@ -101,7 +182,13 @@ module tt_gowin_top_m3 #(
         .GPIO0_IO      (), // Not using inout directly
         .GPIO0_I       (m3_gpio_i),
         .GPIO0_O       (m3_gpio_o),
-        .GPIO0_OE      (m3_gpio_oe)
+        .GPIO0_OE      (m3_gpio_oe),
+        // Peripheral Bus (EMCU specific)
+        .ADDR          (m3_addr),
+        .DATAOUT       (m3_data_out),
+        .WRITE         (m3_write),
+        .READ          (m3_read),
+        .DATAIN        (m3_data_in)
     );
 
     // Instantiate MAC Unit

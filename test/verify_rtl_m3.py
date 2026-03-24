@@ -44,7 +44,9 @@ def verify_gowin_m3_top():
         "parameter SERIAL_K_FACTOR",
         "parameter ENABLE_SHARED_SCALING",
         "parameter USE_LNS_MUL",
-        "parameter USE_LNS_MUL_PRECISE"
+        "parameter USE_LNS_MUL_PRECISE",
+        "parameter INTEGRATION_MODE",
+        "parameter APB_BASE_ADDR"
     ]
 
     missing_params = []
@@ -56,11 +58,31 @@ def verify_gowin_m3_top():
         print(f"Error: Missing parameters in {filepath}: {', '.join(missing_params)}")
         return False
 
+    # Verify integration logic blocks
+    integration_patterns = [
+        (r"generate", "Missing generate block"),
+        (r"if\s*\(INTEGRATION_MODE\s*==\s*0\)\s*begin\s*:\s*gen_gpio_integration", "Missing gen_gpio_integration"),
+        (r"else\s*begin\s*:\s*gen_apb_integration", "Missing gen_apb_integration"),
+        (r"Gowin_EMPU_M3\s+m3_inst", "Gowin_EMPU_M3 instance not found"),
+        (r"\.ADDR\s*\(m3_addr\)", "ADDR port not connected in M3 instance"),
+        (r"\.DATAOUT\s*\(m3_data_out\)", "DATAOUT port not connected in M3 instance"),
+        (r"\.WRITE\s*\(m3_write\)", "WRITE port not connected in M3 instance"),
+        (r"\.READ\s*\(m3_read\)", "READ port not connected in M3 instance"),
+        (r"\.DATAIN\s*\(m3_data_in\)", "DATAIN port not connected in M3 instance")
+    ]
+
+    for pattern, error_msg in integration_patterns:
+        if not re.search(pattern, content):
+            print(f"Error: {error_msg} in {filepath}")
+            return False
+
     if "tt_um_chatelao_fp8_multiplier #(" not in content:
         print(f"Error: tt_um_chatelao_fp8_multiplier not instantiated with parameters in {filepath}")
         return False
 
-    for param in expected_params:
+    # Check for original parameters only (some are internal to tt_gowin_top_m3)
+    original_params = [p for p in expected_params if p not in ["parameter INTEGRATION_MODE", "parameter APB_BASE_ADDR"]]
+    for param in original_params:
         param_name = param.split()[-1]
         if f".{param_name}({param_name})" not in content:
             print(f"Error: Parameter {param_name} not passed to instance in {filepath}")
