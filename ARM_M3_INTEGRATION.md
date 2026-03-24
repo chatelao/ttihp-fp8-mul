@@ -112,13 +112,13 @@ This mode combines an AHB Slave for configuration and an AHB Master for autonomo
 
 ## 6. Comparison of Integration Methods
 
-| Feature | GPIO (Status Quo) | Hybrid (APB/GPIO) | APB (Peripheral) | AHB_SLAVE | AHB_MASTER (DMA) |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Bus Type** | Bit-Banging | Mixed | Peripheral Bus | System Bus | System Bus |
-| **Throughput** | ~100 KB/s | ~1 MB/s | ~2 MB/s | ~10-20 MB/s | >50 MB/s |
-| **CPU Load** | 100% | High | Medium | Low | Minimal |
-| **Footprint** | ~150 Gates | ~350 Gates | ~500 Gates | ~800 Gates | ~2000 Gates |
-| **Design Effort**| Minimal | Low | Medium | High | Very High |
+| Feature | GPIO (Status Quo) | APB (Peripheral) | AHB_SLAVE | AHB2_DMA |
+|:---:|:---:|:---:|:---:|:---:|
+| **Bus Type** | Bit-Banging | Peripheral Bus | System Bus (Slave) | System Bus (Master) |
+| **Throughput** | ~100 KB/s | ~2 MB/s | ~20 MB/s | >50 MB/s |
+| **CPU Load** | 100% | Medium | Low | Minimal |
+| **Footprint** | ~150 Gates | ~500 Gates | ~1200 Gates | ~2500 Gates |
+| **Design Effort**| Minimal | Medium | High | Very High |
 
 ## 7. Implementation Roadmap
 
