@@ -46,7 +46,8 @@ def verify_gowin_m3_top():
         "parameter USE_LNS_MUL",
         "parameter USE_LNS_MUL_PRECISE",
         "parameter INTEGRATION_MODE",
-        "parameter APB_BASE_ADDR"
+        "parameter APB_BASE_ADDR",
+        "parameter AHB_BASE_ADDR"
     ]
 
     missing_params = []
@@ -62,13 +63,24 @@ def verify_gowin_m3_top():
     integration_patterns = [
         (r"generate", "Missing generate block"),
         (r"if\s*\(INTEGRATION_MODE\s*==\s*0\)\s*begin\s*:\s*gen_gpio_integration", "Missing gen_gpio_integration"),
-        (r"else\s*begin\s*:\s*gen_apb_integration", "Missing gen_apb_integration"),
+        (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*1\)\s*begin\s*:\s*gen_apb_integration", "Missing gen_apb_integration"),
+        (r"else\s*begin\s*:\s*gen_ahb_integration", "Missing gen_ahb_integration"),
         (r"Gowin_EMPU_M3\s+m3_inst", "Gowin_EMPU_M3 instance not found"),
         (r"\.ADDR\s*\(m3_addr\)", "ADDR port not connected in M3 instance"),
         (r"\.DATAOUT\s*\(m3_data_out\)", "DATAOUT port not connected in M3 instance"),
         (r"\.WRITE\s*\(m3_write\)", "WRITE port not connected in M3 instance"),
         (r"\.READ\s*\(m3_read\)", "READ port not connected in M3 instance"),
-        (r"\.DATAIN\s*\(m3_data_in\)", "DATAIN port not connected in M3 instance")
+        (r"\.DATAIN\s*\(m3_data_in\)", "DATAIN port not connected in M3 instance"),
+        (r"\.M_AHB_HADDR\s*\(m3_haddr\)", "M_AHB_HADDR port not connected in M3 instance"),
+        (r"\.M_AHB_HTRANS\s*\(m3_htrans\)", "M_AHB_HTRANS port not connected in M3 instance"),
+        (r"\.M_AHB_HWRITE\s*\(m3_hwrite\)", "M_AHB_HWRITE port not connected in M3 instance"),
+        (r"\.M_AHB_HSIZE\s*\(m3_hsize\)", "M_AHB_HSIZE port not connected in M3 instance"),
+        (r"\.M_AHB_HWDATA\s*\(m3_hwdata\)", "M_AHB_HWDATA port not connected in M3 instance"),
+        (r"\.M_AHB_HSEL\s*\(m3_hsel\)", "M_AHB_HSEL port not connected in M3 instance"),
+        (r"\.M_AHB_HREADY\s*\(m3_hready\)", "M_AHB_HREADY port not connected in M3 instance"),
+        (r"\.M_AHB_HRDATA\s*\(m3_hrdata\)", "M_AHB_HRDATA port not connected in M3 instance"),
+        (r"\.M_AHB_HREADYOUT\s*\(m3_hreadyout\)", "M_AHB_HREADYOUT port not connected in M3 instance"),
+        (r"\.M_AHB_HRESP\s*\(m3_hresp\)", "M_AHB_HRESP port not connected in M3 instance")
     ]
 
     for pattern, error_msg in integration_patterns:
@@ -81,14 +93,14 @@ def verify_gowin_m3_top():
         return False
 
     # Check for original parameters only (some are internal to tt_gowin_top_m3)
-    original_params = [p for p in expected_params if p not in ["parameter INTEGRATION_MODE", "parameter APB_BASE_ADDR"]]
+    original_params = [p for p in expected_params if p not in ["parameter INTEGRATION_MODE", "parameter APB_BASE_ADDR", "parameter AHB_BASE_ADDR"]]
     for param in original_params:
         param_name = param.split()[-1]
         if f".{param_name}({param_name})" not in content:
             print(f"Error: Parameter {param_name} not passed to instance in {filepath}")
             return False
 
-    print(f"Verification of {filepath} successful: 16-bit buses and parameters verified.")
+    print(f"Verification of {filepath} successful: 16-bit buses, parameters, and AHB/APB/GPIO modes verified.")
     return True
 
 if __name__ == "__main__":
