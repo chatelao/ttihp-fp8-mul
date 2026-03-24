@@ -64,6 +64,7 @@ The APB Slave logic handles the handshake between the fast M3 bus clock and the 
 | **Max Clock Speed** | ~500 kHz (Software Ltd) | ~10 MHz (Hardware Ltd) | ~10 MHz (Write Path Ltd) |
 | **Code Size** | Large (Driver functions) | Small (Direct pointers) | Medium (Mixed access) |
 | **Bus Integrity** | Manual direction switching | Hardware-managed | Partial (Read bit-bang) |
+| **Footprint (Bridge)** | ~150 Gates (Mux/GPIO) | ~500 Gates (Full APB) | ~350 Gates (Write-only) |
 
 ## 7. Implementation Roadmap
 
