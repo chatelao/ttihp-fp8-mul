@@ -2,9 +2,9 @@
 
 1. [x] **Hardware Setup (Gowin EDA)**
     - [x] Instantiate `Gowin_EMPU_M3` IP core in the project (Implemented in `../src_gowin/tt_gowin_top_m3.v`).
-    - [x] Configure IP: Enable AHB/APB buses, UART0, and at least 20 bits for GPIO0 (Configured in Verilog mapping).
+    - [x] Configure IP: Enable AHB/APB buses, UART0, and 16 bits for GPIO0 (Configured in Verilog mapping).
     - [x] Allocate 16KB+ internal SRAM for instruction/data memory (Defined in `link.ld`).
-    - [x] Connect fabric signals: Map M3 GPIO[7:0] to `ui_in[7:0]`, GPIO[15:8] to `uio_in[7:0]`, GPIO[16] to `clk`, GPIO[17] to `rst_n`, GPIO[18] to `ena`, and MAC `uo_out[7:0]` to M3 GPIO[26:19].
+    - [x] Connect fabric signals: 16-bit multiplexed interface (GPIO[7:0] Data, GPIO[10:8] Addr, GPIO[11] Clk, GPIO[12] Rst, GPIO[13] Ena, GPIO[14] WEN).
 2. [x] **M3 Software Implementation**
     - [x] Define base addresses: UART0 (0x40000000) and GPIO0 (0x40010000) (Implemented in `main.c`).
     - [x] Implement low-level UART drivers (`uart_putc`, `uart_puts`, `uart_getc`).

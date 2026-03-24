@@ -29,9 +29,9 @@ module tt_gowin_top_m3 #(
 );
 
     // M3 Peripheral Buses
-    wire [31:0] m3_gpio_o;
-    wire [31:0] m3_gpio_i;
-    wire [31:0] m3_gpio_oe;
+    wire [15:0] m3_gpio_o;
+    wire [15:0] m3_gpio_i;
+    wire [15:0] m3_gpio_oe;
 
     // MAC Unit Signals (Internal)
     wire [7:0] ui_in;
@@ -86,7 +86,7 @@ module tt_gowin_top_m3 #(
     end
 
     assign m3_gpio_i[7:0]   = m3_gpio_i_data;
-    assign m3_gpio_i[31:8]  = 24'b0;
+    assign m3_gpio_i[15:8]  = 8'b0;
 
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
