@@ -58,13 +58,13 @@ The APB Slave logic handles the handshake between the fast M3 bus clock and the 
 
 ## 6. Comparison & Advantages
 
-| Feature | GPIO (Multiplexed) | APB (Memory Mapped) | Hybrid (APB W / GPIO R) |
-|---|---|---|---|
-| **CPU Usage** | High (Bit-banging) | Low (Store/Load) | Medium (Stream-optimized) |
-| **Max Clock Speed** | ~500 kHz (Software Ltd) | ~10 MHz (Hardware Ltd) | ~10 MHz (Write Path Ltd) |
-| **Code Size** | Large (Driver functions) | Small (Direct pointers) | Medium (Mixed access) |
-| **Bus Integrity** | Manual direction switching | Hardware-managed | Partial (Read bit-bang) |
-| **Footprint (Bridge)** | ~150 Gates (Mux/GPIO) | ~500 Gates (Full APB) | ~350 Gates (Write-only) |
+| Feature | GPIO (Multiplexed) | APB (Memory Mapped) |
+|---|---|---|
+| **CPU Usage**          | High (Bit-banging)         | Low (Store/Load)        |
+| **Max Clock Speed**    | ~500 kHz (Software Ltd)    | ~10 MHz (Hardware Ltd)  |
+| **Code Size**          | Large (Driver functions)   | Small (Direct pointers) |
+| **Bus Integrity**      | Manual direction switching | Hardware-managed        |
+| **Footprint (Bridge)** | ~150 Gates (Mux/GPIO)      | ~500 Gates (Full APB)   |
 
 ## 7. Implementation Roadmap
 
@@ -74,15 +74,3 @@ The APB Slave logic handles the handshake between the fast M3 bus clock and the 
 4. **Firmware Update**: Refactor `main.c` to use `*(volatile uint32_t *)0x40020000` instead of GPIO registers.
 5. **Verification**: Run Cocotb tests with an APB BFM to verify the bridge timing.
 
-## 8. Hybrid APB-Write / GPIO-Read Option
-
-This option provides a middle ground for performance-critical streaming applications by utilizing the APB bridge only for the performance-sensitive **DATA_IN** (write) path, while retaining the standard GPIO interface for result extraction (**DATA_OUT**).
-
-### Mechanism
-- **Write Path (Stream Phase)**: M3 writes to the APB `DATA_IN` register. The bridge automatically handles the `mac_clk` pulse generation, allowing the CPU to stream the 32 elements at full bus speed.
-- **Read Path (Result Phase)**: M3 uses the existing GPIO-based bit-banging method to read `uo_out` and `uio_out` registers. Since results are only read once per block (4 cycles), the software overhead is negligible compared to the streaming phase.
-
-### Justification & Benefits
-1. **Simplified Hardware**: Reduces the complexity of the APB bridge by omitting the read-back multiplexing and handshake logic.
-2. **High Performance**: Retains the 20x throughput improvement for the streaming phase (Cycles 0–34) where 95% of the protocol time is spent.
-3. **Firmware Compatibility**: Allows for incremental migration from the GPIO status quo, enabling easier debugging of the write path before fully committing to a full memory-mapped read path.
