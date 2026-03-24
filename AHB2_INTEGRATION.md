@@ -12,6 +12,10 @@ In diesem Modus fungiert die MAC-Einheit als passives Peripheriegerät am AHB-Bu
 
 ### Funktionsweise
 - Ein **AHB-to-MAC Bridge** Modul übersetzt AHB-Protokollphasen (`HSEL`, `HTRANS`, `HADDR`, `HWRITE`, `HWDATA`) in die Steuersignale der MAC-Einheit.
+
+![Protocol States Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/PROTOCOL_STATES.PUML)
+
+*Quelle: [docs/diagrams/PROTOCOL_STATES.PUML](docs/diagrams/PROTOCOL_STATES.PUML)*
 - **Pipeline-Unterstützung**: AHB nutzt getrennte Adress- und Datenphasen. Die Bridge muss die Adresse für einen Zyklus puffern, um sie mit der Datenphase zu korrelieren.
 - **Wait-States**: Die Bridge nutzt das `HREADY`-Signal, um den Bus-Master (M3) zu pausieren, falls die MAC-Einheit gerade das sequentielle Streaming-Protokoll abarbeitet.
 
