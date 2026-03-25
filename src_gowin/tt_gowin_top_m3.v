@@ -24,6 +24,8 @@ module tt_gowin_top_m3 #(
     parameter INTEGRATION_MODE = 0,
 `elsif M3_MODE_AHB
     parameter INTEGRATION_MODE = 2,
+`elsif M3_MODE_AHB_DMA
+    parameter INTEGRATION_MODE = 3,
 `else
     parameter INTEGRATION_MODE = 1, // Default: APB
 `endif
@@ -60,6 +62,19 @@ module tt_gowin_top_m3 #(
     wire [31:0] m3_hrdata;
     wire        m3_hreadyout;
     wire        m3_hresp;
+
+    // M3 AHB-Lite Slave (Extension) Bus for DMA Master access to RAM
+    wire [31:0] m3_s_haddr;
+    wire [1:0]  m3_s_htrans;
+    wire        m3_s_hwrite;
+    wire [2:0]  m3_s_hsize;
+    wire [31:0] m3_s_hwdata;
+    wire        m3_s_hsel;
+    wire        m3_s_hready;
+    wire [31:0] m3_s_hrdata;
+    wire        m3_s_hreadyout;
+    wire        m3_s_hresp;
+
 
     // MAC Unit Signals (Internal)
     wire [7:0] ui_in;
@@ -181,7 +196,19 @@ module tt_gowin_top_m3 #(
             assign m3_hrdata     = 32'h0;
             assign m3_hreadyout  = 1'b1;
             assign m3_hresp      = 1'b0;
-        end else begin : gen_ahb_integration
+        end else if (INTEGRATION_MODE == 2) begin : gen_ahb_integration
+            assign m3_hsel = 1'b1;   // Select Slave for M3
+            assign m3_hready = 1'b1; // System ready for M3
+
+            // Tie unused S_AHB signals
+            assign m3_s_haddr     = 32'h0;
+            assign m3_s_htrans    = 2'h0;
+            assign m3_s_hwrite    = 1'b0;
+            assign m3_s_hsize     = 3'h0;
+            assign m3_s_hwdata    = 32'h0;
+            assign m3_s_hsel      = 1'b0;
+            assign m3_s_hready    = 1'b1;
+
             // AHB-to-MAC Bridge (AHB-Lite Slave)
             // Register Map (Offset from AHB_BASE_ADDR):
             // 0x00: DATA_IN (W: [7:0] ui_in, [15:8] uio_in, triggers mac_clk pulse)
@@ -257,6 +284,73 @@ module tt_gowin_top_m3 #(
             // In AHB mode, GPIOs and APB are unused
             assign m3_gpio_i = 16'h0;
             assign m3_data_in = 32'h0;
+        end else if (INTEGRATION_MODE == 3) begin : gen_ahb_dma_integration
+            assign m3_s_hsel = 1'b1; // Always select M3 SRAM for DMA transfers
+            assign m3_hsel = 1'b1;   // Select the DMA Bridge as slave for M3 configuration
+            assign m3_hready = 1'b1; // System ready for M3
+
+            // AHB2 DMA Integration (INTEGRATION_MODE == 3)
+            ahb2_mac_bridge #(
+                .AHB_BASE_ADDR(AHB_BASE_ADDR)
+            ) ahb_dma_bridge_inst (
+                .clk(ext_clk),
+                .rst_n(ext_rst_n),
+
+                // Slave Interface (Configuration)
+                .s_haddr(m3_haddr),
+                .s_htrans(m3_htrans),
+                .s_hwrite(m3_hwrite),
+                .s_hsize(m3_hsize),
+                .s_hwdata(m3_hwdata),
+                .s_hsel(m3_hsel),
+                .s_hready(m3_hready),
+                .s_hrdata(m3_hrdata),
+                .s_hreadyout(m3_hreadyout),
+                .s_hresp(m3_hresp),
+
+                // Master Interface (DMA)
+                .m_haddr(m3_s_haddr),
+                .m_htrans(m3_s_htrans),
+                .m_hwrite(m3_s_hwrite),
+                .m_hsize(m3_s_hsize),
+                .m_hwdata(m3_s_hwdata),
+                .m_hrdata(m3_s_hrdata),
+                .m_hready(m3_s_hready),
+                .m_hresp(m3_s_hresp),
+
+                // MAC Unit Interface
+                .mac_ui_in(ui_in),
+                .mac_uo_out(uo_out_mac),
+                .mac_uio_in(uio_in),
+                .mac_uio_out(uio_out),
+                .mac_uio_oe(uio_oe),
+                .mac_clk(mac_clk),
+                .mac_rst_n(mac_rst_n),
+                .mac_ena(mac_ena),
+
+                .irq() // Optional: connect to M3 NVIC
+            );
+
+            assign m3_s_hready = m3_s_hreadyout;
+
+            // In DMA mode, GPIOs and APB are unused
+            assign m3_gpio_i = 16'h0;
+            assign m3_data_in = 32'h0;
+        end else begin : gen_default_integration
+            assign m3_gpio_i = 16'h0;
+            assign m3_data_in = 32'h0;
+            assign m3_hrdata = 32'h0;
+            assign m3_hreadyout = 1'b1;
+            assign m3_hresp = 1'b0;
+            assign m3_hsel = 1'b0;
+            assign m3_hready = 1'b1;
+            assign m3_s_haddr = 32'h0;
+            assign m3_s_htrans = 2'h0;
+            assign m3_s_hwrite = 1'b0;
+            assign m3_s_hsize = 3'h0;
+            assign m3_s_hwdata = 32'h0;
+            assign m3_s_hsel = 1'b0;
+            assign m3_s_hready = 1'b1;
         end
     endgenerate
 
@@ -265,7 +359,7 @@ module tt_gowin_top_m3 #(
 
     // Instantiate Gowin EMPU (Cortex-M3)
     generate
-        if (INTEGRATION_MODE == 2) begin : gen_m3_ahb
+        if (INTEGRATION_MODE == 2 || INTEGRATION_MODE == 3) begin : gen_m3_ahb
             Gowin_EMPU_M3 m3_inst (
                 .CLK           (ext_clk),
                 .RESETN        (ext_rst_n),
@@ -285,7 +379,18 @@ module tt_gowin_top_m3 #(
                 .M_AHB_HREADY   (m3_hready),
                 .M_AHB_HRDATA   (m3_hrdata),
                 .M_AHB_HREADYOUT(m3_hreadyout),
-                .M_AHB_HRESP    (m3_hresp)
+                .M_AHB_HRESP    (m3_hresp),
+                // AHB-Lite Slave ports to M3 (for DMA access to SRAM)
+                .S_AHB_HADDR    (m3_s_haddr),
+                .S_AHB_HTRANS   (m3_s_htrans),
+                .S_AHB_HWRITE   (m3_s_hwrite),
+                .S_AHB_HSIZE    (m3_s_hsize),
+                .S_AHB_HWDATA   (m3_s_hwdata),
+                .S_AHB_HSEL     (m3_s_hsel),
+                .S_AHB_HREADY   (m3_s_hready),
+                .S_AHB_HRDATA   (m3_s_hrdata),
+                .S_AHB_HREADYOUT(m3_s_hreadyout),
+                .S_AHB_HRESP    (m3_s_hresp)
             );
         end else begin : gen_m3_standard
             Gowin_EMPU_M3 m3_inst (
