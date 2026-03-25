@@ -26,8 +26,8 @@ module Gowin_EMPU_M3 (
     output wire        M_AHB_HWRITE,
     output wire [2:0]  M_AHB_HSIZE,
     output wire [31:0] M_AHB_HWDATA,
-    input  wire        M_AHB_HSEL,   // Corrected to input for Master
-    input  wire        M_AHB_HREADY, // Corrected to input for Master
+    output wire        M_AHB_HSEL,
+    output wire        M_AHB_HREADY,
     input  wire [31:0] M_AHB_HRDATA,
     input  wire        M_AHB_HREADYOUT,
     input  wire        M_AHB_HRESP,
@@ -57,6 +57,8 @@ module Gowin_EMPU_M3 (
     assign M_AHB_HWRITE = 1'b0;
     assign M_AHB_HSIZE  = 3'b0;
     assign M_AHB_HWDATA = 32'h0;
+    assign M_AHB_HSEL   = 1'b0;
+    assign M_AHB_HREADY = 1'b0;
 
     assign S_AHB_HRDATA    = 32'h0;
     assign S_AHB_HREADYOUT = 1'b1;

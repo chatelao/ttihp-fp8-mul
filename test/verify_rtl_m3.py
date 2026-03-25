@@ -41,6 +41,41 @@ def verify_gowin_m3_top():
             print(f"Error: {error_msg} in {filepath}")
             return False
 
+    # Verify parameter propagation
+    expected_params = [
+        "parameter ALIGNER_WIDTH",
+        "parameter ACCUMULATOR_WIDTH",
+        "parameter SUPPORT_E4M3",
+        "parameter SUPPORT_E5M2",
+        "parameter SUPPORT_MXFP6",
+        "parameter SUPPORT_MXFP4",
+        "parameter SUPPORT_INT8",
+        "parameter SUPPORT_PIPELINING",
+        "parameter SUPPORT_ADV_ROUNDING",
+        "parameter SUPPORT_MIXED_PRECISION",
+        "parameter SUPPORT_VECTOR_PACKING",
+        "parameter SUPPORT_PACKED_SERIAL",
+        "parameter SUPPORT_INPUT_BUFFERING",
+        "parameter SUPPORT_MX_PLUS",
+        "parameter SUPPORT_SERIAL",
+        "parameter SERIAL_K_FACTOR",
+        "parameter ENABLE_SHARED_SCALING",
+        "parameter USE_LNS_MUL",
+        "parameter USE_LNS_MUL_PRECISE",
+        "parameter INTEGRATION_MODE",
+        "parameter APB_BASE_ADDR",
+        "parameter AHB_BASE_ADDR"
+    ]
+
+    missing_params = []
+    for param in expected_params:
+        if param not in content:
+            missing_params.append(param)
+
+    if missing_params:
+        print(f"Error: Missing parameters in {filepath}: {', '.join(missing_params)}")
+        return False
+
     # Verify integration logic blocks
     integration_patterns = [
         (r"generate", "Missing generate block"),
@@ -53,9 +88,11 @@ def verify_gowin_m3_top():
         (r"if\s*\(INTEGRATION_MODE\s*==\s*2\s*\|\|\s*INTEGRATION_MODE\s*==\s*3\)\s*begin\s*:\s*gen_m3_ahb", "Missing gen_m3_ahb block for combined AHB modes"),
         (r"\.ADDR\s*\(m3_addr\)", "ADDR port not connected in M3 instance"),
         (r"\.M_AHB_HADDR\s*\(m3_haddr\)", "M_AHB_HADDR port not connected in M3 instance"),
-        (r"\.M_AHB_HREADY\s*\(m3_hready_in\)", "M_AHB_HREADY port not connected in M3 instance"),
+        (r"\.M_AHB_HREADY\s*\(m3_hready\)", "M_AHB_HREADY port not connected in M3 instance"),
+        (r"\.M_AHB_HREADYOUT\s*\(m3_hreadyout\)", "M_AHB_HREADYOUT port not connected in M3 instance"),
         (r"\.S_AHB_HADDR\s*\(m3_s_haddr\)", "S_AHB_HADDR port not connected in M3 instance"),
-        (r"\.S_AHB_HREADYOUT\s*\(m3_s_hreadyout\)", "S_AHB_HREADYOUT port not connected in M3 instance")
+        (r"\.S_AHB_HREADYOUT\s*\(m3_s_hreadyout\)", "S_AHB_HREADYOUT port not connected in M3 instance"),
+        (r"tt_um_chatelao_fp8_multiplier #\(", "MAC unit not instantiated with parameters")
     ]
 
     for pattern, error_msg in integration_patterns:
@@ -63,7 +100,15 @@ def verify_gowin_m3_top():
             print(f"Error: {error_msg} in {filepath}")
             return False
 
-    print(f"Verification of {filepath} successful: AHB/APB/GPIO modes verified.")
+    # Check for original parameters passed to instance
+    original_params = [p for p in expected_params if p not in ["parameter INTEGRATION_MODE", "parameter APB_BASE_ADDR", "parameter AHB_BASE_ADDR"]]
+    for param in original_params:
+        param_name = param.split()[-1]
+        if f".{param_name}({param_name})" not in content:
+            print(f"Error: Parameter {param_name} not passed to instance in {filepath}")
+            return False
+
+    print(f"Verification of {filepath} successful: AHB/APB/GPIO modes and parameter propagation verified.")
     return True
 
 if __name__ == "__main__":
