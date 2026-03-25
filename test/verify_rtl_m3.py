@@ -24,6 +24,21 @@ def verify_gowin_m3_top():
             print(f"Error: {error_msg} in {filepath}")
             return False
 
+    # Verify compile-time flags for INTEGRATION_MODE
+    ifdef_patterns = [
+        (r"`ifdef\s+M3_MODE_GPIO", "Missing `ifdef M3_MODE_GPIO"),
+        (r"parameter\s+INTEGRATION_MODE\s*=\s*0", "Missing INTEGRATION_MODE = 0 in GPIO branch"),
+        (r"`elsif\s+M3_MODE_AHB", "Missing `elsif M3_MODE_AHB"),
+        (r"parameter\s+INTEGRATION_MODE\s*=\s*2", "Missing INTEGRATION_MODE = 2 in AHB branch"),
+        (r"`else", "Missing `else for default APB mode"),
+        (r"parameter\s+INTEGRATION_MODE\s*=\s*1", "Missing INTEGRATION_MODE = 1 in default branch")
+    ]
+
+    for pattern, error_msg in ifdef_patterns:
+        if not re.search(pattern, content):
+            print(f"Error: {error_msg} in {filepath}")
+            return False
+
     # Verify parameter propagation (reusing from verify_rtl.py logic)
     expected_params = [
         "parameter ALIGNER_WIDTH",
