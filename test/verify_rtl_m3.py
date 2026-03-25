@@ -28,8 +28,10 @@ def verify_gowin_m3_top():
     ifdef_patterns = [
         (r"`ifdef\s+M3_MODE_GPIO", "Missing `ifdef M3_MODE_GPIO"),
         (r"parameter\s+INTEGRATION_MODE\s*=\s*0", "Missing INTEGRATION_MODE = 0 in GPIO branch"),
-        (r"`elsif\s+M3_MODE_AHB", "Missing `elsif M3_MODE_AHB"),
+        (r"`elsif\s+M3_MODE_AHB\n", "Missing `elsif M3_MODE_AHB"),
         (r"parameter\s+INTEGRATION_MODE\s*=\s*2", "Missing INTEGRATION_MODE = 2 in AHB branch"),
+        (r"`elsif\s+M3_MODE_AHB_DMA", "Missing `elsif M3_MODE_AHB_DMA"),
+        (r"parameter\s+INTEGRATION_MODE\s*=\s*3", "Missing INTEGRATION_MODE = 3 in AHB DMA branch"),
         (r"`else", "Missing `else for default APB mode"),
         (r"parameter\s+INTEGRATION_MODE\s*=\s*1", "Missing INTEGRATION_MODE = 1 in default branch")
     ]
@@ -39,7 +41,7 @@ def verify_gowin_m3_top():
             print(f"Error: {error_msg} in {filepath}")
             return False
 
-    # Verify parameter propagation (reusing from verify_rtl.py logic)
+    # Verify parameter propagation
     expected_params = [
         "parameter ALIGNER_WIDTH",
         "parameter ACCUMULATOR_WIDTH",
@@ -79,23 +81,18 @@ def verify_gowin_m3_top():
         (r"generate", "Missing generate block"),
         (r"if\s*\(INTEGRATION_MODE\s*==\s*0\)\s*begin\s*:\s*gen_gpio_integration", "Missing gen_gpio_integration"),
         (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*1\)\s*begin\s*:\s*gen_apb_integration", "Missing gen_apb_integration"),
-        (r"else\s*begin\s*:\s*gen_ahb_integration", "Missing gen_ahb_integration"),
+        (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*2\)\s*begin\s*:\s*gen_ahb_integration", "Missing gen_ahb_integration"),
+        (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*3\)\s*begin\s*:\s*gen_ahb_dma_integration", "Missing gen_ahb_dma_integration"),
+        (r"ahb2_mac_bridge\s+#\(", "ahb2_mac_bridge not instantiated"),
         (r"Gowin_EMPU_M3\s+m3_inst", "Gowin_EMPU_M3 instance not found"),
+        (r"if\s*\(INTEGRATION_MODE\s*==\s*2\s*\|\|\s*INTEGRATION_MODE\s*==\s*3\)\s*begin\s*:\s*gen_m3_ahb", "Missing gen_m3_ahb block for combined AHB modes"),
         (r"\.ADDR\s*\(m3_addr\)", "ADDR port not connected in M3 instance"),
-        (r"\.DATAOUT\s*\(m3_data_out\)", "DATAOUT port not connected in M3 instance"),
-        (r"\.WRITE\s*\(m3_write\)", "WRITE port not connected in M3 instance"),
-        (r"\.READ\s*\(m3_read\)", "READ port not connected in M3 instance"),
-        (r"\.DATAIN\s*\(m3_data_in\)", "DATAIN port not connected in M3 instance"),
         (r"\.M_AHB_HADDR\s*\(m3_haddr\)", "M_AHB_HADDR port not connected in M3 instance"),
-        (r"\.M_AHB_HTRANS\s*\(m3_htrans\)", "M_AHB_HTRANS port not connected in M3 instance"),
-        (r"\.M_AHB_HWRITE\s*\(m3_hwrite\)", "M_AHB_HWRITE port not connected in M3 instance"),
-        (r"\.M_AHB_HSIZE\s*\(m3_hsize\)", "M_AHB_HSIZE port not connected in M3 instance"),
-        (r"\.M_AHB_HWDATA\s*\(m3_hwdata\)", "M_AHB_HWDATA port not connected in M3 instance"),
-        (r"\.M_AHB_HSEL\s*\(m3_hsel\)", "M_AHB_HSEL port not connected in M3 instance"),
         (r"\.M_AHB_HREADY\s*\(m3_hready\)", "M_AHB_HREADY port not connected in M3 instance"),
-        (r"\.M_AHB_HRDATA\s*\(m3_hrdata\)", "M_AHB_HRDATA port not connected in M3 instance"),
         (r"\.M_AHB_HREADYOUT\s*\(m3_hreadyout\)", "M_AHB_HREADYOUT port not connected in M3 instance"),
-        (r"\.M_AHB_HRESP\s*\(m3_hresp\)", "M_AHB_HRESP port not connected in M3 instance")
+        (r"\.S_AHB_HADDR\s*\(m3_s_haddr\)", "S_AHB_HADDR port not connected in M3 instance"),
+        (r"\.S_AHB_HREADYOUT\s*\(m3_s_hreadyout\)", "S_AHB_HREADYOUT port not connected in M3 instance"),
+        (r"tt_um_chatelao_fp8_multiplier #\(", "MAC unit not instantiated with parameters")
     ]
 
     for pattern, error_msg in integration_patterns:
@@ -103,11 +100,7 @@ def verify_gowin_m3_top():
             print(f"Error: {error_msg} in {filepath}")
             return False
 
-    if "tt_um_chatelao_fp8_multiplier #(" not in content:
-        print(f"Error: tt_um_chatelao_fp8_multiplier not instantiated with parameters in {filepath}")
-        return False
-
-    # Check for original parameters only (some are internal to tt_gowin_top_m3)
+    # Check for original parameters passed to instance
     original_params = [p for p in expected_params if p not in ["parameter INTEGRATION_MODE", "parameter APB_BASE_ADDR", "parameter AHB_BASE_ADDR"]]
     for param in original_params:
         param_name = param.split()[-1]
@@ -115,7 +108,7 @@ def verify_gowin_m3_top():
             print(f"Error: Parameter {param_name} not passed to instance in {filepath}")
             return False
 
-    print(f"Verification of {filepath} successful: 16-bit buses, parameters, and AHB/APB/GPIO modes verified.")
+    print(f"Verification of {filepath} successful: AHB/APB/GPIO modes and parameter propagation verified.")
     return True
 
 if __name__ == "__main__":

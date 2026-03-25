@@ -2,6 +2,7 @@
 
 /* Stub for Gowin EMPU (Cortex-M3) IP Core
    This allows open-source tools to process the design without the proprietary IP.
+   Note: Port names and directions must match the EMCU primitive in the Gowin library.
 */
 
 module Gowin_EMPU_M3 (
@@ -19,7 +20,7 @@ module Gowin_EMPU_M3 (
     output wire        WRITE,
     output wire        READ,
     input  wire [31:0] DATAIN,
-    // AHB-Lite Master
+    // AHB-Lite Master (from M3 to fabric peripherals)
     output wire [31:0] M_AHB_HADDR,
     output wire [1:0]  M_AHB_HTRANS,
     output wire        M_AHB_HWRITE,
@@ -29,7 +30,18 @@ module Gowin_EMPU_M3 (
     output wire        M_AHB_HREADY,
     input  wire [31:0] M_AHB_HRDATA,
     input  wire        M_AHB_HREADYOUT,
-    input  wire        M_AHB_HRESP
+    input  wire        M_AHB_HRESP,
+    // AHB-Lite Slave (from fabric DMA master to M3 system SRAM)
+    input  wire [31:0] S_AHB_HADDR,
+    input  wire [1:0]  S_AHB_HTRANS,
+    input  wire        S_AHB_HWRITE,
+    input  wire [2:0]  S_AHB_HSIZE,
+    input  wire [31:0] S_AHB_HWDATA,
+    input  wire        S_AHB_HSEL,
+    input  wire        S_AHB_HREADY,
+    output wire [31:0] S_AHB_HRDATA,
+    output wire        S_AHB_HREADYOUT,
+    output wire        S_AHB_HRESP
 );
 
     // This stub is for synthesis/linting and does not implement M3 logic.
@@ -47,5 +59,9 @@ module Gowin_EMPU_M3 (
     assign M_AHB_HWDATA = 32'h0;
     assign M_AHB_HSEL   = 1'b0;
     assign M_AHB_HREADY = 1'b0;
+
+    assign S_AHB_HRDATA    = 32'h0;
+    assign S_AHB_HREADYOUT = 1'b1;
+    assign S_AHB_HRESP     = 1'b0;
 
 endmodule
