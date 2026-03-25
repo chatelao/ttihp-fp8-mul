@@ -31,6 +31,16 @@ jobs:
         run: |
           python3 test/gate_analysis.py
 
+      - name: Verify M3 Integration Compilation
+        if: matrix.config == 'Full'
+        run: |
+          # Verify compilation of all M3 modes using iverilog
+          for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB; do
+            echo "Verifying $mode..."
+            iverilog -g2012 -Isrc -D$mode src/project.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v -o m3_test
+            rm m3_test
+          done
+
       - name: Run tests
         run: |
           cd test

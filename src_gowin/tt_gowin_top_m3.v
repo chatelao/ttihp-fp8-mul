@@ -20,7 +20,13 @@ module tt_gowin_top_m3 #(
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0,
-    parameter INTEGRATION_MODE = 0, // 0: GPIO, 1: APB, 2: AHB
+`ifdef M3_MODE_GPIO
+    parameter INTEGRATION_MODE = 0,
+`elsif M3_MODE_AHB
+    parameter INTEGRATION_MODE = 2,
+`else
+    parameter INTEGRATION_MODE = 1, // Default: APB
+`endif
     parameter APB_BASE_ADDR = 32'h40020000,
     parameter AHB_BASE_ADDR = 32'h40020000
 )(
