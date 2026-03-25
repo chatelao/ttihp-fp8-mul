@@ -26,8 +26,10 @@ module Gowin_EMPU_M3 (
     output wire        M_AHB_HWRITE,
     output wire [2:0]  M_AHB_HSIZE,
     output wire [31:0] M_AHB_HWDATA,
+    input  wire        M_AHB_HSEL,   // Corrected to input for Master
+    input  wire        M_AHB_HREADY, // Corrected to input for Master
     input  wire [31:0] M_AHB_HRDATA,
-    input  wire        M_AHB_HREADY,
+    input  wire        M_AHB_HREADYOUT,
     input  wire        M_AHB_HRESP,
     // AHB-Lite Slave (from fabric DMA master to M3 system SRAM)
     input  wire [31:0] S_AHB_HADDR,

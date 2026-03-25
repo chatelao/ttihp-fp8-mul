@@ -58,7 +58,7 @@ module tt_gowin_top_m3 #(
     wire [2:0]  m3_hsize;
     wire [31:0] m3_hwdata;
     wire [31:0] m3_hrdata;
-    wire        m3_hready_in; // Ready signal fed to M3
+    wire        m3_hready_in; // Ready signal fed back to M3
     wire        m3_hresp;
 
     // M3 AHB-Lite Slave (Extension) Bus (for fabric DMA access to RAM)
@@ -132,8 +132,8 @@ module tt_gowin_top_m3 #(
             assign m3_gpio_i[15:8]  = 8'b0;
             assign m3_data_in       = 32'h0;
             assign m3_hrdata        = 32'h0;
-            assign m3_hready_in     = 1'b1;
             assign m3_hresp         = 1'b0;
+            assign m3_hready_in     = 1'b1;
             assign m3_s_haddr       = 32'h0;
             assign m3_s_htrans      = 2'h0;
             assign m3_s_hwrite      = 1'b0;
@@ -199,8 +199,8 @@ module tt_gowin_top_m3 #(
             // In APB mode, GPIOs and AHB are unused
             assign m3_gpio_i    = 16'h0;
             assign m3_hrdata     = 32'h0;
-            assign m3_hready_in  = 1'b1;
             assign m3_hresp      = 1'b0;
+            assign m3_hready_in  = 1'b1;
             assign m3_s_haddr    = 32'h0;
             assign m3_s_htrans   = 2'h0;
             assign m3_s_hwrite   = 1'b0;
@@ -209,7 +209,7 @@ module tt_gowin_top_m3 #(
             assign m3_s_hsel     = 1'b0;
             assign m3_s_hready   = 1'b1;
         end else if (INTEGRATION_MODE == 2) begin : gen_ahb_integration
-            assign m3_hready_in = 1'b1; // System ready for M3
+            assign m3_hready_in = 1'b1; // Slave always ready in Mode 2
 
             // Tie unused S_AHB signals
             assign m3_s_haddr     = 32'h0;
@@ -221,11 +221,6 @@ module tt_gowin_top_m3 #(
             assign m3_s_hready    = 1'b1;
 
             // AHB-to-MAC Bridge (AHB-Lite Slave)
-            // Register Map (Offset from AHB_BASE_ADDR):
-            // 0x00: DATA_IN (W: [7:0] ui_in, [15:8] uio_in, triggers mac_clk pulse)
-            // 0x04: DATA_OUT (R: [7:0] uo_out_mac, [15:8] uio_out)
-            // 0x08: CTRL (RW: [0] mac_ena, [1] mac_rst_n)
-
             reg [7:0]  ahb_addr_reg;
             reg        ahb_write_reg;
             reg        ahb_sel_reg;
@@ -382,8 +377,10 @@ module tt_gowin_top_m3 #(
                 .M_AHB_HWRITE   (m3_hwrite),
                 .M_AHB_HSIZE    (m3_hsize),
                 .M_AHB_HWDATA   (m3_hwdata),
+                .M_AHB_HSEL     (1'b0), // Tied to 0 for M3 Master
                 .M_AHB_HREADY   (m3_hready_in),
                 .M_AHB_HRDATA   (m3_hrdata),
+                .M_AHB_HREADYOUT(), // Port not used in top-level
                 .M_AHB_HRESP    (m3_hresp),
                 // AHB-Lite Slave ports to M3 (for DMA access to SRAM)
                 .S_AHB_HADDR    (m3_s_haddr),
