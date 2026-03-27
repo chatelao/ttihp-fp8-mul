@@ -48,7 +48,8 @@
   "//": "I/O Pin and Power Grid parameters.",
   "FP_IO_HLENGTH": 2,
   "FP_IO_VLENGTH": 2,
-  "FP_PDN_VPITCH": 38.87,
+  "FP_PDN_VPITCH": 50.0,
+  "FP_PDN_VWIDTH": 2.1,
 
   "//": "Clock Tree Synthesis (CTS) - Required for stable clock distribution.",
   "RUN_CTS": 1,
