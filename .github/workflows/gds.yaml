@@ -14,10 +14,9 @@ jobs:
           submodules: recursive
 
       - name: Build GDS
-        uses: TinyTapeout/tt-gds-action@ttihp26a
+        uses: TinyTapeout/tt-gds-action@ihp-cmos5l
         with:
-          pdk: ihp-sg13g2
-          librelane-version: 3.0.0.dev44
+          pdk: ihp-sg13cmos5l
 
   precheck:
     needs: gds
@@ -29,7 +28,7 @@ jobs:
           submodules: recursive
 
       - name: Run Tiny Tapeout Precheck
-        uses: TinyTapeout/tt-gds-action/precheck@ttihp26a
+        uses: TinyTapeout/tt-gds-action/precheck@ihp-cmos5l
 
   gl_test:
     needs: gds
@@ -41,7 +40,7 @@ jobs:
           submodules: recursive
 
       - name: GL test
-        uses: TinyTapeout/tt-gds-action/gl_test@ttihp26a
+        uses: TinyTapeout/tt-gds-action/gl_test@ihp-cmos5l
 
   viewer:
     needs: gds
@@ -73,4 +72,4 @@ jobs:
           name: gds_colored_zones
           path: gds_colored_zones.png
 
-      - uses: TinyTapeout/tt-gds-action/viewer@ttihp26a
+      - uses: TinyTapeout/tt-gds-action/viewer@ihp-cmos5l
