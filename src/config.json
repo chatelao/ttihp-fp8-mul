@@ -29,6 +29,7 @@
   "//": "AREA 3 focuses on minimizing the number of gates.",
   "SYNTH_STRATEGY": "AREA 3",
   "SYNTH_SIZING": 1,
+  "SYNTH_EXCLUDED_CELLS": ["sg13g2_nand2b_1"],
 
   "//": "--- Physical Layout Parameters ---",
   "RUN_KLAYOUT_XOR": 0,
