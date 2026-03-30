@@ -6,7 +6,7 @@ SIM ?= icarus
 FST ?= -fst # Use more efficient FST format
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = ../src
-PROJECT_SOURCES = project.v
+PROJECT_SOURCES = project.v fp8_mul.v fp8_mul_lns.v fp8_mul_serial_lns.v fp8_aligner.v accumulator.v
 
 ifeq ($(GATES),yes)
 
@@ -46,4 +46,4 @@ include $(shell cocotb-config --makefiles)/Makefile.sim
 
 # Verilator linting:
 lint:
-	cd $(SRC_DIR) && verilator --lint-only -Wall project.v --top-module tt_um_chatelao_fp8_multiplier
+	cd $(SRC_DIR) && verilator --lint-only -Wall $(PROJECT_SOURCES) --top-module tt_um_chatelao_fp8_multiplier

@@ -1,3 +1,5 @@
+`ifndef __PROJECT_V__
+`define __PROJECT_V__
 `default_nettype none
 
 /**
@@ -12,13 +14,7 @@
  * (ui_in, uo_out, uio_in, uio_out, uio_oe, ena, clk, rst_n).
  */
 
-`include "fp8_mul.v"
-`include "fp8_mul_lns.v"
-`include "fp8_aligner.v"
-`include "accumulator.v"
-
 /* verilator lint_off DECLFILENAME */
-/* verilator lint_off MODDUP */
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
     parameter ALIGNER_WIDTH = 40,
@@ -974,3 +970,4 @@ module tt_um_chatelao_fp8_multiplier #(
 `endif
 
 endmodule
+`endif
