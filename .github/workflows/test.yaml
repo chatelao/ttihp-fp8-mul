@@ -37,7 +37,7 @@ jobs:
           # Verify compilation of all M3 modes using iverilog
           for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB; do
             echo "Verifying $mode..."
-            iverilog -g2012 -Isrc -D$mode src/project.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v -o m3_test
+            iverilog -g2012 -Isrc -D$mode src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/accumulator.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v -o m3_test
             rm m3_test
           done
 

@@ -2,7 +2,7 @@ import subprocess
 import os
 import re
 
-def get_yosys_stats(params, top_module="tt_um_chatelao_fp8_multiplier", source_file="src/project.v"):
+def get_yosys_stats(params, top_module="tt_um_chatelao_fp8_multiplier", source_file="src/*.v"):
     param_str = ""
     for k, v in params.items():
         param_str += f"chparam -set {k} {v} {top_module}; "
