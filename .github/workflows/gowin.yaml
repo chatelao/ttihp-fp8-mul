@@ -44,7 +44,7 @@ jobs:
         run: |
           # Defaults
           echo "TOP=tt_gowin_top" >> $GITHUB_ENV
-          echo "SOURCES=src/project.v src_gowin/tt_gowin_top.v" >> $GITHUB_ENV
+          echo "SOURCES=src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/accumulator.v src_gowin/tt_gowin_top.v" >> $GITHUB_ENV
           echo "CST=src_gowin/tangnano4k.cst" >> $GITHUB_ENV
           echo "YOSYS_FLAGS=" >> $GITHUB_ENV
 
@@ -60,7 +60,7 @@ jobs:
             echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 24 -set SUPPORT_E4M3 0 -set SUPPORT_E5M2 0 -set SUPPORT_MXFP6 0 -set SUPPORT_MXFP4 1 -set SUPPORT_INT8 0 -set SUPPORT_PIPELINING 0 -set SUPPORT_ADV_ROUNDING 0 -set SUPPORT_MIXED_PRECISION 0 -set SUPPORT_VECTOR_PACKING 0 -set ENABLE_SHARED_SCALING 0 -set SUPPORT_MX_PLUS 0 -set SUPPORT_INPUT_BUFFERING 0 -set SUPPORT_SERIAL 1" >> $GITHUB_ENV
           elif [[ "${{ matrix.variant }}" == M3-* ]]; then
             echo "TOP=tt_gowin_top_m3" >> $GITHUB_ENV
-            echo "SOURCES=src/project.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v" >> $GITHUB_ENV
+            echo "SOURCES=src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/accumulator.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v" >> $GITHUB_ENV
             echo "CST=src_gowin/tangnano4k_m3.cst" >> $GITHUB_ENV
             echo "PARAMS=-set ALIGNER_WIDTH 32 -set ACCUMULATOR_WIDTH 32 -set SUPPORT_E4M3 1 -set SUPPORT_E5M2 1" >> $GITHUB_ENV
             if [ "${{ matrix.variant }}" == "M3-GPIO" ]; then
