@@ -1,0 +1,56 @@
+name: wasm
+
+on:
+  push:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        variant: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial]
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install Verilator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y verilator
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.56
+
+      - name: Build WASM
+        run: |
+          cd wasm
+          make VARIANT=${{ matrix.variant }}
+
+      - name: Upload Release Assets
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wasm/digital_twin_${{ matrix.variant }}.js
+            wasm/digital_twin_${{ matrix.variant }}.wasm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload WASM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm_digital_twin_${{ matrix.variant }}
+          path: |
+            wasm/digital_twin_${{ matrix.variant }}.js
+            wasm/digital_twin_${{ matrix.variant }}.wasm
