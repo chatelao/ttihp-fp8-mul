@@ -18,6 +18,42 @@ def decode_e2m1(bits):
         val = (float(2**(exp_field - 1))) * (1 + mant_field / 2.0)
         return sign, exp_field, mant_field, val if sign_bit == 0 else -val, "Normal"
 
+def decode_e3m2(bits):
+    sign_bit = (bits >> 5) & 1
+    exp_field = (bits >> 2) & 0x7
+    mant_field = (bits & 0x3)
+    sign = "-" if sign_bit else "+"
+
+    if exp_field == 0:
+        if mant_field == 0:
+            return sign, exp_field, mant_field, 0.0, "Zero"
+        else:
+            # Subnormal: 2^(1-3) * (0 + mant_field/2^2) = 2^-2 * mant_field/4 = mant_field * 2^-4
+            val = (2.0**-2) * (mant_field / 4.0)
+            return sign, exp_field, mant_field, val if sign_bit == 0 else -val, "Subnormal"
+    else:
+        # Normal: 2^(exp_field-3) * (1 + mant_field/2^2)
+        val = (2.0**(exp_field - 3)) * (1 + mant_field / 4.0)
+        return sign, exp_field, mant_field, val if sign_bit == 0 else -val, "Normal"
+
+def decode_e2m3(bits):
+    sign_bit = (bits >> 5) & 1
+    exp_field = (bits >> 3) & 0x3
+    mant_field = (bits & 0x7)
+    sign = "-" if sign_bit else "+"
+
+    if exp_field == 0:
+        if mant_field == 0:
+            return sign, exp_field, mant_field, 0.0, "Zero"
+        else:
+            # Subnormal: 2^(1-1) * (0 + mant_field/2^3) = 1 * mant_field/8
+            val = (mant_field / 8.0)
+            return sign, exp_field, mant_field, val if sign_bit == 0 else -val, "Subnormal"
+    else:
+        # Normal: 2^(exp_field-1) * (1 + mant_field/2^3)
+        val = (2.0**(exp_field - 1)) * (1 + mant_field / 8.0)
+        return sign, exp_field, mant_field, val if sign_bit == 0 else -val, "Normal"
+
 def decode_e4m3(bits):
     sign_bit = (bits >> 7) & 1
     exp_field = (bits >> 3) & 0xF
@@ -92,6 +128,30 @@ def generate_table_fp4():
         rows.append(f"| `{binary}` | `{hex_val}` | `{s}` | `{e}` | `{m}` | `{val_str}` | {note} |")
     return header + "\n".join(rows)
 
+def generate_table_fp6_e3m2():
+    header = "| Binary | Hex | Sign | Exp | Mant | Value (Dec) | Notes |\n"
+    header += "| :--- | :--- | :---: | :---: | :---: | :--- | :--- |\n"
+    rows = []
+    for i in range(64):
+        s, e, m, val, note = decode_e3m2(i)
+        binary = format(i, '06b')
+        hex_val = f"0x{i:02X}"
+        val_str = format_value(val)
+        rows.append(f"| `{binary}` | `{hex_val}` | `{s}` | `{e}` | `{m}` | `{val_str}` | {note} |")
+    return header + "\n".join(rows)
+
+def generate_table_fp6_e2m3():
+    header = "| Binary | Hex | Sign | Exp | Mant | Value (Dec) | Notes |\n"
+    header += "| :--- | :--- | :---: | :---: | :---: | :--- | :--- |\n"
+    rows = []
+    for i in range(64):
+        s, e, m, val, note = decode_e2m3(i)
+        binary = format(i, '06b')
+        hex_val = f"0x{i:02X}"
+        val_str = format_value(val)
+        rows.append(f"| `{binary}` | `{hex_val}` | `{s}` | `{e}` | `{m}` | `{val_str}` | {note} |")
+    return header + "\n".join(rows)
+
 def generate_table_fp8_e4m3():
     header = "| Binary | Hex | Sign | Exp | Mant | Value (Dec) | Notes |\n"
     header += "| :--- | :--- | :---: | :---: | :---: | :--- | :--- |\n"
@@ -135,6 +195,16 @@ if __name__ == "__main__":
         f.write("# OCP MX FP4 (E2M1) Value Table\n\n")
         f.write("Format: [3] Sign, [2:1] Exponent (Bias 1), [0] Mantissa\n\n")
         f.write(generate_table_fp4())
+
+    with open("docs/reference/FP6_E3M2_TABLE.md", "w") as f:
+        f.write("# OCP MX FP6 (E3M2) Value Table\n\n")
+        f.write("Format: [5] Sign, [4:2] Exponent (Bias 3), [1:0] Mantissa\n\n")
+        f.write(generate_table_fp6_e3m2())
+
+    with open("docs/reference/FP6_E2M3_TABLE.md", "w") as f:
+        f.write("# OCP MX FP6 (E2M3) Value Table\n\n")
+        f.write("Format: [5] Sign, [4:3] Exponent (Bias 1), [2:0] Mantissa\n\n")
+        f.write(generate_table_fp6_e2m3())
 
     with open("docs/reference/FP8_E4M3_TABLE.md", "w") as f:
         f.write("# OCP MX FP8 (E4M3) Value Table\n\n")
