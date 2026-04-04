@@ -43,7 +43,8 @@ EMCC_FLAGS = -O3 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 \
              -I$(VERILATOR_ROOT)/include/vltstd
 
 # Verilator runtime sources
-VERILATOR_SOURCES = $(VERILATOR_ROOT)/include/verilated.cpp
+VERILATOR_SOURCES = $(VERILATOR_ROOT)/include/verilated.cpp \
+                    $(VERILATOR_ROOT)/include/verilated_threads.cpp
 
 all: digital_twin_$(VARIANT).js
 
