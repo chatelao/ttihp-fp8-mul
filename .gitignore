@@ -15,3 +15,5 @@ logic_diagram.*
 build/
 src/project/
 netlist.v
+obj_dir/
+wasm/obj_dir/
