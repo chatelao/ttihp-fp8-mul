@@ -48,6 +48,7 @@ VERILATOR_SOURCES = $(VERILATOR_ROOT)/include/verilated.cpp \
 
 all: digital_twin_$(VARIANT).js
 
+.PHONY: verilate
 verilate: $(SOURCES)
 	$(VERILATOR) --cc $(SOURCES) \
 		--top-module tt_um_chatelao_fp8_multiplier \
@@ -57,7 +58,7 @@ verilate: $(SOURCES)
 		--Mdir $(OBJ_DIR)
 
 digital_twin_$(VARIANT).js: verilate digital_twin.cpp
-	$(EMCC) $(EMCC_FLAGS) digital_twin.cpp $(shell ls $(OBJ_DIR)/*.cpp | grep -v "__ALL.cpp") $(VERILATOR_SOURCES) -o digital_twin_$(VARIANT).js
+	$(EMCC) $(EMCC_FLAGS) digital_twin.cpp $$(ls $(OBJ_DIR)/*.cpp | grep -v "__ALL.cpp") $(VERILATOR_SOURCES) -o digital_twin_$(VARIANT).js
 
 clean:
 	rm -rf $(OBJ_DIR) *.js *.wasm

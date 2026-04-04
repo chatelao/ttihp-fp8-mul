@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <emscripten.h>
 #include <emscripten/bind.h>
 #include "Vtt_um_chatelao_fp8_multiplier.h"
