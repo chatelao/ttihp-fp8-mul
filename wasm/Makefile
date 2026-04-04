@@ -37,13 +37,13 @@ VERILATOR_ROOT = $(shell $(VERILATOR) -V | grep VERILATOR_ROOT | head -1 | awk '
 # Emscripten flags
 EMCC_FLAGS = -O3 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 \
              --bind \
+             -DVL_IGNORE_UNKNOWN_ARCH \
              -I$(OBJ_DIR) \
              -I$(VERILATOR_ROOT)/include \
              -I$(VERILATOR_ROOT)/include/vltstd
 
 # Verilator runtime sources
-VERILATOR_SOURCES = $(VERILATOR_ROOT)/include/verilated.cpp \
-                    $(VERILATOR_ROOT)/include/verilated_threads.cpp
+VERILATOR_SOURCES = $(VERILATOR_ROOT)/include/verilated.cpp
 
 all: digital_twin_$(VARIANT).js
 
@@ -56,8 +56,7 @@ verilate: $(SOURCES)
 		--Mdir $(OBJ_DIR)
 
 digital_twin_$(VARIANT).js: verilate digital_twin.cpp
-	$(eval GEN_SOURCES := $(shell ls $(OBJ_DIR)/*.cpp | grep -v "__ALL.cpp"))
-	$(EMCC) $(EMCC_FLAGS) digital_twin.cpp $(GEN_SOURCES) $(VERILATOR_SOURCES) -o digital_twin_$(VARIANT).js
+	$(EMCC) $(EMCC_FLAGS) digital_twin.cpp $(shell ls $(OBJ_DIR)/*.cpp | grep -v "__ALL.cpp") $(VERILATOR_SOURCES) -o digital_twin_$(VARIANT).js
 
 clean:
 	rm -rf $(OBJ_DIR) *.js *.wasm
