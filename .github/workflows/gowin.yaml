@@ -10,6 +10,7 @@ jobs:
   gowin:
     runs-on: ubuntu-24.04
     strategy:
+      max-parallel: 3
       matrix:
         variant: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial, M3-GPIO, M3-APB, M3-AHB, M3-AHB-DMA]
 
