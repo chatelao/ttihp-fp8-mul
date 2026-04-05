@@ -91,6 +91,39 @@ The unit captures configuration and scaling data during the first three cycles o
 - **BM Index B (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand B.
 - **Format B (`[2:0]`)**: Independent format for Operand B (Enabled if `SUPPORT_MIXED_PRECISION=1`).
 
+### Debug Capabilities
+
+The unit includes built-in debug features to assist in silicon bring-up and real-time monitoring.
+
+#### 1. Real-Time Observability (Logic Analyzer Mode)
+When **Debug En** (`ui_in[6]` in Cycle 0) is set, `uo_out` is repurposed for internal signal probing during Cycles 0-36. The specific signal is selected via `uio_in[3:0]` in Cycle 0.
+
+| Selector | Signal Description | Bit Mapping |
+|:---:|---|---|
+| `0x0` | **Default** | `8'h00` (Normal operation) |
+| `0x1` | **FSM State & Timing** | `[7:6]` State, `[5:0]` logical_cycle |
+| `0x2` | **Exception Monitor** | `[7]` nan_sticky, `[6]` inf_pos, `[5]` inf_neg, `[4]` strobe, `[3:0]` 0 |
+| `0x3` | **Accumulator [31:24]** | Live MSB of the accumulator |
+| `0x4` | **Accumulator [23:16]** | Live Byte 2 |
+| `0x5` | **Accumulator [15:8]** | Live Byte 1 |
+| `0x6` | **Accumulator [7:0]** | Live LSB (Fixed-point fraction) |
+| `0x7` | **Multiplier Lane 0** | `mul_prod_lane0[15:8]` (Exp sum / MSB) |
+| `0x8` | **Multiplier Lane 0** | `mul_prod_lane0[7:0]` (Mantissa product) |
+| `0x9` | **Control Signals** | `[7]` ena, `[6]` strobe, `[5]` acc_en, `[4]` acc_clear, `[3:0]` 0 |
+
+Once enabled, debug mode remains active for the entire block operation.
+
+#### 2. Connectivity Loopback
+Set **Loopback En** (`ui_in[5]` in Cycle 0) to enter a persistent loopback mode. In this mode, `uo_out = ui_in ^ uio_in`, allowing verification of all 16 input pins. This mode bypasses all FSM logic and remains active until reset.
+
+#### 3. Metadata Echo
+In **Cycle 35** (Pipeline Flush), if debug mode is active, `uo_out` echoes the latched configuration instead of `0x00`:
+- `uo_out[2:0]`: `format_a`
+- `uo_out[4:3]`: `round_mode`
+- `uo_out[5]`: `overflow_wrap`
+- `uo_out[6]`: `packed_mode`
+- `uo_out[7]`: `mx_plus_en`
+
 ## How to test
 
 ### Basic Verification
@@ -109,6 +142,8 @@ The unit captures configuration and scaling data during the first three cycles o
 ### Advanced Modes
 - **Short Protocol**: Set `ui_in[7]=1` in Cycle 0 to bypass scale loading. Useful for weight-stationary kernels where scales and formats remain constant across blocks.
 - **Vector Packing**: Set `uio_in[6]=1` in Cycle 0. Stream two 4-bit elements per byte (High nibble = Element $i+1$, Low nibble = Element $i$).
+- **Debug Mode**: Set `ui_in[6]=1` in Cycle 0 and use `uio_in[3:0]` to select an internal probe for real-time monitoring on `uo_out`.
+- **Loopback Mode**: Set `ui_in[5]=1` in Cycle 0 to enable a transparent XOR-based loopback (`uo_out = ui_in ^ uio_in`) for connectivity testing.
 
 ## External hardware
 
