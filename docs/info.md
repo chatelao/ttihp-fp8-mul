@@ -132,12 +132,13 @@ The OCP MX+ extension optimizes quantization by preserving high-precision "outli
 
 ### 1. Base OCP MX Mathematics (Standard)
 For a block of $k$ elements, the value of an element $A_i$ is given by:
-$$V(A_i) = S \cdot M_i \cdot 2^{X_A - 127}$$
+$$V(A_i) = S \cdot 2^{E_i - \text{Bias}} \cdot M_i \cdot 2^{X_A - 127}$$
 Where:
 - $S$: Sign bit ($\pm 1$).
+- $E_i$: Individual element exponent field.
+- $\text{Bias}$: Format-specific exponent bias (e.g., 7 for E4M3).
 - $M_i$: Mantissa (significand), including an implicit leading bit for subnormals.
 - $X_A$: Shared 8-bit scale (UE8M0).
-- $E_i$: Individual element exponent (for FP8/FP6/FP4 formats).
 
 ### 2. OCP MX+ (Extended Mantissa)
 When `MX+ Enable` is set, the **Block Max (BM)** element—identified by `BM Index`—repurposes its exponent bits as additional mantissa.
@@ -153,7 +154,7 @@ Decoded as standard MXFP (e.g., E4M3).
 ### 3. OCP MX++ (Decoupled Shared Scaling)
 MX++ allows "Non-Block Max" (NBM) elements to use a finer quantization grid than the BM element by applying a secondary exponent offset.
 
-$$V(A_{i \neq BM}) = S \cdot M_i \cdot 2^{(X_A - 127) - NBM\_Offset\_A}$$
+$$V(A_{i \neq BM}) = S \cdot 2^{E_i - \text{Bias}} \cdot M_i \cdot 2^{(X_A - 127) - NBM\_Offset\_A}$$
 
 This effectively "zooms in" on the smaller values in the block, reducing the floor noise caused by a single large outlier.
 
