@@ -19,7 +19,22 @@ The `OCP-MX-V` extension provides a set of custom R-type instructions (Opcode `0
 
 ---
 
-## 2. ZvfofpXmin (Minimal Vector OCP Floating-Point)
+## 2. PULP Snitch (Small-Float / Xff8 Extension)
+The Snitch core from the PULP platform utilizes a custom "Small-Float" extension for efficient 8-bit floating-point arithmetic.
+
+| Mnemonic | Opcode | funct3 | Description |
+|:---|:---:|:---:|:---|
+| `vfdotp.s.f8` | 0x5b | 0x4 | Vector dot-product of FP8 elements (Sum of Products). |
+| `vfmac.s.f8`  | 0x5b | 0x5 | Vector multiply-accumulate for FP8 elements. |
+| `vfmadd.s.f8` | 0x5b | 0x6 | Vector fused multiply-add for FP8 elements. |
+
+### Architectural Integration
+- **Extension**: Part of the `Xpulpf` / `Xff8` ISA extension.
+- **Register File**: Operates on the 32-bit (or 64-bit) floating-point registers, treating them as vectors of 4 (or 8) FP8 elements.
+
+---
+
+## 3. ZvfofpXmin (Minimal Vector OCP Floating-Point)
 `ZvfofpXmin` is a proposed minimal vector extension for OCP MX support, integrating the MAC unit into the RISC-V Vector pipeline.
 
 | Mnemonic | Type | Description |
@@ -32,7 +47,7 @@ The `OCP-MX-V` extension provides a set of custom R-type instructions (Opcode `0
 
 ---
 
-## 3. Zvf8mmai (Vector FP8 Matrix-Multiply-Accumulate)
+## 4. Zvf8mmai (Vector FP8 Matrix-Multiply-Accumulate)
 `Zvf8mmai` is an inferred extension for vector-based 8-bit floating-point matrix operations.
 
 | Mnemonic | Description |
@@ -41,7 +56,7 @@ The `OCP-MX-V` extension provides a set of custom R-type instructions (Opcode `0
 
 ---
 
-## 4. Zf8 (Scalar FP8 Support)
+## 5. Zf8 (Scalar FP8 Support)
 `Zf8` refers to scalar support for 8-bit floating-point formats, providing base conversion and arithmetic instructions.
 
 | Mnemonic | Description |
@@ -52,7 +67,7 @@ The `OCP-MX-V` extension provides a set of custom R-type instructions (Opcode `0
 
 ---
 
-## 5. Summary of OCP MX Formats (Element IDs)
+## 6. Summary of OCP MX Formats (Element IDs)
 These IDs are used in `MX.SETFMT` and `vmxfmt`.
 
 | ID | Format | Type | Bits |
