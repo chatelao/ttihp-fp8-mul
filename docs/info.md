@@ -40,17 +40,29 @@ The unit captures configuration and scaling data during the first three cycles o
 #### Cycle 0: Metadata 0 (`ui_in`)
 ![Metadata 0](metadata_c0_ui.svg)
 
-- **Short Protocol (`[7]`)**: 1: Reuse previous scales/formats; immediately jump to Cycle 3.
-- **Debug En (`[6]`)**: 1: Enable internal probing and metadata echo at the end of the block.
-- **Loopback En (`[5]`)**: 1: Direct input-to-output mapping for physical connectivity testing.
-- **LNS Mode (`[4:3]`)**:
-  - `0`: Normal (Exact IEEE-like multiplication).
-  - `1`: LNS (Logarithmic Number System using Mitchell's Approximation).
-  - `2`: Hybrid (Standard for Block Max elements, LNS for all others).
-- **NBM Offset A (`[2:0]`)**: (Standard Start only) Exponent offset for non-Block Max elements in Operand A (MX++).
+| Bit | Name | Description |
+|:---:|------|-------------|
+| `[7]` | **Short Protocol** | 1: Reuse previous scales/formats; immediately jump to Cycle 3. |
+| `[6]` | **Debug En** | 1: Enable internal probing and metadata echo. |
+| `[5]` | **Loopback En** | 1: Enable transparent XOR loopback. |
+| `[4:3]` | **LNS Mode** | Multiplier mode: `0`: Normal, `1`: LNS, `2`: Hybrid. |
+| `[2:0]` | **NBM Offset A** | (Standard Start only) Exponent offset for Operand A (MX++). |
 
 #### Cycle 0: Metadata 1 (`uio_in`)
 ![Metadata 1](metadata_c0_uio.svg)
+
+The `uio_in` pins in Cycle 0 have a dual purpose if Debug Mode is enabled.
+
+| Bit | Normal Operation (`ui_in[6]=0`) | Debug Enabled (`ui_in[6]=1`) |
+|:---:|---------------------------------|-------------------------------|
+| `[7]` | **MX+ Enable**                  | **MX+ Enable**                |
+| `[6]` | **Packed Mode**                 | **Packed Mode**               |
+| `[5]` | **Overflow Mode**               | **Overflow Mode**             |
+| `[4]` | **Rounding Mode [1]**           | **Rounding Mode [1]**         |
+| `[3]` | **Rounding Mode [0]**           | **Probe Selector [3]** / Rounding Mode [0] |
+| `[2]` | **NBM Offset B [2]** / Format [2] | **Probe Selector [2]** / NBM Offset B [2] |
+| `[1]` | **NBM Offset B [1]** / Format [1] | **Probe Selector [1]** / NBM Offset B [1] |
+| `[0]` | **NBM Offset B [0]** / Format [0] | **Probe Selector [0]** / NBM Offset B [0] |
 
 - **MX+ Enable (`[7]`)**: 1: Enable OCP MX+ extensions (Repurposed exponents and Block Max tracking).
 - **Packed Mode (`[6]`)**: 1: Enable Vector Packing for 4-bit formats (2 elements per byte, Cycles 3-18).
@@ -63,6 +75,8 @@ The unit captures configuration and scaling data during the first three cycles o
 - **NBM Offset B / Format A/B (`[2:0]`)**:
   - **Standard Start**: NBM Offset B (Exponent offset for Operand B).
   - **Short Protocol**: Combined Format A & B selection.
+
+*Important: When `Debug En` is set, bits `[3:0]` of `uio_in` simultaneously configure the internal logic probe and the functional metadata (Rounding Mode and NBM Offset). Ensure the probe selection is compatible with your desired arithmetic configuration.*
 
 #### Cycle 1: Scale A (`ui_in`) & Config A (`uio_in`)
 
