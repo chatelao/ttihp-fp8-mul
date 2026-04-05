@@ -39,11 +39,11 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 | Cycle | Input `ui_in[7:0]` | Input `uio_in[7:0]` | Output `uo_out[7:0]` | Description |
 |-------|--------------------|---------------------|----------------------|-------------|
-| 0     | **Metadata 0**     | **Metadata 1**      | 0x00                 | **IDLE**: Load MX+ / Debug or Start Fast Protocol. |
-| 1     | **Scale A**        | **Format A / BM A** | 0x00                 | Load Scale A, Format A, and BM Index A. |
-| 2     | **Scale B**        | **Format B / BM B** | 0x00                 | Load Scale B, Format B, and BM Index B. |
-| 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements (Standard).* |
-| 35    | -                  | -                   | 0x00                 | Pipeline flush. |
+| 0     | **Metadata 0**     | **Metadata 1**      | 0x00 / Probe Data    | **IDLE**: Load MX+ / Debug or Start Fast Protocol. |
+| 1     | **Scale A**        | **Format A / BM A** | 0x00 / Probe Data    | Load Scale A, Format A, and BM Index A. |
+| 2     | **Scale B**        | **Format B / BM B** | 0x00 / Probe Data    | Load Scale B, Format B, and BM Index B. |
+| 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00 / Probe Data    | Stream 32 pairs of elements (Standard).* |
+| 35    | -                  | -                   | 0x00 / Meta Echo     | Pipeline flush. |
 | 36    | -                  | -                   | 0x00                 | Final Shared Scaling calculation. |
 | 37    | -                  | -                   | **Result [31:24]**   | Output Byte 3 (MSB). |
 | 38    | -                  | -                   | **Result [23:16]**   | Output Byte 2. |
@@ -65,8 +65,8 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
   - `ui_in[2:0]`: **NBM Offset A** (MX++)
 - **Common Metadata** (captured in both Standard and Short protocols):
   - `ui_in[4:3]`: **LNS Mode** (0: Normal, 1: LNS, 2: Hybrid)
-  - `ui_in[5]`: **Loopback Enable** (Debug)
-  - `ui_in[6]`: **Debug Enable** (Enables metadata echo at Cycle 35/19)
+  - `ui_in[5]`: **Loopback Enable** (Bypasses unit; `uo_out = ui_in ^ uio_in`)
+  - `ui_in[6]`: **Debug Enable** (Enables probing and metadata echo)
 
 ##### UIO_IN
 ![Metadata 1 (uio_in) Diagram](https://svg.wavedrom.com/%7B%20%22reg%22%3A%20%5B%20%7B%22name%22%3A%20%22NBM%20Offset%20B%22%2C%20%22bits%22%3A%203%7D%2C%20%7B%22name%22%3A%20%22Rounding%20Mode%22%2C%20%22bits%22%3A%202%7D%2C%20%7B%22name%22%3A%20%22Overflow%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22Packed%20Mode%22%2C%20%22bits%22%3A%201%7D%2C%20%7B%22name%22%3A%20%22MX%2B%20Enable%22%2C%20%22bits%22%3A%201%7D%20%5D%2C%20%22config%22%3A%20%7B%22bits%22%3A%208%7D%7D)
@@ -96,6 +96,17 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 - `ui_in[7:0]`: **Scale B**
 - `uio_in[2:0]`: **Format B** (Enabled if `SUPPORT_MIXED_PRECISION=1`)
 - `uio_in[7:3]`: **BM Index B** (MX+)
+
+### Debugging Output
+
+When enabled via `ui_in[6]` in Cycle 0, the `uo_out[7:0]` port provides real-time observability into the unit's internal state during the phases that are normally silent (Cycles 0-35).
+
+- **Enable**: Set `ui_in[6] = 1` during Cycle 0.
+- **Probe Selection**: Set `uio_in[3:0]` during Cycle 0 to select the internal signal to monitor.
+- **Cycles 0-34 (Standard)** or **0-18 (Packed)**: `uo_out` outputs the selected **Probe Data** (e.g., Accumulator MSB, Multiplier outputs, FSM state).
+- **Cycle 35 (Standard)** or **19 (Packed)**: `uo_out` outputs a **Metadata Echo**, confirming the captured configuration.
+
+For a full list of available probes and the metadata echo bit-mapping, see [DEBUG_TT.md](DEBUG_TT.md).
 
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2Ftinytapeout.oas)
 - [Interactive Digital Twin (WASM Demo)](https://chatelao.github.io/ttihp-fp8-mul/demo/)
