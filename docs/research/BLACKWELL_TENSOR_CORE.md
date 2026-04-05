@@ -5,7 +5,7 @@ The NVIDIA Blackwell architecture introduces the **5th Generation Tensor Cores**
 
 ## Architecture Diagram
 
-![NVIDIA 5th Gen Tensor Core (Blackwell) Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/BLACKWELL_TENSOR_CORE.PUML)
+![NVIDIA 5th Gen Tensor Core (Blackwell) Architecture](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/BLACKWELL_TENSOR_CORE.PUML)
 
 *Source: [../diagrams/BLACKWELL_TENSOR_CORE.PUML](../diagrams/BLACKWELL_TENSOR_CORE.PUML)*
 

@@ -15,7 +15,7 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 ## System Context
 
-![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/CONTEXT_DIAGRAM.PUML)
+![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/CONTEXT_DIAGRAM.PUML)
 
 *Source: [docs/diagrams/CONTEXT_DIAGRAM.PUML](docs/diagrams/CONTEXT_DIAGRAM.PUML)*
 
