@@ -147,8 +147,13 @@ When `MX+ Enable` is set, the **Block Max (BM)** element—identified by `BM Ind
 Decoded as standard MXFP (e.g., E4M3).
 
 **Block Max Element ($i = BM$):**
-- **Exponent**: Fixed to $E_{max}$ for the selected format.
-- **Mantissa**: The original exponent bits are appended to the mantissa field.
+The value is given by:
+$$V(A_{BM}) = S \cdot 2^{E_{max} - \text{Bias}} \cdot \left(1 + \frac{\text{concat}(E_i, M_i)}{2^{E_{bits} + M_{bits}}}\right) \cdot 2^{X_A - 127}$$
+Where:
+- $E_{max}$: Maximum representable exponent for the format.
+- $\text{concat}(E_i, M_i)$: The original exponent bits concatenated with the mantissa bits, treated as a single extended mantissa field.
+- $E_{bits}, M_{bits}$: The number of bits in the original exponent and mantissa fields.
+
 - **Benefit**: For FP4 (E2M1), the mantissa grows from 1 bit to 3 bits ($1 + 2$), reducing quantization error for the most critical value by up to 10x.
 
 ### 3. OCP MX++ (Decoupled Shared Scaling)
