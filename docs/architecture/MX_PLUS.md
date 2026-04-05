@@ -7,6 +7,14 @@ In standard MX formats, the exponent of the largest magnitude value in a block (
 
 **MX+** leverages this redundancy by repurposing the exponent bits of the BM element as an extended mantissa, significantly increasing its precision without increasing the total bit width of the format.
 
+The value of a Block Max element in MX+ is formally defined as:
+$$V(A_{BM}) = S \cdot 2^{E_{max} - \text{Bias}} \cdot \left(1 + \frac{\text{concat}(E_i, M_i)}{2^{E_{bits} + M_{bits}}}\right) \cdot 2^{X_A - 127}$$
+
+Where:
+- $E_{max}$: The maximum representable exponent field value for the selected format.
+- $\text{concat}(E_i, M_i)$: The original $E_{bits}$ exponent bits concatenated with the $M_{bits}$ mantissa bits, forming an extended significand.
+- $2^{E_{bits} + M_{bits}}$: The normalization factor for the extended mantissa.
+
 ### Illustrative Example: MXFP4 vs. MXFP4+
 Consider a 4-element block from a Mistral-7B activation tensor:
 **Original (BF16)**: `[-0.39, -9.84, -0.20, 0.99]`

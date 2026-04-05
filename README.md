@@ -189,6 +189,8 @@ This implementation follows the **OCP Microscaling Formats (MX) Specification (v
   - **SAT**: Saturation (Clamp to Max/Min representable value).
   - **WRAP**: Wrapping (Modulo arithmetic).
 - **Mixed-Precision Operations**: Independent format selection for Operand A and Operand B within a single MAC block.
+- **OCP MX+ (Extended Mantissa)**: Higher precision for "Block Max" (BM) elements by repurposing exponent bits as an extended mantissa:
+  $$V(A_{BM}) = S \cdot 2^{E_{max} - \text{Bias}} \cdot \left(1 + \frac{\text{concat}(E_i, M_i)}{2^{E_{bits} + M_{bits}}}\right) \cdot 2^{X_A - 127}$$
 - **Efficiency**: 41-cycle pipelined streaming protocol with **Fast Start** (Scale Compression) to reuse scales/formats across consecutive blocks.
 
 ### Omitted Features & Deviations
