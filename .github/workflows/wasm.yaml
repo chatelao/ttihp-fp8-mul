@@ -16,6 +16,7 @@ jobs:
 
     permissions:
       contents: write
+      pages: write
 
     steps:
       - name: Checkout repo
@@ -38,6 +39,14 @@ jobs:
           cd wasm
           make VARIANT=${{ matrix.variant }}
 
+      - name: Prepare Demo Directory
+        if: matrix.variant == 'Full'
+        run: |
+          mkdir -p demo
+          cp -r docs/web/* demo/
+          cp wasm/digital_twin_Full.js demo/
+          cp wasm/digital_twin_Full.wasm demo/
+
       - name: Upload Release Assets
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
@@ -55,3 +64,12 @@ jobs:
           path: |
             wasm/digital_twin_${{ matrix.variant }}.js
             wasm/digital_twin_${{ matrix.variant }}.wasm
+
+      - name: Deploy Demo to GitHub Pages
+        if: matrix.variant == 'Full' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./demo
+          destination_dir: demo
+          keep_files: true

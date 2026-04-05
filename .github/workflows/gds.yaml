@@ -42,59 +42,20 @@ jobs:
       - name: GL test
         uses: TinyTapeout/tt-gds-action/gl_test@ihp-cmos5l
 
-  build-wasm:
-    needs: gl_test
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install Verilator
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y verilator
-
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: 3.1.56
-
-      - name: Build WASM
-        run: |
-          cd wasm
-          make VARIANT=Full
-
-      - name: Upload WASM Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: wasm-demo
-          path: |
-            wasm/digital_twin_Full.js
-            wasm/digital_twin_Full.wasm
-
   viewer:
-    needs: [gds, build-wasm]
+    needs: gds
     runs-on: ubuntu-24.04
     permissions:
       pages: write # to deploy to Pages
       id-token: write # to verify the deployment originates from an appropriate source
     steps:
       - name: checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Download Artifacts
+      - name: Download Layout Artifacts
         uses: actions/download-artifact@v4
-
-      - name: Prepare Demo Directory
-        run: |
-          mkdir -p demo
-          cp -r docs/web/* demo/
-          cp wasm-demo/digital_twin_Full.js demo/
-          cp wasm-demo/digital_twin_Full.wasm demo/
 
       - name: Diagnostic Path List
         run: ls -R
