@@ -98,6 +98,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 - `uio_in[7:3]`: **BM Index B** (MX+)
 
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
+- [Interactive Digital Twin (WASM Demo)](https://chatelao.github.io/ttihp-fp8-mul/)
 
 ### MicroPython Example (TT DevKit)
 
