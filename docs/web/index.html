@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCP MXFP8 MAC Digital Twin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>OCP MXFP8 Streaming MAC Unit</h1>
+        <p>Interactive Digital Twin & Predictor</p>
+    </header>
+
+    <main>
+        <section id="config-global">
+            <h2>Global Configuration (Cycle 0)</h2>
+            <div class="grid-container">
+                <div class="control-group">
+                    <label for="rounding-mode">Rounding Mode</label>
+                    <select id="rounding-mode">
+                        <option value="0">TRN (Truncate)</option>
+                        <option value="1">CEL (Ceil)</option>
+                        <option value="2">FLR (Floor)</option>
+                        <option value="3" selected>RNE (Round-to-Nearest-Even)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="overflow-mode">Overflow Mode</label>
+                    <select id="overflow-mode">
+                        <option value="0" selected>SAT (Saturate)</option>
+                        <option value="1">WRAP (Modulo)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="lns-mode">Multiplier Mode</label>
+                    <select id="lns-mode">
+                        <option value="0" selected>Normal (Exact)</option>
+                        <option value="1">LNS (Mitchell's Approx)</option>
+                        <option value="2">Hybrid (BM=Exact, else LNS)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="mx-plus-en">MX+ Extensions</label>
+                    <select id="mx-plus-en">
+                        <option value="0">Disabled</option>
+                        <option value="1">Enabled</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="packed-mode">Vector Packing (FP4)</label>
+                    <select id="packed-mode">
+                        <option value="0" selected>Disabled</option>
+                        <option value="1">Enabled</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section id="config-scales">
+            <h2>Scales & Formats (Cycles 1 & 2)</h2>
+            <div class="grid-container">
+                <div class="card">
+                    <h3>Operand A</h3>
+                    <div class="control-group">
+                        <label for="format-a">Format</label>
+                        <select id="format-a">
+                            <option value="0" selected>E4M3 (FP8)</option>
+                            <option value="1">E5M2 (FP8)</option>
+                            <option value="2">E3M2 (FP6)</option>
+                            <option value="3">E2M3 (FP6)</option>
+                            <option value="4">E2M1 (FP4)</option>
+                            <option value="5">INT8</option>
+                            <option value="6">INT8_SYM</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="scale-a">Shared Scale (Hex)</label>
+                        <input type="text" id="scale-a" value="7F" maxlength="2">
+                        <span id="scale-a-dec" class="dec-val">1.0</span>
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="bm-index-a">BM Index (0-31)</label>
+                        <input type="number" id="bm-index-a" value="0" min="0" max="31">
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="nbm-offset-a">NBM Offset (0-7)</label>
+                        <input type="number" id="nbm-offset-a" value="0" min="0" max="7">
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Operand B</h3>
+                    <div class="control-group">
+                        <label for="format-b">Format</label>
+                        <select id="format-b">
+                            <option value="0" selected>E4M3 (FP8)</option>
+                            <option value="1">E5M2 (FP8)</option>
+                            <option value="2">E3M2 (FP6)</option>
+                            <option value="3">E2M3 (FP6)</option>
+                            <option value="4">E2M1 (FP4)</option>
+                            <option value="5">INT8</option>
+                            <option value="6">INT8_SYM</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="scale-b">Shared Scale (Hex)</label>
+                        <input type="text" id="scale-b" value="7F" maxlength="2">
+                        <span id="scale-b-dec" class="dec-val">1.0</span>
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="bm-index-b">BM Index (0-31)</label>
+                        <input type="number" id="bm-index-b" value="0" min="0" max="31">
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="nbm-offset-b">NBM Offset (0-7)</label>
+                        <input type="number" id="nbm-offset-b" value="0" min="0" max="7">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="streaming-data">
+            <h2>Element Streaming (Cycles 3-34)</h2>
+            <div class="table-container">
+                <table id="elements-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>A (Hex)</th>
+                            <th>A (Dec)</th>
+                            <th>B (Hex)</th>
+                            <th>B (Dec)</th>
+                            <th>Product</th>
+                        </tr>
+                    </thead>
+                    <tbody id="elements-body">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="results">
+            <div class="result-card">
+                <h2>Predicted Output</h2>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <span class="label">Accumulator (Hex)</span>
+                        <span id="acc-hex" class="value">0x00000000</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">Accumulator (Dec)</span>
+                        <span id="acc-dec" class="value">0.0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">Status</span>
+                        <span id="status-flags" class="value">-</span>
+                    </div>
+                </div>
+                <button id="run-simulation">Run Simulation</button>
+            </div>
+        </section>
+    </main>
+
+    <footer id="console">
+        <div id="log-container">
+            <pre id="log-output">Initializing WASM Digital Twin...</pre>
+        </div>
+    </footer>
+
+    <script src="digital_twin_Full.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
