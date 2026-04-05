@@ -108,8 +108,8 @@ When enabled via `ui_in[6]` in Cycle 0, the `uo_out[7:0]` port provides real-tim
 
 For a full list of available probes and the metadata echo bit-mapping, see [DEBUG_TT.md](DEBUG_TT.md).
 
-- [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2F%2Ftinytapeout.oas)
-- [Interactive Digital Twin (WASM Demo)](https://chatelao.github.io/ttihp-fp8-mul/)
+- [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2Ftinytapeout.oas)
+- [Interactive Digital Twin (WASM Demo)](https://chatelao.github.io/ttihp-fp8-mul/demo/)
 
 ### MicroPython Example (TT DevKit)
 
