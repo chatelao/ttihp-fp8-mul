@@ -53,6 +53,10 @@ The unit captures configuration and scaling data during the first three cycles o
 
 The `uio_in` pins in Cycle 0 have a dual purpose if Debug Mode is enabled.
 
+![Metadata 1 Debug](metadata_c0_uio_debug.svg)
+
+When `ui_in[6]` is active (high), bits `[3:0]` of `uio_in` function as the **Probe Selector** for internal signal monitoring, while still being captured as functional metadata (Rounding Mode [0] and NBM Offset B).
+
 | Bit | Normal Operation (`ui_in[6]=0`) | Debug Enabled (`ui_in[6]=1`) |
 |:---:|---------------------------------|-------------------------------|
 | `[7]` | **MX+ Enable**                  | **MX+ Enable**                |

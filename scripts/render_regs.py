@@ -31,6 +31,14 @@ regs = {
     "docs/config_b.svg": { "reg": [
       {"name": "Format B", "bits": 3},
       {"name": "BM Index B", "bits": 5}
+    ], "config": {"bits": 8}},
+
+    "docs/metadata_c0_uio_debug.svg": { "reg": [
+      {"name": "Probe Selector", "bits": 4},
+      {"name": "Rounding Mode [1]", "bits": 1},
+      {"name": "Overflow Mode", "bits": 1},
+      {"name": "Packed Mode", "bits": 1},
+      {"name": "MX+ Enable", "bits": 1}
     ], "config": {"bits": 8}}
 }
 

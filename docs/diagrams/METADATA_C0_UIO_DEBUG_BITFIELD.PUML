@@ -1,0 +1,7 @@
+@startbitfield
+0-3: Probe Selector
+4: Rounding Mode [1]
+5: Overflow Mode
+6: Packed Mode
+7: MX+ Enable
+@endbitfield

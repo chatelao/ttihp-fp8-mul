@@ -1,0 +1,7 @@
+{ "reg": [
+  {"name": "Probe Selector", "bits": 4},
+  {"name": "Rounding Mode [1]", "bits": 1},
+  {"name": "Overflow Mode", "bits": 1},
+  {"name": "Packed Mode", "bits": 1},
+  {"name": "MX+ Enable", "bits": 1}
+], "config": {"bits": 8}}
