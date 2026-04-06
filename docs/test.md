@@ -76,3 +76,22 @@ This document provides 5 test sequences for the OCP MXFP8 Streaming MAC Unit. Ea
 | 4-34 | `0x00` | `0x00` | Non-BM Elements (Value = 0.0) |
 | 35-36 | `0x00` | `0x00` | Pipeline Flush |
 | 37-40 | - | - | **Result**: `0x00`, `0x00`, `0x01`, `0x00` |
+
+---
+
+## Test Sequence 6: Real-Time Observability (Active Debugging)
+**Description**: Standard E4M3 run with Debug Mode enabled. Monitoring FSM State (Probe 0x1).
+**Expected Behavior**: `uo_out` will output the current FSM state and logical cycle instead of `0x00` during the STREAM phase.
+
+| Cycle | `ui_in` | `uio_in` | Output `uo_out` (Expected) | Description |
+|:---:|:---:|:---:|:---:|---|
+| 0 | `0x40` | `0x01` | `0x40` | `ui_in[6]=1` (Debug En), `uio_in[3:0]=0x1` (Probe: FSM State) |
+| 1 | `0x7F` | `0x00` | `0x41` | State: LOAD_SCALE (1), Cycle: 1 |
+| 2 | `0x7F` | `0x00` | `0x42` | State: LOAD_SCALE (1), Cycle: 2 |
+| 3 | `0x38` | `0x38` | `0x83` | State: STREAM (2), Cycle: 3 |
+| ... | ... | ... | ... | ... |
+| 34 | `0x38` | `0x38` | `0xA2` | State: STREAM (2), Cycle: 34 (`0x22`) |
+| 35 | `0x00` | `0x00` | `0x00`* | **Metadata Echo**: `uo_out` confirms configuration |
+| 37-40 | - | - | `0x00...2000` | Serialized 32-bit result |
+
+*\*Note: Metadata Echo in Cycle 35 depends on previous inputs. For this run (E4M3, TRN, SAT), it should be `0x00`.*
