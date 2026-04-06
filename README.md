@@ -35,6 +35,12 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to process a block of 32 elements.
 
+### Protocol State Machine
+
+![Protocol State Machine Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/PROTOCOL_STATES.PUML)
+
+*Source: [docs/diagrams/PROTOCOL_STATES.PUML](docs/diagrams/PROTOCOL_STATES.PUML)*
+
 ### Operational Sequence
 
 | Cycle | Input `ui_in[7:0]` | Input `uio_in[7:0]` | Output `uo_out[7:0]` | Description |
