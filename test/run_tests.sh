@@ -40,7 +40,7 @@ for module in $COCOTB_MODULES; do
         rm -f tb.vcd tb_accumulator.vcd tb_aligner.vcd results.xml
 
         # Run the specific test
-        if ! make MODULE=$module TESTCASE=$test; then
+        if ! make GATES=$GATES MODULE=$module TESTCASE=$test; then
             echo "Test $module.$test FAILED"
             FAILED=1
         fi
@@ -48,8 +48,8 @@ for module in $COCOTB_MODULES; do
         # Handle multiple possible waveform names
         for vcd in tb.vcd tb_accumulator.vcd tb_aligner.vcd; do
             if [ -f "$vcd" ]; then
-                mv "$vcd" "$WAVEFORM_DIR/${module}.${test}.vcd"
-                echo "Generated $WAVEFORM_DIR/${module}.${test}.vcd"
+                mv "$vcd" "$WAVEFORM_DIR/${module}.${test}.${vcd}"
+                echo "Generated $WAVEFORM_DIR/${module}.${test}.${vcd}"
             fi
         done
 
