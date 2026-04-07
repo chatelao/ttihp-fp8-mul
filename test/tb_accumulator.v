@@ -20,7 +20,7 @@ module tb_accumulator (
     );
 
     initial begin
-        $dumpfile("tb_accumulator.fst");
+        $dumpfile("tb_accumulator.vcd");
         $dumpvars(0, tb_accumulator);
     end
 

@@ -20,7 +20,7 @@ module tb_aligner (
     );
 
     initial begin
-        $dumpfile("tb_aligner.fst");
+        $dumpfile("tb_aligner.vcd");
         $dumpvars(0, tb_aligner);
     end
 
