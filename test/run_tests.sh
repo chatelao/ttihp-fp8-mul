@@ -25,35 +25,33 @@ FAILED=0
 for module in $COCOTB_MODULES; do
     echo "Processing module: $module"
 
-    # Extract test cases from the python file
-    # Improved discovery: look for @cocotb.test then the next async def
-    # This sed script finds @cocotb.test and then extracts the name from the next async def
-    tests=$(sed -n '/@cocotb\.test/{n;s/async def \([a-zA-Z0-9_]*\).*/\1/p}' "${module}.py")
+    # Robust test discovery using Python
+    tests=$(python3 list_tests.py "$module")
+
+    if [ -z "$tests" ]; then
+        echo "No tests found in $module"
+        continue
+    fi
 
     for test in $tests; do
         echo "Running test: $module.$test"
 
-        # Clean the local tb.fst and results.xml if they exist
-        rm -f tb.fst results.xml
+        # Clean local artifacts
+        rm -f tb.vcd tb_accumulator.vcd tb_aligner.vcd results.xml
 
         # Run the specific test
-        # Use MODULE and TESTCASE as used in the project's Makefile
         if ! make MODULE=$module TESTCASE=$test; then
             echo "Test $module.$test FAILED"
             FAILED=1
         fi
 
-        # Check if tb.fst was generated
-        if [ -f "tb.fst" ]; then
-            # Move and rename FST
-            mv tb.fst "$WAVEFORM_DIR/${module}.${test}.fst"
-
-            # Convert to VCD
-            fst2vcd "$WAVEFORM_DIR/${module}.${test}.fst" -o "$WAVEFORM_DIR/${module}.${test}.vcd"
-            echo "Generated $WAVEFORM_DIR/${module}.${test}.vcd"
-        else
-            echo "Warning: tb.fst not found for $module.$test"
-        fi
+        # Handle multiple possible waveform names
+        for vcd in tb.vcd tb_accumulator.vcd tb_aligner.vcd; do
+            if [ -f "$vcd" ]; then
+                mv "$vcd" "$WAVEFORM_DIR/${module}.${test}.vcd"
+                echo "Generated $WAVEFORM_DIR/${module}.${test}.vcd"
+            fi
+        done
 
         # Preserve results.xml
         if [ -f "results.xml" ]; then
