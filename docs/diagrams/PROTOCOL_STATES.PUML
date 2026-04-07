@@ -1,40 +1,63 @@
 @startuml PROTOCOL_STATES
 title OCP MXFP8 MAC Protocol State Machine
 
+skinparam state {
+  BackgroundColor<<Short>> #E1F5FE
+  BorderColor<<Short>> #01579B
+}
+
 [*] --> IDLE
 
-IDLE : Cycle 0
-IDLE : Capture Metadata
-IDLE : ui_in[7] ? Next=STREAM (C3) : Next=LOAD_SCALE (C1)
+state IDLE {
+    IDLE : **Cycle 0**
+    IDLE : Capture Metadata:
+    IDLE : - Debug, Overflow, Rounding, MX+
+    IDLE : - If Short Protocol (ui_in[7]=1): Capture Format A/B
+}
 
 IDLE --> LOAD_SCALE : Standard Start\n(ui_in[7]=0)
-IDLE --> STREAM : Short Protocol\n(ui_in[7]=1)
+IDLE --> STREAM_DATA : Short Protocol <<Short>>\n(ui_in[7]=1)
 
-LOAD_SCALE : Cycles 1-2
-LOAD_SCALE : C1: Scale A, Format A
-LOAD_SCALE : C2: Scale B, Format B
-LOAD_SCALE --> STREAM : Cycle 3
+state LOAD_SCALE {
+    LOAD_SCALE : **Cycles 1-2**
+    LOAD_SCALE : C1: Scale A, Format A, BM Index A
+    LOAD_SCALE : C2: Scale B, Format B, BM Index B
+}
+
+LOAD_SCALE --> STREAM_DATA : Cycle 3
 
 state STREAM {
     direction lr
-    STREAM_DATA : Cycles 3-34 (Std) / 3-18 (Pk)
-    STREAM_DATA : Element Streaming
+    state STREAM_DATA {
+        STREAM_DATA : **Cycles 3-34 (Std) / 3-18 (Pk)**
+        STREAM_DATA : Stream 32 Element Pairs (A_i, B_i)
+    }
 
-    STREAM_FLUSH : Cycle 35 (Std) / 19 (Pk)
-    STREAM_FLUSH : Pipeline Flush
+    state STREAM_FLUSH {
+        STREAM_FLUSH : **Cycle 35 (Std) / 19 (Pk)**
+        STREAM_FLUSH : Pipeline Flush
+        STREAM_FLUSH : Metadata Echo (if Debug En)
+    }
 
-    STREAM_SCALE : Cycle 36 (Std) / 20 (Pk)
-    STREAM_SCALE : Shared Scaling
+    state STREAM_SCALE {
+        STREAM_SCALE : **Cycle 36 (Std) / 20 (Pk)**
+        STREAM_SCALE : Final Shared Scaling
+        STREAM_SCALE : Result Capture (into Accumulator)
+    }
 
     STREAM_DATA -> STREAM_FLUSH
     STREAM_FLUSH -> STREAM_SCALE
 }
 
-STREAM --> OUTPUT : Cycle 37 (Std) / 21 (Pk)
+STREAM_SCALE --> OUTPUT : Cycle 37 (Std) / 21 (Pk)
 
-OUTPUT : Cycles 37-40 (Std) / 21-24 (Pk)
-OUTPUT : Serialized 32-bit Result
-OUTPUT : 8-bit per Cycle (MSB first)
-OUTPUT --> IDLE : Cycle 0
+state OUTPUT {
+    OUTPUT : **Cycles 37-40 (Std) / 21-24 (Pk)**
+    OUTPUT : Serialized 32-bit Result
+    OUTPUT : 8-bit per Cycle (MSB first)
+}
 
+OUTPUT --> IDLE : Cycle 0 (Next Block)
+
+footer Note: Packed Mode (Pk) requires FP4 format and uio_in[6]=1 in Cycle 0.
 @enduml
