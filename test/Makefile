@@ -40,13 +40,16 @@ TOPLEVEL = tb
 COCOTB_TEST_MODULES = test,test_coverage,test_performance,test_short_protocol,test_exhaustive
 MODULE = $(COCOTB_TEST_MODULES)
 
-# We override the default 'all' target if TESTCASE is not specified to run all tests individually
-ifeq ($(TESTCASE),)
-all:
-	bash run_tests.sh
-else
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+# We override the default 'all' target if TESTCASE is not specified to run all tests individually
+# This ensures that 'make' without arguments triggers individual waveform generation
+ifeq ($(TESTCASE),)
+ifeq ($(MAKELEVEL),0)
+all:
+	bash run_tests.sh
+endif
 endif
 
 # Verilator linting:
