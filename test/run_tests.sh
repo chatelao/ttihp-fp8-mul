@@ -1,7 +1,7 @@
 #!/bin/bash
 # test/run_tests.sh
 
-set -e
+# test/run_tests.sh
 
 # Directory for waveforms and results
 WAVEFORM_DIR="waveforms"
@@ -39,6 +39,9 @@ for module in $COCOTB_MODULES; do
         # Clean local artifacts
         rm -f tb.vcd tb_accumulator.vcd tb_aligner.vcd results.xml
 
+        # Explicitly set TESTCASE to avoid infinite recursion in Makefile
+        export TESTCASE=$test
+
         # Run the specific test
         if ! make GATES=$GATES MODULE=$module TESTCASE=$test; then
             echo "Test $module.$test FAILED"
@@ -60,10 +63,13 @@ for module in $COCOTB_MODULES; do
     done
 done
 
+# Generate consolidated results.xml for CI
 if [ $FAILED -ne 0 ]; then
+    echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="1" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"><failure message="One or more tests failed"/></testcase></testsuite></testsuites>' > results.xml
     echo "One or more tests failed."
     exit 1
+else
+    echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="0" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"/></testsuite></testsuites>' > results.xml
+    echo "All tests passed."
+    exit 0
 fi
-
-echo "All tests passed."
-exit 0
