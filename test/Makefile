@@ -43,15 +43,14 @@ MODULE = $(COCOTB_TEST_MODULES)
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
-# We override the default 'all' target if TESTCASE is not specified to run all tests individually
+# We override the default goal if TESTCASE is not specified to run all tests individually
 # This ensures that 'make' without arguments triggers individual waveform generation
 ifeq ($(TESTCASE),)
-all:
+ifeq ($(COCOTB_TESTCASE),)
+.DEFAULT_GOAL := bulk_tests
+bulk_tests:
 	bash run_tests.sh
-	@# Generate a dummy results.xml if it doesn't exist to satisfy tools expecting one
-	@if [ ! -f results.xml ]; then \
-		echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="0" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"/></testsuite></testsuites>' > results.xml; \
-	fi
+endif
 endif
 
 # Verilator linting:

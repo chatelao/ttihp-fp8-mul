@@ -64,12 +64,29 @@ for module in $COCOTB_MODULES; do
 done
 
 # Generate consolidated results.xml for CI
+# We prioritize the real individual results if they exist, otherwise fallback to a dummy
+if ls "$RESULTS_DIR"/results_*.xml >/dev/null 2>&1; then
+    # Create a consolidated results.xml by concatenating testsuites
+    # This is a bit of a hack but satisfies many JUnit parsers
+    echo '<?xml version="1.0" encoding="utf-8"?><testsuites>' > results.xml
+    for f in "$RESULTS_DIR"/results_*.xml; do
+        # Extract the content between <testsuite> and </testsuite>
+        # Use a more robust sed pattern to handle potential XML variations
+        sed -n '/<testsuite/,/<\/testsuite>/p' "$f" >> results.xml
+    done
+    echo '</testsuites>' >> results.xml
+else
+    if [ $FAILED -ne 0 ]; then
+        echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="1" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"><failure message="One or more tests failed"/></testcase></testsuite></testsuites>' > results.xml
+    else
+        echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="0" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"/></testsuite></testsuites>' > results.xml
+    fi
+fi
+
 if [ $FAILED -ne 0 ]; then
-    echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="1" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"><failure message="One or more tests failed"/></testcase></testsuite></testsuites>' > results.xml
     echo "One or more tests failed."
     exit 1
 else
-    echo '<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="all_tests" tests="1" errors="0" failures="0" skipped="0" time="0"><testcase classname="all" name="bulk_run" time="0"/></testsuite></testsuites>' > results.xml
     echo "All tests passed."
     exit 0
 fi
