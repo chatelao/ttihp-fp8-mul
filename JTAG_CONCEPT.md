@@ -7,7 +7,7 @@ This document outlines the proposal for adding JTAG-based debug and data retriev
 To ensure the JTAG logic does not interfere with standard operation or accidental triggers, it is gated by a "Magic Knock" sequence.
 
 ### Trigger Condition
-While the device is in **Debug Mode** (enabled by setting `ui_in[6]=1` at the start of Cycle 0), the JTAG interface can be activated at **ANY clock edge (rising or falling)** if the following condition is met:
+While the device is in **Debug Mode** (enabled by setting `ui_in[6]=1` at the start of Cycle 0), the JTAG interface can be activated on the **falling edge of the clock** if the following condition is met:
 
 1. **Magic Value**: The concatenated inputs `{uio_in, ui_in}` must equal `0xACDC`.
 
@@ -17,7 +17,7 @@ While the device is in **Debug Mode** (enabled by setting `ui_in[6]=1` at the st
 | `ui_in` | `0xDC` | `1101 1100` | LSB of the knock (Bit 6 is Debug En) |
 
 ### State Transition
-Once the knock is detected on any edge, the unit enters **JTAG Mode**. In this mode, the FSM can either be paused or continue running, but the pin functions of `ui_in` and `uo_out` are repurposed to serve the JTAG TAP (Test Access Port) controller. This allows JTAG activation at any point during the 41-cycle streaming protocol, provided Debug Mode was armed at the start.
+Once the knock is detected on a falling edge, the unit enters **JTAG Mode**. In this mode, the FSM can either be paused or continue running, but the pin functions of `ui_in` and `uo_out` are repurposed to serve the JTAG TAP (Test Access Port) controller. This allows JTAG activation at any point during the 41-cycle streaming protocol, provided Debug Mode was armed at the start.
 
 ## 2. JTAG Pin Mapping
 
@@ -44,14 +44,21 @@ The JTAG implementation can be scaled in complexity based on available gate area
   - **IDCODE**: Returns a unique 32-bit ID for the OCP MAC Unit (e.g., `0x0ACDC001`).
 - **Goal**: Verify that the JTAG knock worked and the TAP controller is responsive.
 
-### Level 2: Data Retrieval (Accumulator Access)
-- **Estimated Die Size**: **~300 gates**
+### Level 2: Boundary Scan (EXTEST)
+- **Estimated Die Size**: **~250 gates**
+- **Features**:
+  - **EXTEST**: Standard boundary scan functionality allowing control/observation of all 24 IO pins.
+  - **SAMPLE/PRELOAD**: Captures snapshots of pin values without interfering with logic.
+- **Goal**: Full board-level interconnect testing.
+
+### Level 3: Data Retrieval (Accumulator Access)
+- **Estimated Die Size**: **~400 gates** (Includes Level 1 & 2 overhead)
 - **Features**:
   - **READ_ACC (Instruction)**: Connects the 32-bit Accumulator register to the Data Register (DR) scan chain.
 - **Benefit**: Allows the external controller to read the final result immediately after the `STREAM` phase ends, bypassing the 4-cycle `STATE_OUTPUT` serialization.
 
-### Level 3: Advanced Probing (Internal Visibility)
-- **Estimated Die Size**: **500+ gates**
+### Level 4: Advanced Probing (Internal Visibility)
+- **Estimated Die Size**: **600+ gates**
 - **Features**:
   - **SCAN_STATE (Instruction)**: Connects a large internal scan chain containing FSM state, cycle counter, sticky bits, and pipeline registers.
   - **DEBUG_OVR (Instruction)**: Allows overriding the `probe_sel` via JTAG, enabling real-time logic analyzer functionality on `uo_out[7:1]`.
@@ -59,7 +66,7 @@ The JTAG implementation can be scaled in complexity based on available gate area
 ## 4. Implementation Notes
 - **Clock Domains**: The JTAG TAP typically runs on `TCK`. Care must be taken to synchronize data between the system `clk` and `TCK` if asynchronous reading is required.
 - **Area Impact Summary**:
-  - **Level 1**: Fits easily within a **1x1 Tiny Tapeout tile**.
-  - **Level 2**: Fits within a **1x1 tile** if other non-essential features (like `SUPPORT_MX_PLUS`) are disabled.
-  - **Level 3**: Likely requires a **1x2 or 2x2 tile** configuration (e.g., the "Full" variant) to accommodate the scan chain overhead.
+  - **Level 1 & 2**: Fits within a **1x1 Tiny Tapeout tile**.
+  - **Level 3**: Fits within a **1x1 tile** if other non-essential features (like `SUPPORT_MX_PLUS` or `SUPPORT_VECTOR_PACKING`) are disabled.
+  - **Level 4**: Likely requires a **1x2 or 2x2 tile** configuration (e.g., the "Full" variant) to accommodate the scan chain overhead.
 - **Persistence**: JTAG mode should persist until a hard reset (`rst_n`) or a specific JTAG "Exit" command is issued.
