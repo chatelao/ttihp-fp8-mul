@@ -107,7 +107,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 
 ---
 
-### Test Sequence 7: Logarithmic Multiplier (LNS Mode)
+### Test Sequence 7a: Logarithmic Multiplier (LNS Mode)
 - **Description**: 32 pairs of 1.125 (0x39) and 1.25 (0x3A) in E4M3 format using Mitchell's Approximation.
 - **Calculation**: Using Mitchell's Approximation, $1.125 \times 1.25 \approx 1.375$. $\sum_{i=0}^{31} (1.375) = 44.0$.
 - **Expected Result**: `0x00002C00` (Fixed-point, 8 fractional bits: $44 \times 2^{8} = 11264 = 0x2C00$).
@@ -121,6 +121,23 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 | 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
 | 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
 | 37-40 | - | - | `0x00` | `Result` | **Result**: `0x00`, `0x00`, `0x2C`, `0x00` |
+
+---
+
+### Test Sequence 7b: Logarithmic Multiplier (LNS Mode)
+- **Description**: 32 pairs of 1.0 (0x39) and 1.0 (0x3A) in E4M3 format using Mitchell's Approximation.
+- **Calculation**: Using Mitchell's Approximation, $1.125 \times 1.25 \approx 1.375$. $\sum_{i=0}^{31} (1.375) = 44.0$.
+- **Expected Result**: `0x00002C00` (Fixed-point, 8 fractional bits: $44 \times 2^{8} = 11264 = 0x2C00$).
+
+| Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x08` | `0x00` | `0x00` | `0x00` | Metadata: LNS Mode 1 enabled (`ui_in[4:3]=1`) |
+| 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Load Scale A = 1.0 |
+| 2 | `0x7F` | `0x00` | `0x00` | `0x00` | Load Scale B = 1.0 |
+| 3-34 | `0x38` | `0x38` | `0x00` | `0x00` | Stream 32 pairs (A=1.0, B=1.0) |
+| 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
+| 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
+| 37-40 | - | - | `0x00` | `Result` | **Result**: `0x00`, `0x00`, `0x20`, `0x00` |
 
 ---
 
