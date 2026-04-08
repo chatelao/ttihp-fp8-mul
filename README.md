@@ -19,6 +19,12 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 *Source: [docs/diagrams/CONTEXT_DIAGRAM.PUML](docs/diagrams/CONTEXT_DIAGRAM.PUML)*
 
+### Internal Datapath
+
+![Internal Datapath Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/DATAPATH_DIAGRAM.PUML)
+
+*Source: [docs/diagrams/DATAPATH_DIAGRAM.PUML](docs/diagrams/DATAPATH_DIAGRAM.PUML)*
+
 - [Read the documentation for project](docs/info.md)
 - [Consolidated Project Roadmap](ROADMAP.md)
 - [Project Concept & Detailed Roadmap](docs/architecture/MXFP8_CONCEPT.md)
