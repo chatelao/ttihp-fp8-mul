@@ -38,25 +38,28 @@ The following mapping is proposed to implement a standard 4-wire JTAG interface 
 The JTAG implementation can be scaled in complexity based on available gate area and debugging needs.
 
 ### Level 1: Basic Compliance (Boundary & ID)
-At this level, the JTAG TAP controller supports standard mandatory instructions.
-- **BYPASS**: A 1-bit register to allow the device to be bypassed in a chain.
-- **IDCODE**: Returns a unique 32-bit ID for the OCP MAC Unit (e.g., `0x0ACDC001`).
+- **Estimated Die Size**: **~150 gates** (Comparable to `SUPPORT_DEBUG`)
+- **Features**:
+  - **BYPASS**: A 1-bit register to allow the device to be bypassed in a chain.
+  - **IDCODE**: Returns a unique 32-bit ID for the OCP MAC Unit (e.g., `0x0ACDC001`).
 - **Goal**: Verify that the JTAG knock worked and the TAP controller is responsive.
 
 ### Level 2: Data Retrieval (Accumulator Access)
-This level adds the ability to read the internal 32-bit accumulator directly via JTAG.
-- **READ_ACC (Instruction)**: Connects the 32-bit Accumulator register to the Data Register (DR) scan chain.
+- **Estimated Die Size**: **~300 gates**
+- **Features**:
+  - **READ_ACC (Instruction)**: Connects the 32-bit Accumulator register to the Data Register (DR) scan chain.
 - **Benefit**: Allows the external controller to read the final result immediately after the `STREAM` phase ends, bypassing the 4-cycle `STATE_OUTPUT` serialization.
 
 ### Level 3: Advanced Probing (Internal Visibility)
-This level provides full visibility into the internal datapath and control signals.
-- **SCAN_STATE (Instruction)**: Connects a large internal scan chain containing:
-  - FSM current state and cycle counter.
-  - Sticky exception bits (`nan_sticky`, etc.).
-  - Pipeline stage registers.
-- **DEBUG_OVR (Instruction)**: Allows overriding the `probe_sel` via JTAG, enabling real-time logic analyzer functionality on `uo_out[7:1]` while JTAG is active.
+- **Estimated Die Size**: **500+ gates**
+- **Features**:
+  - **SCAN_STATE (Instruction)**: Connects a large internal scan chain containing FSM state, cycle counter, sticky bits, and pipeline registers.
+  - **DEBUG_OVR (Instruction)**: Allows overriding the `probe_sel` via JTAG, enabling real-time logic analyzer functionality on `uo_out[7:1]`.
 
 ## 4. Implementation Notes
 - **Clock Domains**: The JTAG TAP typically runs on `TCK`. Care must be taken to synchronize data between the system `clk` and `TCK` if asynchronous reading is required.
-- **Area Impact**: A Level 1 TAP controller is ~100-200 gates. Level 3 with extensive scan chains may add 500+ gates.
+- **Area Impact Summary**:
+  - **Level 1**: Fits easily within a **1x1 Tiny Tapeout tile**.
+  - **Level 2**: Fits within a **1x1 tile** if other non-essential features (like `SUPPORT_MX_PLUS`) are disabled.
+  - **Level 3**: Likely requires a **1x2 or 2x2 tile** configuration (e.g., the "Full" variant) to accommodate the scan chain overhead.
 - **Persistence**: JTAG mode should persist until a hard reset (`rst_n`) or a specific JTAG "Exit" command is issued.
