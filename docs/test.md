@@ -28,7 +28,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 **Description**: 32 pairs of 1.0 (E4M3) with Scale A = 2.0 and Scale B = 1.0.
 **Expected Result**: $32 \times (1.0 \times 1.0) \times 2.0 = 64.0 \rightarrow$ `0x00004000`.
 
-| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start |
 | 1 | `0x80` | `0x00` | `0x00` | `0x00` | Scale A = 2.0 ($2^{128-127}$), Format A = E4M3 |
@@ -44,7 +44,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 **Description**: 32 pairs of 1.0 (E4M3) multiplied by 1.0 (E5M2).
 **Expected Result**: $32 \times (1.0 \times 1.0) = 32.0 \rightarrow$ `0x00002000`.
 
-| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in` (E4M3) | `uio_in` (E5M2) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start |
 | 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Scale A = 1.0, Format A = E4M3 |
@@ -60,7 +60,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 **Description**: 32 pairs of 1.0 (E2M1) using Packed Mode (2 elements per byte).
 **Expected Result**: $32 \times (1.0 \times 1.0) = 32.0 \rightarrow$ `0x00002000`.
 
-| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in` (FP4)| `uio_in` (FP4) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x40` | `0x00` | `0x00` | Packed Mode Enabled (`uio_in[6]=1`) |
 | 1 | `0x7F` | `0x04` | `0x00` | `0x00` | Scale A = 1.0, Format A = E2M1 |
@@ -112,7 +112,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 **Calculation**: Using Mitchell's Approximation, $1.125 \times 1.25 \approx 1.375$. $\sum_{i=0}^{31} (1.375) = 44.0$.
 **Expected Result**: `0x00002C00` (Fixed-point, 8 fractional bits: $44 \times 2^{8} = 11264 = 0x2C00$).
 
-| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x08` | `0x00` | `0x00` | `0x00` | Metadata: LNS Mode 1 enabled (`ui_in[4:3]=1`) |
 | 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Load Scale A = 1.0 |
