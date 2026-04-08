@@ -124,6 +124,76 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 
 ---
 
+## Functional Test Sequences (Continued)
+
+### Test Sequence 11: Subnormal Operands (E4M3)
+**Description**: 32 pairs of 1.0 (E4M3) multiplied by a subnormal E4M3 value ($2^{-7}$).
+**Calculation**: Each product is $1.0 \times 2^{-7} = 2^{-7}$. $\sum_{i=0}^{31} 2^{-7} = 2^5 \times 2^{-7} = 2^{-2} = 0.25$.
+**Expected Result**: `0x00000040` (Fixed-point, 8 fractional bits: $0.25 \times 2^8 = 64 = 0x40$).
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start |
+| 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Scale A = 1.0 |
+| 2 | `0x7F` | `0x00` | `0x00` | `0x00` | Scale B = 1.0 |
+| 3-34 | `0x38` | `0x04` | `0x00` | `0x00` | A=1.0 (`0x38`), B=Subnormal (`0x04`) |
+| 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
+| 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
+| 37-40 | - | - | `0x00` | `Result` | **Result**: `0x00`, `0x00`, `0x00`, `0x40` |
+
+---
+
+### Test Sequence 12: INT8 Mixed Precision (E3M2 x INT8)
+**Description**: 32 pairs of 1.0 (E3M2) and 64 (INT8).
+**Calculation**: MX INT8 has an implicit $2^{-6}$ scale. $64 \times 2^{-6} = 1.0$. $\sum_{i=0}^{31} (1.0 \times 1.0) = 32.0$.
+**Expected Result**: `0x00002000`.
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start |
+| 1 | `0x7F` | `0x02` | `0x00` | `0x00` | Scale A = 1.0, Format A = E3M2 (`0x02`) |
+| 2 | `0x7F` | `0x05` | `0x00` | `0x00` | Scale B = 1.0, Format B = INT8 (`0x05`) |
+| 3-34 | `0x0C` | `0x40` | `0x00` | `0x00` | A=1.0 (E3M2=`0x0C`), B=64 (INT8=`0x40`) |
+| 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
+| 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
+| 37-40 | - | - | `0x00` | `Result` | **Result**: `0x00`, `0x00`, `0x20`, `0x00` |
+
+---
+
+### Test Sequence 13: Rounding Mode RNE (Round Ties to Even)
+**Description**: 32 pairs of 0.28125 (0x29) and 0.5625 (0x31) in E4M3.
+**Calculation**: $0.28125 \times 0.5625 = 0.158203125$. Fixed-point magnitude: $0.158203125 \times 2^8 = 40.5$. RNE rounds 40.5 to 40 (nearest even). $\sum_{i=0}^{31} 40 = 1280$.
+**Expected Result**: `0x00000500` ($1280 = 0x500$).
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x00` | `0x18` | `0x00` | `0x00` | Metadata: RNE Mode enabled (`uio_in[4:3]=3`) |
+| 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Scale A = 1.0 |
+| 2 | `0x7F` | `0x00` | `0x00` | `0x00` | Scale B = 1.0 |
+| 3-34 | `0x29` | `0x31` | `0x00` | `0x00` | A=0.28125, B=0.5625 |
+| 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
+| 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
+| 37-40 | - | - | `0x00` | `Result` | **Result**: `0x00`, `0x00`, `0x05`, `0x00` |
+
+---
+
+### Test Sequence 14: Accumulator Saturation
+**Description**: Large values triggering 32-bit signed saturation ($2^{31}-1$).
+**Calculation**: $32 \times (2^{15} \times 2^{15}) = 2^{35}$, which exceeds the 32-bit signed range ($2^{31}-1$).
+**Expected Result**: `0x7FFFFFFF` (Clamped).
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start, SAT enabled |
+| 1 | `0x7F` | `0x01` | `0x00` | `0x00` | Scale A = 1.0, Format A = E5M2 |
+| 2 | `0x7F` | `0x01` | `0x00` | `0x00` | Scale B = 1.0, Format B = E5M2 |
+| 3-34 | `0x78` | `0x78` | `0x00` | `0x00` | A=$2^{15}$ (`0x78`), B=$2^{15}$ (`0x78`) |
+| 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
+| 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
+| 37-40 | - | - | `0x00` | `Result` | **Result**: `0x7F`, `0xFF`, `0xFF`, `0xFF` |
+
+---
+
 ## Debug & Observability Test Sequences
 
 These test cases demonstrate the unit's "Logic Analyzer" mode, enabled via `ui_in[6]` in Cycle 0.
