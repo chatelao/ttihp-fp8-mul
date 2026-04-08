@@ -187,3 +187,44 @@ Allows monitoring of the product from the first multiplier lane.
 | 0 | `0x40` | `0x09` | `0x00` | `0x00` | Control signals monitoring |
 | 1-2 | `0x7F` | `0x00` | `0x00` | `0xD0` | `ena=1, strobe=1, acc_clear=1` |
 | 4-34 | `0x38` | `0x38` | `0x00` | `0xE0` | `ena=1, strobe=1, acc_en=1` |
+
+### Test Sequence 8: NaN Exception (Element-triggered)
+**Description**: Streaming an E4M3 NaN element (`0x7F`) to trigger `nan_sticky` in Debug Mode 0x2.
+**Expected Result**: `uo_out[7]` becomes 1.
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x40` | `0x02` | `0x00` | `0x10` | Debug En, Sel 0x2 (Exception Monitor) |
+| 1 | `127` | `0x00` | `0x00` | `0x10` | Scale A = 1.0 (127), Format A = E4M3 |
+| 2 | `127` | `0x00` | `0x00` | `0x10` | Scale B = 1.0 (127), Format B = E4M3 |
+| 3 | `0x7F` | `0x38` | `0x00` | `0x10` | Stream NaN (`0x7F`) |
+| 4 | `0x38` | `0x38` | `0x00` | `0x10` | Pipelining... |
+| 5 | `0x38` | `0x38` | `0x00` | `0x90` | `uo_out[7]` (nan_sticky) = 1 |
+
+---
+
+### Test Sequence 9: NaN Exception (Scale-triggered)
+**Description**: Loading Scale A = `0xFF` during Cycle 1.
+**Expected Result**: `uo_out[7]` becomes 1.
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x40` | `0x02` | `0x00` | `0x10` | Debug En, Sel 0x2 |
+| 1 | `255` | `0x00` | `0x00` | `0x10` | Scale A = 255 (0xFF, NaN) |
+| 2 | `127` | `0x00` | `0x00` | `0x90` | `nan_sticky` set due to Cycle 1 Scale |
+
+---
+
+### Test Sequence 10: Infinity Exceptions (Positive and Negative)
+**Description**: Using E5M2 operands to trigger `inf_pos_sticky` and `inf_neg_sticky`.
+**Expected Result**: `uo_out[6]` and `uo_out[5]` go high.
+
+| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x40` | `0x02` | `0x00` | `0x10` | Debug En, Sel 0x2 |
+| 1 | `127` | `0x00` | `0x00` | `0x10` | Scale A = 1.0 |
+| 2 | `127` | `0x01` | `0x00` | `0x10` | Scale B = 1.0, Format B = E5M2 |
+| 3 | `0x7C` | `0x3C` | `0x00` | `0x10` | +Inf (0x7C) x 1.0 (0x3C) |
+| 4 | `0xFC` | `0x3C` | `0x00` | `0x10` | -Inf (0xFC) x 1.0 (0x3C) |
+| 5 | `0x3C` | `0x3C` | `0x00` | `0x50` | `inf_pos_sticky` (uo_out[6]) = 1 |
+| 6 | `0x3C` | `0x3C` | `0x00` | `0x70` | `inf_neg_sticky` (uo_out[5]) = 1 |
