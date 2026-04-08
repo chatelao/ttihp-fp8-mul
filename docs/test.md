@@ -9,7 +9,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 **Calculation**: $\sum_{i=0}^{31} (1.0 \times 1.0) \times 1.0 \times 1.0 = 32.0$.
 **Expected Result**: `0x00002000` (Fixed-point, 8 fractional bits: $32 \times 2^8 = 8192 = 0x2000$).
 
-| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x00` | `0x00` | `0x00` | Metadata: TRN, SAT, E4M3, Standard Start |
 | 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Load Scale A = 1.0 ($2^{127-127}$) |
@@ -76,7 +76,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 **Description**: This test case uses the Short Protocol and Packed Mode for 32 pairs of 1.0 (E2M1) elements.
 **Expected Result**: `0x00002000`.
 
-| Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in`  (Dual E2M1) | `uio_in`  (Dual E2M1) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x80` | `0x44` | `0x00` | `0x00` | Short Start, Packed Mode, FP4 (`0x80`, `0x44`) |
 | 3-18 | `0x22` | `0x22` | `0x00` | `0x00` | Stream 16 bytes of packed 1.0 (FP4 1.0 = `0x2`) |
