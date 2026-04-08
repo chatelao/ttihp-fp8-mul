@@ -1,0 +1,101 @@
+@startuml DATAPATH_DIAGRAM
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+' Green Theme Overrides
+skinparam backgroundColor white
+skinparam component {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+    FontColor #1B5E20
+}
+skinparam rectangle<<container>> {
+    BackgroundColor #F1F8E9
+    BorderColor #33691E
+    FontColor #1B5E20
+}
+skinparam rectangle<<boundary>> {
+    FontSize 20
+    BorderColor #2E7D32
+    FontColor #1B5E20
+}
+skinparam rectangle<<container_boundary>> {
+    FontSize 20
+    BorderColor #2E7D32
+    FontColor #1B5E20
+}
+skinparam rectangle<<system_boundary>> {
+    FontSize 20
+    BorderColor #2E7D32
+    FontColor #1B5E20
+}
+skinparam Arrow {
+    Color #2E7D32
+    FontColor #1B5E20
+}
+skinparam legend {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+}
+
+UpdateBoundaryStyle("container", $type="container")
+
+title OCP MXFP8 MAC Unit - Internal Datapath (Registers & Processing)
+
+Container_Boundary(input_pins, "Physical Interface") {
+    Component(ui_in, "ui_in[7:0]", "Input Pins", "Metadata & Operand A")
+    Component(uio_in, "uio_in[7:0]", "Input Pins", "Metadata & Operand B")
+}
+
+Container_Boundary(reg_file, "Configuration Registers") {
+    Component(cfg_reg0, "Cycle 0 Regs", "Registers", "Modes, Debug, MX+ En")
+    Component(cfg_reg1, "Cycle 1 Regs", "Registers", "Scale A, Format A, BM A")
+    Component(cfg_reg2, "Cycle 2 Regs", "Registers", "Scale B, Format B, BM B")
+}
+
+Container_Boundary(datapath, "Processing Datapath") {
+    Component(fifo, "Input FIFOs", "Registers", "16x8-bit (Lane A/B)")
+    Component(mul, "Dual Multipliers", "Logic", "8x8 / 4x4 / LNS")
+    Component(pipe_reg, "Pipeline Regs", "Registers", "Product Staging")
+    Component(align, "Dual Aligners", "Logic", "Barrel Shifters")
+    Component(acc, "32-bit Accumulator", "Register", "Fixed-point Sum")
+}
+
+Container_Boundary(output_logic, "Output Logic") {
+    Component(sticky, "Sticky Regs", "Registers", "Exception Flags")
+    Component(ser, "Serializer", "Logic", "Byte Selector")
+}
+
+Component(uo_out, "uo_out[7:0]", "Output Pins", "MAC Result / Probes")
+
+' Dataflow Arrows
+Rel_D(ui_in, cfg_reg0, "Capture", "Cycle 0")
+Rel_D(uio_in, cfg_reg0, "Capture", "Cycle 0")
+Rel_D(ui_in, cfg_reg1, "Capture", "Cycle 1")
+Rel_D(uio_in, cfg_reg1, "Capture", "Cycle 1")
+Rel_D(ui_in, cfg_reg2, "Capture", "Cycle 2")
+Rel_D(uio_in, cfg_reg2, "Capture", "Cycle 2")
+
+Rel_D(ui_in, fifo, "Stream", "STREAM phase")
+Rel_D(uio_in, fifo, "Stream", "STREAM phase")
+
+Rel_D(fifo, mul, "Operands")
+Rel_R(cfg_reg1, mul, "Format A")
+Rel_R(cfg_reg2, mul, "Format B")
+
+Rel_D(mul, pipe_reg, "Partial Products")
+Rel_D(pipe_reg, align, "Staged Data")
+Rel_L(cfg_reg1, align, "Scale A")
+Rel_L(cfg_reg2, align, "Scale B")
+
+Rel_D(align, acc, "Aligned Terms")
+Rel_U(acc, acc, "Feedback")
+
+Rel_D(mul, sticky, "Exceptions")
+Rel_D(acc, ser, "32-bit Result")
+Rel_D(sticky, ser, "Override")
+
+Rel_D(ser, uo_out, "Serialized Byte", "OUTPUT phase")
+
+@enduml
