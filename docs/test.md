@@ -5,9 +5,9 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 ## Functional Test Sequences
 
 ### Test Sequence 1: Standard FP8 E4M3 Dot Product
-**Description**: 32 pairs of 1.0 (E4M3) with 1.0 Shared Scales.
-**Calculation**: $\sum_{i=0}^{31} (1.0 \times 1.0) \times 1.0 \times 1.0 = 32.0$.
-**Expected Result**: `0x00002000` (Fixed-point, 8 fractional bits: $32 \times 2^8 = 8192 = 0x2000$).
+- **Description**: 32 pairs of 1.0 (E4M3) with 1.0 Shared Scales.
+- **Calculation**: $\sum_{i=0}^{31} (1.0 \times 1.0) \times 1.0 \times 1.0 = 32.0$.
+- **Expected Result**: `0x00002000` (Fixed-point, 8 fractional bits: $32 \times 2^8 = 8192 = 0x2000$).
 
 | Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
