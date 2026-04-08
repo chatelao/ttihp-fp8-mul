@@ -19,6 +19,17 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 
 *Source: [docs/diagrams/CONTEXT_DIAGRAM.PUML](docs/diagrams/CONTEXT_DIAGRAM.PUML)*
 
+### Functional Block Overview
+
+| Block | Component | Detailed Function & Mathematics |
+| :--- | :--- | :--- |
+| **FSM & Control** | Cycle Counter, State Machine, Config Regs | Orchestrates the 41-cycle protocol. Captures scales and metadata (Rounding, Overflow, LNS, MX+). Supports **Short Protocol** (Cycle 0) to bypass scale loading for weight-stationary kernels. |
+| **Dual-Lane Multiplier** | Decoders, Significand Mul, Exponent Path | Decodes elements and calculates products. Supports **Mitchell's LNS Approximation**: <br> $(1+m_a)(1+m_b) \approx \begin{cases} 1 + m_a + m_b & m_a+m_b < 1 \\ 2(m_a + m_b) & m_a+m_b \ge 1 \end{cases}$ <br> Handles **MX+ Extended Mantissa**: $V(A_{BM}) = S \cdot 2^{E_{max} - \text{Bias}} \cdot \left(1 + \frac{\text{concat}(E_i, M_i)}{2^{E_{bits} + M_{bits}}}\right) \cdot 2^{X_A - 127}$ |
+| **Dual Aligner Stage** | Barrel Shifters, Rounding & Saturation | Aligns products to a common 40-bit fixed-point grid. Applies **Shared Scaling** ($2^{X_A - 127}$) and **MX++ Exponent Offsets**. Supports RNE, TRN, CEL, and FLR rounding modes. |
+| **Accumulator** | Signed Adder, 32-bit Accumulation Reg | Performs 32-element summation. In **Packed Mode**, two 4-bit elements (FP4) are processed per cycle across dual lanes to double throughput. |
+| **Exception & Robustness** | Sticky Registers, Output Override | Latches `nan_sticky` and `inf_sticky` flags. Overrides the final result with OCP special patterns if an exception occurs during the streaming block. |
+| **Output Serializer** | Byte Multiplexer | Extracts 8-bit chunks from the 32-bit accumulator for Big-Endian transmission over `uo_out` during Cycles 37-40. |
+
 - [Read the documentation for project](docs/info.md)
 - [Consolidated Project Roadmap](ROADMAP.md)
 - [Project Concept & Detailed Roadmap](docs/architecture/MXFP8_CONCEPT.md)
