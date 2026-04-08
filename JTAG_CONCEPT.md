@@ -4,12 +4,12 @@ This document outlines the proposal for adding JTAG-based debug and data retriev
 
 ## 1. Activation Sequence (The "ACDC" Knock)
 
-To ensure the JTAG logic does not interfere with standard operation or accidental triggers, it is gated by a "Magic Knock" sequence during the **Cycle 0 (STATE_IDLE)** phase.
+To ensure the JTAG logic does not interfere with standard operation or accidental triggers, it is gated by a "Magic Knock" sequence.
 
 ### Trigger Condition
-On the **falling edge of the clock in Cycle 0**, the hardware checks for the following conditions:
-1. **DEBUG Enable**: `ui_in[6]` must be high (`1`).
-2. **Magic Value**: The concatenated inputs `{uio_in, ui_in}` must equal `0xACDC`.
+While the device is in **Debug Mode** (enabled by setting `ui_in[6]=1` at the start of Cycle 0), the JTAG interface can be activated at **ANY clock edge (rising or falling)** if the following condition is met:
+
+1. **Magic Value**: The concatenated inputs `{uio_in, ui_in}` must equal `0xACDC`.
 
 | Port | Hex Value | Binary | Notes |
 |:---:|:---:|:---:|---|
@@ -17,7 +17,7 @@ On the **falling edge of the clock in Cycle 0**, the hardware checks for the fol
 | `ui_in` | `0xDC` | `1101 1100` | LSB of the knock (Bit 6 is Debug En) |
 
 ### State Transition
-Once the knock is detected, the unit enters **JTAG Mode**. In this mode, the FSM can either be paused or continue running, but the pin functions of `ui_in` and `uo_out` are repurposed to serve the JTAG TAP (Test Access Port) controller.
+Once the knock is detected on any edge, the unit enters **JTAG Mode**. In this mode, the FSM can either be paused or continue running, but the pin functions of `ui_in` and `uo_out` are repurposed to serve the JTAG TAP (Test Access Port) controller. This allows JTAG activation at any point during the 41-cycle streaming protocol, provided Debug Mode was armed at the start.
 
 ## 2. JTAG Pin Mapping
 
