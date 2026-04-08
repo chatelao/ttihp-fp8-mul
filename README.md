@@ -30,6 +30,12 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 | **Exception & Robustness** | Sticky Registers, Output Override | Latches `nan_sticky` and `inf_sticky` flags. Overrides the final result with OCP special patterns if an exception occurs during the streaming block. |
 | **Output Serializer** | Byte Multiplexer | Extracts 8-bit chunks from the 32-bit accumulator for Big-Endian transmission over `uo_out` during Cycles 37-40. |
 
+### Internal Datapath
+
+![Internal Datapath Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/DATAPATH_DIAGRAM.PUML)
+
+*Source: [docs/diagrams/DATAPATH_DIAGRAM.PUML](docs/diagrams/DATAPATH_DIAGRAM.PUML)*
+
 - [Read the documentation for project](docs/info.md)
 - [Consolidated Project Roadmap](ROADMAP.md)
 - [Project Concept & Detailed Roadmap](docs/architecture/MXFP8_CONCEPT.md)
