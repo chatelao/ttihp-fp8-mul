@@ -290,3 +290,214 @@ async def test_debug_exceptions(dut):
     await Timer(1, unit="ns")
     # In Debug Mode 0x2, uo_out[7] (nan_sticky) should reflect the Scale NaN immediately
     assert (int(dut.uo_out.value) >> 7) & 1 == 1, "nan_sticky bit 7 should be high from Scale A NaN"
+
+@cocotb.test()
+async def test_debug_multiplier_probes(dut):
+    dut._log.info("Start Debug Multiplier Probes Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
+    pipelined = get_param(dut, "SUPPORT_PIPELINING", 1)
+
+    # 1. Test Probe 0x8 (Multiplier Lane 0 LSB)
+    # We'll use E4M3: 1.0 (0x38) * 1.5 (0x3C)
+    # ma = 1.000 (8), mb = 1.100 (12) -> p_res = 8 * 12 = 96 (0x60)
+    await reset_with_debug(dut, debug_en=1, probe_sel=8)
+
+    # Cycle 1 & 2: Load Scale 1.0
+    dut.ui_in.value = 127
+    dut.uio_in.value = 0 # Format E4M3
+    await ClockCycles(dut.clk, k)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, k)
+
+    # Cycle 3: Element A = 0x38, B = 0x3C
+    dut.ui_in.value = 0x38
+    dut.uio_in.value = 0x3C
+    await ClockCycles(dut.clk, k)
+
+    # If pipelined, the product appears at Cycle 4.
+    if pipelined:
+        # At Cycle 4, uo_out should show the product from Cycle 3 elements
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+        dut._log.info(f"Probe 0x8, Cycle 4 (Pipelined): out={actual:02x}")
+        assert actual == 0x60
+    else:
+        # If not pipelined, product appears at Cycle 3
+        # But wait, Cycle 3 elements are sampled at the beginning of Cycle 3.
+        # In non-pipelined, p_res is combinational.
+        # However, reset_with_debug might have timing subtleties.
+        # Let's check Cycle 3 end.
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+        dut._log.info(f"Probe 0x8, Cycle 3 (Non-pipelined): out={actual:02x}")
+        assert actual == 0x60
+
+    # 2. Test Probe 0x7 (Multiplier Lane 0 MSB)
+    # We need a product > 255. 0x78 (15.0) * 0x78 (15.0) -> ma=15, mb=15?
+    # No, E4M3 ma is 4 bits (1.mmm). Max ma is 1.111 = 15.
+    # 15 * 15 = 225. Still fits in 8 bits.
+    # To get > 255, we need INT8 or larger mantissas.
+    # If INT8 is supported: 0x7F (127) * 0x02 (2) = 254.
+    # 0x7F (127) * 0x7F (127) = 16129 (0x3F01)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
+    if support_int8:
+        await reset_with_debug(dut, debug_en=1, probe_sel=7)
+        # Cycle 1 & 2: Load Scale 1.0, Format INT8 (5)
+        dut.ui_in.value = 127
+        dut.uio_in.value = 5
+        await ClockCycles(dut.clk, k)
+        dut.ui_in.value = 127
+        dut.uio_in.value = 5
+        await ClockCycles(dut.clk, k)
+
+        # Cycle 3: Element A = 0x7F, B = 0x7F
+        dut.ui_in.value = 0x7F
+        dut.uio_in.value = 0x7F
+        await ClockCycles(dut.clk, k)
+
+        target_cycle = 4 if pipelined else 3
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+        dut._log.info(f"Probe 0x7, Cycle {target_cycle}: out={actual:02x}")
+        # 127 * 127 = 16129 = 0x3F01. MSB is 0x3F.
+        assert actual == 0x3F
+
+        # Switch to Probe 0x8 to see LSB
+        # Note: probe_sel is captured at Cycle 0. We need to reset.
+        await reset_with_debug(dut, debug_en=1, probe_sel=8)
+        dut.ui_in.value = 127
+        dut.uio_in.value = 5
+        await ClockCycles(dut.clk, k)
+        dut.ui_in.value = 127
+        dut.uio_in.value = 5
+        await ClockCycles(dut.clk, k)
+        dut.ui_in.value = 0x7F
+        dut.uio_in.value = 0x7F
+        await ClockCycles(dut.clk, k)
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+        dut._log.info(f"Probe 0x8, Cycle {target_cycle}: out={actual:02x}")
+        assert actual == 0x01
+
+@cocotb.test()
+async def test_debug_accumulator_probes(dut):
+    dut._log.info("Start Debug Accumulator Probes Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
+    pipelined = get_param(dut, "SUPPORT_PIPELINING", 1)
+
+    # Test Probes 0x3 to 0x6 (Accumulator bytes)
+    # We'll use E4M3 and accumulate a few values.
+    # 1.0 * 1.0 = 1.0. In fixed point (LSB=1/256), 1.0 is 0x100.
+
+    # We want to check all bytes, but probe_sel is fixed for a block.
+    # We'll run 4 blocks, one for each probe.
+
+    for byte_idx in range(4):
+        probe_sel = 3 + byte_idx # 3=MSB, 6=LSB
+        await reset_with_debug(dut, debug_en=1, probe_sel=probe_sel)
+
+        # Cycle 1 & 2: Load Scale 1.0, Format E4M3
+        dut.ui_in.value = 127
+        dut.uio_in.value = 0
+        await ClockCycles(dut.clk, k)
+        dut.ui_in.value = 127
+        dut.uio_in.value = 0
+        await ClockCycles(dut.clk, k)
+
+        # Accumulate 1.0 (0x38 * 0x38)
+        # 1.0 * 1.0 = 1.0 = 0x00000100 in 32-bit fixed point
+        dut.ui_in.value = 0x38
+        dut.uio_in.value = 0x38
+        await ClockCycles(dut.clk, k)
+
+        # Clear inputs to avoid multiple accumulations
+        dut.ui_in.value = 0
+        dut.uio_in.value = 0
+
+        # If pipelined, it enters accumulator at Cycle 5.
+        # Cycle 3: Elements in
+        # Cycle 4: Product ready (if pipelined)
+        # Cycle 5: Accumulator updated
+        target_cycle = 5 if pipelined else 4
+
+        # We are at start of Cycle 4.
+        if pipelined:
+            await ClockCycles(dut.clk, k) # Now at start of Cycle 5
+
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+
+        expected_acc = 0x00000100
+        expected_byte = (expected_acc >> (8 * (3 - byte_idx))) & 0xFF
+
+        dut._log.info(f"Probe 0x{probe_sel:x}, Cycle {target_cycle}: out={actual:02x}, expected={expected_byte:02x}")
+        assert actual == expected_byte
+
+        # Accumulate another 1.0
+        dut.ui_in.value = 0x38
+        dut.uio_in.value = 0x38
+        await ClockCycles(dut.clk, k)
+
+        # Clear inputs again
+        dut.ui_in.value = 0
+        dut.uio_in.value = 0
+
+        if pipelined:
+            await ClockCycles(dut.clk, k) # Wait for it to hit acc
+
+        await Timer(1, unit="ns")
+        actual = int(dut.uo_out.value)
+
+        expected_acc = 0x00000200
+        expected_byte = (expected_acc >> (8 * (3 - byte_idx))) & 0xFF
+        dut._log.info(f"Probe 0x{probe_sel:x}, Cycle {target_cycle+1}: out={actual:02x}, expected={expected_byte:02x}")
+        assert actual == expected_byte
+
+@cocotb.test()
+async def test_debug_lane1_probes(dut):
+    dut._log.info("Start Debug Lane 1 Probes Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
+    pipelined = get_param(dut, "SUPPORT_PIPELINING", 1)
+    can_pack = get_param(dut, "SUPPORT_VECTOR_PACKING", 0)
+
+    if not can_pack:
+        dut._log.info("Skipping Lane 1 test as Vector Packing is not supported")
+        return
+
+    # Probe 0xC: Multiplier Lane 1 LSB
+    # FP4 Packed Mode: 1.0 (0x2) * 1.0 (0x2) = 1.0 (0x04)
+    # ma=2, mb=2 -> prod=4.
+    await reset_with_debug(dut, debug_en=1, probe_sel=0xC, packed=1)
+
+    # Cycle 1 & 2: Load Scale 1.0, Format FP4 (4)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 4
+    await ClockCycles(dut.clk, k)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 4
+    await ClockCycles(dut.clk, k)
+
+    # Cycle 3: Element A = 0x22 (Packed 1.0, 1.0), B = 0x22
+    dut.ui_in.value = 0x22
+    dut.uio_in.value = 0x22
+    await ClockCycles(dut.clk, k)
+
+    target_cycle = 4 if pipelined else 3
+    await Timer(1, unit="ns")
+    actual = int(dut.uo_out.value)
+    dut._log.info(f"Probe 0xC, Cycle {target_cycle}: out={actual:02x}")
+    # ma=2 (1.0 in FP4), mb=2 -> p_res = 4. Aligned with << 4 -> 0x40
+    assert actual == 0x40
