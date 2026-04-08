@@ -225,3 +225,68 @@ async def test_debug_no_packed_interference(dut):
     actual = int(dut.uo_out.value)
     dut._log.info(f"Metadata Echo: {actual:02x}")
     assert (actual >> 6) & 1 == 0 # packed_mode_reg should be 0
+
+@cocotb.test()
+async def test_debug_exceptions(dut):
+    dut._log.info("Start Debug Exceptions Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
+    pipelined = get_param(dut, "SUPPORT_PIPELINING", 1)
+
+    # 1. Test NaN and Infinities from elements using Probe 0x2
+    # Reset and configure for Debug Mode 0x2
+    await reset_with_debug(dut, debug_en=1, probe_sel=2)
+
+    # Cycle 1: Scale A = 1.0 (127), Format A = E5M2 (1)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 1
+    await ClockCycles(dut.clk, k)
+
+    # Cycle 2: Scale B = 1.0 (127), Format B = E5M2 (1)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 1
+    await ClockCycles(dut.clk, k)
+
+    # Cycle 3: Element A = NaN (0x7F), B = 1.0 (0x3C)
+    dut.ui_in.value = 0x7F
+    dut.uio_in.value = 0x3C
+    await ClockCycles(dut.clk, k)
+
+    # Cycle 4: Element A = +Inf (0x7C), B = 1.0 (0x3C)
+    dut.ui_in.value = 0x7C
+    dut.uio_in.value = 0x3C
+    await ClockCycles(dut.clk, k)
+
+    # Cycle 5: Element A = -Inf (0xFC), B = 1.0 (0x3C)
+    dut.ui_in.value = 0xFC
+    dut.uio_in.value = 0x3C
+    await ClockCycles(dut.clk, k)
+
+    # Wait for the last element's result to clear the pipeline if enabled
+    if pipelined:
+        await ClockCycles(dut.clk, k)
+
+    # Now check exception bits in uo_out
+    await Timer(1, unit="ns")
+    val = int(dut.uo_out.value)
+    dut._log.info(f"Exceptions Probe (Cycle {int(dut.user_project.cycle_count.value)}): {val:02x}")
+
+    # [7] nan_sticky, [6] inf_pos_sticky, [5] inf_neg_sticky, [4] strobe
+    assert (val >> 7) & 1 == 1, "nan_sticky bit 7 should be high"
+    assert (val >> 6) & 1 == 1, "inf_pos_sticky bit 6 should be high"
+    assert (val >> 5) & 1 == 1, "inf_neg_sticky bit 5 should be high"
+    # Bit 4 is strobe. In non-serial mode, strobe is always 1.
+    if not support_serial_hw:
+        assert (val >> 4) & 1 == 1, "strobe bit 4 should be high"
+
+    # 2. Test Scale-triggered NaN sticky flag
+    await reset_with_debug(dut, debug_en=1, probe_sel=2)
+    # Cycle 1: Load Scale A = 0xFF (NaN)
+    dut.ui_in.value = 0xFF
+    await ClockCycles(dut.clk, k)
+    await Timer(1, unit="ns")
+    # In Debug Mode 0x2, uo_out[7] (nan_sticky) should reflect the Scale NaN immediately
+    assert (int(dut.uo_out.value) >> 7) & 1 == 1, "nan_sticky bit 7 should be high from Scale A NaN"
