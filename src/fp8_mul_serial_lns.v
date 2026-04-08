@@ -36,7 +36,7 @@ module fp8_mul_serial_lns #(
      * We need to know which bit of the 8-bit (or 16-bit internal) stream we are currently processing.
      */
     reg [3:0] cnt;
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) cnt <= 4'd15;
         else if (ena) begin
             if (strobe) cnt <= 4'd0; // Reset counter on strobe.
@@ -135,7 +135,7 @@ module fp8_mul_serial_lns #(
     wire carry_s2_next = (sum_s1 & (~bit_bias)) | (carry_sub & (sum_s1 ^ (~bit_bias)));
 
     // Sequential update of carry bits.
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             carry_adder <= 1'b0;
             carry_sub <= 1'b1; // Initial carry for subtraction (2's complement style).
@@ -162,7 +162,7 @@ module fp8_mul_serial_lns #(
     reg a_e_all_ones, b_e_all_ones;
     reg a_m_any_nonzero, b_m_any_nonzero;
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             sign_a <= 1'b0; sign_b <= 1'b0;
             a_any_nonzero <= 1'b0; b_any_nonzero <= 1'b0;

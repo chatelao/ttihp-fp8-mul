@@ -68,7 +68,7 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_ctrl
             reg [COUNTER_WIDTH-1:0] k_counter;
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) k_counter <= {COUNTER_WIDTH{1'b0}};
                 else if (ena) k_counter <= (k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1}) ? {COUNTER_WIDTH{1'b0}} : k_counter + {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1};
             end
@@ -114,7 +114,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [3:0] probe_sel_reg;
             reg       loopback_en_reg;
 
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     debug_en_reg <= 1'b0;
                     probe_sel_reg <= 4'd0;
@@ -169,7 +169,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [2:0] nbm_offset_a;
             reg [2:0] nbm_offset_b;
             reg       mx_plus_en;
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     bm_index_a <= 5'd0;
                     bm_index_b <= 5'd0;
@@ -226,16 +226,22 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [7:0] fifo_a [0:15];
             reg [7:0] fifo_b [0:15];
             reg [3:0] write_ptr;
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     write_ptr <= 4'd0;
                 end else if (ena && strobe) begin
                     if (state == STATE_IDLE) begin
                         write_ptr <= 4'd0;
                     end else if (state == STATE_STREAM && logical_cycle <= 6'd18) begin
+                        write_ptr <= write_ptr + 4'd1;
+                    end
+                end
+            end
+            always @(posedge clk) begin
+                if (ena && strobe) begin
+                    if (state == STATE_STREAM && logical_cycle <= 6'd18) begin
                         fifo_a[write_ptr] <= ui_in;
                         fifo_b[write_ptr] <= uio_in;
-                        write_ptr <= write_ptr + 4'd1;
                     end
                 end
             end
@@ -264,7 +270,7 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) scale_a <= 8'd0;
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
@@ -275,7 +281,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) scale_b <= 8'd0;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
@@ -286,7 +292,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
         if (SUPPORT_MIXED_PRECISION && !FIXED_FORMAT) begin : gen_format_b
             reg [2:0] format_b;
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) format_b <= 3'd0;
                 else if (ena && strobe) begin
                     if (logical_cycle == 6'd0 && ui_in[7])
@@ -332,7 +338,7 @@ module tt_um_chatelao_fp8_multiplier #(
      * Cycle Counter and Main FSM Controller
      * Captures configuration metadata and advances the protocol state.
      */
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             cycle_count <= {COUNTER_WIDTH{1'b0}};
             format_a_reg <= 3'd0;
@@ -388,7 +394,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Buffer for packed elements in bit-serial modes.
     reg [3:0] packed_a_buf, packed_b_buf;
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             packed_a_buf <= 4'd0;
             packed_b_buf <= 4'd0;
@@ -545,7 +551,7 @@ module tt_um_chatelao_fp8_multiplier #(
             reg mul_nan_lane0_reg, mul_inf_lane0_reg;
             reg is_bm_a_lane0_reg, is_bm_b_lane0_reg;
 
-            always @(posedge clk) begin
+            always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     mul_prod_lane0_reg <= 16'd0;
                     mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
@@ -579,7 +585,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 reg mul_nan_lane1_reg, mul_inf_lane1_reg;
                 reg is_bm_a_lane1_reg, is_bm_b_lane1_reg;
 
-                always @(posedge clk) begin
+                always @(posedge clk or negedge rst_n) begin
                     if (!rst_n) begin
                         mul_prod_lane1_reg <= 16'd0;
                         mul_exp_sum_lane1_reg <= {EXP_SUM_WIDTH{1'b0}};
@@ -640,7 +646,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
     wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
 
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             nan_sticky <= 1'b0;
             inf_pos_sticky <= 1'b0;
@@ -835,7 +841,7 @@ module tt_um_chatelao_fp8_multiplier #(
      */
     // 0. Formal-only capture register for serialization verification
     reg [31:0] f_scaled_acc_reg;
-    always @(posedge clk) begin
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) f_scaled_acc_reg <= 32'd0;
         else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= final_scaled_result;
     end
