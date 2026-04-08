@@ -125,14 +125,18 @@ When **Debug En** (`ui_in[6]` in Cycle 0) is set, `uo_out` is repurposed for int
 | `0x4` | **Accumulator [23:16]** | Live Byte 2 |
 | `0x5` | **Accumulator [15:8]** | Live Byte 1 |
 | `0x6` | **Accumulator [7:0]** | Live LSB (Fixed-point fraction) |
-| `0x7` | **Multiplier Lane 0** | `mul_prod_lane0[15:8]` (Exp sum / MSB) |
-| `0x8` | **Multiplier Lane 0** | `mul_prod_lane0[7:0]` (Mantissa product) |
+| `0x7` | **Multiplier Lane 0 MSB** | `mul_prod_lane0[15:8]` (Exp sum / MSB) |
+| `0x8` | **Multiplier Lane 0 LSB** | `mul_prod_lane0[7:0]` (Mantissa product) |
 | `0x9` | **Control Signals** | `[7]` ena, `[6]` strobe, `[5]` acc_en, `[4]` acc_clear, `[3:0]` 0 |
+| `0xA` | **Multiplier Lane 0 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
+| `0xB` | **Multiplier Lane 1 MSB** | `mul_prod_lane1[15:8]` |
+| `0xC` | **Multiplier Lane 1 LSB** | `mul_prod_lane1[7:0]` |
+| `0xD` | **Multiplier Lane 1 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
 
 Once enabled, debug mode remains active for the entire block operation.
 
 #### 2. Connectivity Loopback
-Set **Loopback En** (`ui_in[5]` in Cycle 0) to enter a persistent loopback mode. In this mode, `uo_out = ui_in ^ uio_in`, allowing verification of all 16 input pins. This mode bypasses all FSM logic and remains active until reset.
+Set **Loopback En** (`ui_in[5]` in Cycle 0) to enter a persistent loopback mode. In this mode, `uo_out = ui_in ^ uio_in`, allowing verification of all 16 input pins. This mode is **sticky** across block boundaries once enabled and remains active until reset.
 
 #### 3. Metadata Echo
 In **Cycle 35** (Pipeline Flush), if debug mode is active, `uo_out` echoes the latched configuration instead of `0x00`:
