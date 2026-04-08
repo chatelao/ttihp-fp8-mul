@@ -51,8 +51,9 @@ module accumulator #(
     // Overflow check: If the signs of the inputs are the same but the sign of the result is different.
     wire overflow = (acc_reg[WIDTH-1] == data_in[WIDTH-1]) && (sum[WIDTH-1] != acc_reg[WIDTH-1]);
 
-    // This 'always' block describes sequential logic that updates on the rising edge of the clock.
-    always @(posedge clk) begin
+    // This 'always' block describes sequential logic that updates on the rising edge of the clock
+    // or the falling edge of the asynchronous reset.
+    always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             // Reset: Asynchronous return to zero.
             acc_reg <= {REG_WIDTH{1'b0}};
