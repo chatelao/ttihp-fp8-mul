@@ -81,8 +81,8 @@ Rel_D(ui_in, fifo, "Stream", "STREAM phase")
 Rel_D(uio_in, fifo, "Stream", "STREAM phase")
 
 Rel_D(fifo, mul, "Operands")
-Rel_R(cfg_reg1, mul, "Format A")
-Rel_R(cfg_reg2, mul, "Format B")
+Rel_D(cfg_reg1, mul, "Format A")
+Rel_D(cfg_reg2, mul, "Format B")
 
 Rel_D(mul, pipe_reg, "Partial Products")
 Rel_D(pipe_reg, align, "Staged Data")
