@@ -6,33 +6,33 @@ LAYOUT_WITH_LEGEND()
 ' Green Theme Overrides
 skinparam backgroundColor white
 skinparam component {
-    BackgroundColor #E8F5E9
-    BorderColor #2E7D32
-    FontColor #1B5E20
+    BackgroundColor #90EE90
+    BorderColor #006400
+    FontColor #000000
 }
 skinparam rectangle<<container>> {
-    BackgroundColor #F1F8E9
-    BorderColor #33691E
-    FontColor #1B5E20
+    BackgroundColor #90EE90
+    BorderColor #006400
+    FontColor #000000
 }
 skinparam rectangle<<boundary>> {
     FontSize 20
-    BorderColor #2E7D32
-    FontColor #1B5E20
+    BorderColor #006400
+    FontColor #000000
 }
 skinparam rectangle<<container_boundary>> {
     FontSize 20
-    BorderColor #2E7D32
-    FontColor #1B5E20
+    BorderColor #006400
+    FontColor #000000
 }
 skinparam rectangle<<system_boundary>> {
     FontSize 20
-    BorderColor #2E7D32
-    FontColor #1B5E20
+    BorderColor #006400
+    FontColor #000000
 }
 skinparam Arrow {
-    Color #2E7D32
-    FontColor #1B5E20
+    Color black
+    FontColor black
 }
 skinparam legend {
     BackgroundColor #E8F5E9
