@@ -3,7 +3,7 @@ name: render_circuit
 on:
   push:
     paths:
-      - 'CIRCUIT.md'
+      - 'docs/diagrams/CIRCUIT.tex'
       - 'scripts/render_circuit.py'
       - '.github/workflows/render_circuit.yml'
   workflow_dispatch:

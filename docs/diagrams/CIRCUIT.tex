@@ -1,0 +1,40 @@
+    % Module Boundary
+    \draw[thick] (0,0) rectangle (10,8);
+    \node[anchor=north] at (5,7.8) {\large \textbf{tt\_um\_chatelao\_fp8\_multiplier}};
+
+    % Input Ports (LHS)
+    \draw (-1,6.5) node[anchor=east] {ui\_in[7:0]} -- (0,6.5);
+    \draw (-1,5.5) node[anchor=east] {uio\_in[7:0]} -- (0,5.5);
+    \draw (-1,3.5) node[anchor=east] {clk} -- (0,3.5);
+    \draw (-1,2.5) node[anchor=east] {rst\_n} -- (0,2.5);
+    \draw (-1,1.5) node[anchor=east] {ena} -- (0,1.5);
+
+    % Functional Blocks
+    \draw (1,4.5) rectangle (3,7.5) node[midway, align=center] {FSM \&\\Control\\Logic};
+    \draw (4,5) rectangle (6,7) node[midway, align=center] {Dual\\Multiplier\\Lanes};
+    \draw (7,5) rectangle (9,7) node[midway, align=center] {Dual\\Aligner\\Stage};
+    \draw (7,1) rectangle (9,3) node[midway, align=center] {32-bit\\Accumulator\\\& Serializer};
+
+    % Connections
+    % Data paths
+    \draw[->, thick] (3,6) -- (4,6); % FSM to Multiplier
+    \draw[->, thick] (6,6) -- (7,6); % Multiplier to Aligner
+    \draw[->, thick] (8,5) -- (8,3); % Aligner to Accumulator
+
+    % Input to FSM/Mul
+    \draw[->] (0.5,6.5) |- (1,6);
+    \draw[->] (0.5,5.5) |- (1,5);
+
+    % Control lines from FSM
+    \draw[->, dashed] (2,4.5) |- (5,4) -- (5,5); % FSM to Multiplier control
+    \draw[->, dashed] (2,4.5) |- (8,4) -- (8,5); % FSM to Aligner control
+    \draw[->, dashed] (2,4.5) |- (7,2);           % FSM to Accumulator control
+
+    % Output Ports (RHS)
+    \draw (9,2) -- (11,2) node[anchor=west] {uo\_out[7:0]};
+
+    % Legend
+    \draw[dashed] (0.5,0.5) rectangle (4,2.5);
+    \node[anchor=west] at (0.6,2.2) {\small \textbf{Legend:}};
+    \draw[thick] (0.8,1.7) -- (1.5,1.7) node[right] {\scriptsize Data Path};
+    \draw[dashed] (0.8,1.2) -- (1.5,1.2) node[right] {\scriptsize Control Path};
