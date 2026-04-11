@@ -123,7 +123,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     // Capture debug configuration in Cycle 0.
                     debug_en_reg    <= ui_in[6];
                     probe_sel_reg   <= uio_in[3:0];
-                    loopback_en_reg <= ui_in[5];
+                    // Loopback is sticky once enabled until reset to allow multi-block testing
+                    loopback_en_reg <= loopback_en_reg | ui_in[5];
                 end
             end
 
@@ -818,7 +819,12 @@ module tt_um_chatelao_fp8_multiplier #(
                                 (probe_sel_val == 4'h6) ? acc_out_ext[7:0] :
                                 (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
                                 (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
-                                (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} : 8'h00;
+                                (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} :
+                                (probe_sel_val == 4'hA) ? {mul_sign_lane0_val, mul_nan_lane0_val, mul_inf_lane0_val, mul_exp_sum_lane0_val[4:0]} :
+                                (probe_sel_val == 4'hB) ? mul_prod_lane1_val[15:8] :
+                                (probe_sel_val == 4'hC) ? mul_prod_lane1_val[7:0] :
+                                (probe_sel_val == 4'hD) ? {mul_sign_lane1_val, mul_nan_lane1_val, mul_inf_lane1_val, mul_exp_sum_lane1_val[4:0]} :
+                                8'h00;
         end else begin : gen_no_debug_output
             assign metadata_echo = 8'h00;
             assign probe_data = 8'h00;

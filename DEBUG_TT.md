@@ -24,16 +24,20 @@ A "Debug Instruction" is sampled in **Cycle 0** (STATE_IDLE):
 | `0x4` | **Accumulator [23:16]** | Live Byte 2 |
 | `0x5` | **Accumulator [15:8]** | Live Byte 1 |
 | `0x6` | **Accumulator [7:0]** | Live LSB (Fixed-point fraction) |
-| `0x7` | **Multiplier Lane 0** | `mul_prod_lane0[15:8]` (Exp sum / MSB) |
-| `0x8` | **Multiplier Lane 0** | `mul_prod_lane0[7:0]` (Mantissa product) |
+| `0x7` | **Multiplier Lane 0 MSB** | `mul_prod_lane0[15:8]` (Exp sum / MSB) |
+| `0x8` | **Multiplier Lane 0 LSB** | `mul_prod_lane0[7:0]` (Mantissa product) |
 | `0x9` | **Control Signals** | `[7]` ena, `[6]` strobe, `[5]` acc_en, `[4]` acc_clear, `[3:0]` 0 |
+| `0xA` | **Multiplier Lane 0 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
+| `0xB` | **Multiplier Lane 1 MSB** | `mul_prod_lane1[15:8]` |
+| `0xC` | **Multiplier Lane 1 LSB** | `mul_prod_lane1[7:0]` |
+| `0xD` | **Multiplier Lane 1 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
 
 ## 2. Connectivity Loopback
 
 To verify the PCB/Socket connectivity and the TT infrastructure before running complex arithmetic, a transparent loopback mode is provided.
 
 - **Trigger**: `ui_in[5]` is set to `1` in **Cycle 0**.
-- **Behavior**: The unit enters a persistent "Loopback Mode" until reset.
+- **Behavior**: The unit enters a persistent "Loopback Mode" until reset. It is **sticky** across block boundaries once enabled.
   - `uo_out = ui_in ^ uio_in`
   - `uio_oe = 8'h00` (All pins remain inputs to avoid combinational loops)
   - This allows verifying all 16 input pins (`ui_in[7:0]` and `uio_in[7:0]`) via the `uo_out` port.
