@@ -6,7 +6,7 @@ The **OCP MXFP8 Streaming MAC Unit** is implemented as a 32-element streaming Mu
 
 The following diagram illustrates the top-level module interface and the primary internal functional blocks.
 
-```math
+$$
     % Module Boundary
     \draw[thick] (0,0) rectangle (10,8);
     \node[anchor=north] at (5,7.8) {\large \textbf{tt\_um\_chatelao\_fp8\_multiplier}};
@@ -47,7 +47,7 @@ The following diagram illustrates the top-level module interface and the primary
     \node[anchor=west] at (0.6,2.2) {\small \textbf{Legend:}};
     \draw[thick] (0.8,1.7) -- (1.5,1.7) node[right] {\scriptsize Data Path};
     \draw[dashed] (0.8,1.2) -- (1.5,1.2) node[right] {\scriptsize Control Path};
-```
+$$
 
 ## Architectural Components
 
