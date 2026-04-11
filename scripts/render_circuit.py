@@ -1,28 +1,19 @@
 import os
 import subprocess
-import re
 import sys
 
 def main():
-    circuit_md_path = 'CIRCUIT.md'
+    circuit_tex_path = 'docs/diagrams/CIRCUIT.tex'
     output_svg_path = 'docs/circuit.svg'
     temp_tex_path = 'circuit_temp.tex'
     temp_dvi_path = 'circuit_temp.dvi'
 
-    if not os.path.exists(circuit_md_path):
-        print(f"Error: {circuit_md_path} not found.")
+    if not os.path.exists(circuit_tex_path):
+        print(f"Error: {circuit_tex_path} not found.")
         sys.exit(1)
 
-    with open(circuit_md_path, 'r') as f:
-        content = f.read()
-
-    # Extract LaTeX block between $$ and $$
-    match = re.search(r'\$\$(.*?)\$\$', content, re.DOTALL)
-    if not match:
-        print("Error: No LaTeX block found in CIRCUIT.md")
-        sys.exit(1)
-
-    latex_code = match.group(1).strip()
+    with open(circuit_tex_path, 'r') as f:
+        latex_code = f.read().strip()
 
     # Wrap in standalone tikz document
     tex_template = r"""\documentclass[tikz]{standalone}
