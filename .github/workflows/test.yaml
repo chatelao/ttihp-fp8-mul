@@ -8,7 +8,7 @@ jobs:
         config: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -18,7 +18,7 @@ jobs:
 
       # Set Python up and install cocotb
       - name: Setup python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -35,9 +35,9 @@ jobs:
         if: matrix.config == 'Full'
         run: |
           # Verify compilation of all M3 modes using iverilog
-          for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB; do
+          for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB M3_MODE_AHB_DMA; do
             echo "Verifying $mode..."
-            iverilog -g2012 -Isrc -D$mode src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/accumulator.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v -o m3_test
+            iverilog -g2012 -Isrc -D$mode src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/accumulator.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v -o m3_test
             rm m3_test
           done
 
@@ -51,7 +51,7 @@ jobs:
           elif [ "${{ matrix.config }}" == "Tiny" ]; then
             export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=40 -P tb.ACCUMULATOR_WIDTH=32 -P tb.SUPPORT_E5M2=0 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=1 -P tb.SUPPORT_INT8=0 -P tb.SUPPORT_PIPELINING=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0 -P tb.SUPPORT_SERIAL=0 -P tb.SERIAL_K_FACTOR=1"
           elif [ "${{ matrix.config }}" == "Ultra-Tiny" ]; then
-            export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=0 -P tb.SERIAL_K_FACTOR=1"
+            export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=32 -P tb.ACCUMULATOR_WIDTH=24 -P tb.SUPPORT_E5M2=0 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=1 -P tb.SUPPORT_INT8=0 -P tb.SUPPORT_PIPELINING=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0 -P tb.SUPPORT_SERIAL=0 -P tb.SERIAL_K_FACTOR=1"
           elif [ "${{ matrix.config }}" == "Tiny-Serial" ]; then
             export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=8"
           fi
