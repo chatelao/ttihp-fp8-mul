@@ -13,7 +13,7 @@ def list_tests(module_name):
                 tests.append(name)
         return tests
     except Exception as e:
-        # print(f"Error importing {module_name}: {e}", file=sys.stderr)
+        print(f"Error importing {module_name}: {e}", file=sys.stderr)
         return []
 
 if __name__ == "__main__":
