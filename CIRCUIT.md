@@ -6,7 +6,7 @@ The **OCP MXFP8 Streaming MAC Unit** is implemented as a 32-element streaming Mu
 
 The following diagram illustrates the top-level module interface and the primary internal functional blocks.
 
-```latex
+```math
 \documentclass{standalone}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
