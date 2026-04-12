@@ -80,6 +80,8 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 The unit captures configuration and scaling data during the initial cycles.
 
 **Cycle 0: Metadata 0 (`ui_in`)**
+![Metadata 0 (ui_in)](metadata_c0_ui.svg)
+
 | Bit | Name | Description |
 |:---:|------|-------------|
 | `[7]` | **SHORT_PROT** | 1: Reuse previous scales/formats; jump to Cycle 3. |
@@ -89,6 +91,8 @@ The unit captures configuration and scaling data during the initial cycles.
 | `[2:0]` | **NBM_OFF_A** | Exponent offset for Operand A (MX++). |
 
 **Cycle 0: Metadata 1 (`uio_in`)**
+![Metadata 1 (uio_in)](metadata_c0_uio.svg)
+
 If `DEBUG_EN=1`, bits `[3:0]` select the internal probe.
 | Bit | Name | Description |
 |:---:|------|-------------|
@@ -99,6 +103,9 @@ If `DEBUG_EN=1`, bits `[3:0]` select the internal probe.
 | `[2:0]` | **NBM_OFF_B** | Exponent offset for Operand B / Format select. |
 
 **Cycle 1: Scale A and Config A**
+![Scale A](scale_a.svg)
+![Config A](config_a.svg)
+
 | Port | Name | Description |
 |:---:|------|-------------|
 | `ui_in[7:0]` | **SCALE_A** | 8-bit unsigned biased exponent (UE8M0, Bias 127). |
@@ -106,6 +113,9 @@ If `DEBUG_EN=1`, bits `[3:0]` select the internal probe.
 | `uio_in[2:0]`| **FORMAT_A** | `0`: E4M3, `1`: E5M2, `2`: E3M2, `3`: E2M3, `4`: E2M1, `5`: INT8. |
 
 **Cycle 2: Scale B and Config B**
+![Scale B](scale_b.svg)
+![Config B](config_b.svg)
+
 | Port | Name | Description |
 |:---:|------|-------------|
 | `ui_in[7:0]` | **SCALE_B** | 8-bit unsigned biased exponent (UE8M0, Bias 127). |
@@ -125,6 +135,14 @@ The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 | `0xA` | **L0 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
 | `0xB-0xC`| **Multiplier L1**| Lane 1 product (MSB/LSB) |
 | `0xD` | **L1 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
+
+#### 6.4 FP4 Fast Mode
+The unit provides a high-throughput **FP4 Fast Lane** mode by combining **Vector Packing** and the **Short Protocol**.
+
+In this mode:
+- **Vector Packing** (`uio_in[6]=1` at Cycle 0) enables dual-lane processing, reducing the STREAM phase from 32 to 16 cycles.
+- **Short Protocol** (`ui_in[7]=1` at Cycle 0) bypasses the Scale/Format load cycles (Cycles 1-2).
+- The total block latency is reduced from 41 cycles to **23 cycles** (1 Config + 16 Stream + 6 Flush/Output).
 
 ---
 

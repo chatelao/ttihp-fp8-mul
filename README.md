@@ -73,7 +73,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 | 39    | -                  | -                   | **Result [15:8]**    | Output Byte 1. |
 | 40    | -                  | -                   | **Result [7:0]**     | Output Byte 0 (LSB). |
 
-*\*Note: For 4-bit formats (MXFP4), the unit supports **Vector Packing** (uio_in[6]=1 in Cycle 1). This reduces the STREAM phase to 16 cycles (Cycles 3-18) and the total sequence to 25 cycles.*
+*\*Note: For 4-bit formats (MXFP4), the unit supports **Vector Packing** (uio_in[6]=1 in Cycle 0). This reduces the STREAM phase to 16 cycles (Cycles 3-18) and the total sequence to 25 cycles.*
 
 ### Metadata Mapping
 
