@@ -153,6 +153,9 @@ The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 | `0x3-0x6`| **Accumulator** | Live 32-bit accumulator (Byte-wise) |
 | `0x7-0x8`| **Multiplier L0**| Lane 0 product (MSB/LSB) |
 | `0x9` | **Control** | ENA, Strobe, Acc_En, Acc_Clear |
+| `0xA` | **L0 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
+| `0xB-0xC`| **Multiplier L1**| Lane 1 product (MSB/LSB) |
+| `0xD` | **L1 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
 
 ---
 
