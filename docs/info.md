@@ -39,7 +39,7 @@ Featuring hardware-accelerated shared scaling and an area-efficient logarithmic 
 *   Low-power DSP for IoT and wearables.
 
 ### 4. Functional Block Diagram
-![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/CONTEXT_DIAGRAM.PUML)
+![System Context Diagram](circuit.svg)
 
 ---
 
@@ -194,7 +194,7 @@ void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
 ### 10. Revision History
 | Revision | Date | Description |
 |----------|------|-------------|
-| 1.0 | 2024-05 | Initial release for Tiny Tapeout Tapeout. |
+| 1.0 | 2024-05 | Initial release for Tiny Tapeout. |
 
 ---
 
