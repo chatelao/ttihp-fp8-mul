@@ -26,13 +26,14 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 
 ### Test Sequence 2: Shared Scaling (2.0x)
 - **Description**: 32 pairs of 1.0 (E4M3) with Scale A = 2.0 and Scale B = 1.0.
-- **Expected Result**: $32 \times (1.0 \times 1.0) \times 2.0 = 64.0 \rightarrow$ `0x00004000`.
+- **Expected Result**: $32 \times (1.0 \times 1.0) \times 2.0 = 64.0 \r
+ightarrow$ `0x00004000`.
 
 | Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start |
 | 1 | `0x80` | `0x00` | `0x00` | `0x00` | Scale A = 2.0 ($2^{128-127}$), Format A = E4M3 |
-| 2 | `0x7F` | `0x00` | `0x00` | `0x00` | Scale B = 1.0, Format B = E4M3 |
+| 2 | `0x7F` | `0x00" | `0x00` | `0x00` | Scale B = 1.0, Format B = E4M3 |
 | 3-34 | `0x38` | `0x38` | `0x00` | `0x00` | Elements A=1.0, B=1.0 |
 | 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
 | 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
@@ -42,7 +43,8 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 
 ### Test Sequence 3: Mixed Precision (E4M3 x E5M2)
 - **Description**: 32 pairs of 1.0 (E4M3) multiplied by 1.0 (E5M2).
-- **Expected Result**: $32 \times (1.0 \times 1.0) = 32.0 \rightarrow$ `0x00002000`.
+- **Expected Result**: $32 \times (1.0 \times 1.0) = 32.0 \r
+ightarrow$ `0x00002000`.
 
 | Cycle | `ui_in` (E4M3) | `uio_in` (E5M2) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
@@ -57,41 +59,74 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 ---
 
 ### Test Sequence 4: Vector Packing (FP4 E2M1) - Standard Protocol
-- **Description**: 32 pairs of 1.0 (E2M1) using Packed Mode (2 elements per byte).
-- **Expected Result**: $32 \times (1.0 \times 1.0) = 32.0 \rightarrow$ `0x00002000`.
+- **Description**: 32 pairs of FP4 (E2M1) using Packed Mode (2 elements per byte), covering all 16 possible values twice.
+- **Expected Result**: $\sum_{i=0}^{15} 2 \times (V_i \times V_i) = 274.0 \rightarrow$ `0x00011200`.
 
-| Cycle | `ui_in` (FP4)| `uio_in` (FP4) | `uio_out` | `uo_out` | Description |
+| Cycle | `ui_in` (FP4) | `uio_in` (FP4) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x40` | `0x00` | `0x00` | Packed Mode Enabled (`uio_in[6]=1`) |
-| 1 | `0x7F` | `0x04` | `0x00` | `0x00` | Scale A = 1.0, Format A = E2M1 |
+| 1 | `0x7F` | `0x04` | `0x00" | `0x00` | Scale A = 1.0, Format A = E2M1 |
 | 2 | `0x7F` | `0x04` | `0x00` | `0x00` | Scale B = 1.0, Format B = E2M1 |
-| 3-18 | `0x22` | `0x22` | `0x00` | `0x00` | Packed Elements (High/Low nibble = 1.0 = `0x2`) |
-| 19 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
-| 20 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
-| 21-24 | - | - | `0x00` | `Result` | **Result**: `0x00`, `0x00`, `0x20`, `0x00` |
-
----
-
-### Test Sequence 5: FP4 Fast Lane - Short Protocol
-- **Description**: This test case uses the Short Protocol and Packed Mode for 32 pairs of 1.0 (E2M1) elements.
-- **Expected Result**: `0x00002000`.
-
-| Cycle | `ui_in`  (Dual E2M1) | `uio_in`  (Dual E2M1) | `uio_out` | `uo_out` | Description |
-|:---:|:---:|:---:|:---:|:---:|---|
-| 0 | `0x80` | `0x44` | `0x00` | `0x00` | Short Start, Packed Mode, FP4 (`0x80`, `0x44`) |
-| 3-18 | `0x22` | `0x22` | `0x00` | `0x00` | Stream 16 bytes of packed 1.0 (FP4 1.0 = `0x2`) |
+| 3 | `0x10` | `0x10` | `0x00` | `0x00` | Stream elements 0 and 1 (Packed: 0x10) |
+| 4 | `0x32` | `0x32` | `0x00` | `0x00` | Stream elements 2 and 3 (Packed: 0x32) |
+| 5 | `0x54` | `0x54` | `0x00` | `0x00` | Stream elements 4 and 5 (Packed: 0x54) |
+| 6 | `0x76` | `0x76` | `0x00` | `0x00` | Stream elements 6 and 7 (Packed: 0x76) |
+| 7 | `0x98` | `0x98` | `0x00` | `0x00` | Stream elements 8 and 9 (Packed: 0x98) |
+| 8 | `0xBA` | `0xBA` | `0x00` | `0x00` | Stream elements 10 and 11 (Packed: 0xBA) |
+| 9 | `0xDC` | `0xDC` | `0x00` | `0x00` | Stream elements 12 and 13 (Packed: 0xDC) |
+| 10 | `0xFE` | `0xFE` | `0x00` | `0x00` | Stream elements 14 and 15 (Packed: 0xFE) |
+| 11 | `0x10` | `0x10` | `0x00` | `0x00` | Repeat elements 0 and 1 (Packed: 0x10) |
+| 12 | `0x32` | `0x32` | `0x00` | `0x00` | Repeat elements 2 and 3 (Packed: 0x32) |
+| 13 | `0x54` | `0x54` | `0x00` | `0x00` | Repeat elements 4 and 5 (Packed: 0x54) |
+| 14 | `0x76` | `0x76` | `0x00` | `0x00` | Repeat elements 6 and 7 (Packed: 0x76) |
+| 15 | `0x98` | `0x98` | `0x00` | `0x00` | Repeat elements 8 and 9 (Packed: 0x98) |
+| 16 | `0xBA` | `0xBA` | `0x00` | `0x00` | Repeat elements 10 and 11 (Packed: 0xBA) |
+| 17 | `0xDC` | `0xDC` | `0x00` | `0x00` | Repeat elements 12 and 13 (Packed: 0xDC) |
+| 18 | `0xFE` | `0xFE` | `0x00` | `0x00` | Repeat elements 14 and 15 (Packed: 0xFE) |
 | 19 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
 | 20 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
 | 21 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 3 (`0x00`) |
-| 22 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 2 (`0x00`) |
-| 23 | `0x00` | `0x00` | `0x00` | `0x20` | Output Result Byte 1 (`0x20`) |
+| 22 | `0x00` | `0x00` | `0x00` | `0x01` | Output Result Byte 2 (`0x01`) |
+| 23 | `0x00` | `0x00` | `0x00` | `0x12` | Output Result Byte 1 (`0x12`) |
 | 24 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 0 (`0x00`) |
 
 ---
 
+### Test Sequence 5: FP4 Fast Lane - Short Protocol
+- **Description**: This test case uses the Short Protocol and Packed Mode for 32 pairs of FP4 (E2M1) elements, covering all 16 values twice.
+- **Expected Result**: `0x00011200`.
+
+| Cycle | `ui_in`  (Dual E2M1) | `uio_in`  (Dual E2M1) | `uio_out` | `uo_out` | Description |
+|:---:|:---:|:---:|:---:|:---:|---|
+| 0 | `0x80` | `0x44` | `0x00` | `0x00` | Short Start, Packed Mode, FP4 (`0x80`, `0x44`) |
+| 3 | `0x10` | `0x10` | `0x00` | `0x00` | Stream elements 0 and 1 (Packed: 0x10) |
+| 4 | `0x32` | `0x32` | `0x00` | `0x00` | Stream elements 2 and 3 (Packed: 0x32) |
+| 5 | `0x54` | `0x54` | `0x00` | `0x00` | Stream elements 4 and 5 (Packed: 0x54) |
+| 6 | `0x76` | `0x76` | `0x00` | `0x00` | Stream elements 6 and 7 (Packed: 0x76) |
+| 7 | `0x98` | `0x98` | `0x00` | `0x00` | Stream elements 8 and 9 (Packed: 0x98) |
+| 8 | `0xBA` | `0xBA` | `0x00` | `0x00` | Stream elements 10 and 11 (Packed: 0xBA) |
+| 9 | `0xDC` | `0xDC` | `0x00` | `0x00` | Stream elements 12 and 13 (Packed: 0xDC) |
+| 10 | `0xFE` | `0xFE` | `0x00` | `0x00` | Stream elements 14 and 15 (Packed: 0xFE) |
+| 11 | `0x10` | `0x10` | `0x00` | `0x00` | Repeat elements 0 and 1 (Packed: 0x10) |
+| 12 | `0x32` | `0x32` | `0x00` | `0x00` | Repeat elements 2 and 3 (Packed: 0x32) |
+| 13 | `0x54` | `0x54` | `0x00` | `0x00` | Repeat elements 4 and 5 (Packed: 0x54) |
+| 14 | `0x76` | `0x76` | `0x00` | `0x00` | Repeat elements 6 and 7 (Packed: 0x76) |
+| 15 | `0x98` | `0x98` | `0x00` | `0x00` | Repeat elements 8 and 9 (Packed: 0x98) |
+| 16 | `0xBA` | `0xBA` | `0x00` | `0x00` | Repeat elements 10 and 11 (Packed: 0xBA) |
+| 17 | `0xDC` | `0xDC` | `0x00` | `0x00` | Repeat elements 12 and 13 (Packed: 0xDC) |
+| 18 | `0xFE` | `0xFE` | `0x00` | `0x00` | Repeat elements 14 and 15 (Packed: 0xFE) |
+| 19 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
+| 20 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
+| 21 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 3 (`0x00`) |
+| 22 | `0x00` | `0x00` | `0x00` | `0x01` | Output Result Byte 2 (`0x01`) |
+| 23 | `0x00` | `0x00` | `0x00` | `0x12` | Output Result Byte 1 (`0x12`) |
+| 24 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 0 (`0x00`) |
+
+---
 ### Test Sequence 6: OCP MX+ (Extended Mantissa)
 - **Description**: 1 pair of 1.0 (BM elements) and 31 pairs of 0.0. BM Index 0.
-- **Expected Result**: $1.0 \times 1.0 = 1.0 \rightarrow$ `0x00000100`.
+- **Expected Result**: $1.0 \times 1.0 = 1.0 \r
+ightarrow$ `0x00000100`.
 *Note: In MX+ mode, a BM element with bits `0x00` represents 1.0 (scaled).*
 
 | Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
@@ -131,7 +166,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 
 | Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
-| 0 | `0x08` | `0x00` | `0x00` | `0x00` | Metadata: LNS Mode 1 enabled (`ui_in[4:3]=1`) |
+| 0 | `0x08` | `0x00" | `0x00` | `0x00` | Metadata: LNS Mode 1 enabled (`ui_in[4:3]=1`) |
 | 1 | `0x7F` | `0x00` | `0x00` | `0x00` | Load Scale A = 1.0 |
 | 2 | `0x7F` | `0x00` | `0x00` | `0x00` | Load Scale B = 1.0 |
 | 3-34 | `0x38` | `0x38` | `0x00` | `0x00` | Stream 32 pairs (A=1.0, B=1.0) |
@@ -203,7 +238,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x00` | `0x00` | `0x00` | Standard Start, SAT enabled |
 | 1 | `0x7F` | `0x01` | `0x00` | `0x00` | Scale A = 1.0, Format A = E5M2 |
-| 2 | `0x7F` | `0x01` | `0x00` | `0x00` | Scale B = 1.0, Format B = E5M2 |
+| 2 | `0x7F` | `0x01` | `0x00" | `0x00` | Scale B = 1.0, Format B = E5M2 |
 | 3-34 | `0x78` | `0x78` | `0x00` | `0x00` | A=$2^{15}$ (`0x78`), B=$2^{15}$ (`0x78`) |
 | 35 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
 | 36 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
@@ -271,9 +306,9 @@ Allows monitoring of the product from the first multiplier lane.
 
 | Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
-| 0 | `0x40` | `0x09` | `0x00` | `0x00` | Control signals monitoring |
+| 0 | `0x40" | `0x09` | `0x00` | `0x00` | Control signals monitoring |
 | 1-2 | `0x7F` | `0x00` | `0x00` | `0xD0` | `ena=1, strobe=1, acc_clear=1` |
-| 4-34 | `0x38` | `0x38` | `0x00` | `0xE0` | `ena=1, strobe=1, acc_en=1` |
+| 4-34 | `0x38` | `0x38` | `0x00" | `0xE0` | `ena=1, strobe=1, acc_en=1` |
 
 ### Test Sequence 8: NaN Exception (Element-triggered)
 - **Description**: Streaming an E4M3 NaN element (`0x7F`) to trigger `nan_sticky` in Debug Mode 0x2.
@@ -284,7 +319,7 @@ Allows monitoring of the product from the first multiplier lane.
 | 0 | `0x40` | `0x02` | `0x00` | `0x10` | Debug En, Sel 0x2 (Exception Monitor) |
 | 1 | `127` | `0x00` | `0x00` | `0x10` | Scale A = 1.0 (127), Format A = E4M3 |
 | 2 | `127` | `0x00` | `0x00` | `0x10` | Scale B = 1.0 (127), Format B = E4M3 |
-| 3 | `0x7F` | `0x38` | `0x00` | `0x10` | Stream NaN (`0x7F`) |
+| 3 | `0x7F` | `0x38` | `0x00" | `0x10` | Stream NaN (`0x7F`) |
 | 4 | `0x38` | `0x38` | `0x00` | `0x10` | Pipelining... |
 | 5 | `0x38` | `0x38` | `0x00` | `0x90` | `uo_out[7]` (nan_sticky) = 1 |
 
@@ -297,7 +332,7 @@ Allows monitoring of the product from the first multiplier lane.
 | Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x40` | `0x02` | `0x00` | `0x10` | Debug En, Sel 0x2 |
-| 1 | `255` | `0x00` | `0x00` | `0x10` | Scale A = 255 (0xFF, NaN) |
+| 1 | `255` | `0x00` | `0x00" | `0x10` | Scale A = 255 (0xFF, NaN) |
 | 2 | `127` | `0x00` | `0x00` | `0x90` | `nan_sticky` set due to Cycle 1 Scale |
 
 ---
@@ -312,6 +347,6 @@ Allows monitoring of the product from the first multiplier lane.
 | 1 | `127` | `0x00` | `0x00` | `0x10` | Scale A = 1.0 |
 | 2 | `127` | `0x01` | `0x00` | `0x10` | Scale B = 1.0, Format B = E5M2 |
 | 3 | `0x7C` | `0x3C` | `0x00` | `0x10` | +Inf (0x7C) x 1.0 (0x3C) |
-| 4 | `0xFC` | `0x3C` | `0x00` | `0x10` | -Inf (0xFC) x 1.0 (0x3C) |
+| 4 | `0xFC` | `0x3C" | `0x00` | `0x10` | -Inf (0xFC) x 1.0 (0x3C) |
 | 5 | `0x3C` | `0x3C` | `0x00` | `0x50` | `inf_pos_sticky` (uo_out[6]) = 1 |
 | 6 | `0x3C` | `0x3C` | `0x00` | `0x70` | `inf_neg_sticky` (uo_out[5]) = 1 |

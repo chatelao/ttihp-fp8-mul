@@ -1122,3 +1122,21 @@ async def test_lane_overflow(dut):
     # We only need one cycle of overflow to test it.
     # The model handles this correctly as it saturates at each element addition.
     await run_mac_test(dut, 4, 4, a_elements, b_elements, scale_a=157, scale_b=127, packed_mode=1)
+
+@cocotb.test()
+async def test_mxfp4_full_range(dut):
+    # Check if vector packing is supported
+    support_packing = get_param(getattr(dut.user_project, "SUPPORT_VECTOR_PACKING", None), "SUPPORT_VECTOR_PACKING", 0)
+    if not support_packing:
+        dut._log.info("Skipping Full Range Packed FP4 Test (SUPPORT_VECTOR_PACKING=0)")
+        return
+
+    dut._log.info("Start Full Range Packed FP4 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = list(range(16)) * 2
+    b_elements = list(range(16)) * 2
+    # Expected: 2 * sum(v*v for v in range(16)) = 2 * 137.0 = 274.0.
+    # Fixed point (8 bits): 274.0 * 256 = 70144
+    await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
