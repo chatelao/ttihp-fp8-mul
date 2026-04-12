@@ -58,40 +58,9 @@ The unit utilizes an 8-bit streaming interface to minimize pin count while maint
 
 ---
 
-### 6. Specifications
+### 6. Detailed Description
 
-#### 6.1 Absolute Maximum Ratings
-*Stresses beyond those listed under Absolute Maximum Ratings may cause permanent damage to the device. Exposure to absolute-maximum-rated conditions for extended periods may affect device reliability.*
-
-| Parameter | Symbol | Min | Max | Unit |
-|-----------|:------:|:---:|:---:|:----:|
-| Supply Voltage | $V_{DD}$ | -0.3 | 1.8 | V |
-| Input Voltage | $V_{IN}$ | -0.3 | $V_{DD} + 0.3$ | V |
-| Storage Temperature| $T_{STG}$ | -65 | 150 | °C |
-| ESD Rating (HBM)   | $V_{ESD}$ | - | 2000 | V |
-
-#### 6.2 Recommended Operating Conditions
-| Parameter | Symbol | Min | Typ | Max | Unit |
-|-----------|:------:|:---:|:---:|:---:|:----:|
-| Supply Voltage | $V_{DD}$ | 1.62 | 1.8 | 1.98 | V |
-| Operating Temperature| $T_A$ | -40 | 25 | 85 | °C |
-| Clock Frequency | $F_{CLK}$ | - | 20 | 50 | MHz |
-
-#### 6.3 Electrical Characteristics
-*(Targeted for IHP SG13G2 Process)*
-
-| Parameter | Symbol | Conditions | Min | Typ | Max | Unit |
-|-----------|:------:|------------|:---:|:---:|:---:|:----:|
-| High-level Input Voltage | $V_{IH}$ | | 0.7 $V_{DD}$ | | | V |
-| Low-level Input Voltage | $V_{IL}$ | | | | 0.3 $V_{DD}$ | V |
-| High-level Output Voltage| $V_{OH}$ | $I_{OH} = -2mA$ | $V_{DD} - 0.45$| | | V |
-| Low-level Output Voltage | $V_{OL}$ | $I_{OL} = 2mA$ | | | 0.45 | V |
-
----
-
-### 7. Detailed Description
-
-#### 7.1 Streaming Protocol
+#### 6.1 Streaming Protocol
 The unit operates using a **41-cycle streaming protocol** to process a block of 32 elements ($k=32$).
 
 | Cycle | Input `ui_in` | Input `uio_in` | Output `uo_out` | Phase |
@@ -106,7 +75,7 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 
 *\*Note: In Packed Mode, the STREAM phase is reduced to 16 cycles (Cycles 3-18).*
 
-#### 7.2 Register Layouts
+#### 6.2 Register Layouts
 
 The unit captures configuration and scaling data during the initial cycles.
 
@@ -143,7 +112,7 @@ If `DEBUG_EN=1`, bits `[3:0]` select the internal probe.
 | `uio_in[7:3]`| **BM_IDX_B** | Block Max Index (0-31) for Operand B. |
 | `uio_in[2:0]`| **FORMAT_B** | Independent format for Operand B. |
 
-#### 7.3 Debug Capabilities
+#### 6.3 Debug Capabilities
 The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 
 | Selector | Signal Description | Bit Mapping |
@@ -159,16 +128,16 @@ The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 
 ---
 
-### 8. Application Information
+### 7. Application Information
 
-#### 8.1 Basic Operation Sequence
+#### 7.1 Basic Operation Sequence
 1.  **Reset**: Pulse `rst_n` low.
 2.  **Config**: Send metadata in Cycle 0.
 3.  **Scale**: Provide UE8M0 scales in Cycles 1-2.
 4.  **Stream**: Send 32 element pairs.
 5.  **Collect**: Read 4-byte result in Cycles 37-40.
 
-#### 8.2 Firmware Example (C-style)
+#### 7.2 Firmware Example (C-style)
 ```c
 void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
     tt_write(0, 0x00, 0x00); // Standard Mode
@@ -183,7 +152,7 @@ void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
 
 ---
 
-### 9. Package and Ordering Information
+### 8. Package and Ordering Information
 *The unit is delivered as a hard macro within the Tiny Tapeout 2x2 tile framework.*
 
 | Part Number | Features | Package |
@@ -194,7 +163,7 @@ void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
 
 ---
 
-### 10. Revision History
+### 9. Revision History
 | Revision | Date | Description |
 |----------|------|-------------|
 | 1.0 | 2024-05 | Initial release for Tiny Tapeout. |
