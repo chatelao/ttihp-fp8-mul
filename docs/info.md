@@ -122,7 +122,28 @@ If `DEBUG_EN=1`, bits `[3:0]` select the internal probe.
 | `uio_in[7:3]`| **BM_IDX_B** | Block Max Index (0-31) for Operand B. |
 | `uio_in[2:0]`| **FORMAT_B** | Independent format for Operand B. |
 
-#### 6.3 Debug Capabilities
+#### 6.3 Element Packing (Cycles 3-34)
+During the STREAM phase, elements are presented on `ui_in` (Operand A) and `uio_in` (Operand B). The bit-level layout depends on the selected format.
+
+**Standard FP8 (E4M3)**
+![FP8 Element](element_fp8.svg)
+
+**Standard FP6 (E3M2)**
+![FP6 Element](element_fp6.svg)
+
+**Standard FP4 (E2M1)**
+![FP4 Element](element_fp4.svg)
+
+**Packed FP4 (FP4/Dual)**
+When `PACKED_EN=1` (Metadata 1) and both formats are FP4 (E2M1), the unit processes two elements per cycle per lane.
+![Packed FP4](element_fp4_packed.svg)
+
+| Bit | Name | Description |
+|:---:|------|-------------|
+| `[7:4]` | **Element i+1** | High nibble contains the next element in the sequence. |
+| `[3:0]` | **Element i** | Low nibble contains the current element. |
+
+#### 6.4 Debug Capabilities
 The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 
 | Selector | Signal Description | Bit Mapping |
@@ -136,7 +157,7 @@ The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 | `0xB-0xC`| **Multiplier L1**| Lane 1 product (MSB/LSB) |
 | `0xD` | **L1 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
 
-#### 6.4 FP4 Fast Mode
+#### 6.5 FP4 Fast Mode
 The unit provides a high-throughput **FP4 Fast Lane** mode by combining **Vector Packing** and the **Short Protocol**.
 
 In this mode:
