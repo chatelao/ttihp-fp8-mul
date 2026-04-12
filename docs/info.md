@@ -6,233 +6,205 @@ You can also include images in this folder and reference them in the markdown. E
 512 kb in size, and the combined size of all images must be less than 1 MB.
 -->
 
-## How it works
+# OCP MXFP8 Streaming MAC Unit
+## High-Performance AI Inference Accelerator with Shared Scaling
 
-The **OCP MXFP8 Streaming MAC Unit** is a high-performance, area-optimized arithmetic core designed for AI inference acceleration. It implements the **OpenCompute (OCP) Microscaling Formats (MX) Specification v1.0**, supporting a wide range of sub-8-bit floating-point and integer formats with hardware-accelerated shared scaling.
+### 1. General Description
+The **OCP MXFP8 Streaming MAC Unit** is a high-performance, area-optimized arithmetic core designed for next-generation AI inference acceleration. Fully compliant with the **OpenCompute (OCP) Microscaling Formats (MX) Specification v1.0**, the unit supports a comprehensive suite of sub-8-bit floating-point and integer formats.
 
-### Architectural Overview
-The unit is configured in its "Full" edition (2x2 tiles), featuring:
-- **Dual-Lane Multiplier**: Parallel processing of operands with support for Vector Packing (FP4).
-- **40-bit Aligner & 32-bit Accumulator**: High-precision internal datapath to prevent overflow during long dot-product sequences.
-- **Shared Scaling (UE8M0)**: Automatic application of 8-bit exponents ($2^{E-127}$) to element blocks.
-- **Flexible Rounding**: Support for Truncate (TRN), Ceil (CEL), Floor (FLR), and Round-to-Nearest-Even (RNE).
-- **Mixed Precision**: Independent format control for Operand A and Operand B within a single MAC block.
-- **Logarithmic Multiplier (LNS)**: Optional area-optimized path using Mitchell's Approximation to reduce multiplier area by >50%.
+Featuring hardware-accelerated shared scaling and an area-efficient logarithmic multiplier path, the core is optimized for deployment in resource-constrained edge devices and large-scale AI accelerators alike. The "Full" edition provides a 2x2 tile configuration (Tiny Tapeout) with dual-lane processing capabilities.
 
-### Streaming Protocol
-To maintain a minimal IO footprint (8-bit ports), the unit uses a **41-cycle streaming protocol** to process a block of 32 elements ($k=32$).
+### 2. Features
+*   **OCP MX Compliance**: Full support for OCP Microscaling Formats v1.0.
+*   **Multi-Format Support**:
+    *   FP8 (E4M3, E5M2)
+    *   FP6 (E3M2, E2M3)
+    *   FP4 (E2M1)
+    *   INT8 / INT8_SYM
+*   **High-Precision Datapath**:
+    *   40-bit internal aligner.
+    *   32-bit signed fixed-point accumulator.
+*   **Vector Packing**: 2x throughput for 4-bit formats (FP4) via dual-lane streaming.
+*   **Hardware Scaling**: Automatic UE8M0 shared exponent application ($2^{E-127}$).
+*   **Flexible Rounding**: Supports RNE (Round-to-Nearest-Even), TRN, CEL, and FLR.
+*   **MX+ Extensions**: Extended mantissa for "Block Max" outliers to improve accuracy.
+*   **LNS Mode**: Integrated Mitchell’s Approximation for area-optimized multiplication.
+*   **Logic Analyzer Mode**: 14 selectable internal probes for real-time silicon monitoring.
 
-| Cycle | Input `ui_in[7:0]` | Input `uio_in[7:0]` | Output `uo_out[7:0]` | Description |
-|-------|--------------------|---------------------|----------------------|-------------|
-| 0     | **Metadata 0**     | **Metadata 1**      | 0x00                 | **IDLE**: Load MX+ / Debug or Start Fast Protocol. |
-| 1     | **Scale A**        | **Format A / BM A** | 0x00                 | Load Scale A, Format A, and BM Index A. |
-| 2     | **Scale B**        | **Format B / BM B** | 0x00                 | Load Scale B, Format B, and BM Index B. |
-| 3-34  | **Element $A_i$**  | **Element $B_i$**   | 0x00                 | Stream 32 pairs of elements.* |
-| 35-36 | -                  | -                   | 0x00                 | Pipeline flush & final scaling. |
-| 37-40 | -                  | -                   | **Result [31:0]**    | Serialized 32-bit result (MSB first). |
+### 3. Applications
+*   Mobile and Edge AI Inference.
+*   Deep Learning Accelerator (DLA) sub-modules.
+*   Convolutional Neural Network (CNN) hardware acceleration.
+*   Quantized Large Language Model (LLM) execution.
+*   Low-power DSP for IoT and wearables.
 
-*\*Note: In Packed Mode (`uio_in[6]=1` in Cycle 0), the STREAM phase is reduced to 16 cycles (Cycles 3-18).*
+### 4. Functional Block Diagram
+![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/CONTEXT_DIAGRAM.PUML)
 
-### Register Layouts
+---
 
-The unit captures configuration and scaling data during the first three cycles of the protocol.
+### 5. Pin Configuration and Functions
+The unit utilizes an 8-bit streaming interface to minimize pin count while maintaining high throughput.
 
-#### Cycle 0: Metadata 0 (`ui_in`)
-![Metadata 0](metadata_c0_ui.svg)
+| Pin | Name | Type | Description |
+|:---:|------|:----:|-------------|
+| `ui_in[7:0]` | **DATA_A** | I | Operand A elements, Scale A, or Metadata 0. |
+| `uio_in[7:0]` | **DATA_B** | I | Operand B elements, Scale B, or Metadata 1. |
+| `uo_out[7:0]` | **RESULT** | O | Serialized 32-bit result or Debug Probe data. |
+| `uio_out[7:0]`| **RESERVED**| O | Driven to 0x00 (Configured as Inputs via `uio_oe`). |
+| `clk` | **CLK** | I | System Clock (Target: 20MHz). |
+| `rst_n` | **RESET_N** | I | Active-low asynchronous reset. |
+| `ena` | **ENA** | I | Clock Enable. |
 
+---
+
+### 6. Specifications
+
+#### 6.1 Absolute Maximum Ratings
+*Stresses beyond those listed under Absolute Maximum Ratings may cause permanent damage to the device. Exposure to absolute-maximum-rated conditions for extended periods may affect device reliability.*
+
+| Parameter | Symbol | Min | Max | Unit |
+|-----------|:------:|:---:|:---:|:----:|
+| Supply Voltage | $V_{DD}$ | -0.3 | 1.8 | V |
+| Input Voltage | $V_{IN}$ | -0.3 | $V_{DD} + 0.3$ | V |
+| Storage Temperature| $T_{STG}$ | -65 | 150 | °C |
+| ESD Rating (HBM)   | $V_{ESD}$ | - | 2000 | V |
+
+#### 6.2 Recommended Operating Conditions
+| Parameter | Symbol | Min | Typ | Max | Unit |
+|-----------|:------:|:---:|:---:|:---:|:----:|
+| Supply Voltage | $V_{DD}$ | 1.62 | 1.8 | 1.98 | V |
+| Operating Temperature| $T_A$ | -40 | 25 | 85 | °C |
+| Clock Frequency | $F_{CLK}$ | - | 20 | 50 | MHz |
+
+#### 6.3 Electrical Characteristics
+*(Targeted for IHP SG13G2 Process)*
+
+| Parameter | Symbol | Conditions | Min | Typ | Max | Unit |
+|-----------|:------:|------------|:---:|:---:|:---:|:----:|
+| High-level Input Voltage | $V_{IH}$ | | 0.7 $V_{DD}$ | | | V |
+| Low-level Input Voltage | $V_{IL}$ | | | | 0.3 $V_{DD}$ | V |
+| High-level Output Voltage| $V_{OH}$ | $I_{OH} = -2mA$ | $V_{DD} - 0.45$| | | V |
+| Low-level Output Voltage | $V_{OL}$ | $I_{OL} = 2mA$ | | | 0.45 | V |
+
+---
+
+### 7. Detailed Description
+
+#### 7.1 Streaming Protocol
+The unit operates using a **41-cycle streaming protocol** to process a block of 32 elements ($k=32$).
+
+| Cycle | Input `ui_in` | Input `uio_in` | Output `uo_out` | Phase |
+|-------|---------------|----------------|-----------------|-------|
+| 0 | Metadata 0 | Metadata 1 | 0x00 / Probe | **IDLE / CONFIG** |
+| 1 | Scale A | Format A / BM A | 0x00 / Probe | **LOAD_CFG_A** |
+| 2 | Scale B | Format B / BM B | 0x00 / Probe | **LOAD_CFG_B** |
+| 3-34 | Element $A_i$ | Element $B_i$ | 0x00 / Probe | **STREAM** |
+| 35 | - | - | Meta Echo | **FLUSH** |
+| 36 | - | - | 0x00 | **CALC** |
+| 37-40 | - | - | Result [31:0] | **OUTPUT** |
+
+*\*Note: In Packed Mode, the STREAM phase is reduced to 16 cycles (Cycles 3-18).*
+
+#### 7.2 Register Layouts
+
+The unit captures configuration and scaling data during the initial cycles.
+
+**Cycle 0: Metadata 0 (`ui_in`)**
 | Bit | Name | Description |
 |:---:|------|-------------|
-| `[7]` | **Short Protocol** | 1: Reuse previous scales/formats; immediately jump to Cycle 3. |
-| `[6]` | **Debug En** | 1: Enable internal probing and metadata echo. |
-| `[5]` | **Loopback En** | 1: Enable transparent XOR loopback. |
-| `[4:3]` | **LNS Mode** | Multiplier mode: `0`: Normal, `1`: LNS, `2`: Hybrid. |
-| `[2:0]` | **NBM Offset A** | (Standard Start only) Exponent offset for Operand A (MX++). |
+| `[7]` | **SHORT_PROT** | 1: Reuse previous scales/formats; jump to Cycle 3. |
+| `[6]` | **DEBUG_EN** | 1: Enable internal probing and metadata echo. |
+| `[5]` | **LOOPBACK_EN** | 1: Enable XOR loopback (`uo_out = ui_in ^ uio_in`). |
+| `[4:3]` | **LNS_MODE** | Multiplier mode: `0`: Normal, `1`: LNS, `2`: Hybrid. |
+| `[2:0]` | **NBM_OFF_A** | Exponent offset for Operand A (MX++). |
 
-#### Cycle 0: Metadata 1 (`uio_in`)
-![Metadata 1](metadata_c0_uio.svg)
+**Cycle 0: Metadata 1 (`uio_in`)**
+If `DEBUG_EN=1`, bits `[3:0]` select the internal probe.
+| Bit | Name | Description |
+|:---:|------|-------------|
+| `[7]` | **MX_PLUS_EN** | 1: Enable OCP MX+ extended mantissa. |
+| `[6]` | **PACKED_EN** | 1: Enable Vector Packing (2 elements/byte). |
+| `[5]` | **OVFL_WRAP** | 0: SAT (Saturate), 1: WRAP. |
+| `[4:3]` | **ROUND_MODE** | `0`: TRN, `1`: CEL, `2`: FLR, `3`: RNE. |
+| `[2:0]` | **NBM_OFF_B** | Exponent offset for Operand B / Format select. |
 
-The `uio_in` pins in Cycle 0 have a dual purpose if Debug Mode is enabled.
+**Cycle 1: Scale A and Config A**
+| Port | Name | Description |
+|:---:|------|-------------|
+| `ui_in[7:0]` | **SCALE_A** | 8-bit unsigned biased exponent (UE8M0, Bias 127). |
+| `uio_in[7:3]`| **BM_IDX_A** | Block Max Index (0-31) for Operand A. |
+| `uio_in[2:0]`| **FORMAT_A** | `0`: E4M3, `1`: E5M2, `2`: E3M2, `3`: E2M3, `4`: E2M1, `5`: INT8. |
 
-![Metadata 1 Debug](metadata_c0_uio_debug.svg)
+**Cycle 2: Scale B and Config B**
+| Port | Name | Description |
+|:---:|------|-------------|
+| `ui_in[7:0]` | **SCALE_B** | 8-bit unsigned biased exponent (UE8M0, Bias 127). |
+| `uio_in[7:3]`| **BM_IDX_B** | Block Max Index (0-31) for Operand B. |
+| `uio_in[2:0]`| **FORMAT_B** | Independent format for Operand B. |
 
-When `ui_in[6]` is active (high), bits `[3:0]` of `uio_in` function as the **Probe Selector** for internal signal monitoring, while still being captured as functional metadata (Rounding Mode [0] and NBM Offset B).
-
-| Bit | Normal Operation (`ui_in[6]=0`) | Debug Enabled (`ui_in[6]=1`) |
-|:---:|---------------------------------|-------------------------------|
-| `[7]` | **MX+ Enable**                  | **MX+ Enable**                |
-| `[6]` | **Packed Mode**                 | **Packed Mode**               |
-| `[5]` | **Overflow Mode**               | **Overflow Mode**             |
-| `[4]` | **Rounding Mode [1]**           | **Rounding Mode [1]**         |
-| `[3]` | **Rounding Mode [0]**           | **Probe Selector [3]** / Rounding Mode [0] |
-| `[2]` | **NBM Offset B [2]** / Format [2] | **Probe Selector [2]** / NBM Offset B [2] |
-| `[1]` | **NBM Offset B [1]** / Format [1] | **Probe Selector [1]** / NBM Offset B [1] |
-| `[0]` | **NBM Offset B [0]** / Format [0] | **Probe Selector [0]** / NBM Offset B [0] |
-
-- **MX+ Enable (`[7]`)**: 1: Enable OCP MX+ extensions (Repurposed exponents and Block Max tracking).
-- **Packed Mode (`[6]`)**: 1: Enable Vector Packing for 4-bit formats (2 elements per byte, Cycles 3-18).
-- **Overflow Mode (`[5]`)**: 0: SAT (Saturate to Max/Min), 1: WRAP (Modulo arithmetic).
-- **Rounding Mode (`[4:3]`)**:
-  - `0`: TRN (Truncate/Towards Zero).
-  - `1`: CEL (Ceil/Towards $+\infty$).
-  - `2`: FLR (Floor/Towards $-\infty$).
-  - `3`: RNE (Round-to-Nearest-Ties-to-Even).
-- **NBM Offset B / Format A/B (`[2:0]`)**:
-  - **Standard Start**: NBM Offset B (Exponent offset for Operand B).
-  - **Short Protocol**: Combined Format A & B selection.
-
-*Important: When `Debug En` is set, bits `[3:0]` of `uio_in` simultaneously configure the internal logic probe and the functional metadata (Rounding Mode and NBM Offset). Ensure the probe selection is compatible with your desired arithmetic configuration.*
-
-#### Cycle 1: Scale A (`ui_in`) & Config A (`uio_in`)
-
-**Scale A (`ui_in[7:0]`)**:
-
-![Scale A](scale_a.svg)
-- **Shared Scale A**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand A.
-
-**Config A (`uio_in[7:0]`)**:
-
-![Config A](config_a.svg)
-- **BM Index A (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand A (used in MX+ mode).
-- **Format A (`[2:0]`)**:
-  - `0`: E4M3, `1`: E5M2, `2`: E3M2, `3`: E2M3, `4`: E2M1, `5`: INT8, `6`: INT8_SYM.
-
-#### Cycle 2: Scale B (`ui_in`) & Config B (`uio_in`)
-
-**Scale B (`ui_in[7:0]`)**:
-
-![Scale B](scale_b.svg)
-- **Shared Scale B**: 8-bit unsigned biased exponent (UE8M0, Bias 127) applied to all elements in Operand B.
-
-**Config B (`uio_in[7:0]`)**:
-
-![Config B](config_b.svg)
-- **BM Index B (`[7:3]`)**: The index (0-31) of the "Block Max" element in Operand B.
-- **Format B (`[2:0]`)**: Independent format for Operand B (Enabled if `SUPPORT_MIXED_PRECISION=1`).
-
-### Debug Capabilities
-
-The unit includes built-in debug features to assist in silicon bring-up and real-time monitoring.
-
-#### 1. Real-Time Observability (Logic Analyzer Mode)
-When **Debug En** (`ui_in[6]` in Cycle 0) is set, `uo_out` is repurposed for internal signal probing during Cycles 0-36. The specific signal is selected via `uio_in[3:0]` in Cycle 0.
+#### 7.3 Debug Capabilities
+The unit includes integrated logic analyzer probes for non-intrusive monitoring.
 
 | Selector | Signal Description | Bit Mapping |
 |:---:|---|---|
-| `0x0` | **Default** | `8'h00` (Normal operation) |
-| `0x1` | **FSM State & Timing** | `[7:6]` State, `[5:0]` logical_cycle |
-| `0x2` | **Exception Monitor** | `[7]` nan_sticky, `[6]` inf_pos, `[5]` inf_neg, `[4]` strobe, `[3:0]` 0 |
-| `0x3` | **Accumulator [31:24]** | Live MSB of the accumulator |
-| `0x4` | **Accumulator [23:16]** | Live Byte 2 |
-| `0x5` | **Accumulator [15:8]** | Live Byte 1 |
-| `0x6` | **Accumulator [7:0]** | Live LSB (Fixed-point fraction) |
-| `0x7` | **Multiplier Lane 0 MSB** | `mul_prod_lane0[15:8]` (Exp sum / MSB) |
-| `0x8` | **Multiplier Lane 0 LSB** | `mul_prod_lane0[7:0]` (Mantissa product) |
-| `0x9` | **Control Signals** | `[7]` ena, `[6]` strobe, `[5]` acc_en, `[4]` acc_clear, `[3:0]` 0 |
-| `0xA` | **Multiplier Lane 0 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
-| `0xB` | **Multiplier Lane 1 MSB** | `mul_prod_lane1[15:8]` |
-| `0xC` | **Multiplier Lane 1 LSB** | `mul_prod_lane1[7:0]` |
-| `0xD` | **Multiplier Lane 1 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
+| `0x1` | **FSM State** | `[7:6]` State, `[5:0]` logical_cycle |
+| `0x2` | **Exceptions** | `[7]` nan_sticky, `[6]` inf_pos, `[5]` inf_neg, `[4]` strobe |
+| `0x3-0x6`| **Accumulator** | Live 32-bit accumulator (Byte-wise) |
+| `0x7-0x8`| **Multiplier L0**| Lane 0 product (MSB/LSB) |
+| `0x9` | **Control** | ENA, Strobe, Acc_En, Acc_Clear |
 
-Once enabled, debug mode remains active for the entire block operation.
+---
 
-#### 2. Connectivity Loopback
-Set **Loopback En** (`ui_in[5]` in Cycle 0) to enter a persistent loopback mode. In this mode, `uo_out = ui_in ^ uio_in`, allowing verification of all 16 input pins. This mode is **sticky** across block boundaries once enabled and remains active until reset.
+### 8. Application Information
 
-#### 3. Metadata Echo
-In **Cycle 35** (Pipeline Flush), if debug mode is active, `uo_out` echoes the latched configuration instead of `0x00`:
-- `uo_out[2:0]`: `format_a`
-- `uo_out[4:3]`: `round_mode`
-- `uo_out[5]`: `overflow_wrap`
-- `uo_out[6]`: `packed_mode`
-- `uo_out[7]`: `mx_plus_en`
+#### 8.1 Basic Operation Sequence
+1.  **Reset**: Pulse `rst_n` low.
+2.  **Config**: Send metadata in Cycle 0.
+3.  **Scale**: Provide UE8M0 scales in Cycles 1-2.
+4.  **Stream**: Send 32 element pairs.
+5.  **Collect**: Read 4-byte result in Cycles 37-40.
 
-## How to test
+#### 8.2 Firmware Example (C-style)
+```c
+void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
+    tt_write(0, 0x00, 0x00); // Standard Mode
+    tt_write(1, scale_a, 0x00); // E4M3
+    tt_write(2, scale_b, 0x00);
+    for(int i=0; i<32; i++) {
+        tt_write(3+i, a[i], b[i]);
+    }
+    // Result ready at Cycle 37
+}
+```
 
-### Basic Verification
-1.  **Reset**: Pulse `rst_n` low, then set `ena` high.
-2.  **Configuration**:
-    - Cycle 0: Provide `0x00` on both `ui_in` and `uio_in` for standard E4M3 mode.
-    - Cycle 1: Provide `0x7F` (1.0 scale) on `ui_in` and `0x00` (E4M3) on `uio_in`.
-    - Cycle 2: Provide `0x7F` (1.0 scale) on `ui_in` and `0x00` (E4M3) on `uio_in`.
-3.  **Data Streaming**:
-    - Cycles 3-34: Provide 32 pairs of values. E.g., `0x38` (1.0 in E4M3) on both ports.
-4.  **Result**:
-    - Cycles 35-36: Wait for internal processing.
-    - Cycles 37-40: Read the 32-bit signed fixed-point result on `uo_out`.
-    - For 32 pairs of $1.0 \times 1.0$, the result should be `0x00002000` (representing 32.0 in the system's 8-bit fractional format).
+---
 
-### Advanced Modes
-- **Short Protocol**: Set `ui_in[7]=1` in Cycle 0 to bypass scale loading. Useful for weight-stationary kernels where scales and formats remain constant across blocks.
-- **Vector Packing**: Set `uio_in[6]=1` in Cycle 0. Stream two 4-bit elements per byte (High nibble = Element $i+1$, Low nibble = Element $i$).
-- **Debug Mode**: Set `ui_in[6]=1` in Cycle 0 and use `uio_in[3:0]` to select an internal probe for real-time monitoring on `uo_out`.
-- **Loopback Mode**: Set `ui_in[5]=1` in Cycle 0 to enable a transparent XOR-based loopback (`uo_out = ui_in ^ uio_in`) for connectivity testing.
+### 9. Package and Ordering Information
+*The unit is delivered as a hard macro within the Tiny Tapeout 2x2 tile framework.*
 
-## External hardware
+| Part Number | Features | Package |
+|-------------|----------|---------|
+| TT-MXFP8-F | Full Edition (Dual-Lane, MX+) | QFN-64 (TT DevKit) |
+| TT-MXFP8-L | Lite Edition (Balanced)       | QFN-64 (TT DevKit) |
+| TT-MXFP8-T | Tiny Edition (Area-optimized) | QFN-64 (TT DevKit) |
 
-- **Tiny Tapeout DevKit**: The easiest way to interface with the chip. Use the provided MicroPython driver (`test/TT_MAC_RUN.PY`) for quick prototyping.
-- **Sipeed Tang Nano 4K**: For high-speed testing, a dedicated FPGA bitstream and Cortex-M3 testbench are provided in the repository.
+---
 
-## IO
+### 10. Revision History
+| Revision | Date | Description |
+|----------|------|-------------|
+| 1.0 | 2024-05 | Initial release for Tiny Tapeout Tapeout. |
 
-| Port | Name | Description |
-|---|---|---|
-| `ui_in[7:0]` | Operand A / Scale A | Elements $A_i$ or Scale $X_A$. |
-| `uio_in[7:0]` | Operand B / Scale B | Elements $B_i$ or Scale $X_B$. |
-| `uo_out[7:0]` | Result Out | Serialized 32-bit dot product result. |
-| `clk` | Clock | System clock (Target: 20MHz). |
-| `rst_n` | Reset | Active-low asynchronous reset. |
-| `ena` | Enable | Clock enable. |
+---
 
-## Appendix: OCP MX+ Mathematics
+## Appendix: Mathematics
 
-The OCP MX+ extension optimizes quantization by preserving high-precision "outliers" (Block Max elements) while maintaining a low bit-width for the rest of the block.
-
-### 1. Base OCP MX Mathematics (Standard)
-For a block of $k$ elements, the value of an element $A_i$ is given by:
-$$V(A_i) = S \cdot 2^{E_i - \text{Bias}} \cdot M_i \cdot 2^{X_A - 127}$$
-Where:
-- $S$: Sign bit ($\pm 1$).
-- $E_i$: Individual element exponent field.
-- $\text{Bias}$: Format-specific exponent bias (e.g., 7 for E4M3).
-- $M_i$: Mantissa (significand), including an implicit leading bit for subnormals.
-- $X_A$: Shared 8-bit scale (UE8M0).
-
-### 2. OCP MX+ (Extended Mantissa)
-When `MX+ Enable` is set, the **Block Max (BM)** element—identified by `BM Index`—repurposes its exponent bits as additional mantissa.
-
-**Normal Element ($i \neq BM$):**
-Decoded as standard MXFP (e.g., E4M3).
-
-**Block Max Element ($i = BM$):**
-The value is given by:
+### OCP MX+ (Extended Mantissa)
 $$V(A_{BM}) = S \cdot 2^{E_{max} - \text{Bias}} \cdot \left(1 + \frac{\text{concat}(E_i, M_i)}{2^{E_{bits} + M_{bits}}}\right) \cdot 2^{X_A - 127}$$
-Where:
-- $E_{max}$: Maximum representable exponent for the format.
-- $\text{concat}(E_i, M_i)$: The original exponent bits concatenated with the mantissa bits, treated as a single extended mantissa field.
-- $E_{bits}, M_{bits}$: The number of bits in the original exponent and mantissa fields.
 
-- **Benefit**: For FP4 (E2M1), the mantissa grows from 1 bit to 3 bits ($1 + 2$), reducing quantization error for the most critical value by up to 10x.
-
-### 3. OCP MX++ (Decoupled Shared Scaling)
-MX++ allows "Non-Block Max" (NBM) elements to use a finer quantization grid than the BM element by applying a secondary exponent offset.
-
-$$V(A_{i \neq BM}) = S \cdot 2^{E_i - \text{Bias}} \cdot M_i \cdot 2^{(X_A - 127) - NBM\_Offset\_A}$$
-
-This effectively "zooms in" on the smaller values in the block, reducing the floor noise caused by a single large outlier.
-
-### 4. LNS Mitchell's Approximation
-In LNS Mode, multiplication $P = A \times B$ is performed in the logarithmic domain:
-$$\log_2(P) = \log_2(A) + \log_2(B)$$
-
-To avoid expensive Power/Log circuits, the unit uses **Mitchell’s Approximation**:
+### Mitchell's Approximation
 $$\log_2(1+m) \approx m, \quad m \in [0, 1)$$
 
-The product of two significands $(1+m_a)$ and $(1+m_b)$ is approximated as:
-```math
-(1+m_a)(1+m_b) \approx \begin{cases} 1 + m_a + m_b & \text{if } m_a + m_b < 1 \\ 2(m_a + m_b) & \text{if } m_a + m_b \ge 1 \end{cases}
-```
-This allows the multiplier to be replaced by a simple adder and a shift, reducing hardware area by over 50%.
-
 ## Thank you!
-
-A massive thank you to **Matt Venn**, **Uri Shaked**, **Sophie**, and the entire **Tiny Tapeout / IHP** community for making open-source silicon a reality. This project was built on the foundation of your incredible tools and dedication.
+Special thanks to the Tiny Tapeout and IHP communities for supporting open-source silicon development.
