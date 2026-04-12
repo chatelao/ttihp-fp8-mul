@@ -1,0 +1,15 @@
+# PULP Snitch Accelerator Interface Implementations - Source URLs
+
+snitch_fp_ss.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_cluster/src/snitch_fp_ss.sv
+snitch_fpu.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_cluster/src/snitch_fpu.sv
+snitch_sequencer.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_cluster/src/snitch_sequencer.sv
+snitch_shared_muldiv.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_cluster/src/snitch_shared_muldiv.sv
+snitch_int_ss.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_ipu/src/snitch_int_ss.sv
+snitch_ipu_alu.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_ipu/src/snitch_ipu_alu.sv
+snitch_ipu_pkg.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_ipu/src/snitch_ipu_pkg.sv
+axi_dma_tc_snitch_fe.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_dma/src/axi_dma_tc_snitch_fe.sv
+axi_dma_pkg.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_dma/src/axi_dma_pkg.sv
+snitch_ssr.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_ssr/src/snitch_ssr.sv
+snitch_ssr_pkg.sv: https://raw.githubusercontent.com/pulp-platform/snitch/master/hw/ip/snitch_ssr/src/snitch_ssr_pkg.sv
+
+Note: These files were downloaded from the main 'snitch' repository. The 'snitch_cluster' repository is also a valid source but follows a slightly different directory structure.
