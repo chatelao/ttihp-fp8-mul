@@ -39,6 +39,35 @@ regs = {
       {"name": "Overflow Mode", "bits": 1},
       {"name": "Packed Mode", "bits": 1},
       {"name": "MX+ Enable", "bits": 1}
+    ], "config": {"bits": 8}},
+
+    "docs/element_fp8.svg": { "reg": [
+      {"name": "Mantissa (M)", "bits": 3},
+      {"name": "Exponent (E)", "bits": 4},
+      {"name": "Sign (S)", "bits": 1}
+    ], "config": {"bits": 8}},
+
+    "docs/element_fp6.svg": { "reg": [
+      {"name": "Mantissa (M)", "bits": 2},
+      {"name": "Exponent (E)", "bits": 3},
+      {"name": "Sign (S)", "bits": 1},
+      {"name": "Reserved", "bits": 2}
+    ], "config": {"bits": 8}},
+
+    "docs/element_fp4.svg": { "reg": [
+      {"name": "M", "bits": 1},
+      {"name": "E", "bits": 2},
+      {"name": "S", "bits": 1},
+      {"name": "Reserved", "bits": 4}
+    ], "config": {"bits": 8}},
+
+    "docs/element_fp4_packed.svg": { "reg": [
+      {"name": "M0", "bits": 1},
+      {"name": "E0", "bits": 2},
+      {"name": "S0", "bits": 1},
+      {"name": "M1", "bits": 1},
+      {"name": "E1", "bits": 2},
+      {"name": "S1", "bits": 1}
     ], "config": {"bits": 8}}
 }
 
