@@ -61,27 +61,9 @@ The unit utilizes an 8-bit streaming interface to minimize pin count while maint
 
 ---
 
-### 6. Specifications
+### 6. Detailed Description
 
-#### 6.1 Recommended Operating Conditions
-| Symbol | Parameter | Min | Typ | Max | Unit |
-|:---:|---|:---:|:---:|:---:|:---:|
-| $V_{DD}$ | Supply Voltage | 1.62 | 1.80 | 1.98 | V |
-| $F_{CLK}$ | Clock Frequency | - | 20 | 50 | MHz |
-| $T_A$ | Ambient Temperature | -40 | 25 | 85 | °C |
-
-#### 6.2 Electrical Characteristics
-| Symbol | Parameter | Condition | Typ | Unit |
-|:---:|---|---|:---:|:---:|
-| $P_{dyn}$ | Dynamic Power | 20MHz, 1.8V | 1.2 | mW |
-| $I_{stby}$ | Standby Current | Clock Gated | 45 | µA |
-| $C_{in}$ | Input Capacitance | - | 5 | pF |
-
----
-
-### 7. Detailed Description
-
-#### 7.1 Operational Modes
+#### 6.1 Operational Modes
 The MAC unit supports several specialized modes to balance throughput, area, and precision.
 
 *   **Standard Mode**: Single-lane processing for 8-bit, 6-bit, and 4-bit formats over 41 cycles.
@@ -89,7 +71,7 @@ The MAC unit supports several specialized modes to balance throughput, area, and
 *   **LNS Mode**: Replaces the standard multiplier with a logarithmic adder using Mitchell's Approximation, reducing area by ~50% in the multiplier core.
 *   **Debug Mode**: Allows internal probing of the accumulator, FSM states, and multiplier results via the `uo_out` port.
 
-#### 7.2 Streaming Protocol
+#### 6.2 Streaming Protocol
 The unit operates using a **41-cycle streaming protocol** to process a block of 32 elements ($k=32$).
 
 | Cycle | Input `ui_in` | Input `uio_in` | Output `uo_out` | Phase |
@@ -104,7 +86,7 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 
 *\*Note: In Packed Mode, the STREAM phase is reduced to 16 cycles (Cycles 3-18).*
 
-#### 7.3 Register Layouts (Cycle 0-2)
+#### 6.3 Register Layouts (Cycle 0-2)
 
 **Cycle 0: Metadata 0 (`ui_in`)**
 ![Metadata 0 (ui_in)](metadata_c0_ui.svg)
@@ -148,7 +130,7 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 | `uio_in[7:3]`| **BM_IDX_B** | Block Max Index (0-31) for Operand B. |
 | `uio_in[2:0]`| **FORMAT_B** | Independent format for Operand B. |
 
-#### 7.4 Format Support and Packing
+#### 6.4 Format Support and Packing
 The unit supports a wide range of OCP MX compliant formats. During the STREAM phase (Cycles 3-34), elements are presented on `ui_in` and `uio_in`.
 
 | Format | $E_{bits}$ | $M_{bits}$ | Bias | Bit Layout |
@@ -169,7 +151,7 @@ When `PACKED_EN=1` (Metadata 1) and both formats are FP4 (E2M1), the unit proces
 | `[7:4]` | **Element i+1** | High nibble contains the next element in the sequence. |
 | `[3:0]` | **Element i** | Low nibble contains the current element. |
 
-#### 7.5 Debug Capabilities
+#### 6.5 Debug Capabilities
 The unit includes integrated logic analyzer probes for real-time silicon monitoring, enabled via `DEBUG_EN=1` at Cycle 0.
 
 | Selector (`uio_in[3:0]` @ C0) | Signal Description | Bit Mapping |
@@ -183,7 +165,7 @@ The unit includes integrated logic analyzer probes for real-time silicon monitor
 | `0xB-0xC`| **Multiplier L1**| Lane 1 product (MSB/LSB) |
 | `0xD` | **L1 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
 
-#### 7.6 FP4 Fast Mode
+#### 6.6 FP4 Fast Mode
 The unit provides a high-throughput **FP4 Fast Lane** mode by combining **Vector Packing** and the **Short Protocol**.
 
 In this mode:
@@ -191,14 +173,12 @@ In this mode:
 - **Short Protocol** (`ui_in[7]=1` at Cycle 0) bypasses the Scale/Format load cycles (Cycles 1-2).
 - The total block latency is reduced from 41 cycles to **23 cycles** (1 Config + 16 Stream + 6 Flush/Output).
 
----
+### 7. Application and Implementation
 
-### 8. Application and Implementation
-
-#### 8.1 Typical Application Circuit
+#### 7.1 Typical Application Circuit
 The MAC unit is typically interfaced with a host MCU (e.g., RP2040 or a RISC-V core like SERV) via the 8-bit `ui_in` and `uio_in` buses.
 
-#### 8.2 Firmware Example (C-style)
+#### 7.2 Firmware Example (C-style)
 ```c
 // Perform a single MX block operation (32 elements)
 void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
@@ -218,7 +198,7 @@ void run_mac_block(uint8_t* a, uint8_t* b, uint8_t scale_a, uint8_t scale_b) {
 
 ---
 
-### 9. Package and Ordering Information
+### 8. Package and Ordering Information
 The unit is delivered as a hard macro within the Tiny Tapeout 2x2 tile framework.
 
 | Part Number | Description | Gate Count | Tile Size |
@@ -229,7 +209,7 @@ The unit is delivered as a hard macro within the Tiny Tapeout 2x2 tile framework
 
 ---
 
-### 10. Revision History
+### 9. Revision History
 | Revision | Date | Description |
 |:---:|:---:|---|
 | 1.0 | 2024-05 | Initial release for Tiny Tapeout. |
