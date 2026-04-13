@@ -203,9 +203,9 @@ The unit is delivered as a hard macro within the Tiny Tapeout 2x2 tile framework
 
 | Part Number | Description | Gate Count | Tile Size |
 |-------------|-------------|:---:|:---:|
-| **TT-MXFP8-F** | Full Edition (Dual-Lane, MX+) | ~6600 | 2x2 |
-| **TT-MXFP8-L** | Lite Edition (Single-Lane) | ~3900 | 1x1 |
-| **TT-MXFP8-T** | Tiny Edition (FP8/FP4 Only) | ~2100 | 1x1 |
+| **TT-MXFP8-F** | Full Edition (Dual-Lane, MX+) | ~6800 | 2x2 |
+| **TT-MXFP8-L** | Lite Edition (Single-Lane) | ~4000 | 1x1 |
+| **TT-MXFP8-T** | Tiny Edition (Minimal) | ~2200 | 1x1 |
 
 ---
 

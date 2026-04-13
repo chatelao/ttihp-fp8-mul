@@ -7,7 +7,7 @@ def get_yosys_stats(params):
     for k, v in params.items():
         param_str += f"chparam -set {k} {v} tt_um_chatelao_fp8_multiplier; "
 
-    cmd = f"yosys -p \"read_verilog -Isrc src/project.v; {param_str} synth -top tt_um_chatelao_fp8_multiplier; stat\""
+    cmd = f"yosys -p \"read_verilog src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_aligner.v src/accumulator.v; {param_str} synth -top tt_um_chatelao_fp8_multiplier; stat\""
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
 
     # Extract total number of cells from the last "design hierarchy" section
@@ -25,18 +25,27 @@ def get_yosys_stats(params):
     return None
 
 def main():
-    features = [
+    all_features = [
+        "SUPPORT_E4M3",
         "SUPPORT_E5M2",
         "SUPPORT_MXFP6",
         "SUPPORT_MXFP4",
+        "SUPPORT_VECTOR_PACKING",
         "SUPPORT_INT8",
         "SUPPORT_PIPELINING",
         "SUPPORT_ADV_ROUNDING",
         "SUPPORT_MIXED_PRECISION",
-        "ENABLE_SHARED_SCALING"
+        "SUPPORT_INPUT_BUFFERING",
+        "SUPPORT_MX_PLUS",
+        "ENABLE_SHARED_SCALING",
+        "SUPPORT_DEBUG",
+        "SUPPORT_SERIAL",
+        "SUPPORT_PACKED_SERIAL"
     ]
 
-    baseline_params = {f: 1 for f in features}
+    baseline_params = {f: 1 for f in all_features}
+    baseline_params["SUPPORT_SERIAL"] = 0
+    baseline_params["SUPPORT_PACKED_SERIAL"] = 0
     baseline_params["ALIGNER_WIDTH"] = 40
     baseline_params["ACCUMULATOR_WIDTH"] = 32
     baseline_params["USE_LNS_MUL"] = 0
@@ -55,10 +64,14 @@ def main():
     print(f"{'Baseline (Full)':<30} | {baseline_gates:<10} | {'0':<10}")
 
     # Individual Features
-    for feature in features:
+    for feature in all_features:
         params = baseline_params.copy()
-        params[feature] = 0
-        label = "Disable " + feature
+        if feature in ["SUPPORT_SERIAL", "SUPPORT_PACKED_SERIAL"]:
+             params[feature] = 1
+        else:
+             params[feature] = 0
+
+        label = ("Enable " if params[feature] == 1 else "Disable ") + feature
 
         gates = get_yosys_stats(params)
         if gates is not None:
@@ -83,15 +96,18 @@ def main():
     print(f"{'LNS Multiplier (Precise)':<30} | {lns_precise_gates:<10} | {lns_precise_delta:<10}")
 
     # Build Variants
+    # Lite: Disable MXFP6, ADV_ROUNDING, MX_PLUS, VECTOR_PACKING
     lite_params = baseline_params.copy()
     lite_params["SUPPORT_MXFP6"] = 0
-    lite_params["SUPPORT_MXFP4"] = 0
     lite_params["SUPPORT_ADV_ROUNDING"] = 0
+    lite_params["SUPPORT_MX_PLUS"] = 0
+    lite_params["SUPPORT_VECTOR_PACKING"] = 0
     lite_gates = get_yosys_stats(lite_params)
     lite_delta = lite_gates - baseline_gates
-    print(f"{'Lite (Def: 6/4/Adv=0)':<30} | {lite_gates:<10} | {lite_delta:<10}")
+    print(f"{'Lite':<30} | {lite_gates:<10} | {lite_delta:<10}")
 
-    tiny_params = {f: 0 for f in features}
+    # Tiny: All optional features disabled
+    tiny_params = {f: 0 for f in all_features}
     tiny_params["ALIGNER_WIDTH"] = 40
     tiny_params["ACCUMULATOR_WIDTH"] = 32
     tiny_params["USE_LNS_MUL"] = 0
@@ -100,12 +116,20 @@ def main():
     tiny_delta = tiny_gates - baseline_gates
     print(f"{'Tiny (All Disabled)':<30} | {tiny_gates:<10} | {tiny_delta:<10}")
 
+    # Ultra-Tiny: Tiny + Reduced Widths
     ultra_tiny_params = tiny_params.copy()
     ultra_tiny_params["ALIGNER_WIDTH"] = 32
     ultra_tiny_params["ACCUMULATOR_WIDTH"] = 24
     ultra_tiny_gates = get_yosys_stats(ultra_tiny_params)
     ultra_tiny_delta = ultra_tiny_gates - baseline_gates
     print(f"{'Ultra-Tiny (Red. Width)':<30} | {ultra_tiny_gates:<10} | {ultra_tiny_delta:<10}")
+
+    # Tiny-Serial: Ultra-Tiny + Serial
+    tiny_serial_params = ultra_tiny_params.copy()
+    tiny_serial_params["SUPPORT_SERIAL"] = 1
+    tiny_serial_gates = get_yosys_stats(tiny_serial_params)
+    tiny_serial_delta = tiny_serial_gates - baseline_gates
+    print(f"{'Tiny-Serial':<30} | {tiny_serial_gates:<10} | {tiny_serial_delta:<10}")
 
     one_tile_target = ultra_tiny_params.copy()
     one_tile_target["ALIGNER_WIDTH"] = 24
