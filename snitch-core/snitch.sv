@@ -32,6 +32,8 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
   parameter bit          XF16ALT   = 0,
   parameter bit          XF8       = 0,
   parameter bit          XF8ALT    = 0,
+  parameter bit          XF4       = 0,
+  parameter bit          XF4ALT    = 0,
   /// Enable div/sqrt unit (buggy - use with caution)
   parameter bit          XDivSqrt  = 0,
   parameter bit          XFVEC     = 0,
@@ -109,7 +111,7 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
   localparam int RegWidth = RVE ? 4 : 5;
   /// Total physical address portion.
   localparam int unsigned PPNSize = AddrWidth - PAGE_SHIFT;
-  localparam bit NSX = XF16 | XF16ALT | XF8 | XFVEC;
+  localparam bit NSX = XF16 | XF16ALT | XF8 | XF4 | XFVEC;
 
   logic illegal_inst, illegal_csr;
   logic interrupt, ecall, ebreak;
@@ -1030,6 +1032,23 @@ module snitch import snitch_pkg::*; import riscv_instr::*; #(
       IPACKU, IPACKH, IBFP: begin
         if (Xipu) begin
           acc_qreq_o.addr = INT_SS;
+          write_rd = 1'b0;
+          acc_qvalid_o = valid_instr;
+        end else begin
+          illegal_inst = 1'b1;
+        end
+      end
+      // Petit precision (Proposed)
+      FADD_P,
+      FSUB_P,
+      FMUL_P,
+      FDIV_P,
+      VFADD_P,
+      VFSUB_P,
+      VFMUL_P,
+      VFMAC_P,
+      VFSUM_P: begin
+        if (FP_EN && (XF4 || XF4ALT)) begin
           write_rd = 1'b0;
           acc_qvalid_o = valid_instr;
         end else begin
