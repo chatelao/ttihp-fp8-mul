@@ -30,6 +30,8 @@ module snitch_fp_ss import snitch_pkg::*; #(
   parameter bit XF16ALT = 0,
   parameter bit XF8 = 0,
   parameter bit XF8ALT = 0,
+  parameter bit XF4 = 0,
+  parameter bit XF4ALT = 0,
   parameter bit XFVEC = 0,
   parameter int unsigned FLEN = DataWidth,
   /// Derived parameter *Do not override*
@@ -1095,6 +1097,53 @@ module snitch_fp_ss import snitch_pkg::*; #(
           dst_fmt    = fpnew_pkg::FP8ALT;
         end
       end
+      // Scalar [Alternate] Petit Precision (Proposed)
+      // TODO: Replace placeholders with fpnew_pkg::FP4 once library is updated
+      riscv_instr::FADD_P: begin
+        fpu_op = fpnew_pkg::ADD;
+        op_select[1] = RegA;
+        op_select[2] = RegB;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+      end
+      riscv_instr::FSUB_P: begin
+        fpu_op = fpnew_pkg::ADD;
+        op_select[1] = RegA;
+        op_select[2] = RegB;
+        op_mode = 1'b1;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+      end
+      riscv_instr::FMUL_P: begin
+        fpu_op = fpnew_pkg::MUL;
+        op_select[0] = RegA;
+        op_select[1] = RegB;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+      end
+      riscv_instr::FDIV_P: begin
+        fpu_op = fpnew_pkg::DIV;
+        op_select[1] = RegA;
+        op_select[2] = RegB;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+      end
       riscv_instr::FSUB_B: begin
         fpu_op = fpnew_pkg::ADD;
         op_select[1] = RegA;
@@ -1566,6 +1615,75 @@ module snitch_fp_ss import snitch_pkg::*; #(
         vectorial_op = 1'b1;
         set_dyn_rm   = 1'b1;
         if (acc_req_q.data_op inside {riscv_instr::VFCVTU_B_B}) op_mode = 1'b1;
+      end
+      // Vector [Alternate] Petit Precision (Proposed)
+      // TODO: Replace placeholders with fpnew_pkg::FP4 once library is updated
+      riscv_instr::VFADD_P: begin
+        fpu_op = fpnew_pkg::ADD;
+        op_select[1] = RegA;
+        op_select[2] = RegB;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+        vectorial_op = 1'b1;
+        set_dyn_rm   = 1'b1;
+      end
+      riscv_instr::VFSUB_P: begin
+        fpu_op  = fpnew_pkg::ADD;
+        op_select[1] = RegA;
+        op_select[2] = RegB;
+        op_mode      = 1'b1;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+        vectorial_op = 1'b1;
+        set_dyn_rm   = 1'b1;
+      end
+      riscv_instr::VFMUL_P: begin
+        fpu_op = fpnew_pkg::MUL;
+        op_select[0] = RegA;
+        op_select[1] = RegB;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+        vectorial_op = 1'b1;
+        set_dyn_rm   = 1'b1;
+      end
+      riscv_instr::VFMAC_P: begin
+        fpu_op = fpnew_pkg::FMADD;
+        op_select[0] = RegA;
+        op_select[1] = RegB;
+        op_select[2] = RegDest;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+        vectorial_op = 1'b1;
+        set_dyn_rm   = 1'b1;
+      end
+      riscv_instr::VFSUM_P: begin
+        fpu_op = fpnew_pkg::VSUM;
+        op_select[0] = RegA;
+        op_select[2] = RegDest;
+        src_fmt      = fpnew_pkg::FP8; // Placeholder
+        dst_fmt      = fpnew_pkg::FP8; // Placeholder
+        if (fpu_fmt_mode_i.dst == 1'b1) begin
+          src_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+          dst_fmt    = fpnew_pkg::FP8ALT; // Placeholder
+        end
+        vectorial_op = 1'b1;
+        set_dyn_rm   = 1'b1;
       end
       riscv_instr::VFDOTPEX_H_B,
       riscv_instr::VFDOTPEX_H_R_B: begin
@@ -2479,6 +2597,10 @@ module snitch_fp_ss import snitch_pkg::*; #(
               fpnew_pkg::FP16ALT: op[i] = {(FLEN / 16){op[i][15:0]}};
               fpnew_pkg::FP8,
               fpnew_pkg::FP8ALT:  op[i] = {(FLEN /  8){op[i][ 7:0]}};
+              // Petit Floating-Point (Proposed)
+              // TODO: Update once fpnew_pkg::FP4 is defined
+              // fpnew_pkg::FP4,
+              // fpnew_pkg::FP4ALT: op[i] = {(FLEN / 4){op[i][3:0]}};
               default:            op[i] = op[i][FLEN-1:0];
             endcase
           end
@@ -2501,6 +2623,8 @@ module snitch_fp_ss import snitch_pkg::*; #(
     .XF16ALT ( XF16ALT ),
     .XF8     ( XF8     ),
     .XF8ALT  ( XF8ALT  ),
+    .XF4     ( XF4     ),
+    .XF4ALT  ( XF4ALT  ),
     .XFVEC   ( XFVEC   ),
     .FLEN    ( FLEN    ),
     .FPUImplementation  (FPUImplementation),
