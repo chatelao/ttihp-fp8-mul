@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <emscripten.h>
 #include <emscripten/bind.h>
-#include "Vtt_um_chatelao_fp8_multiplier.h"
+#include "Vtop.h"
 #include "verilated.h"
 
 using namespace emscripten;
@@ -9,7 +9,7 @@ using namespace emscripten;
 class DigitalTwin {
 public:
     DigitalTwin() {
-        m_top = new Vtt_um_chatelao_fp8_multiplier();
+        m_top = new Vtop();
     }
 
     ~DigitalTwin() {
@@ -33,7 +33,7 @@ public:
     uint8_t get_uio_oe() { return m_top->uio_oe; }
 
 private:
-    Vtt_um_chatelao_fp8_multiplier* m_top;
+    Vtop* m_top;
 };
 
 EMSCRIPTEN_BINDINGS(digital_twin) {

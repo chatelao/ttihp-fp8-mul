@@ -36,8 +36,51 @@ jobs:
 
       - name: Build WASM
         run: |
-          cd wasm
-          make VARIANT=${{ matrix.variant }}
+          TOP_MODULE=$(yq -r '.project.top_module' info.yaml)
+          SOURCES=$(yq -r '.project.source_files[]' info.yaml | sed 's|^|src/|' | xargs)
+
+          case "${{ matrix.variant }}" in
+            Full)
+              PARAMS="-GALIGNER_WIDTH=40 -GACCUMULATOR_WIDTH=32 -GSUPPORT_E4M3=1 -GSUPPORT_E5M2=1 -GSUPPORT_MXFP6=1 -GSUPPORT_MXFP4=1 -GSUPPORT_INT8=1 -GSUPPORT_PIPELINING=1 -GSUPPORT_ADV_ROUNDING=1 -GSUPPORT_MIXED_PRECISION=1 -GSUPPORT_VECTOR_PACKING=1 -GENABLE_SHARED_SCALING=1 -GSUPPORT_MX_PLUS=1 -GSUPPORT_INPUT_BUFFERING=1 -GSUPPORT_SERIAL=0"
+              ;;
+            Lite)
+              PARAMS="-GALIGNER_WIDTH=40 -GACCUMULATOR_WIDTH=32 -GSUPPORT_E4M3=1 -GSUPPORT_E5M2=1 -GSUPPORT_MXFP6=0 -GSUPPORT_MXFP4=1 -GSUPPORT_INT8=1 -GSUPPORT_PIPELINING=1 -GSUPPORT_ADV_ROUNDING=0 -GSUPPORT_MIXED_PRECISION=1 -GSUPPORT_VECTOR_PACKING=0 -GENABLE_SHARED_SCALING=1 -GSUPPORT_MX_PLUS=0 -GSUPPORT_INPUT_BUFFERING=0 -GSUPPORT_SERIAL=0"
+              ;;
+            Tiny)
+              PARAMS="-GALIGNER_WIDTH=40 -GACCUMULATOR_WIDTH=32 -GSUPPORT_E4M3=1 -GSUPPORT_E5M2=0 -GSUPPORT_MXFP6=0 -GSUPPORT_MXFP4=0 -GSUPPORT_INT8=0 -GSUPPORT_PIPELINING=0 -GSUPPORT_ADV_ROUNDING=0 -GSUPPORT_MIXED_PRECISION=0 -GSUPPORT_VECTOR_PACKING=0 -GENABLE_SHARED_SCALING=0 -GSUPPORT_MX_PLUS=0 -GSUPPORT_INPUT_BUFFERING=0 -GSUPPORT_SERIAL=0"
+              ;;
+            Ultra-Tiny)
+              PARAMS="-GALIGNER_WIDTH=32 -GACCUMULATOR_WIDTH=24 -GSUPPORT_E4M3=1 -GSUPPORT_E5M2=0 -GSUPPORT_MXFP6=0 -GSUPPORT_MXFP4=0 -GSUPPORT_INT8=0 -GSUPPORT_PIPELINING=0 -GSUPPORT_ADV_ROUNDING=0 -GSUPPORT_MIXED_PRECISION=0 -GSUPPORT_VECTOR_PACKING=0 -GENABLE_SHARED_SCALING=0 -GSUPPORT_MX_PLUS=0 -GSUPPORT_INPUT_BUFFERING=0 -GSUPPORT_SERIAL=0"
+              ;;
+            Tiny-Serial)
+              PARAMS="-GALIGNER_WIDTH=32 -GACCUMULATOR_WIDTH=24 -GSUPPORT_E4M3=0 -GSUPPORT_E5M2=0 -GSUPPORT_MXFP6=0 -GSUPPORT_MXFP4=1 -GSUPPORT_INT8=0 -GSUPPORT_PIPELINING=0 -GSUPPORT_ADV_ROUNDING=0 -GSUPPORT_MIXED_PRECISION=0 -GSUPPORT_VECTOR_PACKING=0 -GENABLE_SHARED_SCALING=0 -GSUPPORT_MX_PLUS=0 -GSUPPORT_INPUT_BUFFERING=0 -GSUPPORT_SERIAL=1"
+              ;;
+          esac
+
+          OBJ_DIR=wasm/obj_dir
+          mkdir -p $OBJ_DIR
+
+          verilator --cc $SOURCES \
+            --top-module $TOP_MODULE \
+            --prefix Vtop \
+            -Isrc \
+            $PARAMS \
+            -Wno-WIDTHTRUNC -Wno-WIDTHEXPAND \
+            --Mdir $OBJ_DIR
+
+          VERILATOR_ROOT=$(verilator -V | grep VERILATOR_ROOT | head -1 | awk '{print $3}')
+
+          emcc -O3 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 \
+            --bind \
+            -DVL_IGNORE_UNKNOWN_ARCH \
+            -I$OBJ_DIR \
+            -I$VERILATOR_ROOT/include \
+            -I$VERILATOR_ROOT/include/vltstd \
+            wasm/digital_twin.cpp \
+            $(ls $OBJ_DIR/*.cpp | grep -v "__ALL.cpp") \
+            $VERILATOR_ROOT/include/verilated.cpp \
+            $VERILATOR_ROOT/include/verilated_threads.cpp \
+            -o wasm/digital_twin_${{ matrix.variant }}.js
 
       - name: Prepare Demo Directory
         if: matrix.variant == 'Full'
