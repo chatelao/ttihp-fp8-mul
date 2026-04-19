@@ -1,6 +1,13 @@
 # OCP MX Floating Point Formats Summary
 
-This page provides a summary of the numerical formats supported by the **OCP MXFP8 Streaming MAC Unit**, as defined by the **OpenCompute (OCP) Microscaling Formats (MX) Specification v1.0**.
+This page provides a summary of the numerical formats supported by the **OCP MXFP8 Streaming MAC Unit**, based on the OpenCompute (OCP) specifications.
+
+## Core Specifications
+
+Our implementation adheres to two primary OCP specifications:
+
+1.  **[OCP 8-bit Floating Point Specification (OFP8) v1.0](OCP-OFP8-V1-0-SUMMARY.md)**: Defines the base E4M3 and E5M2 interchange formats and their conversion behaviors.
+2.  **[OCP Microscaling Formats (MX) Specification v1.0](OCP-MX-V1-0-SUMMARY.md)**: Defines the block-based scaling approach (MXFP8, MXFP6, MXFP4) and the shared 8-bit scale factor (E8M0).
 
 ## Supported Element Formats
 
