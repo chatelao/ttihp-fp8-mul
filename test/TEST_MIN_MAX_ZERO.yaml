@@ -1,208 +1,1406 @@
 - test_case: 101
-  comment: "E4M3 Max Finite * 1.0"
+  comment: E4M3 Max Finite * 1.0
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    a_elements: [0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 3670016
-
+    a_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1180696576
 - test_case: 102
-  comment: "E4M3 Negative Max Finite * 1.0"
+  comment: E4M3 Negative Max Finite * 1.0
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    a_elements: [0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: -3670016
-
+    a_elements:
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    - 254
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: -966787072
 - test_case: 103
-  comment: "E4M3 Subnormal (0x01) * Max Finite (0x7E)"
+  comment: E4M3 Subnormal (0x01) * Max Finite (0x7E)
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    a_elements: [0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01]
-    b_elements: [0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e]
-  expected_output: 7168
-
+    a_elements:
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    b_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+  expected_output: 1105199104
 - test_case: 104
-  comment: "E4M3 Negative Subnormal (0x81) * Max Finite (0x7E)"
+  comment: E4M3 Negative Subnormal (0x81) * Max Finite (0x7E)
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    a_elements: [0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81]
-    b_elements: [0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e]
-  expected_output: -7168
-
+    a_elements:
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    b_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+  expected_output: -1042284544
 - test_case: 105
-  comment: "E4M3 Zero * Max Finite"
+  comment: E4M3 Zero * Max Finite
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    a_elements: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    b_elements: [0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e]
+    a_elements:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    b_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
   expected_output: 0
-
 - test_case: 106
-  comment: "E5M2 Max Finite * 1.0"
+  comment: E5M2 Max Finite * 1.0
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b]
-    b_elements: [0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c]
-  expected_output: 469762048
-
+    a_elements:
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1239416832
 - test_case: 107
-  comment: "E5M2 Negative Max Finite * 1.0"
+  comment: E5M2 Negative Max Finite * 1.0
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb, 0xfb]
-    b_elements: [0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c]
-  expected_output: -469762048
-
+    a_elements:
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: -908066816
 - test_case: 108
-  comment: "E5M2 Subnormal (0x01) * Max Finite (0x7B)"
+  comment: E5M2 Subnormal (0x01) * Max Finite (0x7B)
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01]
-    b_elements: [0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b]
-  expected_output: 7168
-
+    a_elements:
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    b_elements:
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+  expected_output: 1105199104
 - test_case: 109
-  comment: "E5M2 Negative Subnormal (0x81) * Max Finite (0x7B)"
+  comment: E5M2 Negative Subnormal (0x81) * Max Finite (0x7B)
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81]
-    b_elements: [0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b, 0x7b]
-  expected_output: -7168
-
+    a_elements:
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    - 129
+    b_elements:
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+  expected_output: -1042284544
 - test_case: 110
-  comment: "E5M2 Infinity * 1.0"
+  comment: E5M2 Infinity * 1.0
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c]
-    b_elements: [0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c]
+    a_elements:
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
   expected_output: 2139095040
-
 - test_case: 111
-  comment: "E5M2 Negative Infinity * 1.0"
+  comment: E5M2 Negative Infinity * 1.0
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc, 0xfc]
-    b_elements: [0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c]
+    a_elements:
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    - 252
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
   expected_output: -8388608
-
 - test_case: 112
-  comment: "E5M2 Zero * Infinity = NaN result"
+  comment: E5M2 Zero * Infinity = NaN result
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    b_elements: [0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c, 0x7c]
+    a_elements:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    b_elements:
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
+    - 124
   expected_output: 2143289344
-
 - test_case: 113
-  comment: "E2M1 Max * 1.0"
+  comment: E2M1 Max * 1.0
   inputs:
     format_a: 4
     format_b: 4
     scale_a: 127
     scale_b: 127
-    a_elements: [0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: 49152
-
+    a_elements:
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: 1128267776
 - test_case: 114
-  comment: "E2M1 Negative Max * 1.0"
+  comment: E2M1 Negative Max * 1.0
   inputs:
     format_a: 4
     format_b: 4
     scale_a: 127
     scale_b: 127
-    a_elements: [0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: -49152
-
+    a_elements:
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    - 15
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: -1019215872
 - test_case: 115
-  comment: "E2M1 Negative Subnormal (0x09) * 1.0"
+  comment: E2M1 Negative Subnormal (0x09) * 1.0
   inputs:
     format_a: 4
     format_b: 4
     scale_a: 127
     scale_b: 127
-    a_elements: [0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: -4096
-
+    a_elements:
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    - 9
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: -1048576000
 - test_case: 116
-  comment: "E2M1 Negative Zero * 1.0"
+  comment: E2M1 Negative Zero * 1.0
   inputs:
     format_a: 4
     format_b: 4
     scale_a: 127
     scale_b: 127
-    a_elements: [0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
+    a_elements:
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
   expected_output: 0
-
 - test_case: 117
-  comment: "Saturation Check: Max * Max with large scale"
+  comment: 'Saturation Check: Max * Max with large scale'
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 140
     scale_b: 127
-    a_elements: [0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e]
-    b_elements: [0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e, 0x7e]
-  expected_output: 2147483647
-
+    a_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    b_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+  expected_output: 1258291199
 - test_case: 118
-  comment: "E4M3 Negative Zero * 1.0"
+  comment: E4M3 Negative Zero * 1.0
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    a_elements: [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
+    a_elements:
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
   expected_output: 0
-
 - test_case: 119
-  comment: "E5M2 Negative Zero * 1.0"
+  comment: E5M2 Negative Zero * 1.0
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 127
     scale_b: 127
-    a_elements: [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]
-    b_elements: [0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c, 0x3c]
+    a_elements:
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
   expected_output: 0

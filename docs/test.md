@@ -7,7 +7,7 @@ This document provides comprehensive test sequences for the OCP MXFP8 Streaming 
 ### Test Sequence 1: Standard FP8 E4M3 Dot Product
 - **Description**: 32 pairs of 1.0 (E4M3) with 1.0 Shared Scales.
 - **Calculation**: $\sum_{i=0}^{31} (1.0 \times 1.0) \times 1.0 \times 1.0 = 32.0$.
-- **Expected Result**: `0x00002000` (Fixed-point, 8 fractional bits: $32 \times 2^8 = 8192 = 0x2000$).
+- **Expected Result: `0x42000000` (32.0 in Binary32) (Fixed-point, 8 fractional bits: $32 \times 2^8 = 8192 = 0x2000$).
 
 | Cycle | `ui_in` (E4M3) | `uio_in` (E4M3) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
@@ -60,12 +60,12 @@ ightarrow$ `0x00002000`.
 
 ### Test Sequence 4: Vector Packing (FP4 E2M1) - Standard Protocol
 - **Description**: 32 pairs of FP4 (E2M1) using Packed Mode (2 elements per byte), covering all 16 possible values twice.
-- **Expected Result**: $\sum_{i=0}^{15} 2 \times (V_i \times V_i) = 274.0 \rightarrow$ `0x00011200`.
+- **Expected Result**: $\sum_{i=0}^{15} 2 \times (V_i \times V_i) = 274.0 \rightarrow$ `0x43890000`.
 
 | Cycle | `ui_in` (FP4) | `uio_in` (FP4) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
 | 0 | `0x00` | `0x40` | `0x00` | `0x00` | Packed Mode Enabled (`uio_in[6]=1`) |
-| 1 | `0x7F` | `0x04` | `0x00" | `0x00` | Scale A = 1.0, Format A = E2M1 |
+| 1 | `0x7F` | `0x04` | `0x00` | `0x00` | Scale A = 1.0, Format A = E2M1 |
 | 2 | `0x7F` | `0x04` | `0x00` | `0x00` | Scale B = 1.0, Format B = E2M1 |
 | 3 | `0x10` | `0x10` | `0x00` | `0x00` | Stream elements 0 and 1 (Packed: 0x10) |
 | 4 | `0x32` | `0x32` | `0x00` | `0x00` | Stream elements 2 and 3 (Packed: 0x32) |
@@ -85,16 +85,16 @@ ightarrow$ `0x00002000`.
 | 18 | `0xFE` | `0xFE` | `0x00` | `0x00` | Repeat elements 14 and 15 (Packed: 0xFE) |
 | 19 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
 | 20 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
-| 21 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 3 (`0x00`) |
-| 22 | `0x00` | `0x00` | `0x00` | `0x01` | Output Result Byte 2 (`0x01`) |
-| 23 | `0x00` | `0x00` | `0x00` | `0x12` | Output Result Byte 1 (`0x12`) |
+| 21 | `0x00` | `0x00` | `0x00` | `0x43` | Output Result Byte 3 (`0x43`) |
+| 22 | `0x00` | `0x00` | `0x00` | `0x89` | Output Result Byte 2 (`0x89`) |
+| 23 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 1 (`0x00`) |
 | 24 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 0 (`0x00`) |
 
 ---
 
 ### Test Sequence 5: FP4 Fast Lane - Short Protocol
 - **Description**: This test case uses the Short Protocol and Packed Mode for 32 pairs of FP4 (E2M1) elements, covering all 16 values twice.
-- **Expected Result**: `0x00011200`.
+- **Expected Result**: `0x43890000`.
 
 | Cycle | `ui_in`  (Dual E2M1) | `uio_in`  (Dual E2M1) | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|
@@ -116,10 +116,10 @@ ightarrow$ `0x00002000`.
 | 17 | `0xDC` | `0xDC` | `0x00` | `0x00` | Repeat elements 12 and 13 (Packed: 0xDC) |
 | 18 | `0xFE` | `0xFE` | `0x00` | `0x00` | Repeat elements 14 and 15 (Packed: 0xFE) |
 | 19 | `0x00` | `0x00` | `0x00` | `0x00` | Pipeline Flush |
-| 20 | `0x00` | `0x00` | `0x00` | `0x00` | Internal Result Capture |
-| 21 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 3 (`0x00`) |
-| 22 | `0x00` | `0x00` | `0x00` | `0x01` | Output Result Byte 2 (`0x01`) |
-| 23 | `0x00` | `0x00` | `0x00` | `0x12` | Output Result Byte 1 (`0x12`) |
+| 20 | `0x00` | `0x00` | `0x00" | `0x00` | Internal Result Capture |
+| 21 | `0x00` | `0x00` | `0x00` | `0x43` | Output Result Byte 3 (`0x43`) |
+| 22 | `0x00` | `0x00` | `0x00` | `0x89` | Output Result Byte 2 (`0x89`) |
+| 23 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 1 (`0x00`) |
 | 24 | `0x00` | `0x00` | `0x00` | `0x00` | Output Result Byte 0 (`0x00`) |
 
 ---
@@ -198,7 +198,7 @@ ightarrow$ `0x00000100`.
 ### Test Sequence 12: INT8 Mixed Precision (E3M2 x INT8)
 **Description**: 32 pairs of 1.0 (E3M2) and 64 (INT8).
 **Calculation**: MX INT8 has an implicit $2^{-6}$ scale. $64 \times 2^{-6} = 1.0$. $\sum_{i=0}^{31} (1.0 \times 1.0) = 32.0$.
-**Expected Result**: `0x00002000`.
+**Expected Result: `0x42000000` (32.0 in Binary32).
 
 | Cycle | `ui_in` | `uio_in` | `uio_out` | `uo_out` | Description |
 |:---:|:---:|:---:|:---:|:---:|---|

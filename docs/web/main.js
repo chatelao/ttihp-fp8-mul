@@ -226,42 +226,25 @@ async function runSimulation() {
     log("Flush and scaling completed.");
 
     // Read Result: 4 bytes
-    let result = 0n;
+    let resultBits = 0n;
     const captureCycle = streamLimit + (isShort ? 2 : 4);
     for (let i = 0; i < 4; i++) {
         twin.step();
         const byte = BigInt(twin.get_uo_out());
-        result = (result << 8n) | byte;
+        resultBits = (resultBits << 8n) | byte;
         log(`Cycle ${captureCycle + 1 + i}: Output byte = 0x${byte.toString(16).padStart(2, '0')}`);
     }
 
-    // Process 32-bit signed result (fixed point with 13-bit fractional part usually,
-    // but depends on ALIGNER_WIDTH/ACCUMULATOR_WIDTH.
-    // In our Full variant: ALIGNER_WIDTH=40, ACCUMULATOR_WIDTH=32.
-    // The accumulator is signed 32-bit.
-    let signedRes = result;
-    if (result & 0x80000000n) {
-        signedRes = result - 0x100000000n;
-    }
+    // IEEE 754 Binary32 decoding
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    view.setUint32(0, Number(resultBits), false); // Big endian
+    const floatRes = view.getFloat32(0, false);
 
-    // Scaling: The hardware aligner/accumulator has a fixed-point position.
-    // Based on project.v, for E4M3 (bias 7), 1.0 * 1.0 = 2^0.
-    // The aligner output usually has some fractional bits.
-    // In the E4M3 example in README: 1.0 * 1.0 (32 times) = 0x00002000 => 32.0.
-    // This implies 0x00000100 is 1.0. So 8 bits of fraction.
+    document.getElementById('acc-hex').textContent = `0x${resultBits.toString(16).padStart(8, '0').toUpperCase()}`;
+    document.getElementById('acc-dec').textContent = isNaN(floatRes) ? "NaN" : floatRes.toExponential(4);
 
-    const floatRes = Number(signedRes) / 256.0;
-
-    document.getElementById('acc-hex').textContent = `0x${result.toString(16).padStart(8, '0').toUpperCase()}`;
-    document.getElementById('acc-dec').textContent = floatRes.toFixed(4);
-
-    // Check for Sticky Flags (Infinities/NaNs)
-    // The RTL uses a special byte output if sticky flags are set.
-    // Cycle 37: 0x7F/0xFF if Inf/NaN
-    // Cycle 38: 0xC0/0x80 if NaN/Inf
-
-    // Let's just log if the result looks like a special value
-    if (result === 0x7FC00000n || result === 0x7F800000n || result === 0xFF800000n) {
+    if (isNaN(floatRes) || !isFinite(floatRes)) {
         document.getElementById('status-flags').textContent = "Special Value (NaN/Inf) detected";
     } else {
         document.getElementById('status-flags').textContent = "Normal";

@@ -785,7 +785,52 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
+    wire [31:0] raw_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
+
+    // Fixed-to-Float (Binary32) Conversion
+    wire res_sign = raw_result[31];
+    wire [31:0] res_abs = res_sign ? -raw_result : raw_result;
+    reg [4:0] res_lz;
+    always @(*) begin
+        if      (res_abs[31]) res_lz = 5'd0;
+        else if (res_abs[30]) res_lz = 5'd1;
+        else if (res_abs[29]) res_lz = 5'd2;
+        else if (res_abs[28]) res_lz = 5'd3;
+        else if (res_abs[27]) res_lz = 5'd4;
+        else if (res_abs[26]) res_lz = 5'd5;
+        else if (res_abs[25]) res_lz = 5'd6;
+        else if (res_abs[24]) res_lz = 5'd7;
+        else if (res_abs[23]) res_lz = 5'd8;
+        else if (res_abs[22]) res_lz = 5'd9;
+        else if (res_abs[21]) res_lz = 5'd10;
+        else if (res_abs[20]) res_lz = 5'd11;
+        else if (res_abs[19]) res_lz = 5'd12;
+        else if (res_abs[18]) res_lz = 5'd13;
+        else if (res_abs[17]) res_lz = 5'd14;
+        else if (res_abs[16]) res_lz = 5'd15;
+        else if (res_abs[15]) res_lz = 5'd16;
+        else if (res_abs[14]) res_lz = 5'd17;
+        else if (res_abs[13]) res_lz = 5'd18;
+        else if (res_abs[12]) res_lz = 5'd19;
+        else if (res_abs[11]) res_lz = 5'd20;
+        else if (res_abs[10]) res_lz = 5'd21;
+        else if (res_abs[9])  res_lz = 5'd22;
+        else if (res_abs[8])  res_lz = 5'd23;
+        else if (res_abs[7])  res_lz = 5'd24;
+        else if (res_abs[6])  res_lz = 5'd25;
+        else if (res_abs[5])  res_lz = 5'd26;
+        else if (res_abs[4])  res_lz = 5'd27;
+        else if (res_abs[3])  res_lz = 5'd28;
+        else if (res_abs[2])  res_lz = 5'd29;
+        else if (res_abs[1])  res_lz = 5'd30;
+        else if (res_abs[0])  res_lz = 5'd31;
+        else                  res_lz = 5'd31;
+    end
+    wire [4:0] res_k = 5'd31 - res_lz;
+    wire [7:0] res_exp = (res_abs == 32'd0) ? 8'd0 : (8'd119 + {3'd0, res_k});
+    wire [62:0] res_shifted = {res_abs, 31'd0} << res_lz;
+    wire [22:0] res_mant = (res_abs == 32'd0) ? 23'd0 : res_shifted[61:39];
+    wire [31:0] final_scaled_result = {res_sign, res_exp, res_mant};
 
     // Accumulator instance.
     accumulator #(

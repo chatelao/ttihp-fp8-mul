@@ -86,6 +86,13 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 
 *\*Note: In Packed Mode, the STREAM phase is reduced to 16 cycles (Cycles 3-18).*
 
+#### 6.3 Numerical Accuracy and Output Format
+The unit performs all internal accumulation using a **32-bit signed fixed-point accumulator** with 8 fractional bits ($2^{-8}$ precision). Before output, the final result is automatically converted to the **IEEE 754 Binary32 (Float32)** format.
+
+- **Internal Range**: $\pm 2^{23}$ (approx $\pm 8.3$ million).
+- **Output Format**: IEEE 754 Binary32 (1 Sign, 8 Exponent, 23 Mantissa).
+- **Special Values**: Sticky registers capture NaNs and Infinities across the entire block, ensuring that if any element produces an exception, the final 32-bit result is a compliant IEEE 754 NaN or Infinity bit pattern.
+
 #### 6.3 Register Layouts (Cycle 0-2)
 
 **Cycle 0: Metadata 0 (`ui_in`)**

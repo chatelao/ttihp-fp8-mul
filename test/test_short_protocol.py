@@ -62,7 +62,9 @@ async def test_short_protocol_metadata(dut):
         await ClockCycles(dut.clk, k_factor)
 
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    expected = 0 if support_shared else 8192
+    # 8192 (fixed point) = 32.0
+    # 32.0 (Binary32) = 0x42000000 = 1107296256
+    expected = 0 if support_shared else 1107296256
 
     dut._log.info(f"Actual Result: {actual_acc}, Expected: {expected}")
     assert actual_acc == expected

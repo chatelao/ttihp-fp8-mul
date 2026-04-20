@@ -122,7 +122,36 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
 
     return sign, exp, mant, bias, is_int, nan, inf
 
-def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
+def fixed_to_float32(val_int):
+    """
+    Converts 32-bit signed fixed-point (8 fractional bits) to IEEE 754 Binary32.
+    """
+    if val_int == 0:
+        return 0
+
+    sign = 1 if val_int < 0 else 0
+    abs_val = abs(val_int)
+
+    # Find leading one
+    lz = 0
+    for i in range(31, -1, -1):
+        if (abs_val >> i) & 1:
+            lz = 31 - i
+            break
+
+    k = 31 - lz
+    exp = 119 + k # 127 - 8 + k
+
+    # Extract mantissa
+    if k >= 23:
+        mant = (abs_val >> (k - 23)) & 0x7FFFFF
+    else:
+        mant = (abs_val << (23 - k)) & 0x7FFFFF
+
+    res = (sign << 31) | (exp << 23) | mant
+    return res
+
+def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, to_float=True):
     shift_amt = exp_sum - 5
     WIDTH = width
 
@@ -175,16 +204,21 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
         # Magnitude > 2^31 saturates to -2^31
         # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
         if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+            res_int = -0x80000000
         else:
-            res = -aligned
+            res_int = -aligned
     else:
         # Magnitude > 2^31-1 saturates to 2^31-1
         # In RTL: (huge || |rounded[WIDTH-1:31])
         if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+            res_int = 0x7FFFFFFF
         else:
-            res = aligned
+            res_int = aligned
+
+    if to_float:
+        res = fixed_to_float32(res_int)
+    else:
+        res = res_int
 
     # Return as 32-bit signed integer
     res_32 = res & 0xFFFFFFFF
@@ -240,7 +274,7 @@ def get_param(dut, name, default=1):
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e4m3=1, support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
-                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0):
+                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0, to_float=False):
     # Fallback for unsupported formats in hardware
     if not support_e4m3 and format_a == 0: return 0
     if not support_e4m3 and format_b == 0: return 0
@@ -314,7 +348,7 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         prod = real_ma * real_mb
         exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
 
-    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width)
+    return align_model(prod, exp_sum, sign, round_mode, overflow_wrap, width=aligner_width, to_float=to_float)
 
 async def reset_dut(dut):
     dut.ena.value = 1
@@ -493,13 +527,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width, to_float=True)
     else:
-        # If no shared scaling, the result is sign-extended to 32-bit in hardware
-        if expected_acc < 0:
-            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
+        # Convert fixed-point result to float32
+        expected_final_fp = fixed_to_float32(expected_acc)
+        if expected_final_fp & 0x80000000:
+            expected_final = expected_final_fp - 0x100000000
         else:
-            expected_final = expected_acc
+            expected_final = expected_final_fp
 
     if expected_final >= 0x80000000:
         expected_final -= 0x100000000
@@ -986,7 +1021,8 @@ async def test_mxfp4_input_buffering(dut):
         await ClockCycles(dut.clk, k_factor)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
-    assert actual_acc == 8192
+    # 8192 (fixed point) = 32.0 -> 0x42000000 = 1107296256
+    assert actual_acc == 1107296256
 
 @cocotb.test()
 async def test_mxfp8_sticky_flags(dut):

@@ -253,17 +253,18 @@ function stepSimulation() {
 }
 
 function finalizeResult() {
-    let result = outputResult;
-    let signedRes = result;
-    if (result & 0x80000000n) {
-        signedRes = result - 0x100000000n;
-    }
-    const floatRes = Number(signedRes) / 256.0;
+    const result = Number(outputResult);
 
-    document.getElementById('acc-hex').textContent = `0x${result.toString(16).padStart(8, '0').toUpperCase()}`;
-    document.getElementById('acc-dec').textContent = floatRes.toFixed(4);
+    // IEEE 754 Binary32 decoding
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    view.setUint32(0, result, false); // Big endian
+    const floatRes = view.getFloat32(0, false);
 
-    if (result === 0x7FC00000n || result === 0x7F800000n || result === 0xFF800000n) {
+    document.getElementById('acc-hex').textContent = `0x${outputResult.toString(16).padStart(8, '0').toUpperCase()}`;
+    document.getElementById('acc-dec').textContent = isNaN(floatRes) ? "NaN" : floatRes.toExponential(4);
+
+    if (isNaN(floatRes) || !isFinite(floatRes)) {
         document.getElementById('status-flags').textContent = "Special Value (NaN/Inf) detected";
     } else {
         document.getElementById('status-flags').textContent = "Normal";
