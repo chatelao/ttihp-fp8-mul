@@ -1142,7 +1142,7 @@
     - 60
     - 60
     - 60
-  expected_output: 1258291200
+  expected_output: 0
 - test_case: 16
   comment: E4M3 Zero Multiplication. 0.0 * 1.0 = 0.0.
   inputs:

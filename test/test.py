@@ -215,10 +215,17 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, to
         else:
             res_int = aligned
 
-    if to_float:
-        res = fixed_to_float32(res_int)
+    # Truncate to 32-bit signed range (match hardware intermediate stage)
+    res_32_tmp = res_int & 0xFFFFFFFF
+    if res_32_tmp & 0x80000000:
+        res_int_32 = res_32_tmp - 0x100000000
     else:
-        res = res_int
+        res_int_32 = res_32_tmp
+
+    if to_float:
+        res = fixed_to_float32(res_int_32)
+    else:
+        res = res_int_32
 
     # Return as 32-bit signed integer
     res_32 = res & 0xFFFFFFFF

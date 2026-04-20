@@ -828,8 +828,10 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire [4:0] res_k = 5'd31 - res_lz;
     wire [7:0] res_exp = (res_abs == 32'd0) ? 8'd0 : (8'd119 + {3'd0, res_k});
-    wire [62:0] res_shifted = {res_abs, 31'd0} << res_lz;
-    wire [22:0] res_mant = (res_abs == 32'd0) ? 23'd0 : res_shifted[61:39];
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [31:0] res_abs_norm = res_abs << res_lz;
+    /* verilator lint_on UNUSEDSIGNAL */
+    wire [22:0] res_mant = (res_abs == 32'd0) ? 23'd0 : res_abs_norm[30:8];
     wire [31:0] final_scaled_result = {res_sign, res_exp, res_mant};
 
     // Accumulator instance.
