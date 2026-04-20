@@ -1,12 +1,6 @@
 // OCP MXFP8 Digital Twin Main Controller
 
 let twin = null;
-let Module = {
-    onRuntimeInitialized: function() {
-        console.log("WASM Runtime Initialized");
-        initApp();
-    }
-};
 
 function log(msg) {
     const output = document.getElementById('log-output');
@@ -174,57 +168,71 @@ async function runSimulation() {
 
     const getVal = (id) => parseInt(document.getElementById(id).value);
     const getHex = (id) => parseInt(document.getElementById(id).value, 16) || 0;
+    const isChecked = (id) => {
+        const el = document.getElementById(id);
+        return el ? (el.type === 'checkbox' ? el.checked : el.value === '1') : false;
+    };
+
+    const isPacked = getVal('packed-mode') === 1;
+    const isShort = isChecked('short-protocol');
 
     // Cycle 0: Metadata
-    const ui0 = (getVal('lns-mode') << 3) | (getVal('nbm-offset-a'));
+    let ui0 = (getVal('lns-mode') << 3) | (getVal('nbm-offset-a'));
+    if (isShort) ui0 |= 0x80;
     const uio0 = (getVal('mx-plus-en') << 7) | (getVal('packed-mode') << 6) | (getVal('overflow-mode') << 5) | (getVal('rounding-mode') << 3) | (getVal('nbm-offset-b'));
 
     twin.set_ui_in(ui0);
     twin.set_uio_in(uio0);
     twin.step();
-    log(`Cycle 0: ui=0x${ui0.toString(16)}, uio=0x${uio0.toString(16)}`);
+    log(`Cycle 0: ui=0x${ui0.toString(16).padStart(2, '0')}, uio=0x${uio0.toString(16).padStart(2, '0')}`);
 
-    // Cycle 1: Scale A / Config A
-    const ui1 = getHex('scale-a');
-    const uio1 = (getVal('bm-index-a') << 3) | getVal('format-a');
-    twin.set_ui_in(ui1);
-    twin.set_uio_in(uio1);
-    twin.step();
-    log(`Cycle 1: ui=0x${ui1.toString(16)}, uio=0x${uio1.toString(16)}`);
+    if (!isShort) {
+        // Cycle 1: Scale A / Config A
+        const ui1 = getHex('scale-a');
+        const uio1 = (getVal('bm-index-a') << 3) | getVal('format-a');
+        twin.set_ui_in(ui1);
+        twin.set_uio_in(uio1);
+        twin.step();
+        log(`Cycle 1: ui=0x${ui1.toString(16).padStart(2, '0')}, uio=0x${uio1.toString(16).padStart(2, '0')}`);
 
-    // Cycle 2: Scale B / Config B
-    const ui2 = getHex('scale-b');
-    const uio2 = (getVal('bm-index-b') << 3) | getVal('format-b');
-    twin.set_ui_in(ui2);
-    twin.set_uio_in(uio2);
-    twin.step();
-    log(`Cycle 2: ui=0x${ui2.toString(16)}, uio=0x${uio2.toString(16)}`);
+        // Cycle 2: Scale B / Config B
+        const ui2 = getHex('scale-b');
+        const uio2 = (getVal('bm-index-b') << 3) | getVal('format-b');
+        twin.set_ui_in(ui2);
+        twin.set_uio_in(uio2);
+        twin.step();
+        log(`Cycle 2: ui=0x${ui2.toString(16).padStart(2, '0')}, uio=0x${uio2.toString(16).padStart(2, '0')}`);
+    } else {
+        log("Short Protocol enabled: skipping config cycles 1-2");
+    }
 
-    // Cycle 3-34: Streaming
+    // Cycles 3-34 (Standard) or 3-18 (Packed): Streaming
+    const streamLimit = isPacked ? 16 : 32;
     const rows = document.querySelectorAll('#elements-body tr');
-    for (let i = 0; i < 32; i++) {
+    for (let i = 0; i < streamLimit; i++) {
         const aHex = parseInt(rows[i].querySelector('.cell-a-hex').value, 16) || 0;
         const bHex = parseInt(rows[i].querySelector('.cell-b-hex').value, 16) || 0;
         twin.set_ui_in(aHex);
         twin.set_uio_in(bHex);
         twin.step();
     }
-    log("Cycles 3-34: Streaming completed.");
+    log(`Streaming completed (${streamLimit} cycles).`);
 
-    // Cycle 35-36: Flush & Scale
+    // Flush and scaling cycles (2 cycles)
     twin.set_ui_in(0);
     twin.set_uio_in(0);
-    twin.step(); // 35
-    twin.step(); // 36
-    log("Cycles 35-36: Flush and final scaling.");
+    twin.step();
+    twin.step();
+    log("Flush and scaling completed.");
 
-    // Cycle 37-40: Read Result
+    // Read Result: 4 bytes
     let result = 0n;
+    const captureCycle = streamLimit + (isShort ? 2 : 4);
     for (let i = 0; i < 4; i++) {
         twin.step();
         const byte = BigInt(twin.get_uo_out());
         result = (result << 8n) | byte;
-        log(`Cycle ${37+i}: Output byte = 0x${byte.toString(16).padStart(2, '0')}`);
+        log(`Cycle ${captureCycle + 1 + i}: Output byte = 0x${byte.toString(16).padStart(2, '0')}`);
     }
 
     // Process 32-bit signed result (fixed point with 13-bit fractional part usually,
