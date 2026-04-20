@@ -103,6 +103,11 @@ module tt_um_chatelao_fp8_multiplier #(
     reg       packed_mode_reg;
     reg [1:0] lns_mode_reg;
 
+    // Output Buffering for High Density Throughput.
+    reg [31:0] result_latch;
+    reg [2:0]  sticky_latch_reg;
+    reg [2:0]  output_step_cnt;
+
     // --- Debug and Probing Logic ---
     wire       debug_en_val;
     wire [3:0] probe_sel_val;
@@ -314,13 +319,12 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [COUNTER_WIDTH-1:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
     wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
-    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
+    wire [COUNTER_WIDTH-1:0] last_cycle        = capture_cycle;
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
                        (logical_cycle <= 6'd2) ? STATE_LOAD_SCALE :
-                       (logical_cycle <= capture_cycle) ? STATE_STREAM :
-                       STATE_OUTPUT;
+                       STATE_STREAM;
 
     initial begin
         cycle_count = {COUNTER_WIDTH{1'b0}};
@@ -329,6 +333,9 @@ module tt_um_chatelao_fp8_multiplier #(
         overflow_wrap_reg = 1'b0;
         packed_mode_reg = 1'b0;
         lns_mode_reg = 2'd0;
+        result_latch = 32'h0;
+        sticky_latch_reg = 3'b0;
+        output_step_cnt = 3'd0;
     end
 
     // Configure bidirectional pins as inputs for Tiny Tapeout.
@@ -347,7 +354,19 @@ module tt_um_chatelao_fp8_multiplier #(
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
             lns_mode_reg <= 2'd0;
+            result_latch <= 32'h0;
+            sticky_latch_reg <= 3'b0;
+            output_step_cnt <= 3'd0;
         end else if (ena && strobe) begin
+            // Result Serialization Logic (Independent of FSM).
+            if (logical_cycle == capture_cycle) begin
+                result_latch <= final_scaled_result;
+                sticky_latch_reg <= {nan_sticky, inf_pos_sticky, inf_neg_sticky};
+                output_step_cnt <= 3'd4;
+            end else if (output_step_cnt > 3'd0) begin
+                output_step_cnt <= output_step_cnt - 3'd1;
+            end
+
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                 // Capture Metadata at the start of a block (Cycle 0).
                 round_mode_reg    <= uio_in[4:3];
@@ -383,8 +402,8 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Control signal to enable the accumulator only when valid products are arriving.
     wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1)) :
+                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle)));
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
@@ -711,11 +730,11 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ?
                                     aligner_lane0_in_prod_acc :
                                     {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
+    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
     wire [31:0] aligned_lane0_res;
     fp8_aligner #(
@@ -775,15 +794,18 @@ module tt_um_chatelao_fp8_multiplier #(
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
     reg [7:0] sticky_byte;
-    wire [5:0] output_byte_idx = logical_cycle - capture_cycle;
+    wire l_nan_sticky     = sticky_latch_reg[2];
+    wire l_inf_pos_sticky = sticky_latch_reg[1];
+    wire l_inf_neg_sticky = sticky_latch_reg[0];
+
     always @(*) begin
-        case (output_byte_idx)
-            6'd1: sticky_byte = (nan_sticky || (inf_pos_sticky && inf_neg_sticky)) ? 8'h7F : (inf_pos_sticky ? 8'h7F : 8'hFF);
-            6'd2: sticky_byte = (nan_sticky || (inf_pos_sticky && inf_neg_sticky)) ? 8'hC0 : 8'h80;
+        case (output_step_cnt)
+            3'd4: sticky_byte = (l_nan_sticky || (l_inf_pos_sticky && l_inf_neg_sticky)) ? 8'h7F : (l_inf_pos_sticky ? 8'h7F : 8'hFF);
+            3'd3: sticky_byte = (l_nan_sticky || (l_inf_pos_sticky && l_inf_neg_sticky)) ? 8'hC0 : 8'h80;
             default: sticky_byte = 8'h00;
         endcase
     end
-    wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
+    wire sticky_any_latched = |sticky_latch_reg;
 
     wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
 
@@ -799,8 +821,8 @@ module tt_um_chatelao_fp8_multiplier #(
         .data_in(aligned_combined),
         .load_en(ena && strobe && logical_cycle == capture_cycle),
         .load_data(final_scaled_result),
-        .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
-        .shift_out(acc_shift_out),
+        .shift_en(1'b0),
+        .shift_out(),
         .data_out(acc_out)
     );
 
@@ -834,9 +856,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // --- Main Output Multiplexer ---
     // Decides what data to send to uo_out based on current cycle and configuration.
     assign uo_out = loopback_en_val ? (ui_in ^ uio_in) :
-                    (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
-                    (sticky_any ? sticky_byte : acc_shift_out) :
-                    (debug_en_val && logical_cycle == capture_cycle - 6'd1) ? metadata_echo :
+                    (output_step_cnt > 3'd0) ?
+                    (sticky_any_latched ? sticky_byte :
+                     (output_step_cnt == 3'd4) ? result_latch[31:24] :
+                     (output_step_cnt == 3'd3) ? result_latch[23:16] :
+                     (output_step_cnt == 3'd2) ? result_latch[15:8] :
+                     result_latch[7:0]) :
+                    (debug_en_val && logical_cycle == capture_cycle) ? metadata_echo :
                     (debug_en_val && logical_cycle < capture_cycle) ? probe_data :
                     8'h00;
 
@@ -892,8 +918,7 @@ module tt_um_chatelao_fp8_multiplier #(
             // State progression (verified by combinatorial definition)
             assert(state == ((logical_cycle == 6'd0) ? STATE_IDLE :
                              (logical_cycle <= 6'd2) ? STATE_LOAD_SCALE :
-                             (logical_cycle <= capture_cycle) ? STATE_STREAM :
-                             STATE_OUTPUT));
+                             STATE_STREAM));
         end
     end
 
@@ -934,15 +959,15 @@ module tt_um_chatelao_fp8_multiplier #(
         if (rst_n) begin
             if (loopback_en_val) begin
                 assert(uo_out == (ui_in ^ uio_in));
-            end else if (state == STATE_OUTPUT && logical_cycle > capture_cycle) begin
-                if (sticky_any) begin
+            end else if (output_step_cnt > 3'd0) begin
+                if (sticky_any_latched) begin
                     assert(uo_out == sticky_byte);
                 end else begin
-                    case (logical_cycle - capture_cycle)
-                        6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
-                        6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
-                        6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
-                        6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
+                    case (output_step_cnt)
+                        3'd4: assert(uo_out == result_latch[31:24]);
+                        3'd3: assert(uo_out == result_latch[23:16]);
+                        3'd2: assert(uo_out == result_latch[15:8]);
+                        3'd1: assert(uo_out == result_latch[7:0]);
                         default: assert(uo_out == 8'd0);
                     endcase
                 end
