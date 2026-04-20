@@ -113,12 +113,3 @@ jobs:
         run: |
           cp wasm/digital_twin_Full.js docs/web/
           cp wasm/digital_twin_Full.wasm docs/web/
-
-      - name: Deploy Demo to GitHub Pages
-        if: matrix.variant == 'Full' && github.event_name == 'push' && github.ref == 'refs/heads/ihp-sg13cmos5l'
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./demo
-          destination_dir: demo
-          keep_files: true
