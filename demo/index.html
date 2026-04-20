@@ -57,6 +57,13 @@
                         <option value="1">Enabled</option>
                     </select>
                 </div>
+                <div class="control-group">
+                    <label for="short-protocol">Short Protocol</label>
+                    <select id="short-protocol">
+                        <option value="0" selected>Disabled (Standard)</option>
+                        <option value="1">Enabled (Reuse Scales)</option>
+                    </select>
+                </div>
             </div>
         </section>
 
@@ -172,6 +179,14 @@
         </div>
     </footer>
 
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log("WASM Runtime Initialized");
+                if (typeof initApp === 'function') initApp();
+            }
+        };
+    </script>
     <script src="digital_twin_Full.js"></script>
     <script src="main.js"></script>
 </body>

@@ -59,6 +59,8 @@
                         <option value="2">E3M2 (FP6)</option>
                         <option value="3">E2M3 (FP6)</option>
                         <option value="4">E2M1 (FP4)</option>
+                        <option value="5">INT8</option>
+                        <option value="6">INT8_SYM</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -76,14 +78,71 @@
                     <select id="lns-mode">
                         <option value="0" selected>Normal (Exact)</option>
                         <option value="1">LNS (Mitchell's Approx)</option>
+                        <option value="2">Hybrid (BM=Exact, else LNS)</option>
                     </select>
                 </div>
                 <div class="control-group">
                     <label for="rounding-mode">Rounding Mode</label>
                     <select id="rounding-mode">
-                        <option value="3" selected>RNE (Round-to-Nearest-Even)</option>
                         <option value="0">TRN (Truncate)</option>
+                        <option value="1">CEL (Ceil)</option>
+                        <option value="2">FLR (Floor)</option>
+                        <option value="3" selected>RNE (Round-to-Nearest-Even)</option>
                     </select>
+                </div>
+                <div class="control-group">
+                    <label for="overflow-mode">Overflow Mode</label>
+                    <select id="overflow-mode">
+                        <option value="0" selected>SAT (Saturate)</option>
+                        <option value="1">WRAP (Modulo)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="packed-mode">Vector Packing (FP4)</label>
+                    <select id="packed-mode">
+                        <option value="0" selected>Disabled</option>
+                        <option value="1">Enabled</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="mx-plus-en">MX+ Extensions</label>
+                    <select id="mx-plus-en">
+                        <option value="0" selected>Disabled</option>
+                        <option value="1">Enabled</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid-container" style="margin-top: 1rem;">
+                <div class="card">
+                    <h3>Operand A Config</h3>
+                    <div class="control-group">
+                        <label for="scale-a">Scale A (Hex)</label>
+                        <input type="text" id="scale-a" value="7F" maxlength="2">
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="bm-index-a">BM Index A</label>
+                        <input type="number" id="bm-index-a" value="0" min="0" max="31">
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="nbm-offset-a">NBM Offset A</label>
+                        <input type="number" id="nbm-offset-a" value="0" min="0" max="7">
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Operand B Config</h3>
+                    <div class="control-group">
+                        <label for="scale-b">Scale B (Hex)</label>
+                        <input type="text" id="scale-b" value="7F" maxlength="2">
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="bm-index-b">BM Index B</label>
+                        <input type="number" id="bm-index-b" value="0" min="0" max="31">
+                    </div>
+                    <div class="control-group mx-plus-only hidden">
+                        <label for="nbm-offset-b">NBM Offset B</label>
+                        <input type="number" id="nbm-offset-b" value="0" min="0" max="7">
+                    </div>
                 </div>
             </div>
             <div style="margin-top: 1rem; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
@@ -161,6 +220,14 @@
         </div>
     </footer>
 
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log("WASM Runtime Initialized");
+                if (typeof initApp === 'function') initApp();
+            }
+        };
+    </script>
     <script src="digital_twin_Full.js"></script>
     <script src="mac.js"></script>
 </body>
