@@ -234,17 +234,9 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, to
     return res_32
 
 def get_param(dut, name, default=1):
-    # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
-    for obj in [getattr(dut, "user_project", None), dut]:
-        if obj is None: continue
-        try:
-            handle = getattr(obj, name)
-            return int(handle.value)
-        except Exception:
-            pass
-
-    # 2. Try to get from COMPILE_ARGS environment variable
+    # 1. Try to get from COMPILE_ARGS environment variable first
     # Parameters can be passed as -Pname=val or -Phierarchy.name=val
+    # Priority is given to COMPILE_ARGS to ensure CI overrides are honored.
     compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
     # Match -Pname=val, -P hierarchy.name=val, etc.
@@ -253,6 +245,15 @@ def get_param(dut, name, default=1):
     match = re.search(pattern, compile_args)
     if match:
         return int(match.group(1))
+
+    # 2. Try to get from dut.user_project (RTL) or dut (some TB configs)
+    for obj in [getattr(dut, "user_project", None), dut]:
+        if obj is None: continue
+        try:
+            handle = getattr(obj, name)
+            return int(handle.value)
+        except Exception:
+            pass
 
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
@@ -835,7 +836,11 @@ async def test_fast_start_scale_compression(dut):
         acc_sign = 1 if expected_acc < 0 else 0
         expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
     else:
-        expected_final = expected_acc
+        expected_final_fp = fixed_to_float32(expected_acc)
+        if expected_final_fp & 0x80000000:
+            expected_final = expected_final_fp - 0x100000000
+        else:
+            expected_final = expected_final_fp
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]

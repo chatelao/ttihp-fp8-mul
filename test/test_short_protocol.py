@@ -64,10 +64,19 @@ async def test_short_protocol_metadata(dut):
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     # 8192 (fixed point) = 32.0
     # 32.0 (Binary32) = 0x42000000 = 1107296256
+    # Note: If shared scaling is enabled, we need to calculate based on initial scale values.
+    # For this test, ui_in was 0x80 (short protocol bit), scale registers might have legacy values.
+    # However, for non-shared scaling (Tiny/Ultra-Tiny), result should be 32.0.
     expected = 0 if support_shared else 1107296256
 
-    dut._log.info(f"Actual Result: {actual_acc}, Expected: {expected}")
-    assert actual_acc == expected
+    # Convert actual to 32-bit signed for comparison if it was negative
+    if actual_acc & 0x80000000:
+        actual_acc_signed = actual_acc - 0x100000000
+    else:
+        actual_acc_signed = actual_acc
+
+    dut._log.info(f"Actual Result: {actual_acc_signed}, Expected: {expected}")
+    assert actual_acc_signed == expected
 
 @cocotb.test()
 async def test_short_protocol_nan_scale_reuse(dut):
