@@ -159,7 +159,7 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40, to
         if not overflow_wrap and shift_amt >= WIDTH:
             aligned = (1 << WIDTH) - 1 if prod != 0 else 0
         else:
-            aligned = prod << shift_amt
+            aligned = (prod << shift_amt) & ((1 << WIDTH) - 1)
         sticky = 0
         shifted_out = 0
         base = aligned
