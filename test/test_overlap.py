@@ -80,11 +80,10 @@ async def test_high_density_overlap(dut):
         for i in range(32):
             prod = align_product_model(a_els[i], b_els[i], format_a, format_b,
                                        aligner_width=aligner_width)
-            expected_acc = (expected_acc + prod) & 0xFFFFFFFF
-            if expected_acc & 0x80000000: expected_acc -= 0x100000000
-            # Simplified signed wrap/sat for test model
-            if expected_acc > 0x7FFFFFFF: expected_acc = 0x7FFFFFFF
-            if expected_acc < -0x80000000: expected_acc = -0x80000000
+            # Intermediate additions in 32-bit signed fixed point
+            expected_acc = (expected_acc + prod)
+            if expected_acc > 2147483647: expected_acc = 2147483647
+            if expected_acc < -2147483648: expected_acc = -2147483648
 
         if support_shared:
             shared_exp = scale_a + scale_b - 254
@@ -193,10 +192,9 @@ async def test_packed_fp4_overlap(dut):
         for i in range(32):
             prod = align_product_model(a_els[i], b_els[i], format_a, format_b,
                                        aligner_width=aligner_width)
-            expected_acc = (expected_acc + prod) & 0xFFFFFFFF
-            if expected_acc & 0x80000000: expected_acc -= 0x100000000
-            if expected_acc > 0x7FFFFFFF: expected_acc = 0x7FFFFFFF
-            if expected_acc < -0x80000000: expected_acc = -0x80000000
+            expected_acc = (expected_acc + prod)
+            if expected_acc > 2147483647: expected_acc = 2147483647
+            if expected_acc < -2147483648: expected_acc = -2147483648
 
         # Result is signed 32-bit
         res = expected_acc & 0xFFFFFFFF

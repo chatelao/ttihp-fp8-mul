@@ -58,7 +58,6 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam STATE_IDLE       = 2'b00; // Waiting for start or processing metadata.
     localparam STATE_LOAD_SCALE = 2'b01; // Capturing scaling factors (Cycle 1 & 2).
     localparam STATE_STREAM     = 2'b10; // Processing 32 element pairs (Cycles 3-34).
-    localparam STATE_OUTPUT     = 2'b11; // Sending the 32-bit result out byte-by-byte.
 
     reg [COUNTER_WIDTH-1:0] cycle_count;
     wire strobe; // Used to handle bit-serial timing if enabled.
@@ -664,7 +663,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
     // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
     // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
+    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0)) && (state == STATE_STREAM);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -781,7 +780,6 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
-    wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;
     generate
         if (ACCUMULATOR_WIDTH > 32) begin : gen_acc_out_ext_wide
@@ -822,7 +820,6 @@ module tt_um_chatelao_fp8_multiplier #(
         .load_en(ena && strobe && logical_cycle == capture_cycle),
         .load_data(final_scaled_result),
         .shift_en(1'b0),
-        .shift_out(),
         .data_out(acc_out)
     );
 
@@ -971,7 +968,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         default: assert(uo_out == 8'd0);
                     endcase
                 end
-            end else if (debug_en_val && logical_cycle == capture_cycle - 6'd1) begin
+            end else if (debug_en_val && logical_cycle == capture_cycle) begin
                 assert(uo_out == metadata_echo);
             end else if (debug_en_val && logical_cycle < capture_cycle) begin
                 assert(uo_out == probe_data);
