@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCP MXFP8 MAC Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .step-info {
+            background: #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #333;
+        }
+        .nav-links {
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: bold;
+        }
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+            #streaming-data {
+                grid-column: span 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>OCP MXFP8 MAC Generator</h1>
+        <p>Generate random values and verify MAC operation</p>
+    </header>
+
+    <main>
+        <div class="nav-links" style="grid-column: span 2;">
+            <a href="index.html">&larr; Back to Digital Twin</a>
+        </div>
+
+        <section id="config-global">
+            <h2>Configuration & Control</h2>
+            <div class="grid-container">
+                <div class="control-group">
+                    <label for="format-a">Format A</label>
+                    <select id="format-a">
+                        <option value="0" selected>E4M3 (FP8)</option>
+                        <option value="1">E5M2 (FP8)</option>
+                        <option value="2">E3M2 (FP6)</option>
+                        <option value="3">E2M3 (FP6)</option>
+                        <option value="4">E2M1 (FP4)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="format-b">Format B</label>
+                    <select id="format-b">
+                        <option value="0" selected>E4M3 (FP8)</option>
+                        <option value="1">E5M2 (FP8)</option>
+                        <option value="2">E3M2 (FP6)</option>
+                        <option value="3">E2M3 (FP6)</option>
+                        <option value="4">E2M1 (FP4)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="lns-mode">Multiplier Mode</label>
+                    <select id="lns-mode">
+                        <option value="0" selected>Normal (Exact)</option>
+                        <option value="1">LNS (Mitchell's Approx)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="rounding-mode">Rounding Mode</label>
+                    <select id="rounding-mode">
+                        <option value="3" selected>RNE (Round-to-Nearest-Even)</option>
+                        <option value="0">TRN (Truncate)</option>
+                    </select>
+                </div>
+            </div>
+            <div style="margin-top: 1rem; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                <button id="randomize-btn">Randomize Elements</button>
+                <button id="run-all-btn">Run (One Go)</button>
+                <button id="step-btn">Step Simulation</button>
+                <button id="reset-btn" style="background: #e74c3c;">Reset</button>
+            </div>
+        </section>
+
+        <section id="simulation-status">
+            <h2>Simulation Status</h2>
+            <div id="status-display" class="step-info">Status: Idle</div>
+            <div class="result-grid" style="color: #333;">
+                <div class="result-item">
+                    <span class="label">Current Cycle</span>
+                    <span id="curr-cycle" class="value">0</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">UI_IN</span>
+                    <span id="curr-ui-in" class="value">0x00</span>
+                </div>
+                <div class="result-item">
+                    <span class="label">UIO_IN</span>
+                    <span id="curr-uio-in" class="value">0x00</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="streaming-data" style="grid-column: span 2;">
+            <h2>Element Data (32 pairs)</h2>
+            <div class="table-container">
+                <table id="elements-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>A (Hex)</th>
+                            <th>A (Dec)</th>
+                            <th>B (Hex)</th>
+                            <th>B (Dec)</th>
+                            <th>Product (Pred)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="elements-body">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="results" style="grid-column: span 2;">
+            <div class="result-card">
+                <h2>Final Result</h2>
+                <div class="result-grid">
+                    <div class="result-item">
+                        <span class="label">Accumulator (Hex)</span>
+                        <span id="acc-hex" class="value">0x00000000</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">Accumulator (Dec)</span>
+                        <span id="acc-dec" class="value">0.0</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">Status</span>
+                        <span id="status-flags" class="value">-</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="console">
+        <div id="log-container">
+            <pre id="log-output">Initializing WASM Digital Twin...</pre>
+        </div>
+    </footer>
+
+    <script src="digital_twin_Full.js"></script>
+    <script src="mac.js"></script>
+</body>
+</html>
