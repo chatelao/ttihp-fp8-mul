@@ -108,6 +108,12 @@ jobs:
             wasm/digital_twin_${{ matrix.variant }}.js
             wasm/digital_twin_${{ matrix.variant }}.wasm
 
+      - name: Copy WASM to Web Docs
+        if: matrix.variant == 'Full'
+        run: |
+          cp wasm/digital_twin_Full.js docs/web/
+          cp wasm/digital_twin_Full.wasm docs/web/
+
       - name: Deploy Demo to GitHub Pages
         if: matrix.variant == 'Full' && github.event_name == 'push' && github.ref == 'refs/heads/ihp-sg13cmos5l'
         uses: peaceiris/actions-gh-pages@v4
