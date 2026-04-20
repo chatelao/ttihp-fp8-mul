@@ -133,6 +133,7 @@ For a full list of available probes and the metadata echo bit-mapping, see [DEBU
 
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2Ftinytapeout.oas)
 - [Interactive Digital Twin (WASM Demo)](https://chatelao.github.io/ttihp-fp8-mul/demo/)
+- [MAC Generator & Predictor](https://chatelao.github.io/ttihp-fp8-mul/demo/mac.html)
 
 ### MicroPython Example (TT DevKit)
 
