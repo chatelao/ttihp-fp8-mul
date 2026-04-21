@@ -510,15 +510,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         expected_final_bits = 0xFF800000 # -Inf
     else:
         if support_shared:
-            shared_scale = (2.0 ** (scale_a - 127)) * (2.0 ** (scale_b - 127))
-            final_val = sum_val * shared_scale
+            eff_scale_a = scale_a
+            eff_scale_b = scale_b
         else:
-            # If shared scaling is disabled, hardware just outputs the internal sum converted to Float32.
-            # Standard elements sum * 2^(XA+XB-254) but here XA=XB=127 so it's just sum.
-            # Actually, aligner grid is fixed. Bit 34 = 2^0.
-            # Target Value = sum * 2^-34.
-            final_val = sum_val * (2.0 ** -34)
+            eff_scale_a = 127
+            eff_scale_b = 127
 
+        shared_scale = (2.0 ** (eff_scale_a - 127)) * (2.0 ** (eff_scale_b - 127))
+        final_val = sum_val * shared_scale
         expected_final_bits = to_float32_bits(final_val)
 
     if actual_packed:
@@ -859,11 +858,14 @@ async def test_fast_start_scale_compression(dut):
         sum_val_fast += val_a * val_b
 
     if support_shared:
-        shared_scale = (2.0 ** (scale_a - 127)) * (2.0 ** (scale_b - 127))
-        final_val = sum_val_fast * shared_scale
+        eff_scale_a = scale_a
+        eff_scale_b = scale_b
     else:
-        final_val = sum_val_fast * (2.0 ** -34)
+        eff_scale_a = 127
+        eff_scale_b = 127
 
+    shared_scale = (2.0 ** (eff_scale_a - 127)) * (2.0 ** (eff_scale_b - 127))
+    final_val = sum_val_fast * shared_scale
     expected_final_bits = to_float32_bits(final_val)
 
     for i in range(32):

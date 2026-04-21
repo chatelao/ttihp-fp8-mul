@@ -245,23 +245,23 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_a <= 8'd0;
+                if (!rst_n) scale_a <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
         end else begin : gen_no_scale_a
-            assign scale_a_val = 8'd0;
+            assign scale_a_val = 8'd127;
         end
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_b <= 8'd0;
+                if (!rst_n) scale_b <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
         end else begin : gen_no_scale_b
-            assign scale_b_val = 8'd0;
+            assign scale_b_val = 8'd127;
         end
 
         if (SUPPORT_MIXED_PRECISION && !FIXED_FORMAT) begin : gen_format_b
