@@ -143,6 +143,74 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
     else: # Default E4M3
         return decode_format(bits, 0, is_bm, support_mxplus, True, support_e5m2, support_mxfp6, support_mxfp4)
 
+def decode_format_v2(bits, format_val, is_bm=False, support_mxplus=False,
+                     support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
+    sign = 0
+    exp = 0
+    mant = 0
+    bias = 0
+    is_int = False
+    nan = False
+    inf = False
+
+    if format_val == 0 and support_e4m3: # E4M3
+        sign = (bits >> 7) & 1
+        bias = 7
+        if is_bm and support_mxplus:
+            exp = 15
+            mant = bits & 0x7F
+        else:
+            exp = (bits >> 3) & 0xF
+            mant = (bits & 0x7)
+            if bits & 0x7F == 0x7F: nan = True
+    elif format_val == 1 and support_e5m2: # E5M2
+        sign = (bits >> 7) & 1
+        bias = 15
+        if is_bm and support_mxplus:
+            exp = 30
+            mant = bits & 0x7F
+        else:
+            exp = (bits >> 2) & 0x1F
+            mant = (bits & 0x3)
+            if exp == 0x1F:
+                if mant == 0: inf = True
+                else: nan = True
+    elif format_val == 2 and support_mxfp6: # E3M2
+        sign = (bits >> 5) & 1
+        bias = 3
+        if is_bm and support_mxplus:
+            exp = 7
+            mant = bits & 0x1F
+        else:
+            exp = (bits >> 2) & 0x7
+            mant = (bits & 0x3)
+    elif format_val == 3 and support_mxfp6: # E2M3
+        sign = (bits >> 5) & 1
+        bias = 1
+        if is_bm and support_mxplus:
+            exp = 3
+            mant = bits & 0x1F
+        else:
+            exp = (bits >> 3) & 0x3
+            mant = (bits & 0x7)
+    elif format_val == 4 and support_mxfp4: # E2M1
+        sign = (bits >> 3) & 1
+        bias = 1
+        if is_bm and support_mxplus:
+            exp = 3
+            mant = bits & 0x7
+        else:
+            exp = (bits >> 1) & 0x3
+            mant = (bits & 0x1)
+    elif format_val == 5: # INT8
+        is_int = True
+        mant = bits
+    elif format_val == 6: # INT8_SYM
+        is_int = True
+        mant = bits
+
+    return sign, exp, mant, bias, is_int, nan, inf
+
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=80):
     shift_amt = exp_sum + 21
     WIDTH = width

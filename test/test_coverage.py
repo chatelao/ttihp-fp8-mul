@@ -9,11 +9,11 @@ import random
 import os
 
 # Reuse the model from test.py
-from test import decode_format, align_model, align_product_model, reset_dut
+from test import decode_format_v2, align_model, align_product_model, reset_dut
 
 def get_operand_class(bits, format_val, is_bm=False, support_mxplus=False,
                       support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
-    sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val, is_bm=is_bm, support_mxplus=support_mxplus,
+    sign, exp, mant, bias, is_int, nan, inf = decode_format_v2(bits, format_val, is_bm=is_bm, support_mxplus=support_mxplus,
                                                           support_e4m3=support_e4m3, support_e5m2=support_e5m2,
                                                           support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
 

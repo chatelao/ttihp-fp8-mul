@@ -36,12 +36,24 @@ module accumulator #(
 
     // 'assign' statements create combinational logic that continuously drives a wire.
     assign data_out  = acc_reg;
-    assign shift_out = acc_reg[31:24]; // Default, but project.v uses serialized output differently now.
+
+    // project.v uses serialized output differently now.
+    /* verilator lint_off UNUSED */
+    wire [31:0] acc_reg_32;
+    generate
+        if (REG_WIDTH >= 32) begin : gen_acc32_wide
+            assign acc_reg_32 = acc_reg[REG_WIDTH-1:REG_WIDTH-32];
+        end else begin : gen_acc32_narrow
+            assign acc_reg_32 = {acc_reg, {(32-REG_WIDTH){1'b0}}};
+        end
+    endgenerate
+    /* verilator lint_on UNUSED */
+    assign shift_out = acc_reg_32[31:24];
 
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
     // $signed() tells the simulator/synthesizer to treat the bits as 2's complement numbers.
     /* verilator lint_off UNUSEDSIGNAL */
-    wire signed [WIDTH:0] sum_full = $signed({acc_reg[WIDTH-1], acc_reg[WIDTH-1:0]}) + $signed({data_in[WIDTH-1], data_in});
+    wire signed [WIDTH:0] sum_full = $signed({acc_reg[WIDTH-1], acc_reg}) + $signed({data_in[WIDTH-1], data_in});
     /* verilator lint_on UNUSEDSIGNAL */
 
     // 'sum' is the standard result of the addition (which naturally wraps if it exceeds 'WIDTH').
@@ -49,6 +61,18 @@ module accumulator #(
 
     // Overflow check: If the signs of the inputs are the same but the sign of the result is different.
     wire overflow = (acc_reg[WIDTH-1] == data_in[WIDTH-1]) && (sum[WIDTH-1] != acc_reg[WIDTH-1]);
+
+    wire [REG_WIDTH-1:0] load_data_val;
+    generate
+        if (REG_WIDTH >= 32) assign load_data_val = {{(REG_WIDTH-32){1'b0}}, load_data};
+        else assign load_data_val = load_data[REG_WIDTH-1:0];
+    endgenerate
+
+    wire [REG_WIDTH-1:0] shift_val;
+    generate
+        if (REG_WIDTH >= 9) assign shift_val = {acc_reg[REG_WIDTH-9:0], 8'd0};
+        else assign shift_val = {REG_WIDTH{1'b0}};
+    endgenerate
 
     // This 'always' block describes sequential logic that updates on the rising edge of the clock
     // or the falling edge of the asynchronous reset.
@@ -60,11 +84,11 @@ module accumulator #(
             // Clear: Synchronous return to zero.
             acc_reg <= {REG_WIDTH{1'b0}};
         end else if (load_en) begin
-            // Load: Direct assignment from load_data (expanding 32-bit Float32 into internal reg).
-            acc_reg <= {{(REG_WIDTH-32){1'b0}}, load_data};
+            // Load: Direct assignment from load_data.
+            acc_reg <= load_data_val;
         end else if (shift_en) begin
             // Shift: Move bits 8 positions to the left, filling with zeros from the right.
-            acc_reg[31:0] <= {acc_reg[23:0], 8'd0};
+            acc_reg <= shift_val;
         end else if (en) begin
             // Accumulate: Decide between saturation and wrapping if an overflow occurred.
             if (overflow && !overflow_wrap) begin
