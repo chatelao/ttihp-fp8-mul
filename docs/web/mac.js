@@ -253,22 +253,32 @@ function stepSimulation() {
 }
 
 function finalizeResult() {
-    let result = outputResult;
-    let signedRes = result;
-    if (result & 0x80000000n) {
-        signedRes = result - 0x100000000n;
-    }
-    const floatRes = Number(signedRes) / 256.0;
+    const result = outputResult;
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    view.setUint32(0, Number(result & 0xFFFFFFFFn), false);
+    const floatRes = view.getFloat32(0, false);
+
+    // Binary representation
+    const bits = result & 0xFFFFFFFFn;
+    const sign = (bits >> 31n) & 1n;
+    const exp = (bits >> 23n) & 0xFFn;
+    const mant = bits & 0x7FFFFFn;
+
+    const binStr = `${sign} | ${exp.toString(2).padStart(8, '0')} | ${mant.toString(2).padStart(23, '0')}`;
 
     document.getElementById('acc-hex').textContent = `0x${result.toString(16).padStart(8, '0').toUpperCase()}`;
-    document.getElementById('acc-dec').textContent = floatRes.toFixed(4);
+    document.getElementById('acc-dec').textContent = floatRes.toExponential(4);
+    document.getElementById('acc-bin').textContent = binStr;
 
-    if (result === 0x7FC00000n || result === 0x7F800000n || result === 0xFF800000n) {
-        document.getElementById('status-flags').textContent = "Special Value (NaN/Inf) detected";
+    if (isNaN(floatRes)) {
+        document.getElementById('status-flags').textContent = "NaN (Not a Number)";
+    } else if (!isFinite(floatRes)) {
+        document.getElementById('status-flags').textContent = "Infinity";
     } else {
         document.getElementById('status-flags').textContent = "Normal";
     }
-    log(`Final Result: ${floatRes}`);
+    log(`Final Result: ${floatRes} (Bits: ${binStr})`);
 }
 
 function runAll() {

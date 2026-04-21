@@ -235,37 +235,30 @@ async function runSimulation() {
         log(`Cycle ${captureCycle + 1 + i}: Output byte = 0x${byte.toString(16).padStart(2, '0')}`);
     }
 
-    // Process 32-bit signed result (fixed point with 13-bit fractional part usually,
-    // but depends on ALIGNER_WIDTH/ACCUMULATOR_WIDTH.
-    // In our Full variant: ALIGNER_WIDTH=40, ACCUMULATOR_WIDTH=32.
-    // The accumulator is signed 32-bit.
-    let signedRes = result;
-    if (result & 0x80000000n) {
-        signedRes = result - 0x100000000n;
-    }
+    // Process 32-bit result as IEEE 754 Float32
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    view.setUint32(0, Number(result & 0xFFFFFFFFn), false);
+    const floatRes = view.getFloat32(0, false);
 
-    // Scaling: The hardware aligner/accumulator has a fixed-point position.
-    // Based on project.v, for E4M3 (bias 7), 1.0 * 1.0 = 2^0.
-    // The aligner output usually has some fractional bits.
-    // In the E4M3 example in README: 1.0 * 1.0 (32 times) = 0x00002000 => 32.0.
-    // This implies 0x00000100 is 1.0. So 8 bits of fraction.
-
-    const floatRes = Number(signedRes) / 256.0;
+    // Binary representation
+    const bits = result & 0xFFFFFFFFn;
+    const sign = (bits >> 31n) & 1n;
+    const exp = (bits >> 23n) & 0xFFn;
+    const mant = bits & 0x7FFFFFn;
+    const binStr = `${sign} | ${exp.toString(2).padStart(8, '0')} | ${mant.toString(2).padStart(23, '0')}`;
 
     document.getElementById('acc-hex').textContent = `0x${result.toString(16).padStart(8, '0').toUpperCase()}`;
-    document.getElementById('acc-dec').textContent = floatRes.toFixed(4);
+    document.getElementById('acc-dec').textContent = floatRes.toExponential(4);
+    document.getElementById('acc-bin').textContent = binStr;
 
-    // Check for Sticky Flags (Infinities/NaNs)
-    // The RTL uses a special byte output if sticky flags are set.
-    // Cycle 37: 0x7F/0xFF if Inf/NaN
-    // Cycle 38: 0xC0/0x80 if NaN/Inf
-
-    // Let's just log if the result looks like a special value
-    if (result === 0x7FC00000n || result === 0x7F800000n || result === 0xFF800000n) {
-        document.getElementById('status-flags').textContent = "Special Value (NaN/Inf) detected";
+    if (isNaN(floatRes)) {
+        document.getElementById('status-flags').textContent = "NaN (Not a Number)";
+    } else if (!isFinite(floatRes)) {
+        document.getElementById('status-flags').textContent = "Infinity";
     } else {
         document.getElementById('status-flags').textContent = "Normal";
     }
 
-    log(`Final Result: ${floatRes}`);
+    log(`Final Result: ${floatRes} (Bits: ${binStr})`);
 }
