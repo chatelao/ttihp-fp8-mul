@@ -1,0 +1,14 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1776795100" />
+    <testcase name="test_fp4_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="6" time="0.05753970146179199" sim_time_ns="2540.0" ratio_time="44143.43375915207">
+      <failure error_type="AssertionError" error_msg="assert 0 == -889192466" />
+    </testcase>
+    <testcase name="test_fp8_e4m3_mantissa_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="28" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_fp8_e5m2_mantissa_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="50" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>

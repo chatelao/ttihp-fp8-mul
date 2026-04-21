@@ -22,7 +22,7 @@ module fp8_aligner #(
     input  wire        sign,           // The sign bit of the product (1 = negative).
     input  wire [1:0]  round_mode,     // Selects the rounding mode: 0=TRN, 1=CEL, 2=FLR, 3=RNE.
     input  wire        overflow_wrap,  // 1 = wrap around on overflow, 0 = saturate.
-    output reg  [31:0] aligned         // The 32-bit aligned fixed-point result.
+    output reg  [WIDTH-1:0] aligned    // The aligned fixed-point result.
 );
 
     // Constant definitions for rounding modes (2 bits each).
@@ -51,9 +51,9 @@ module fp8_aligner #(
 
             // Handle sign: if negative, convert magnitude to 2's complement negative.
             if (sign)
-                aligned = -base[31:0];
+                aligned = -base;
             else
-                aligned = base[31:0];
+                aligned = base;
         end
     end else begin : gen_standard
         /**
@@ -81,7 +81,7 @@ module fp8_aligner #(
             sticky = 1'b0;
             round_bit = 1'b0;
             n = 11'd0;
-            aligned = 32'd0;
+            aligned = {WIDTH{1'b0}};
             mask = {WIDTH{1'b0}};
 
             if (shift_amt >= 0) begin
@@ -141,19 +141,19 @@ module fp8_aligner #(
             end
 
             // Saturation Logic:
-            // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000.
+            // For signed WIDTH-bit: positive max is 2^(WIDTH-1)-1, negative min is -2^(WIDTH-1).
             if (sign) begin
                 // Check if negative value is too large to represent.
-                if (!overflow_wrap && (huge || |(rounded >> 32) || (rounded[31] && |rounded[30:0])))
-                    aligned = 32'h80000000; // Negative maximum (saturation).
+                if (!overflow_wrap && (huge || |(rounded >> WIDTH) || (rounded[WIDTH-1] && |rounded[WIDTH-2:0])))
+                    aligned = {1'b1, {(WIDTH-1){1'b0}}}; // Negative maximum (saturation).
                 else
-                    aligned = -rounded[31:0];
+                    aligned = -rounded;
             end else begin
                 // Check if positive value is too large to represent.
-                if (!overflow_wrap && (huge || |(rounded >> 31)))
-                    aligned = 32'h7FFFFFFF; // Positive maximum (saturation).
+                if (!overflow_wrap && (huge || |(rounded >> (WIDTH-1))))
+                    aligned = {1'b0, {(WIDTH-1){1'b1}}}; // Positive maximum (saturation).
                 else
-                    aligned = rounded[31:0];
+                    aligned = rounded;
             end
         end
     end

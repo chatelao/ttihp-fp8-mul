@@ -25,10 +25,10 @@ async def test_aligner_basic(dut):
         await Timer(1, unit="ns")
 
         expected_val = align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0)
-        expected = expected_val & 0xFFFFFFFF
+        expected = expected_val & 0xFFFFFFFFFF
         actual = int(dut.aligned.value)
 
-        dut._log.info(f"{label}: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}) -> Actual: 0x{actual:08x}, Expected: 0x{expected:08x}")
+        dut._log.info(f"{label}: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}) -> Actual: 0x{actual:10x}, Expected: 0x{expected:10x}")
         assert actual == expected
 
 @cocotb.test()
@@ -48,9 +48,9 @@ async def test_aligner_random(dut):
         await Timer(1, unit="ns")
 
         expected_val = align_model(prod, exp_sum, sign, round_mode=rm, overflow_wrap=ov)
-        expected = expected_val & 0xFFFFFFFF
+        expected = expected_val & 0xFFFFFFFFFF
         actual = int(dut.aligned.value)
 
         if actual != expected:
-             dut._log.error(f"FAIL: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}, rm={rm}, ov={ov}) -> Actual: 0x{actual:08x}, Expected: 0x{expected:08x}")
+             dut._log.error(f"FAIL: Input (prod={prod}, exp_sum={exp_sum}, sign={sign}, rm={rm}, ov={ov}) -> Actual: 0x{actual:10x}, Expected: 0x{expected:10x}")
         assert actual == expected

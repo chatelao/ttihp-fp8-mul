@@ -1,0 +1,66 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1776794775" />
+    <testcase name="test_mxfp8_mac_shared_scale" classname="test" file="/app/test/test.py" lineno="513" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp8_mac_e4m3" classname="test" file="/app/test/test.py" lineno="523" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp8_mac_e5m2" classname="test" file="/app/test/test.py" lineno="532" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_rounding_modes" classname="test" file="/app/test/test.py" lineno="541" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_overflow_saturation" classname="test" file="/app/test/test.py" lineno="563" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_accumulator_saturation" classname="test" file="/app/test/test.py" lineno="576" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp4_packed_serial" classname="test" file="/app/test/test.py" lineno="590" time="0.0005528926849365234" sim_time_ns="0.0" ratio_time="0.0" />
+    <testcase name="test_mxfp4_packed" classname="test" file="/app/test/test.py" lineno="603" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mixed_precision" classname="test" file="/app/test/test.py" lineno="616" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp_mac_randomized" classname="test" file="/app/test/test.py" lineno="632" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_fast_start_scale_compression" classname="test" file="/app/test/test.py" lineno="660" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_yaml_cases" classname="test" file="/app/test/test.py" lineno="765" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mx_fp4_yaml" classname="test" file="/app/test/test.py" lineno="769" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_min_max_zero_yaml" classname="test" file="/app/test/test.py" lineno="773" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxplus_yaml" classname="test" file="/app/test/test.py" lineno="777" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp4_input_buffering" classname="test" file="/app/test/test.py" lineno="784" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp8_sticky_flags" classname="test" file="/app/test/test.py" lineno="825" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_lns_modes" classname="test" file="/app/test/test.py" lineno="848" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp8_subnormals" classname="test" file="/app/test/test.py" lineno="866" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_lane_overflow" classname="test" file="/app/test/test.py" lineno="872" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_mxfp4_full_range" classname="test" file="/app/test/test.py" lineno="880" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>
