@@ -1,0 +1,21 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1776751811" />
+    <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="105" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="136" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_shared_scale_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="164" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_lns_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="177" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+    <testcase name="test_randomized_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="212" time="9.692614555358887" sim_time_ns="234510.0" ratio_time="24194.710174495" />
+    <testcase name="test_coverage_report" classname="test_coverage" file="/app/test/test_coverage.py" lineno="252" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>
