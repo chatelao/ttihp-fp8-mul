@@ -13,7 +13,7 @@
  * at compile-time based on the 'OPTIMIZE_FOR_FP4' parameter.
  */
 module fp8_aligner #(
-    parameter WIDTH = 40,               // Bit-width of the internal alignment datapath.
+    parameter WIDTH = 80,               // Bit-width of the internal alignment datapath.
     parameter SUPPORT_ADV_ROUNDING = 1, // Enable support for advanced rounding modes.
     parameter OPTIMIZE_FOR_FP4 = 0      // 1 = simplified area-optimized version for FP4.
 )(
@@ -22,7 +22,7 @@ module fp8_aligner #(
     input  wire        sign,           // The sign bit of the product (1 = negative).
     input  wire [1:0]  round_mode,     // Selects the rounding mode: 0=TRN, 1=CEL, 2=FLR, 3=RNE.
     input  wire        overflow_wrap,  // 1 = wrap around on overflow, 0 = saturate.
-    output reg  [31:0] aligned         // The 32-bit aligned fixed-point result.
+    output reg  [WIDTH-1:0] aligned    // The aligned fixed-point result.
 );
 
     // Constant definitions for rounding modes (2 bits each).
@@ -31,9 +31,11 @@ module fp8_aligner #(
     localparam R_FLR = 2'b10; // Floor (Towards -Infinity)
     localparam R_RNE = 2'b11; // Round-to-Nearest-Ties-to-Even
 
-    // shift_amt: We calculate how many positions to shift based on the bias-adjusted exponent.
-    // 5 is subtracted to align with the fixed-point accumulator (bit 8 = 2^0).
-    wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
+    // shift_amt: Align to a fixed-point grid where bit 34 is 2^0.
+    // Given Value = prod * 2^(exp_sum - 13).
+    // Target Value = aligned * 2^-34.
+    // So aligned = prod * 2^(exp_sum - 13 + 34) = prod * 2^(exp_sum + 21).
+    wire signed [10:0] shift_amt = $signed(exp_sum) + 11'sd21;
 
     generate
     if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized
@@ -51,9 +53,9 @@ module fp8_aligner #(
 
             // Handle sign: if negative, convert magnitude to 2's complement negative.
             if (sign)
-                aligned = -base[31:0];
+                aligned = -base;
             else
-                aligned = base[31:0];
+                aligned = base;
         end
     end else begin : gen_standard
         /**
@@ -81,7 +83,7 @@ module fp8_aligner #(
             sticky = 1'b0;
             round_bit = 1'b0;
             n = 11'd0;
-            aligned = 32'd0;
+            aligned = {WIDTH{1'b0}};
             mask = {WIDTH{1'b0}};
 
             if (shift_amt >= 0) begin
@@ -90,7 +92,7 @@ module fp8_aligner #(
                     // Check if shift is too large for the internal width.
                     if (shift_amt >= $signed({1'b0, WIDTH[9:0]})) begin
                         huge = 1'b1;
-                        rounded = {WIDTH{1'b0}};
+                        rounded = {WIDTH{1'b1}}; // Saturate
                     end else begin
                         // Check if bits will be lost by shifting out of the window.
                         if (shift_amt > 0 && |(shifted >> ($signed({1'b0, WIDTH[9:0]}) - shift_amt))) huge = 1'b1;
@@ -141,19 +143,16 @@ module fp8_aligner #(
             end
 
             // Saturation Logic:
-            // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000.
             if (sign) begin
-                // Check if negative value is too large to represent.
-                if (!overflow_wrap && (huge || |(rounded >> 32) || (rounded[31] && |rounded[30:0])))
-                    aligned = 32'h80000000; // Negative maximum (saturation).
+                if (!overflow_wrap && (huge))
+                    aligned = {1'b1, {(WIDTH-1){1'b0}}};
                 else
-                    aligned = -rounded[31:0];
+                    aligned = -rounded;
             end else begin
-                // Check if positive value is too large to represent.
-                if (!overflow_wrap && (huge || |(rounded >> 31)))
-                    aligned = 32'h7FFFFFFF; // Positive maximum (saturation).
+                if (!overflow_wrap && (huge))
+                    aligned = {1'b0, {(WIDTH-1){1'b1}}};
                 else
-                    aligned = rounded[31:0];
+                    aligned = rounded;
             end
         end
     end

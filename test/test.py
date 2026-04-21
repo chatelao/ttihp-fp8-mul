@@ -6,124 +6,145 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
 import yaml
 import os
+import struct
+
+def to_float32_bits(f):
+    return struct.unpack('>I', struct.pack('>f', f))[0]
+
+def from_float32_bits(i):
+    return struct.unpack('>f', struct.pack('>I', i & 0xFFFFFFFF))[0]
 
 def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
                   support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
     nan = False
     inf = False
+    val = 0.0
     if format_val == 0 and support_e4m3: # E4M3
         sign = (bits >> 7) & 1
         bias = 7
         is_int = False
         if is_bm and support_mxplus:
-            exp = 11 # 15 - 4
-            mant = (1 << 7) | (bits & 0x7F)
+            # MX+ Block Max for E4M3: 1.m[6:0] * 2^(15-7)
+            # Actually E4M3 max exponent is 14 (if we don't count NaN).
+            # Spec says: 2^(E_max - bias) * (1 + m_ext/2^bits)
+            # For E4M3, E_max=15. bias=7. bits=7.
+            exp_val = 15 - 7
+            mant_ext = bits & 0x7F
+            val = (1.0 + mant_ext / 128.0) * (2.0 ** exp_val)
+            if sign: val = -val
         else:
             exp_field = (bits >> 3) & 0xF
             mant_field = (bits & 0x7)
-            is_subnormal = (exp_field == 0 and mant_field != 0)
-            exp = 1 if is_subnormal else exp_field
-            implicit_bit = 0 if (exp_field == 0) else 1
-            mant = (implicit_bit << 3) | mant_field
-            if bits & 0x7F == 0x7F: nan = True
-        return sign, exp, mant, bias, is_int, nan, inf
+            if bits & 0x7F == 0x7F:
+                nan = True
+                val = float('nan')
+            elif exp_field == 0:
+                # Subnormal: (-1)^s * 2^(1-7) * (0.mmm)
+                val = (mant_field / 8.0) * (2.0 ** -6)
+                if sign: val = -val
+            else:
+                # Normal: (-1)^s * 2^(e-7) * (1.mmm)
+                val = (1.0 + mant_field / 8.0) * (2.0 ** (exp_field - 7))
+                if sign: val = -val
+        return val, nan, inf
     elif format_val == 1 and support_e5m2: # E5M2
         sign = (bits >> 7) & 1
         bias = 15
         is_int = False
         if is_bm and support_mxplus:
-            exp = 26 # 30 - 4
-            mant = (1 << 7) | (bits & 0x7F)
+            # MX+ Block Max for E5M2: 1.m[6:0] * 2^(30-15)
+            exp_val = 30 - 15
+            mant_ext = bits & 0x7F
+            val = (1.0 + mant_ext / 128.0) * (2.0 ** exp_val)
+            if sign: val = -val
         else:
             exp_field = (bits >> 2) & 0x1F
             mant_field = (bits & 0x3)
-            is_subnormal = (exp_field == 0 and mant_field != 0)
-            exp = 1 if is_subnormal else exp_field
-            implicit_bit = 0 if (exp_field == 0) else 1
-            mant = (implicit_bit << 2) | mant_field
-            mant <<= 1 # Align to 4 bits
             if exp_field == 0x1F:
-                if mant_field == 0: inf = True
-                else: nan = True
-        return sign, exp, mant, bias, is_int, nan, inf
+                if mant_field == 0:
+                    inf = True
+                    val = float('inf') if sign == 0 else float('-inf')
+                else:
+                    nan = True
+                    val = float('nan')
+            elif exp_field == 0:
+                val = (mant_field / 4.0) * (2.0 ** -14)
+                if sign: val = -val
+            else:
+                val = (1.0 + mant_field / 4.0) * (2.0 ** (exp_field - 15))
+                if sign: val = -val
+        return val, nan, inf
     elif format_val == 2 and support_mxfp6: # E3M2
         sign = (bits >> 5) & 1
         bias = 3
         is_int = False
         if is_bm and support_mxplus:
-            exp = 5 # 7 - 2
-            mant = (1 << 5) | (bits & 0x1F)
+            exp_val = 7 - 3
+            mant_ext = bits & 0x1F
+            val = (1.0 + mant_ext / 32.0) * (2.0 ** exp_val)
+            if sign: val = -val
         else:
             exp_field = (bits >> 2) & 0x7
             mant_field = (bits & 0x3)
-            is_subnormal = (exp_field == 0 and mant_field != 0)
-            exp = 1 if is_subnormal else exp_field
-            implicit_bit = 0 if (exp_field == 0) else 1
-            mant = (implicit_bit << 2) | mant_field
-            mant <<= 1 # Align to 4 bits
-        return sign, exp, mant, bias, is_int, nan, inf
+            if exp_field == 0:
+                val = (mant_field / 4.0) * (2.0 ** -2)
+                if sign: val = -val
+            else:
+                val = (1.0 + mant_field / 4.0) * (2.0 ** (exp_field - 3))
+                if sign: val = -val
+        return val, nan, inf
     elif format_val == 3 and support_mxfp6: # E2M3
         sign = (bits >> 5) & 1
         bias = 1
         is_int = False
         if is_bm and support_mxplus:
-            exp = 1 # 3 - 2
-            mant = (1 << 5) | (bits & 0x1F)
+            exp_val = 3 - 1
+            mant_ext = bits & 0x1F
+            val = (1.0 + mant_ext / 32.0) * (2.0 ** exp_val)
+            if sign: val = -val
         else:
             exp_field = (bits >> 3) & 0x3
             mant_field = (bits & 0x7)
-            is_subnormal = (exp_field == 0 and mant_field != 0)
-            exp = 1 if is_subnormal else exp_field
-            implicit_bit = 0 if (exp_field == 0) else 1
-            mant = (implicit_bit << 3) | mant_field
-        return sign, exp, mant, bias, is_int, nan, inf
+            if exp_field == 0:
+                val = (mant_field / 8.0) * (2.0 ** 0)
+                if sign: val = -val
+            else:
+                val = (1.0 + mant_field / 8.0) * (2.0 ** (exp_field - 1))
+                if sign: val = -val
+        return val, nan, inf
     elif format_val == 4 and support_mxfp4: # E2M1
         sign = (bits >> 3) & 1
         bias = 1
         is_int = False
         if is_bm and support_mxplus:
-            exp = 3 # 3 - 0
-            mant = (1 << 3) | (bits & 0x7)
+            exp_val = 3 - 1
+            mant_ext = bits & 0x7
+            val = (1.0 + mant_ext / 8.0) * (2.0 ** exp_val)
+            if sign: val = -val
         else:
             exp_field = (bits >> 1) & 0x3
             mant_field = (bits & 0x1)
-            is_subnormal = (exp_field == 0 and mant_field != 0)
-            exp = 1 if is_subnormal else exp_field
-            implicit_bit = 0 if (exp_field == 0) else 1
-            mant = (implicit_bit << 1) | mant_field
-            mant <<= 2 # Align to 4 bits
-        return sign, exp, mant, bias, is_int, nan, inf
+            if exp_field == 0:
+                val = (mant_field / 2.0) * (2.0 ** 0)
+                if sign: val = -val
+            else:
+                val = (1.0 + mant_field / 2.0) * (2.0 ** (exp_field - 1))
+                if sign: val = -val
+        return val, nan, inf
     elif format_val == 5: # INT8
-        sign = (bits >> 7) & 1
-        val = bits if bits < 128 else bits - 256
-        mant = abs(val)
-        exp = 0
-        bias = 3
-        is_int = True
+        v = bits if bits < 128 else bits - 256
+        val = float(v) / 64.0
+        return val, False, False
     elif format_val == 6: # INT8_SYM
-        sign = (bits >> 7) & 1
-        val = bits if bits < 128 else bits - 256
-        if val == -128: val = -127
-        mant = abs(val)
-        exp = 0
-        bias = 3
-        is_int = True
-    else: # Default/Unsupported E4M3 fallthrough in HW
-        sign = (bits >> 7) & 1
-        exp_field = (bits >> 3) & 0xF
-        mant_field = (bits & 0x7)
-        is_subnormal = (exp_field == 0 and mant_field != 0)
-        exp = 1 if is_subnormal else exp_field
-        implicit_bit = 0 if (exp_field == 0) else 1
-        mant = (implicit_bit << 3) | mant_field
-        bias = 7
-        is_int = False
-        return sign, exp, mant, bias, is_int, False, False
+        v = bits if bits < 128 else bits - 256
+        if v == -128: v = -127
+        val = float(v) / 64.0
+        return val, False, False
+    else: # Default E4M3
+        return decode_format(bits, 0, is_bm, support_mxplus, True, support_e5m2, support_mxfp6, support_mxfp4)
 
-    return sign, exp, mant, bias, is_int, nan, inf
-
-def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
-    shift_amt = exp_sum - 5
+def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=80):
+    shift_amt = exp_sum + 21
     WIDTH = width
 
     if shift_amt >= 0:
@@ -135,7 +156,6 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
         shifted_out = 0
         base = aligned
 
-        # Huge detection: if bits are shifted out of WIDTH-bit window
         huge = False
         if shift_amt >= WIDTH:
             if prod != 0: huge = True
@@ -171,26 +191,17 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
             aligned = base
 
     if sign:
-        # Check saturation for negative
-        # Magnitude > 2^31 saturates to -2^31
-        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
-        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+        if not overflow_wrap and huge:
+            res = -(1 << (WIDTH-1))
         else:
             res = -aligned
     else:
-        # Magnitude > 2^31-1 saturates to 2^31-1
-        # In RTL: (huge || |rounded[WIDTH-1:31])
-        if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+        if not overflow_wrap and huge:
+            res = (1 << (WIDTH-1)) - 1
         else:
             res = aligned
 
-    # Return as 32-bit signed integer
-    res_32 = res & 0xFFFFFFFF
-    if res_32 & 0x80000000:
-        return res_32 - 0x100000000
-    return res_32
+    return res
 
 def get_param(dut, name, default=1):
     # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
@@ -388,61 +399,50 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
     await ClockCycles(dut.clk, cycles_per_element)
 
-    expected_acc = 0
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    nan_sticky = support_shared and (scale_a == 0xFF or scale_b == 0xFF)
+    sum_val = 0.0
+    nan_sticky = (scale_a == 0xFF or scale_b == 0xFF)
     inf_pos_sticky = False
     inf_neg_sticky = False
 
-    # Process elements in groups of 32
     for i, (a, b) in enumerate(zip(a_elements, b_elements)):
         is_bm_a_cur = (i == bm_index_a)
         is_bm_b_cur = (i == bm_index_b)
 
-        sa, ea, ma, ba, inta, nana, infa = decode_format(a, format_a, is_bm_a_cur, support_mxplus,
-                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
-        sb, eb, mb, bb, intb, nanb, infb = decode_format(b, format_b, is_bm_b_cur, support_mxplus,
-                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+        val_a, nan_a, inf_a = decode_format(a, format_a, is_bm_a_cur, support_mxplus,
+                                           support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+        val_b, nan_b, inf_b = decode_format(b, format_b, is_bm_b_cur, support_mxplus,
+                                           support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
 
-        # Basic NaN/Inf model for sticky registers
-        is_zero_a = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a == 0)
-        is_zero_b = (not intb and eb == 0 and (mb & 0x7) == 0) or (intb and b == 0)
+        if nan_a or nan_b: nan_sticky = True
+        if (inf_a and val_b == 0) or (inf_b and val_a == 0): nan_sticky = True
 
-        nan_el = nana or nanb or (infa and is_zero_b) or (infb and is_zero_a)
-        inf_el = (infa or infb) and not nan_el
-        sign_el = sa ^ sb
+        if not nan_sticky:
+            if inf_a or inf_b:
+                res_inf = float('inf') if (val_a * val_b) > 0 else float('-inf')
+                if res_inf > 0: inf_pos_sticky = True
+                else:          inf_neg_sticky = True
+            else:
+                # Apply MX++ offsets to NBM elements
+                eff_a = val_a
+                if mx_plus_mode and not is_bm_a_cur:
+                    eff_a = val_a * (2.0 ** (-nbm_offset_a))
+                eff_b = val_b
+                if mx_plus_mode and not is_bm_b_cur:
+                    eff_b = val_b * (2.0 ** (-nbm_offset_b))
 
-        if nan_el: nan_sticky = True
-        if inf_el:
-            if sign_el: inf_neg_sticky = True
-            else:      inf_pos_sticky = True
+                sum_val += eff_a * eff_b
 
-        prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap,
-                                   support_e4m3, support_e5m2, support_mxfp6, support_mxfp4, support_int8, use_lns, use_lns_precise, aligner_width=aligner_width,
-                                   is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
-                                   offset_a=nbm_offset_a if mx_plus_mode else 0,
-                                   offset_b=nbm_offset_b if mx_plus_mode else 0,
-                                   lns_mode=lns_mode)
-
-        mask = (1 << acc_width) - 1
-        acc_masked = expected_acc & mask
-        prod_masked = prod & mask
-        sum_masked = (acc_masked + prod_masked) & mask
-
-        # Signed overflow check
-        s_acc = (acc_masked >> (acc_width - 1)) & 1
-        s_prod = (prod_masked >> (acc_width - 1)) & 1
-        s_res = (sum_masked >> (acc_width - 1)) & 1
-
-        if not overflow_wrap and (s_acc == s_prod) and (s_acc != s_res):
-            expected_acc_raw = (1 << (acc_width - 1)) if s_acc == 1 else (1 << (acc_width - 1)) - 1
-        else:
-            expected_acc_raw = sum_masked
-
-        if expected_acc_raw & (1 << (acc_width - 1)):
-            expected_acc = expected_acc_raw - (1 << acc_width)
-        else:
-            expected_acc = expected_acc_raw
+    # Calculate expected final result after shared scaling
+    if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
+        expected_final_bits = 0x7FC00000 # NaN
+    elif inf_pos_sticky:
+        expected_final_bits = 0x7F800000 # +Inf
+    elif inf_neg_sticky:
+        expected_final_bits = 0xFF800000 # -Inf
+    else:
+        shared_scale = (2.0 ** (scale_a - 127)) * (2.0 ** (scale_b - 127))
+        final_val = sum_val * shared_scale
+        expected_final_bits = to_float32_bits(final_val)
 
     if actual_packed:
         for i in range(16):
@@ -481,47 +481,34 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Shared scaling alignment
     await ClockCycles(dut.clk, cycles_per_element)
 
-    # Calculate expected final result after shared scaling
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-        expected_final = 0x7FC00000
-    elif inf_pos_sticky:
-        expected_final = 0x7F800000
-    elif inf_neg_sticky:
-        expected_final = 0xFF800000
-    elif support_shared:
-        shared_exp = scale_a + scale_b - 254
-        acc_abs = abs(expected_acc)
-        acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
-    else:
-        # If no shared scaling, the result is sign-extended to 32-bit in hardware
-        if expected_acc < 0:
-            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
-        else:
-            expected_final = expected_acc
-
-    if expected_final >= 0x80000000:
-        expected_final -= 0x100000000
-
     # Cycle 37-40 (or 21-24): Output Serialized Result
-    actual_acc = 0
+    actual_acc_bits = 0
     for i in range(4):
         await Timer(1, unit="ns")
-        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        actual_acc_bits = (actual_acc_bits << 8) | int(dut.uo_out.value)
         await ClockCycles(dut.clk, cycles_per_element)
 
-    if actual_acc & 0x80000000:
-        actual_acc -= 0x100000000
-
     if expected_override is not None:
-        expected_final = expected_override
+        expected_final_bits = expected_override
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
-    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
-    assert actual_acc == expected_final
+
+    exp_f = from_float32_bits(expected_final_bits)
+    act_f = from_float32_bits(actual_acc_bits)
+
+    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}")
+    dut._log.info(f"Expected: 0x{expected_final_bits:08X} ({exp_f}), Actual: 0x{actual_acc_bits:08X} ({act_f})")
+
+    if expected_override is None:
+        # Standard check: if it's NaN, bits might differ in mantissa but usually we use 0x7FC00000
+        if nan_sticky:
+            assert (actual_acc_bits & 0x7F800000) == 0x7F800000 and (actual_acc_bits & 0x007FFFFF) != 0
+        else:
+            assert actual_acc_bits == expected_final_bits
+    else:
+        assert actual_acc_bits == expected_final_bits
 
 @cocotb.test()
 async def test_mxfp8_mac_shared_scale(dut):

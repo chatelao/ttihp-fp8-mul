@@ -13,7 +13,7 @@
  * 'WIDTH' here determines how many bits the accumulator can hold.
  */
 module accumulator #(
-    parameter WIDTH = 32 // The bit-width of the internal accumulation register.
+    parameter WIDTH = 80 // The bit-width of the internal accumulation register.
 )(
     input  wire        clk,           // System clock: All operations happen on the rising edge.
     input  wire        rst_n,         // Active-low asynchronous reset: Returns the register to zero immediately.
@@ -29,15 +29,14 @@ module accumulator #(
 );
 
     // 'localparam' is a constant that is only visible inside this module.
-    // We ensure REG_WIDTH is at least 32 bits to match 'load_data'.
-    localparam REG_WIDTH = (WIDTH > 32) ? WIDTH : 32;
+    localparam REG_WIDTH = WIDTH;
 
     // 'reg' is a Verilog data type that can hold a value. In this case, it will be synthesized into flip-flops.
     reg [REG_WIDTH-1:0] acc_reg;
 
     // 'assign' statements create combinational logic that continuously drives a wire.
-    assign data_out  = acc_reg[WIDTH-1:0];
-    assign shift_out = acc_reg[REG_WIDTH-1:REG_WIDTH-8];
+    assign data_out  = acc_reg;
+    assign shift_out = acc_reg[31:24]; // Default, but project.v uses serialized output differently now.
 
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
     // $signed() tells the simulator/synthesizer to treat the bits as 2's complement numbers.
@@ -61,11 +60,11 @@ module accumulator #(
             // Clear: Synchronous return to zero.
             acc_reg <= {REG_WIDTH{1'b0}};
         end else if (load_en) begin
-            // Load: Direct assignment from load_data.
-            acc_reg <= {load_data, {(REG_WIDTH-32){1'b0}}};
+            // Load: Direct assignment from load_data (expanding 32-bit Float32 into internal reg).
+            acc_reg <= {{(REG_WIDTH-32){1'b0}}, load_data};
         end else if (shift_en) begin
             // Shift: Move bits 8 positions to the left, filling with zeros from the right.
-            acc_reg <= {acc_reg[REG_WIDTH-9:0], 8'd0};
+            acc_reg[31:0] <= {acc_reg[23:0], 8'd0};
         end else if (en) begin
             // Accumulate: Decide between saturation and wrapping if an overflow occurred.
             if (overflow && !overflow_wrap) begin

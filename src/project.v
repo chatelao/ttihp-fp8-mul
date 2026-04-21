@@ -17,8 +17,8 @@
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
-    parameter ALIGNER_WIDTH = 40,
-    parameter ACCUMULATOR_WIDTH = 32,
+    parameter ALIGNER_WIDTH = 80,
+    parameter ACCUMULATOR_WIDTH = 80,
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
@@ -383,8 +383,8 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Control signal to enable the accumulator only when valid products are arriving.
     wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && state == STATE_STREAM) :
+                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && state == STATE_STREAM));
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
@@ -701,23 +701,12 @@ module tt_um_chatelao_fp8_multiplier #(
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
 
-    // Multiplier for Aligner Input based on current protocol phase.
-    wire [31:0] aligner_lane0_in_prod_acc;
-    generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_aligner_prod_acc_wide
-            assign aligner_lane0_in_prod_acc = acc_abs_val[31:0];
-        end else begin : gen_aligner_prod_acc_narrow
-            assign aligner_lane0_in_prod_acc = {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val};
-        end
-    endgenerate
+    // Multiplier for Aligner Input.
+    wire [31:0] aligner_lane0_in_prod = {16'd0, mul_prod_lane0_val};
+    wire signed [9:0] aligner_lane0_in_exp  = exp_sum_lane0_adj;
+    wire aligner_lane0_in_sign = mul_sign_lane0_val;
 
-    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    aligner_lane0_in_prod_acc :
-                                    {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
-
-    wire [31:0] aligned_lane0_res;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
         .WIDTH(ALIGNER_WIDTH),
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
@@ -732,7 +721,7 @@ module tt_um_chatelao_fp8_multiplier #(
     );
 
     /* verilator lint_off UNUSEDSIGNAL */
-    wire [31:0] aligned_lane1_res;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane1_res;
     /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
@@ -754,7 +743,7 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({aligned_lane0_res[ACCUMULATOR_WIDTH-1], aligned_lane0_res[ACCUMULATOR_WIDTH-1:0]}) + $signed({aligned_lane1_res[ACCUMULATOR_WIDTH-1], aligned_lane1_res[ACCUMULATOR_WIDTH-1:0]});
+    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({aligned_lane0_res[ACCUMULATOR_WIDTH-1], aligned_lane0_res}) + $signed({aligned_lane1_res[ACCUMULATOR_WIDTH-1], aligned_lane1_res});
     wire combined_overflow = (aligned_lane0_res[ACCUMULATOR_WIDTH-1] == aligned_lane1_res[ACCUMULATOR_WIDTH-1]) && (combined_full[ACCUMULATOR_WIDTH-1] != aligned_lane0_res[ACCUMULATOR_WIDTH-1]);
     wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
                                                      (aligned_lane0_res[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
@@ -763,29 +752,79 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
-    wire [31:0] acc_out_ext;
-    generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_acc_out_ext_wide
-            assign acc_out_ext = acc_out[31:0];
-        end else begin : gen_acc_out_ext_narrow
-            assign acc_out_ext = {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
-        end
-    endgenerate
 
-    // --- Sticky Override Logic ---
-    // Standardizes the representation of Infinities and NaNs in the output.
-    reg [7:0] sticky_byte;
-    wire [5:0] output_byte_idx = logical_cycle - capture_cycle;
+    // --- IEEE 754 Float32 Conversion Stage ---
+    reg [31:0] float32_res;
+
+    wire [ACCUMULATOR_WIDTH-1:0] conv_src = acc_out;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [ACCUMULATOR_WIDTH-1:0] conv_abs = conv_src[ACCUMULATOR_WIDTH-1] ? -conv_src : conv_src;
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    // Leading zero detection for normalization.
+    wire [6:0] leading_zeros;
+    assign leading_zeros =
+        conv_abs[79] ? 7'd0  : conv_abs[78] ? 7'd1  : conv_abs[77] ? 7'd2  : conv_abs[76] ? 7'd3  :
+        conv_abs[75] ? 7'd4  : conv_abs[74] ? 7'd5  : conv_abs[73] ? 7'd6  : conv_abs[72] ? 7'd7  :
+        conv_abs[71] ? 7'd8  : conv_abs[70] ? 7'd9  : conv_abs[69] ? 7'd10 : conv_abs[68] ? 7'd11 :
+        conv_abs[67] ? 7'd12 : conv_abs[66] ? 7'd13 : conv_abs[65] ? 7'd14 : conv_abs[64] ? 7'd15 :
+        conv_abs[63] ? 7'd16 : conv_abs[62] ? 7'd17 : conv_abs[61] ? 7'd18 : conv_abs[60] ? 7'd19 :
+        conv_abs[59] ? 7'd20 : conv_abs[58] ? 7'd21 : conv_abs[57] ? 7'd22 : conv_abs[56] ? 7'd23 :
+        conv_abs[55] ? 7'd24 : conv_abs[54] ? 7'd25 : conv_abs[53] ? 7'd26 : conv_abs[52] ? 7'd27 :
+        conv_abs[51] ? 7'd28 : conv_abs[50] ? 7'd29 : conv_abs[49] ? 7'd30 : conv_abs[48] ? 7'd31 :
+        conv_abs[47] ? 7'd32 : conv_abs[46] ? 7'd33 : conv_abs[45] ? 7'd34 : conv_abs[44] ? 7'd35 :
+        conv_abs[43] ? 7'd36 : conv_abs[42] ? 7'd37 : conv_abs[41] ? 7'd38 : conv_abs[40] ? 7'd39 :
+        conv_abs[39] ? 7'd40 : conv_abs[38] ? 7'd41 : conv_abs[37] ? 7'd42 : conv_abs[36] ? 7'd43 :
+        conv_abs[35] ? 7'd44 : conv_abs[34] ? 7'd45 : conv_abs[33] ? 7'd46 : conv_abs[32] ? 7'd47 :
+        conv_abs[31] ? 7'd48 : conv_abs[30] ? 7'd49 : conv_abs[29] ? 7'd50 : conv_abs[28] ? 7'd51 :
+        conv_abs[27] ? 7'd52 : conv_abs[26] ? 7'd53 : conv_abs[25] ? 7'd54 : conv_abs[24] ? 7'd55 :
+        conv_abs[23] ? 7'd56 : conv_abs[22] ? 7'd57 : conv_abs[21] ? 7'd58 : conv_abs[20] ? 7'd59 :
+        conv_abs[19] ? 7'd60 : conv_abs[18] ? 7'd61 : conv_abs[17] ? 7'd62 : conv_abs[16] ? 7'd63 :
+        conv_abs[15] ? 7'd64 : conv_abs[14] ? 7'd65 : conv_abs[13] ? 7'd66 : conv_abs[12] ? 7'd67 :
+        conv_abs[11] ? 7'd68 : conv_abs[10] ? 7'd69 : conv_abs[9]  ? 7'd70 : conv_abs[8]  ? 7'd71 :
+        conv_abs[7]  ? 7'd72 : conv_abs[6]  ? 7'd73 : conv_abs[5]  ? 7'd74 : conv_abs[4]  ? 7'd75 :
+        conv_abs[3]  ? 7'd76 : conv_abs[2]  ? 7'd77 : conv_abs[1]  ? 7'd78 : conv_abs[0]  ? 7'd79 : 7'd80;
+
+    wire signed [10:0] f32_exp_shared = $signed(shared_exp) + $signed(11'sd127) + $signed({4'd0, 7'd79 - leading_zeros}) - 11'sd34;
+    wire [7:0] final_f32_exp = (f32_exp_shared >= 255) ? 8'hFF : (f32_exp_shared <= 0) ? 8'h00 : f32_exp_shared[7:0];
+    wire [127:0] normalized_mant = {conv_abs, 48'd0} << leading_zeros;
+    wire [22:0] f32_mant = normalized_mant[126:104];
+    wire round_bit_val = normalized_mant[103];
+    wire sticky_bit_val = |normalized_mant[102:0];
+
+    // Round-to-nearest-even
+    wire [22:0] rounded_mant = (round_bit_val && (sticky_bit_val || f32_mant[0])) ? f32_mant + 23'd1 : f32_mant;
+    wire mant_overflow = (round_bit_val && (sticky_bit_val || f32_mant[0]) && (f32_mant == 23'h7FFFFF));
+    wire [7:0] final_exp_norm = mant_overflow ? final_f32_exp + 8'd1 : final_f32_exp;
+
     always @(*) begin
-        case (output_byte_idx)
-            6'd1: sticky_byte = (nan_sticky || (inf_pos_sticky && inf_neg_sticky)) ? 8'h7F : (inf_pos_sticky ? 8'h7F : 8'hFF);
-            6'd2: sticky_byte = (nan_sticky || (inf_pos_sticky && inf_neg_sticky)) ? 8'hC0 : 8'h80;
-            default: sticky_byte = 8'h00;
-        endcase
+        if (nan_sticky || (inf_pos_sticky && inf_neg_sticky) || (final_f32_exp == 8'hFF && !inf_pos_sticky && !inf_neg_sticky)) begin
+            float32_res = 32'h7FC00000; // NaN
+        end else if (inf_pos_sticky || (final_f32_exp == 8'hFF && !conv_src[ACCUMULATOR_WIDTH-1])) begin
+            float32_res = 32'h7F800000; // +Inf
+        end else if (inf_neg_sticky || (final_f32_exp == 8'hFF && conv_src[ACCUMULATOR_WIDTH-1])) begin
+            float32_res = 32'hFF800000; // -Inf
+        end else if (conv_src == 80'd0) begin
+            float32_res = 32'h00000000; // Zero
+        end else begin
+            float32_res = {conv_src[ACCUMULATOR_WIDTH-1], final_exp_norm, mant_overflow ? 23'd0 : rounded_mant};
+        end
     end
-    wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
+    reg [31:0] float32_shift_reg;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            float32_shift_reg <= 32'd0;
+        end else if (ena && strobe) begin
+            if (logical_cycle == capture_cycle)
+                float32_shift_reg <= float32_res;
+            else if (state == STATE_OUTPUT)
+                float32_shift_reg <= {float32_shift_reg[23:0], 8'd0};
+        end
+    end
+    assign acc_shift_out = float32_shift_reg[31:24];
+
+    wire [31:0] final_scaled_result = float32_res;
 
     // Accumulator instance.
     accumulator #(
@@ -797,10 +836,10 @@ module tt_um_chatelao_fp8_multiplier #(
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
         .data_in(aligned_combined),
-        .load_en(ena && strobe && logical_cycle == capture_cycle),
-        .load_data(final_scaled_result),
-        .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
-        .shift_out(acc_shift_out),
+        .load_en(1'b0),
+        .load_data(32'd0),
+        .shift_en(1'b0),
+        .shift_out(),
         .data_out(acc_out)
     );
 
@@ -813,10 +852,10 @@ module tt_um_chatelao_fp8_multiplier #(
             assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
             assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
                                 (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
-                                (probe_sel_val == 4'h3) ? acc_out_ext[31:24] :
-                                (probe_sel_val == 4'h4) ? acc_out_ext[23:16] :
-                                (probe_sel_val == 4'h5) ? acc_out_ext[15:8] :
-                                (probe_sel_val == 4'h6) ? acc_out_ext[7:0] :
+                                (probe_sel_val == 4'h3) ? float32_res[31:24] :
+                                (probe_sel_val == 4'h4) ? float32_res[23:16] :
+                                (probe_sel_val == 4'h5) ? float32_res[15:8] :
+                                (probe_sel_val == 4'h6) ? float32_res[7:0] :
                                 (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
                                 (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
                                 (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} :
@@ -835,7 +874,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // Decides what data to send to uo_out based on current cycle and configuration.
     assign uo_out = loopback_en_val ? (ui_in ^ uio_in) :
                     (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
-                    (sticky_any ? sticky_byte : acc_shift_out) :
+                    acc_shift_out :
                     (debug_en_val && logical_cycle == capture_cycle - 6'd1) ? metadata_echo :
                     (debug_en_val && logical_cycle < capture_cycle) ? probe_data :
                     8'h00;
@@ -935,17 +974,13 @@ module tt_um_chatelao_fp8_multiplier #(
             if (loopback_en_val) begin
                 assert(uo_out == (ui_in ^ uio_in));
             end else if (state == STATE_OUTPUT && logical_cycle > capture_cycle) begin
-                if (sticky_any) begin
-                    assert(uo_out == sticky_byte);
-                end else begin
-                    case (logical_cycle - capture_cycle)
-                        6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
-                        6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
-                        6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
-                        6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
-                        default: assert(uo_out == 8'd0);
-                    endcase
-                end
+                case (logical_cycle - capture_cycle)
+                    6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
+                    6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
+                    6'd3: assert(uo_out == f_scaled_acc_reg[15:8]);
+                    6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
+                    default: assert(uo_out == 8'd0);
+                endcase
             end else if (debug_en_val && logical_cycle == capture_cycle - 6'd1) begin
                 assert(uo_out == metadata_echo);
             end else if (debug_en_val && logical_cycle < capture_cycle) begin
