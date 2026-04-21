@@ -1,12 +1,12 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776795106" />
+    <property name="random_seed" value="1776800450" />
     <testcase name="test_fp4_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="6" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
     <testcase name="test_fp8_e4m3_mantissa_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="28" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_fp8_e5m2_mantissa_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="50" time="0.02207326889038086" sim_time_ns="1010.0" ratio_time="45756.7025987773" />
+    <testcase name="test_fp8_e5m2_mantissa_exhaustive" classname="test_exhaustive" file="/app/test/test_exhaustive.py" lineno="50" time="0.02141094207763672" sim_time_ns="991.0" ratio_time="46284.74526747138" />
   </testsuite>
 </testsuites>

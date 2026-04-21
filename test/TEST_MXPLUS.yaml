@@ -1,15 +1,8 @@
-- test_case: 1
-  comment: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x02)=5.0, b[31] is BM(0x02)=5.0.
+- comment: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x02)=5.0, b[31] is BM(0x02)=5.0.
     Others 1.0. Total = 5 + 30 + 5 = 40.0. Fixed = 10240.
   disabled: false
+  expected_output: 1107296256
   inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
-    bm_index_a: 0
-    bm_index_b: 31
-    scale_a: 127
-    scale_b: 127
     a_elements:
     - 2
     - 2
@@ -76,19 +69,19 @@
     - 2
     - 2
     - 2
-  expected_output: 1109393408
-- test_case: 2
-  comment: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x05)=6.5, b[31] is BM(0x05)=6.5.
+    bm_index_a: 0
+    bm_index_b: 31
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
+    scale_a: 127
+    scale_b: 127
+  test_case: 1
+- comment: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x05)=6.5, b[31] is BM(0x05)=6.5.
     Others 1.0. Total = 6.5 + 30 + 6.5 = 43.0. Fixed = 11008.
   disabled: false
+  expected_output: 1108344832
   inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
-    bm_index_a: 0
-    bm_index_b: 31
-    scale_a: 127
-    scale_b: 127
     a_elements:
     - 5
     - 2
@@ -155,19 +148,19 @@
     - 2
     - 2
     - 5
-  expected_output: 1110179840
-- test_case: 3
-  comment: MXFP8+ (E4M3) BM element precision. a[10] is BM(0x38)=368.0, b[31] is BM(0x38)=368.0.
+    bm_index_a: 0
+    bm_index_b: 31
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
+    scale_a: 127
+    scale_b: 127
+  test_case: 2
+- comment: MXFP8+ (E4M3) BM element precision. a[10] is BM(0x38)=368.0, b[31] is BM(0x38)=368.0.
     Others 1.0. Total = 368 + 30 + 368 = 766.0. Fixed = 196096.
   disabled: false
+  expected_output: 1145012224
   inputs:
-    mx_plus_mode: 1
-    format_a: 0
-    format_b: 0
-    bm_index_a: 10
-    bm_index_b: 31
-    scale_a: 127
-    scale_b: 127
     a_elements:
     - 56
     - 56
@@ -234,21 +227,100 @@
     - 56
     - 56
     - 56
-  expected_output: 1145012224
-- test_case: 4
-  comment: MXFP4++ (E2M1) Decoupled Scaling. a[0] is BM, b[0] is BM. nbm_offset_a=1.
+    bm_index_a: 10
+    bm_index_b: 31
+    format_a: 0
+    format_b: 0
+    mx_plus_mode: 1
+    scale_a: 127
+    scale_b: 127
+  test_case: 3
+- comment: MXFP4++ (E2M1) Decoupled Scaling. a[0] is BM, b[0] is BM. nbm_offset_a=1.
     BM Prod = 25.0, NBM Prod = 0.5. Total = 25 + 31*0.5 = 40.5. Fixed = 10368.
   disabled: false
+  expected_output: 1099169792
   inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
     bm_index_a: 0
     bm_index_b: 0
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
     nbm_offset_a: 1
     nbm_offset_b: 0
     scale_a: 127
     scale_b: 127
+  test_case: 4
+- comment: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=1. BM Prod
+    = 25.0, NBM Prod = 0.25*0.5 = 0.125. Total = 25 + 31*0.125 = 28.875. Fixed = 7392.
+  disabled: false
+  expected_output: 1083965440
+  inputs:
     a_elements:
     - 2
     - 2
@@ -315,21 +387,22 @@
     - 2
     - 2
     - 2
-  expected_output: 1109524480
-- test_case: 5
-  comment: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=1. BM Prod
-    = 25.0, NBM Prod = 0.25*0.5 = 0.125. Total = 25 + 31*0.125 = 28.875. Fixed = 7392.
-  disabled: false
-  inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
     bm_index_a: 0
     bm_index_b: 0
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
     nbm_offset_a: 2
     nbm_offset_b: 1
     scale_a: 127
     scale_b: 127
+  test_case: 5
+- comment: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=2. BM Prod
+    = 25.0, NBM Prod = 0.25*0.25 = 0.0625. Total = 25 + 31*0.0625 = 26.9375. Fixed
+    = 6896.
+  disabled: false
+  expected_output: 1077673984
+  inputs:
     a_elements:
     - 2
     - 2
@@ -396,101 +469,21 @@
     - 2
     - 2
     - 2
-  expected_output: 1105657856
-- test_case: 6
-  comment: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=2. BM Prod
-    = 25.0, NBM Prod = 0.25*0.25 = 0.0625. Total = 25 + 31*0.0625 = 26.9375. Fixed
-    = 6896.
-  disabled: false
-  inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
     bm_index_a: 0
     bm_index_b: 0
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
     nbm_offset_a: 2
     nbm_offset_b: 2
     scale_a: 127
     scale_b: 127
-    a_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    b_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-  expected_output: 1104642048
-- test_case: 7
-  comment: MXFP4+ Mid-block BM index. a[7]=0x05, b[7]=0x05 are BM. 42.25 + 31 = 73.25.
+  test_case: 6
+- comment: MXFP4+ Mid-block BM index. a[7]=0x05, b[7]=0x05 are BM. 42.25 + 31 = 73.25.
     Fixed = 18752.
   disabled: false
+  expected_output: 1109393408
   inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
-    bm_index_a: 7
-    bm_index_b: 7
-    scale_a: 127
-    scale_b: 127
     a_elements:
     - 2
     - 2
@@ -557,19 +550,19 @@
     - 2
     - 2
     - 2
-  expected_output: 1116897280
-- test_case: 8
-  comment: Mixed Precision MX+. a:E4M3+, b:E2M1+, index 7 are BM. Product 1024 shifted
+    bm_index_a: 7
+    bm_index_b: 7
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
+    scale_a: 127
+    scale_b: 127
+  test_case: 7
+- comment: Mixed Precision MX+. a:E4M3+, b:E2M1+, index 7 are BM. Product 1024 shifted
     8 = 262144.
   disabled: false
+  expected_output: 0
   inputs:
-    mx_plus_mode: 1
-    format_a: 0
-    format_b: 4
-    bm_index_a: 7
-    bm_index_b: 7
-    scale_a: 127
-    scale_b: 127
     a_elements:
     - 0
     - 0
@@ -636,19 +629,19 @@
     - 0
     - 0
     - 0
-  expected_output: 1149239296
-- test_case: 9
-  comment: MXFP4+ Zero-valued outlier (treated as 4.0). a[7] is BM(0x00)=4.0, b[7]
-    is BM(0x02)=5.0. Total = 20.0. Fixed = 5120.
-  disabled: false
-  inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
     bm_index_a: 7
     bm_index_b: 7
+    format_a: 0
+    format_b: 4
+    mx_plus_mode: 1
     scale_a: 127
     scale_b: 127
+  test_case: 8
+- comment: MXFP4+ Zero-valued outlier (treated as 4.0). a[7] is BM(0x00)=4.0, b[7]
+    is BM(0x02)=5.0. Total = 20.0. Fixed = 5120.
+  disabled: false
+  expected_output: 0
+  inputs:
     a_elements:
     - 0
     - 0
@@ -715,19 +708,19 @@
     - 0
     - 0
     - 0
-  expected_output: 1101004800
-- test_case: 10
-  comment: MXFP4+ Negative outlier. a[7] is BM(0x0A)=-5.0, b[7] is BM(0x02)=5.0. Total
-    = -25.0. Fixed = -6400.
-  disabled: false
-  inputs:
-    mx_plus_mode: 1
-    format_a: 4
-    format_b: 4
     bm_index_a: 7
     bm_index_b: 7
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
     scale_a: 127
     scale_b: 127
+  test_case: 9
+- comment: MXFP4+ Negative outlier. a[7] is BM(0x0A)=-5.0, b[7] is BM(0x02)=5.0. Total
+    = -25.0. Fixed = -6400.
+  disabled: false
+  expected_output: 3212836864
+  inputs:
     a_elements:
     - 0
     - 0
@@ -794,4 +787,11 @@
     - 0
     - 0
     - 0
-  expected_output: -1043857408
+    bm_index_a: 7
+    bm_index_b: 7
+    format_a: 4
+    format_b: 4
+    mx_plus_mode: 1
+    scale_a: 127
+    scale_b: 127
+  test_case: 10

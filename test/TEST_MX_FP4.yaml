@@ -1,248 +1,241 @@
-- test_case: 1
-  comment: Standard MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed
+- comment: Standard MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed
     is 32.0.
+  expected_output: 1107296256
   inputs:
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
     format_a: 4
     format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
     overflow_mode: 0
     packed_mode: 0
-    a_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    b_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-  expected_output: 1107296256
-- test_case: 2
-  comment: Packed MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 1
+- comment: Packed MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed
     is 32.0.
-  inputs:
-    format_a: 4
-    format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
-    overflow_mode: 0
-    packed_mode: 1
-    a_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    b_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
   expected_output: 1107296256
-- test_case: 3
-  comment: Mixed Values Packed MXFP4 (E2M1). 1.0 (0x02) * 2.0 (0x04) = 2.0. Summed
+  inputs:
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    format_a: 4
+    format_b: 4
+    overflow_mode: 0
+    packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 2
+- comment: Mixed Values Packed MXFP4 (E2M1). 1.0 (0x02) * 2.0 (0x04) = 2.0. Summed
     is 64.0.
-  inputs:
-    format_a: 4
-    format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
-    overflow_mode: 0
-    packed_mode: 1
-    a_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    b_elements:
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
-    - 4
   expected_output: 1115684864
-- test_case: 4
-  comment: Negative Values Packed MXFP4 (E2M1). -1.0 (0x0A) * 1.0 (0x02) = -1.0. Summed
+  inputs:
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    format_a: 4
+    format_b: 4
+    overflow_mode: 0
+    packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 3
+- comment: Negative Values Packed MXFP4 (E2M1). -1.0 (0x0A) * 1.0 (0x02) = -1.0. Summed
     is -32.0.
+  expected_output: 3254779904
   inputs:
-    format_a: 4
-    format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
-    overflow_mode: 0
-    packed_mode: 1
     a_elements:
     - 10
     - 10
@@ -309,174 +302,174 @@
     - 2
     - 2
     - 2
-  expected_output: -1040187392
-- test_case: 5
-  comment: Subnormal Values Packed MXFP4 (E2M1). 0.5 (0x01) * 1.0 (0x02) = 0.5. Summed
+    format_a: 4
+    format_b: 4
+    overflow_mode: 0
+    packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 4
+- comment: Subnormal Values Packed MXFP4 (E2M1). 0.5 (0x01) * 1.0 (0x02) = 0.5. Summed
     is 16.0.
-  inputs:
-    format_a: 4
-    format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
-    overflow_mode: 0
-    packed_mode: 1
-    a_elements:
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    - 1
-    b_elements:
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
-    - 2
   expected_output: 1098907648
-- test_case: 6
-  comment: Edge Case Max Values Packed MXFP4 (E2M1). 6.0 (0x07) * 6.0 (0x07) = 36.0.
+  inputs:
+    a_elements:
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    format_a: 4
+    format_b: 4
+    overflow_mode: 0
+    packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 5
+- comment: Edge Case Max Values Packed MXFP4 (E2M1). 6.0 (0x07) * 6.0 (0x07) = 36.0.
     Summed is 1152.0.
-  inputs:
-    format_a: 4
-    format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
-    overflow_mode: 0
-    packed_mode: 1
-    a_elements:
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    b_elements:
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
-    - 7
   expected_output: 1150287872
-- test_case: 7
-  comment: 'Full range FP4 (E2M1) multiplication. All 16 values squared and summed
-    twice. Expected: 274.0.'
   inputs:
+    a_elements:
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    b_elements:
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
     format_a: 4
     format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
     overflow_mode: 0
     packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 6
+- comment: 'Full range FP4 (E2M1) multiplication. All 16 values squared and summed
+    twice. Expected: 274.0.'
+  expected_output: 1133051904
+  inputs:
     a_elements:
     - 0
     - 1
@@ -543,18 +536,18 @@
     - 13
     - 14
     - 15
-  expected_output: 1133051904
-- test_case: 7
-  comment: 'Full range FP4 (E2M1) multiplication. All 16 values squared and summed
-    twice. Expected: 274.0.'
-  inputs:
     format_a: 4
     format_b: 4
-    scale_a: 127
-    scale_b: 127
-    round_mode: 0
     overflow_mode: 0
     packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 7
+- comment: 'Full range FP4 (E2M1) multiplication. All 16 values squared and summed
+    twice. Expected: 274.0.'
+  expected_output: 1133051904
+  inputs:
     a_elements:
     - 0
     - 1
@@ -621,4 +614,11 @@
     - 13
     - 14
     - 15
-  expected_output: 1133051904
+    format_a: 4
+    format_b: 4
+    overflow_mode: 0
+    packed_mode: 1
+    round_mode: 0
+    scale_a: 127
+    scale_b: 127
+  test_case: 7

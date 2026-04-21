@@ -1,22 +1,20 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776794813" />
-    <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="105" time="0" sim_time_ns="0" ratio_time="0">
+    <property name="random_seed" value="1776800402" />
+    <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="96" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="136" time="0.08004212379455566" sim_time_ns="3050.0" ratio_time="38104.935943834316">
-      <failure error_type="AssertionError" error_msg="assert 1090388992 == 1090387968" />
-    </testcase>
-    <testcase name="test_shared_scale_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="164" time="0" sim_time_ns="0" ratio_time="0">
+    <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="127" time="0.09907007217407227" sim_time_ns="3991.0" ratio_time="40284.617871152506" />
+    <testcase name="test_shared_scale_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="155" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_lns_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="177" time="0" sim_time_ns="0" ratio_time="0">
+    <testcase name="test_lns_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="168" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_randomized_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="212" time="0" sim_time_ns="0" ratio_time="0">
+    <testcase name="test_randomized_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="203" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_coverage_report" classname="test_coverage" file="/app/test/test_coverage.py" lineno="252" time="0" sim_time_ns="0" ratio_time="0">
+    <testcase name="test_coverage_report" classname="test_coverage" file="/app/test/test_coverage.py" lineno="243" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
   </testsuite>

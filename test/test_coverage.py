@@ -11,11 +11,8 @@ import os
 # Reuse the model from test.py
 from test import decode_format, align_model, align_product_model, reset_dut
 
-def get_operand_class(bits, format_val, is_bm=False, support_mxplus=False,
-                      support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
-    sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val, is_bm=is_bm, support_mxplus=support_mxplus,
-                                                          support_e4m3=support_e4m3, support_e5m2=support_e5m2,
-                                                          support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
+def get_operand_class(bits, format_val, is_bm=False, support_mxplus=False):
+    sign, exp, mant, bias, is_int, nan, inf = decode_format(bits, format_val, is_bm=is_bm, support_mxplus=support_mxplus)
 
     if is_int:
         val = bits if bits < 128 else bits - 256
@@ -74,20 +71,14 @@ def sample_coverage(format_a, format_b, round_mode, overflow_wrap, packed_mode, 
 
 # We'll use a wrapper to sample
 def do_sample(format_a, format_b, round_mode, overflow_wrap, packed_mode, lns_mode, mx_plus_mode, is_bm_a, is_bm_b, bits_a, bits_b,
-              support_mxplus=False, support_e4m3=True, support_e5m2=True, support_mxfp6=True, support_mxfp4=True):
-    op_class_a = get_operand_class(bits_a, format_a, is_bm=is_bm_a, support_mxplus=support_mxplus,
-                                  support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
-    op_class_b = get_operand_class(bits_b, format_b, is_bm=is_bm_b, support_mxplus=support_mxplus,
-                                  support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
+              support_mxplus=False):
+    op_class_a = get_operand_class(bits_a, format_a, is_bm=is_bm_a, support_mxplus=support_mxplus)
+    op_class_b = get_operand_class(bits_b, format_b, is_bm=is_bm_b, support_mxplus=support_mxplus)
     sample_coverage(int(format_a), int(format_b), int(round_mode), int(overflow_wrap), int(packed_mode),
                     int(lns_mode), int(mx_plus_mode), int(is_bm_a), int(is_bm_b), op_class_a, op_class_b)
 
 async def run_mac_test_covered(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, packed_mode=0, lns_mode=0, mx_plus_mode=0, bm_index_a=0, bm_index_b=0):
     from test import get_param
-    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
-    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
-    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
-    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     support_mxplus_hw = get_param(dut, "SUPPORT_MX_PLUS", 0)
     support_mxplus = support_mxplus_hw and mx_plus_mode
 
@@ -96,7 +87,7 @@ async def run_mac_test_covered(dut, format_a, format_b, a_elements, b_elements, 
         is_bm_a = (i == bm_index_a)
         is_bm_b = (i == bm_index_b)
         do_sample(format_a, format_b, round_mode, overflow_wrap, packed_mode, lns_mode, mx_plus_mode, is_bm_a, is_bm_b, a, b,
-                  support_mxplus=support_mxplus, support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4)
+                  support_mxplus=support_mxplus)
 
     # Actually run the test (reusing logic from test.py)
     from test import run_mac_test

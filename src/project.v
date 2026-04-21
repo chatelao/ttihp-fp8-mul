@@ -17,7 +17,6 @@
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
-    parameter ALIGNER_WIDTH = 40,
     parameter ACCUMULATOR_WIDTH = 40,
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
@@ -272,7 +271,7 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_a <= 8'd0;
+                if (!rst_n) scale_a <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
@@ -283,7 +282,7 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_b <= 8'd0;
+                if (!rst_n) scale_b <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
@@ -680,14 +679,6 @@ module tt_um_chatelao_fp8_multiplier #(
     // We reuse the 'fp8_aligner' for both per-element scaling and final shared scaling to save area.
     wire [ACCUMULATOR_WIDTH-1:0] acc_out;
 
-    wire [ACCUMULATOR_WIDTH-1:0] acc_abs_val;
-    generate
-        if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
-            assign acc_abs_val = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
-        end else begin : gen_no_acc_abs
-            assign acc_abs_val = {ACCUMULATOR_WIDTH{1'b0}};
-        end
-    endgenerate
 
     // MX++ Exponent Offset (Step 6)
     // Subtract offsets if the element is NOT a BM.
@@ -767,33 +758,46 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // --- IEEE 754 Float32 Conversion ---
-    wire [ACCUMULATOR_WIDTH-1:0] f32_abs_acc = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
+    wire [ACCUMULATOR_WIDTH:0] f32_abs_acc = acc_out[ACCUMULATOR_WIDTH-1] ? {1'b0, -acc_out} : {1'b0, acc_out};
     wire [5:0] f32_lzc;
     /* verilator lint_off UNUSEDSIGNAL */
-    assign f32_lzc =
-        f32_abs_acc[39] ? 6'd0  : f32_abs_acc[38] ? 6'd1  : f32_abs_acc[37] ? 6'd2  : f32_abs_acc[36] ? 6'd3  :
-        f32_abs_acc[35] ? 6'd4  : f32_abs_acc[34] ? 6'd5  : f32_abs_acc[33] ? 6'd6  : f32_abs_acc[32] ? 6'd7  :
-        f32_abs_acc[31] ? 6'd8  : f32_abs_acc[30] ? 6'd9  : f32_abs_acc[29] ? 6'd10 : f32_abs_acc[28] ? 6'd11 :
-        f32_abs_acc[27] ? 6'd12 : f32_abs_acc[26] ? 6'd13 : f32_abs_acc[25] ? 6'd14 : f32_abs_acc[24] ? 6'd15 :
-        f32_abs_acc[23] ? 6'd16 : f32_abs_acc[22] ? 6'd17 : f32_abs_acc[21] ? 6'd18 : f32_abs_acc[20] ? 6'd19 :
-        f32_abs_acc[19] ? 6'd20 : f32_abs_acc[18] ? 6'd21 : f32_abs_acc[17] ? 6'd22 : f32_abs_acc[16] ? 6'd23 :
-        f32_abs_acc[15] ? 6'd24 : f32_abs_acc[14] ? 6'd25 : f32_abs_acc[13] ? 6'd26 : f32_abs_acc[12] ? 6'd27 :
-        f32_abs_acc[11] ? 6'd28 : f32_abs_acc[10] ? 6'd29 : f32_abs_acc[9]  ? 6'd30 : f32_abs_acc[8]  ? 6'd31 :
-        f32_abs_acc[7]  ? 6'd32 : f32_abs_acc[6]  ? 6'd33 : f32_abs_acc[5]  ? 6'd34 : f32_abs_acc[4]  ? 6'd35 :
-        f32_abs_acc[3]  ? 6'd36 : f32_abs_acc[2]  ? 6'd37 : f32_abs_acc[1]  ? 6'd38 : f32_abs_acc[0]  ? 6'd39 : 6'd40;
+    wire [39:0] f32_abs_acc_40;
+    generate
+        if (ACCUMULATOR_WIDTH >= 40) begin : gen_f32_abs_acc_40_wide
+            assign f32_abs_acc_40 = f32_abs_acc[39:0];
+        end else begin : gen_f32_abs_acc_40_narrow
+            assign f32_abs_acc_40 = {{(40-(ACCUMULATOR_WIDTH+1)){1'b0}}, f32_abs_acc};
+        end
+    endgenerate
 
-    wire [ACCUMULATOR_WIDTH-1:0] f32_norm = f32_abs_acc << f32_lzc;
+    function automatic [5:0] lzc40(input [39:0] v);
+        integer i_lzc;
+        begin
+            lzc40 = 6'd40;
+            for (i_lzc=0; i_lzc<=39; i_lzc=i_lzc+1) begin
+                if (v[i_lzc]) begin
+                    lzc40 = 39 - i_lzc[5:0];
+                end
+            end
+        end
+    endfunction
+
+    assign f32_lzc = lzc40(f32_abs_acc_40);
+
+    wire [39:0] f32_norm = f32_abs_acc_40 << f32_lzc;
     // f32_lzc=0 means bit 39 is 1. Value is 2^(39-16) = 2^23.
     // Exp should be 23 + 127 = 150.
     wire signed [10:0] f32_exp_unbiased = 11'sd150 - $signed({5'd0, f32_lzc});
     wire signed [10:0] f32_exp_final = f32_exp_unbiased + $signed(shared_exp);
 
+    /* verilator lint_off SELRANGE */
     wire f32_round = f32_norm[15];
     wire f32_sticky = |f32_norm[14:0];
     wire f32_inc = f32_round && (f32_sticky || f32_norm[16]);
 
     wire [23:0] f32_mant_rounded = f32_norm[38:16] + {23'd0, f32_inc};
-    wire [10:0] f32_exp_adj = f32_exp_final + $signed({10'd0, f32_mant_rounded[23]});
+    /* verilator lint_on SELRANGE */
+    wire signed [10:0] f32_exp_adj = f32_exp_final + $signed({10'd0, f32_mant_rounded[23]});
 
     wire [31:0] f32_pattern = (f32_abs_acc == 40'd0) ? 32'd0 :
                              (f32_exp_adj >= 11'sd255) ? {acc_out[ACCUMULATOR_WIDTH-1], 8'hFF, 23'd0} :
@@ -813,7 +817,7 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_output_bits = (ACCUMULATOR_WIDTH == 40) ? f32_pattern : acc_out[31:0];
+    wire [31:0] final_output_bits = f32_pattern;
 
     // Accumulator instance.
     accumulator #(
