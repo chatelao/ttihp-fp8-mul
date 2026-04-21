@@ -1,6 +1,6 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776800411" />
+    <property name="random_seed" value="1776808790" />
     <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="96" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
@@ -13,8 +13,8 @@
     <testcase name="test_lns_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="168" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_randomized_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="203" time="0.04381895065307617" sim_time_ns="991.0" ratio_time="22615.7857554818">
-      <failure error_type="AssertionError" error_msg="assert 2139095040 == -8388608" />
+    <testcase name="test_randomized_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="203" time="0.031014680862426758" sim_time_ns="500.0" ratio_time="16121.397547757235">
+      <failure error_type="AssertionError" error_msg="assert -731438080 == -578813984" />
     </testcase>
     <testcase name="test_coverage_report" classname="test_coverage" file="/app/test/test_coverage.py" lineno="243" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />

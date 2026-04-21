@@ -1,10 +1,10 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776800402" />
+    <property name="random_seed" value="1776808779" />
     <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="96" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="127" time="0.09907007217407227" sim_time_ns="3991.0" ratio_time="40284.617871152506" />
+    <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="127" time="0.13785719871520996" sim_time_ns="4070.0" ratio_time="29523.304099686102" />
     <testcase name="test_shared_scale_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="155" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>

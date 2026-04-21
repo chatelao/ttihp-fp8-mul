@@ -1,13 +1,13 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776800414" />
+    <property name="random_seed" value="1776808794" />
     <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="96" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
     <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="127" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
-    <testcase name="test_shared_scale_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="155" time="0.21563124656677246" sim_time_ns="7991.0" ratio_time="37058.63657160421" />
+    <testcase name="test_shared_scale_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="155" time="0.21741509437561035" sim_time_ns="8150.0" ratio_time="37485.89776347317" />
     <testcase name="test_lns_coverage" classname="test_coverage" file="/app/test/test_coverage.py" lineno="168" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>

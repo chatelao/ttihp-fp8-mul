@@ -23,6 +23,7 @@ module tb ();
   wire [7:0] uio_out;
   wire [7:0] uio_oe;
 
+  parameter ALIGNER_WIDTH = 40;
   parameter ACCUMULATOR_WIDTH = 40;
   parameter SUPPORT_E4M3 = 1;
   parameter SUPPORT_E5M2 = 1;
@@ -58,6 +59,7 @@ module tb ();
 `else
   // RTL simulation instantiation (with parameters)
   tt_um_chatelao_fp8_multiplier #(
+      .ALIGNER_WIDTH(ALIGNER_WIDTH),
       .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
       .SUPPORT_E4M3(SUPPORT_E4M3),
       .SUPPORT_E5M2(SUPPORT_E5M2),

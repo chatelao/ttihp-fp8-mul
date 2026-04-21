@@ -1,8 +1,8 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776800405" />
-    <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="96" time="0.09101200103759766" sim_time_ns="491.0" ratio_time="5394.892919639957">
-      <failure error_type="AssertionError" error_msg="assert -975994741 == -889192448" />
+    <property name="random_seed" value="1776808782" />
+    <testcase name="test_exhaustive_formats_subset" classname="test_coverage" file="/app/test/test_coverage.py" lineno="96" time="0.10768342018127441" sim_time_ns="500.0" ratio_time="4643.2403350330005">
+      <failure error_type="AssertionError" error_msg="assert 1175490100 == -889192448" />
     </testcase>
     <testcase name="test_edge_cases" classname="test_coverage" file="/app/test/test_coverage.py" lineno="127" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />

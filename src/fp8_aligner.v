@@ -32,25 +32,13 @@ module fp8_aligner #(
     localparam R_RNE = 2'b11; // Round-to-Nearest-Ties-to-Even
 
     // shift_amt: We calculate how many positions to shift based on the bias-adjusted exponent.
-    // 10 is subtracted to align with the fixed-point accumulator (bit 16 = 2^0).
-    // prod is ma*mb. For E4M3, ma is 4-bit (implicit 1 + 3 bits). prod is 8-bit.
-    // ma is integer. m_real = ma * 2^-3.
-    // prod_real = (ma * 2^-3) * (mb * 2^-3) = (ma * mb) * 2^-6.
-    // We want to align this to bit 16 in the accumulator.
-    // Value = (ma * mb) * 2^(exp_sum - bias_sum) * 2^-6.
-    // Value = (ma * mb) * 2^(exp_sum - 7) * 2^-6  (if bias_sum=14, global_bias=7)
-    // Value = (ma * mb) * 2^(exp_sum - 13).
-    // We want this to be at bit 16. So we shift by (exp_sum - 13 + 16) = exp_sum + 3.
-    // In project.v, we pass exp_sum + 8.
-    // So shift_amt = (exp_sum_passed) - 5?
-    // Let's re-calculate.
-    // project.v: aligner_in_exp = ea + eb - (ba + bb - 7) + 8.
-    // aligner.v: shift_amt = aligner_in_exp - 5 = ea + eb - (ba + bb - 7) + 3.
-    // For 1.0 * 1.0 in E4M3: ea=7, eb=7, ba=7, bb=7.
-    // shift_amt = 7 + 7 - (7 + 7 - 7) + 3 = 14 - 7 + 3 = 10.
-    // prod = 8 * 8 = 64 (2^6).
-    // result = 64 << 10 = 2^6 * 2^10 = 2^16. This aligns 1.0 to bit 16. Correct.
-    wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
+    // The internal binary point is at bit 16 (2^0).
+    // The product 'prod' is (ma * mb), where ma/mb are 4-bit integers [8, 15] representing (M * 2^3).
+    // Product real value = (ma * mb) * 2^-6 * 2^(exp_sum - 7).
+    // We want to store (Value * 2^16) in the accumulator.
+    // Value * 2^16 = (ma * mb) * 2^(exp_sum - 13 + 16) = (ma * mb) * 2^(exp_sum + 3).
+    // Therefore, shift_amt = exp_sum + 3.
+    wire signed [10:0] shift_amt = $signed(exp_sum) + 11'sd3;
 
     generate
     if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized

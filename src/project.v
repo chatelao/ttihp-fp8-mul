@@ -17,6 +17,7 @@
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
+    parameter ALIGNER_WIDTH     = 40, // Legacy parameter for compatibility
     parameter ACCUMULATOR_WIDTH = 40,
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
@@ -709,7 +710,7 @@ module tt_um_chatelao_fp8_multiplier #(
         .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
     ) aligner_lane0_inst (
         .prod(aligner_lane0_in_prod),
-        .exp_sum(aligner_lane0_in_exp + 10'sd8),
+        .exp_sum(aligner_lane0_in_exp),
         .sign(aligner_lane0_in_sign),
         .round_mode(round_mode),
         .overflow_wrap(overflow_wrap),
@@ -727,7 +728,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
                 .prod({16'd0, mul_prod_lane1_val}),
-                .exp_sum(exp_sum_lane1_adj + 10'sd8),
+                .exp_sum(exp_sum_lane1_adj),
                 .sign(mul_sign_lane1_val),
                 .round_mode(round_mode),
                 .overflow_wrap(overflow_wrap),
@@ -799,9 +800,9 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on SELRANGE */
     wire signed [10:0] f32_exp_adj = f32_exp_final + $signed({10'd0, f32_mant_rounded[23]});
 
-    wire [31:0] f32_pattern = (f32_abs_acc == 40'd0) ? 32'd0 :
+    wire [31:0] f32_pattern = (f32_abs_acc == 0) ? {acc_out[ACCUMULATOR_WIDTH-1], 31'd0} :
                              (f32_exp_adj >= 11'sd255) ? {acc_out[ACCUMULATOR_WIDTH-1], 8'hFF, 23'd0} :
-                             (f32_exp_adj <= 11'sd0)   ? 32'd0 :
+                             (f32_exp_adj <= 11'sd0)   ? {acc_out[ACCUMULATOR_WIDTH-1], 31'd0} :
                              {acc_out[ACCUMULATOR_WIDTH-1], f32_exp_adj[7:0], f32_mant_rounded[22:0]};
     /* verilator lint_on UNUSEDSIGNAL */
 

@@ -1,9 +1,7 @@
 <testsuites name="results">
   <testsuite name="all" package="all">
-    <property name="random_seed" value="1776800437" />
-    <testcase name="test_short_protocol_metadata" classname="test_short_protocol" file="/app/test/test_short_protocol.py" lineno="11" time="0.01398921012878418" sim_time_ns="430.0" ratio_time="30737.975628461867">
-      <failure error_type="AssertionError" error_msg="assert 1107296256 == 0" />
-    </testcase>
+    <property name="random_seed" value="1776808817" />
+    <testcase name="test_short_protocol_metadata" classname="test_short_protocol" file="/app/test/test_short_protocol.py" lineno="11" time="0.014030218124389648" sim_time_ns="430.0" ratio_time="30648.13363467976" />
     <testcase name="test_short_protocol_nan_scale_reuse" classname="test_short_protocol" file="/app/test/test_short_protocol.py" lineno="71" time="0" sim_time_ns="0" ratio_time="0">
       <skipped />
     </testcase>
