@@ -234,7 +234,7 @@
   test_case: 3
 - comment: Negative Values Packed MXFP4 (E2M1). -1.0 (0x0A) * 1.0 (0x02) = -1.0. Summed
     is -32.0.
-  expected_output: 3405774848
+  expected_output: 3254779904
   inputs:
     a_elements:
     - 10

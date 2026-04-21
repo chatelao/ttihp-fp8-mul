@@ -78,7 +78,7 @@ module fp8_aligner #(
 
             // Initialize all variables to zero to prevent unintentional hardware 'latches'.
             shifted = {WIDTH{1'b0}};
-            shifted[31:0] = prod;
+            shifted = prod;
             base = {WIDTH{1'b0}};
             rounded = {WIDTH{1'b0}};
             huge = 1'b0;

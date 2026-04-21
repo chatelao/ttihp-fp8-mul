@@ -304,7 +304,7 @@
     scale_b: 127
   test_case: 4
 - comment: Negative product accumulation. 1.0 * -1.0 = -1.0. Summed 32 times is -32.0.
-  expected_output: 3405774848
+  expected_output: 3254779904
   inputs:
     a_elements:
     - 56
@@ -686,7 +686,7 @@
   test_case: 9
 - comment: MXINT8_SYM. -128 (0x80) is treated as -127. -127 * 64 * 32 = -260096. Scaled
     by 2^-12 and then fixed point 2^8.
-  expected_output: 3405774848
+  expected_output: 3263037440
   inputs:
     a_elements:
     - 128
@@ -992,7 +992,7 @@
     scale_b: 127
   test_case: 13
 - comment: Negative Saturation. Clamped to max negative.
-  expected_output: 3514826752
+  expected_output: 3495952384
   inputs:
     a_elements:
     - 251

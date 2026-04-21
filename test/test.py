@@ -101,44 +101,84 @@ def to_f32_bits(val_fixed, shared_exp_val, sign_bit, nan, inf_p, inf_n, acc_widt
         return bits
     except: return 0x7F800000 if not sign_bit else 0xFF800000
 
+def cast_to_signed(val, width):
+    mask = (1 << width) - 1
+    val = val & mask
+    if val & (1 << (width - 1)):
+        return val - (1 << width)
+    return val
+
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum + 3
+    max_pos = (1 << (width - 1)) - 1
+    min_neg = -(1 << (width - 1))
+
+    huge = False
     if shift_amt >= 0:
-        if not overflow_wrap and shift_amt >= width: aligned = (1 << (width - 1)) - 1 if prod != 0 else 0
-        else: aligned = prod << shift_amt
-        huge = (shift_amt >= width and prod != 0) or (shift_amt > 0 and (prod >> (width - shift_amt)) != 0)
+        if shift_amt >= width:
+            huge = (prod != 0)
+            rounded = 0
+        else:
+            if shift_amt > 0 and (prod >> (width - shift_amt)) != 0:
+                huge = True
+            rounded = (prod << shift_amt) & ((1 << width) - 1)
     else:
         n = -shift_amt
-        if n >= width: base, sticky, shifted_out = 0, (1 if prod != 0 else 0), prod
+        if n >= width:
+            base = 0
+            sticky = (prod != 0)
+            round_bit = 0
         else:
             base = prod >> n
-            shifted_out = prod & ((1 << n) - 1)
-            sticky = 1 if shifted_out != 0 else 0
-        if round_mode == 0: aligned = base
-        elif round_mode == 3:
-            half = 1 << (n - 1)
-            if shifted_out > half: aligned = base + 1
-            elif shifted_out < half: aligned = base
-            else: aligned = base + 1 if (base & 1) else base
-        else: aligned = base
-        huge = False
+            round_bit = (prod >> (n - 1)) & 1 if n > 0 else 0
+            sticky = (prod & ((1 << (n - 1)) - 1)) != 0 if n > 1 else 0
+
+        do_inc = 0
+        if round_mode == 3: # RNE
+            if round_bit:
+                if sticky or (base & 1):
+                    do_inc = 1
+        rounded = base + do_inc
+
     if sign:
-        if not overflow_wrap and (huge or (aligned >> width) != 0 or ((aligned & (1 << (width-1))) != 0 and (aligned & ((1 << (width-1)) - 1)) != 0)): res = -(1 << (width - 1))
-        else: res = -aligned
+        if not overflow_wrap and (huge or rounded > (1 << (width - 1))):
+            res = min_neg
+        else:
+            res = cast_to_signed(-rounded, width)
     else:
-        if not overflow_wrap and (huge or (aligned >> (width-1)) != 0): res = (1 << (width - 1)) - 1
-        else: res = aligned
-    mask = (1 << width) - 1
-    return (res & mask) - (1 << width) if res & (1 << (width - 1)) else (res & mask)
+        if not overflow_wrap and (huge or rounded > max_pos):
+            res = max_pos
+        else:
+            res = cast_to_signed(rounded, width)
+
+    return res
 
 def get_param(dut, name, default=1):
+    # Check environment variable overrides (e.g., from CI)
+    compile_args = os.environ.get("COMPILE_ARGS", "")
+    import re
+    # Match both decimal and hex: -P tb.PARAM=123 or -P tb.PARAM=0x7B
+    match = re.search(fr"-P\s+tb\.{name}=(\w+)", compile_args)
+    if match:
+        val_str = match.group(1)
+        try:
+            return int(val_str, 0)
+        except ValueError:
+            pass
+
+    # Check DUT handles
     for obj in [getattr(dut, "user_project", None), dut]:
         if obj is None: continue
-        try: return int(getattr(obj, name).value)
-        except: pass
+        try:
+            val = getattr(obj, name).value
+            return int(val)
+        except:
+            pass
     return default
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0, is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0, aligner_width=40):
+    # support_mxplus from caller is a boolean (mode enabled)
+    # But we also need to check the hardware global parameter
     sa, ea, ma, ba, inta, nana, infa = decode_format(a_bits, format_a, is_bm_a, support_mxplus)
     sb, eb, mb, bb, intb, nanb, infb = decode_format(b_bits, format_b, is_bm_b, support_mxplus)
     if not (is_bm_a and support_mxplus) and not inta and ea == 0 and (ma & 0x7) == 0: return 0
@@ -155,6 +195,15 @@ async def reset_dut(dut):
 async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0):
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if get_param(dut, "SUPPORT_SERIAL", 0) else 1
     acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 40)
+    enable_shared = get_param(dut, "ENABLE_SHARED_SCALING", 1)
+    support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 1)
+
+    if not enable_shared:
+        scale_a = 127
+        scale_b = 127
+
+    mx_plus_mode = mx_plus_mode if support_mxplus else 0
+
     dut.ena.value = 1
     # Driving Metadata for Cycle 0
     dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3)
@@ -168,7 +217,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Cycle 2: Scale B
     dut.ui_in.value, dut.uio_in.value = scale_b, (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
     await ClockCycles(dut.clk, k_factor)
-    expected_acc, nan_sticky, inf_pos_sticky, inf_neg_sticky = 0, (scale_a == 0xFF or scale_b == 0xFF), False, False
+    expected_acc, nan_sticky, inf_pos_sticky, inf_neg_sticky = 0, (enable_shared and (scale_a == 0xFF or scale_b == 0xFF)), False, False
+    max_val = (1 << (acc_width - 1)) - 1
+    min_val = -(1 << (acc_width - 1))
+
     for i, (a, b) in enumerate(zip(a_elements, b_elements)):
         sa, ea, ma, ba, inta, nana, infa = decode_format(a, format_a, i == bm_index_a, mx_plus_mode)
         sb, eb, mb, bb, intb, nanb, infb = decode_format(b, format_b, i == bm_index_b, mx_plus_mode)
@@ -179,12 +231,17 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             if sa ^ sb: inf_neg_sticky = True
             else: inf_pos_sticky = True
         prod = align_product_model(a, b, format_a, format_b, round_mode, overflow_wrap, i == bm_index_a, i == bm_index_b, mx_plus_mode, nbm_offset_a if mx_plus_mode else 0, nbm_offset_b if mx_plus_mode else 0, lns_mode, acc_width)
-        mask = (1 << acc_width) - 1
-        sum_masked = (expected_acc + prod) & mask
-        if not overflow_wrap and (expected_acc >= 0) == (prod >= 0) and (sum_masked >= 0) != (expected_acc >= 0):
-            expected_acc = (1 << (acc_width-1)) - 1 if expected_acc >= 0 else -(1 << (acc_width-1))
+
+        full_sum = expected_acc + prod
+        if not overflow_wrap:
+            if full_sum > max_val:
+                expected_acc = max_val
+            elif full_sum < min_val:
+                expected_acc = min_val
+            else:
+                expected_acc = full_sum
         else:
-            expected_acc = (sum_masked ^ (1 << (acc_width - 1))) - (1 << (acc_width - 1))
+            expected_acc = cast_to_signed(full_sum, acc_width)
     if packed_mode and format_a == 4:
         for i in range(16):
             dut.ui_in.value, dut.uio_in.value = (a_elements[2*i+1] << 4) | a_elements[2*i], (b_elements[2*i+1] << 4) | b_elements[2*i]; await ClockCycles(dut.clk, k_factor)

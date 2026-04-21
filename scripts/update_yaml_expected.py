@@ -93,35 +93,57 @@ def to_f32_bits(val_fixed, shared_exp_val, sign_bit, nan, inf_p, inf_n, acc_widt
         return bits
     except: return 0x7F800000 if not sign_bit else 0xFF800000
 
+def cast_to_signed(val, width):
+    mask = (1 << width) - 1
+    val = val & mask
+    if val & (1 << (width - 1)):
+        return val - (1 << width)
+    return val
+
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum + 3
+    max_pos = (1 << (width - 1)) - 1
+    min_neg = -(1 << (width - 1))
+
+    huge = False
     if shift_amt >= 0:
-        if not overflow_wrap and shift_amt >= width: aligned = (1 << (width - 1)) - 1 if prod != 0 else 0
-        else: aligned = prod << shift_amt
-        huge = (shift_amt >= width and prod != 0) or (shift_amt > 0 and (prod >> (width - shift_amt)) != 0)
+        if shift_amt >= width:
+            huge = (prod != 0)
+            rounded = 0
+        else:
+            if shift_amt > 0 and (prod >> (width - shift_amt)) != 0:
+                huge = True
+            rounded = (prod << shift_amt) & ((1 << width) - 1)
     else:
         n = -shift_amt
-        if n >= width: base, sticky, shifted_out = 0, (1 if prod != 0 else 0), prod
+        if n >= width:
+            base = 0
+            sticky = (prod != 0)
+            round_bit = 0
         else:
             base = prod >> n
-            shifted_out = prod & ((1 << n) - 1)
-            sticky = 1 if shifted_out != 0 else 0
-        if round_mode == 0: aligned = base
-        elif round_mode == 3:
-            half = 1 << (n - 1)
-            if shifted_out > half: aligned = base + 1
-            elif shifted_out < half: aligned = base
-            else: aligned = base + 1 if (base & 1) else base
-        else: aligned = base
-        huge = False
+            round_bit = (prod >> (n - 1)) & 1 if n > 0 else 0
+            sticky = (prod & ((1 << (n - 1)) - 1)) != 0 if n > 1 else 0
+
+        do_inc = 0
+        if round_mode == 3: # RNE
+            if round_bit:
+                if sticky or (base & 1):
+                    do_inc = 1
+        rounded = base + do_inc
+
     if sign:
-        if not overflow_wrap and (huge or (aligned >> width) != 0 or ((aligned & (1 << (width-1))) != 0 and (aligned & ((1 << (width-1)) - 1)) != 0)): res = -(1 << (width - 1))
-        else: res = -aligned
+        if not overflow_wrap and (huge or rounded > (1 << (width - 1))):
+            res = min_neg
+        else:
+            res = cast_to_signed(-rounded, width)
     else:
-        if not overflow_wrap and (huge or (aligned >> (width-1)) != 0): res = (1 << (width - 1)) - 1
-        else: res = aligned
-    mask = (1 << width) - 1
-    return (res & mask) - (1 << width) if res & (1 << (width - 1)) else (res & mask)
+        if not overflow_wrap and (huge or rounded > max_pos):
+            res = max_pos
+        else:
+            res = cast_to_signed(rounded, width)
+
+    return res
 
 def process_file(filename):
     with open(filename, 'r') as f: cases = yaml.safe_load(f)
@@ -137,6 +159,8 @@ def process_file(filename):
         ow = inputs.get('overflow_mode', 0)
 
         acc, ns, ip, in_ = 0, (sa==0xFF or sb==0xFF), False, False
+        max_val_acc = (1 << 39) - 1
+        min_val_acc = -(1 << 39)
         for i, (a, b) in enumerate(zip(ae, be)):
             s_a, e_a, m_a, b_a, i_a, n_a, f_a = decode_format(a, fa, mx and i==ba, mx)
             s_b, e_b, m_b, b_b, i_b, n_b, f_b = decode_format(b, fb, mx and i==bb, mx)
@@ -151,12 +175,16 @@ def process_file(filename):
             es = e_a + e_b - (b_a + b_b - 7) - (0 if (mx and i==ba) else oa if mx else 0) - (0 if (mx and i==bb) else ob if mx else 0)
             acc_term = align_model(prod_val, es, s_a^s_b, round_mode=rm, overflow_wrap=ow)
 
-            mask = (1 << 40) - 1
-            sum_masked = (acc + acc_term) & mask
-            if not ow and (acc >= 0) == (acc_term >= 0) and (sum_masked >= 0) != (acc >= 0):
-                acc = (1 << 39) - 1 if acc >= 0 else -(1 << 39)
+            full_sum = acc + acc_term
+            if not ow:
+                if full_sum > max_val_acc:
+                    acc = max_val_acc
+                elif full_sum < min_val_acc:
+                    acc = min_val_acc
+                else:
+                    acc = full_sum
             else:
-                acc = (sum_masked ^ (1 << 39)) - (1 << 39)
+                acc = cast_to_signed(full_sum, 40)
 
         res_bits = to_f32_bits(acc, sa + sb - 254, acc < 0, ns, ip, in_)
         # print(f"Acc: {acc}, SharedExp: {sa+sb-254}, Sign: {acc<0}, Res: {hex(int(res_bits))}")
