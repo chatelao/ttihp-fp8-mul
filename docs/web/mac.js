@@ -90,6 +90,19 @@ function decode(bits, format) {
     }
 }
 
+function getOneHex(format) {
+    switch(parseInt(format)) {
+        case 0: return 0x38; // E4M3
+        case 1: return 0x3C; // E5M2
+        case 2: return 0x0C; // E3M2
+        case 3: return 0x08; // E2M3
+        case 4: return 0x02; // E2M1
+        case 5: return 0x40; // INT8 (64/64.0 = 1.0)
+        case 6: return 0x40; // INT8_SYM
+        default: return 0;
+    }
+}
+
 // --- App Logic ---
 
 function initApp() {
@@ -109,8 +122,7 @@ function initApp() {
     }
 }
 
-function randomizeElements() {
-    elements = [];
+function renderElements() {
     const fmtA = document.getElementById('format-a').value;
     const fmtB = document.getElementById('format-b').value;
     const scaleAHex = parseInt(document.getElementById('scale-a').value, 16) || 0x7F;
@@ -121,6 +133,29 @@ function randomizeElements() {
     const body = document.getElementById('elements-body');
     body.innerHTML = '';
 
+    elements.forEach((pair, i) => {
+        const aDec = decode(pair.a, fmtA) * scaleA;
+        const bDec = decode(pair.b, fmtB) * scaleB;
+        const prod = aDec * bDec;
+
+        const row = document.createElement('tr');
+        row.id = `row-${i}`;
+        row.innerHTML = `
+            <td>${i}</td>
+            <td>0x${pair.a.toString(16).padStart(2, '0').toUpperCase()}</td>
+            <td>${aDec.toExponential(2)}</td>
+            <td>0x${pair.b.toString(16).padStart(2, '0').toUpperCase()}</td>
+            <td>${bDec.toExponential(2)}</td>
+            <td>${prod.toExponential(2)}</td>
+        `;
+        body.appendChild(row);
+    });
+}
+
+function randomizeElements() {
+    const fmtA = document.getElementById('format-a').value;
+    const fmtB = document.getElementById('format-b').value;
+    elements = [];
     for (let i = 0; i < 32; i++) {
         let aHex, bHex;
         if (fmtA == '0' || fmtA == '1' || fmtA == '5' || fmtA == '6') aHex = Math.floor(Math.random() * 256);
@@ -132,24 +167,50 @@ function randomizeElements() {
         else bHex = Math.floor(Math.random() * 16);
 
         elements.push({a: aHex, b: bHex});
-
-        const aDec = decode(aHex, fmtA) * scaleA;
-        const bDec = decode(bHex, fmtB) * scaleB;
-        const prod = aDec * bDec;
-
-        const row = document.createElement('tr');
-        row.id = `row-${i}`;
-        row.innerHTML = `
-            <td>${i}</td>
-            <td>0x${aHex.toString(16).padStart(2, '0').toUpperCase()}</td>
-            <td>${aDec.toExponential(2)}</td>
-            <td>0x${bHex.toString(16).padStart(2, '0').toUpperCase()}</td>
-            <td>${bDec.toExponential(2)}</td>
-            <td>${prod.toExponential(2)}</td>
-        `;
-        body.appendChild(row);
     }
+    renderElements();
     log("Elements randomized.");
+}
+
+function setTwiceOne() {
+    document.getElementById('scale-a').value = "7F";
+    document.getElementById('scale-b').value = "7F";
+    const fmtA = document.getElementById('format-a').value;
+    const fmtB = document.getElementById('format-b').value;
+    const oneA = getOneHex(fmtA);
+    const oneB = getOneHex(fmtB);
+
+    elements = [];
+    for (let i = 0; i < 32; i++) {
+        if (i < 2) elements.push({a: oneA, b: oneB});
+        else elements.push({a: 0, b: 0});
+    }
+    renderElements();
+    resetSimulation();
+    log("Data set: Twice 1.0, rest 0.0");
+}
+
+function setRandomOne() {
+    document.getElementById('scale-a').value = "7F";
+    document.getElementById('scale-b').value = "7F";
+    const fmtA = document.getElementById('format-a').value;
+    const fmtB = document.getElementById('format-b').value;
+
+    let aHex;
+    if (fmtA == '0' || fmtA == '1' || fmtA == '5' || fmtA == '6') aHex = Math.floor(Math.random() * 256);
+    else if (fmtA == '2' || fmtA == '3') aHex = Math.floor(Math.random() * 64);
+    else aHex = Math.floor(Math.random() * 16);
+
+    const oneB = getOneHex(fmtB);
+
+    elements = [];
+    for (let i = 0; i < 32; i++) {
+        if (i === 0) elements.push({a: aHex, b: oneB});
+        else elements.push({a: 0, b: 0});
+    }
+    renderElements();
+    resetSimulation();
+    log("Data set: Random * 1.0, rest 0.0");
 }
 
 function resetSimulation() {
@@ -295,6 +356,8 @@ function setupEventListeners() {
         resetSimulation();
         randomizeElements();
     });
+    document.getElementById('twice-one-btn').addEventListener('click', setTwiceOne);
+    document.getElementById('random-one-btn').addEventListener('click', setRandomOne);
     document.getElementById('run-all-btn').addEventListener('click', runAll);
     document.getElementById('step-btn').addEventListener('click', stepSimulation);
     document.getElementById('reset-btn').addEventListener('click', resetSimulation);
