@@ -64,14 +64,20 @@ module accumulator #(
 
     wire [REG_WIDTH-1:0] load_data_val;
     generate
-        if (REG_WIDTH >= 32) assign load_data_val = {{(REG_WIDTH-32){1'b0}}, load_data};
-        else assign load_data_val = load_data[REG_WIDTH-1:0];
+        if (REG_WIDTH >= 32) begin : gen_load_wide
+            assign load_data_val = {{(REG_WIDTH-32){1'b0}}, load_data};
+        end else begin : gen_load_narrow
+            assign load_data_val = load_data[REG_WIDTH-1:0];
+        end
     endgenerate
 
     wire [REG_WIDTH-1:0] shift_val;
     generate
-        if (REG_WIDTH >= 9) assign shift_val = {acc_reg[REG_WIDTH-9:0], 8'd0};
-        else assign shift_val = {REG_WIDTH{1'b0}};
+        if (REG_WIDTH >= 9) begin : gen_shift_wide
+            assign shift_val = {acc_reg[REG_WIDTH-9:0], 8'd0};
+        end else begin : gen_shift_narrow
+            assign shift_val = {REG_WIDTH{1'b0}};
+        end
     endgenerate
 
     // This 'always' block describes sequential logic that updates on the rising edge of the clock

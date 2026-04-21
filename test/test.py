@@ -500,7 +500,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
                 sum_val += eff_a * eff_b
 
-    # Calculate expected final result after shared scaling
+    # Calculate expected final result
+    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
         expected_final_bits = 0x7FC00000 # NaN
     elif inf_pos_sticky:
@@ -508,8 +509,16 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     elif inf_neg_sticky:
         expected_final_bits = 0xFF800000 # -Inf
     else:
-        shared_scale = (2.0 ** (scale_a - 127)) * (2.0 ** (scale_b - 127))
-        final_val = sum_val * shared_scale
+        if support_shared:
+            shared_scale = (2.0 ** (scale_a - 127)) * (2.0 ** (scale_b - 127))
+            final_val = sum_val * shared_scale
+        else:
+            # If shared scaling is disabled, hardware just outputs the internal sum converted to Float32.
+            # Standard elements sum * 2^(XA+XB-254) but here XA=XB=127 so it's just sum.
+            # Actually, aligner grid is fixed. Bit 34 = 2^0.
+            # Target Value = sum * 2^-34.
+            final_val = sum_val * (2.0 ** -34)
+
         expected_final_bits = to_float32_bits(final_val)
 
     if actual_packed:
@@ -842,13 +851,20 @@ async def test_fast_start_scale_compression(dut):
         else:
             expected_acc = sum_masked
 
+    # Model high-precision sum for fast start
+    sum_val_fast = 0.0
+    for a, b in zip(a_elements, b_elements):
+        val_a, _, _ = decode_format(a, format_a)
+        val_b, _, _ = decode_format(b, format_b)
+        sum_val_fast += val_a * val_b
+
     if support_shared:
-        shared_exp = scale_a + scale_b - 254
-        acc_abs = abs(expected_acc)
-        acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
+        shared_scale = (2.0 ** (scale_a - 127)) * (2.0 ** (scale_b - 127))
+        final_val = sum_val_fast * shared_scale
     else:
-        expected_final = expected_acc
+        final_val = sum_val_fast * (2.0 ** -34)
+
+    expected_final_bits = to_float32_bits(final_val)
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]
@@ -857,14 +873,14 @@ async def test_fast_start_scale_compression(dut):
 
     await ClockCycles(dut.clk, 2 * k_factor_eff) # Flush + Shared Scale
 
-    actual_acc = 0
+    actual_acc_bits = 0
     for i in range(4):
         await Timer(1, unit="ns")
-        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        actual_acc_bits = (actual_acc_bits << 8) | int(dut.uo_out.value)
         await ClockCycles(dut.clk, k_factor_eff)
 
-    if actual_acc & 0x80000000: actual_acc -= 0x100000000
-    assert actual_acc == expected_final
+    dut._log.info(f"Fast Start Expected: 0x{expected_final_bits:08X}, Actual: 0x{actual_acc_bits:08X}")
+    assert actual_acc_bits == expected_final_bits
 
 async def run_yaml_file(dut, filename):
     dut._log.info(f"Start YAML Test Cases from {filename}")

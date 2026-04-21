@@ -24,23 +24,53 @@ async def test_short_protocol_metadata(dut):
         dut._log.info("Skipping Short Protocol Test (SUPPORT_MXFP4=0)")
         return
 
-    # 1. Reset with Short Protocol pins set
-    # Sampling Cycle 0 happens at the very first edge where rst_n is high and ena is high
+    # 1. First block: Standard protocol, load scale_a = 127, scale_b = 127
+    # We manually drive it to avoid reset between blocks
     dut.ena.value = 1
-    dut.ui_in.value = 0x80 # Short Protocol = 1
-    dut.uio_in.value = 4    # Format A/B = 4 (E2M1)
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 5)
+    await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
 
-    # Wait for the edge that samples Cycle 0 metadata and moves to Cycle 3
-    await RisingEdge(dut.clk)
+    # Cycle 0: Load Standard Metadata
+    dut.ui_in.value = 0x00
+    dut.uio_in.value = 0x00
+    await ClockCycles(dut.clk, k_factor)
+
+    # Cycle 1: Load Scale A = 127
+    dut.ui_in.value = 127
+    dut.uio_in.value = 4 # E2M1
+    await ClockCycles(dut.clk, k_factor)
+
+    # Cycle 2: Load Scale B = 127
+    dut.ui_in.value = 127
+    dut.uio_in.value = 4 # E2M1
+    await ClockCycles(dut.clk, k_factor)
+
+    # Stream 32 zeros
+    for _ in range(32):
+        dut.ui_in.value = 0x00
+        dut.uio_in.value = 0x00
+        await ClockCycles(dut.clk, k_factor)
+
+    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
+
+    # Collection phase
+    for _ in range(4): await ClockCycles(dut.clk, k_factor)
+
+    # 2. Second block: Short Protocol
+    # Now at start of Cycle 0
+    dut.ui_in.value = 0x80 # Short Protocol = 1
+    dut.uio_in.value = 4    # Format A/B = 4 (E2M1)
+    await ClockCycles(dut.clk, k_factor)
+
     # Now at start of Cycle 3 (Logical)
 
     # Verify format capture if accessible.
     await Timer(1, "ns")
     try:
-        f_a = int(dut.user_project.format_a.value)
+        # Check in user_project if not in gate-level
+        target = dut.user_project if hasattr(dut, "user_project") else dut
+        f_a = int(target.format_a.value)
         dut._log.info(f"Verified active format A: {f_a}")
         assert f_a == 4
     except AttributeError:
@@ -61,7 +91,6 @@ async def test_short_protocol_metadata(dut):
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
         await ClockCycles(dut.clk, k_factor)
 
-    support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     # Expected: 32 * 1.0 * 1.0 = 32.0 -> 0x42000000
     expected = 0x42000000
 

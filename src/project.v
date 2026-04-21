@@ -8,15 +8,10 @@
  * This is the main entry point for the Tiny Tapeout project.
  * It coordinates the streaming of data, performs Multiply-Accumulate (MAC) operations,
  * and handles the communication protocol between the external controller and the internal hardware.
- *
- * Beginner Note:
- * In Tiny Tapeout, the top-level module always has a specific set of inputs and outputs
- * (ui_in, uo_out, uio_in, uio_out, uio_oe, ena, clk, rst_n).
  */
 
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
-    // Parameters allow customizing the hardware size and features during synthesis.
     parameter ALIGNER_WIDTH = 80,
     parameter ACCUMULATOR_WIDTH = 80,
     parameter SUPPORT_E4M3  = 1,
@@ -38,33 +33,27 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter USE_LNS_MUL_PRECISE = 1,
     parameter SUPPORT_DEBUG = 1
 )(
-    input  wire [7:0] ui_in,    // Primary inputs: Elements or Metadata.
-    output wire [7:0] uo_out,   // Primary outputs: MAC result or Debug data.
-    input  wire [7:0] uio_in,   // Bidirectional inputs (configured as inputs here).
-    output wire [7:0] uio_out,  // Bidirectional outputs (unused here).
-    output wire [7:0] uio_oe,   // Output Enable for bidirectionals (0 = input).
-    (* keep *) input  wire       ena,     // Module enable: must be high for the design to run.
-    (* keep *) input  wire       clk,     // System clock.
-    (* keep *) input  wire       rst_n    // Active-low asynchronous reset.
+    input  wire [7:0] ui_in,
+    output wire [7:0] uo_out,
+    input  wire [7:0] uio_in,
+    output wire [7:0] uio_out,
+    output wire [7:0] uio_oe,
+    (* keep *) input  wire       ena,
+    (* keep *) input  wire       clk,
+    (* keep *) input  wire       rst_n
 );
 
-    // COUNTER_WIDTH determines the size of our cycle tracker.
     localparam COUNTER_WIDTH = 6;
 
-    /**
-     * FSM (Finite State Machine) States
-     * The design moves through these states to process one block of 32 elements.
-     */
-    localparam STATE_IDLE       = 2'b00; // Waiting for start or processing metadata.
-    localparam STATE_LOAD_SCALE = 2'b01; // Capturing scaling factors (Cycle 1 & 2).
-    localparam STATE_STREAM     = 2'b10; // Processing 32 element pairs (Cycles 3-34).
-    localparam STATE_OUTPUT     = 2'b11; // Sending the 32-bit result out byte-by-byte.
+    localparam STATE_IDLE       = 2'b00;
+    localparam STATE_LOAD_SCALE = 2'b01;
+    localparam STATE_STREAM     = 2'b10;
+    localparam STATE_OUTPUT     = 2'b11;
 
     reg [COUNTER_WIDTH-1:0] cycle_count;
-    wire strobe; // Used to handle bit-serial timing if enabled.
+    wire strobe;
     wire [COUNTER_WIDTH-1:0] logical_cycle;
 
-    // Control logic for serial vs parallel operation.
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_ctrl
             reg [COUNTER_WIDTH-1:0] k_counter;
@@ -80,7 +69,6 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    // Hardware Pruning: Optimization to remove unused logic based on parameters.
     localparam TOTAL_FORMATS = (SUPPORT_E4M3 ? 1 : 0) +
                                (SUPPORT_E5M2 ? 1 : 0) +
                                (SUPPORT_MXFP6 ? 2 : 0) +
@@ -96,14 +84,12 @@ module tt_um_chatelao_fp8_multiplier #(
                              (SUPPORT_MXFP6 == 0) && (SUPPORT_INT8 == 0) && (SUPPORT_MX_PLUS == 0);
     localparam CAN_PACK = SUPPORT_VECTOR_PACKING || SUPPORT_INPUT_BUFFERING || SUPPORT_PACKED_SERIAL;
 
-    // Internal Registers for Protocol and Configuration.
     reg [2:0] format_a_reg;
     reg [1:0] round_mode_reg;
     reg       overflow_wrap_reg;
     reg       packed_mode_reg;
     reg [1:0] lns_mode_reg;
 
-    // --- Debug and Probing Logic ---
     wire       debug_en_val;
     wire [3:0] probe_sel_val;
     wire       loopback_en_val;
@@ -120,10 +106,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     probe_sel_reg <= 4'd0;
                     loopback_en_reg <= 1'b0;
                 end else if (ena && strobe && logical_cycle == 6'd0) begin
-                    // Capture debug configuration in Cycle 0.
                     debug_en_reg    <= ui_in[6];
                     probe_sel_reg   <= uio_in[3:0];
-                    // Loopback is sticky once enabled until reset to allow multi-block testing
                     loopback_en_reg <= loopback_en_reg | ui_in[5];
                 end
             end
@@ -138,13 +122,11 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    // Select current operational parameters.
     wire [2:0] format_a      = FIXED_FORMAT ? CONST_FORMAT : format_a_reg;
     wire [1:0] round_mode    = round_mode_reg;
     wire       overflow_wrap = overflow_wrap_reg;
     wire       packed_mode   = CAN_PACK ? packed_mode_reg : 1'b0;
 
-    // --- MX+ Extension Registers ---
     /* verilator lint_off UNUSED */
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
@@ -179,7 +161,6 @@ module tt_um_chatelao_fp8_multiplier #(
                     mx_plus_en <= 1'b0;
                 end else if (ena && strobe) begin
                     if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
-                        // Capture MX+ configuration in Cycle 0.
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
                             nbm_offset_a <= ui_in[2:0];
@@ -196,7 +177,6 @@ module tt_um_chatelao_fp8_multiplier #(
             assign nbm_offset_b_val = mx_plus_en ? nbm_offset_b : 3'd0;
             assign mx_plus_en_val = mx_plus_en;
 
-            // Element Indexing for element-wise metadata.
             wire [4:0] logical_cycle_idx = logical_cycle[4:0] - 5'd3;
             /* verilator lint_off UNUSEDSIGNAL */
             wire [5:0] element_index_lane0_full = actual_packed_mode ? { logical_cycle_idx, 1'b0 } : { 1'b0, logical_cycle_idx };
@@ -205,7 +185,6 @@ module tt_um_chatelao_fp8_multiplier #(
             wire [4:0] element_index_lane0_reg = element_index_lane0_full[4:0];
             wire [4:0] element_index_lane1_reg = element_index_lane1_full[4:0];
 
-            // Flag elements that are "Block Max" (BM) in the current block.
             assign is_bm_a_lane0_raw = mx_plus_en && (state == STATE_STREAM) && (element_index_lane0_reg == bm_index_a);
             assign is_bm_b_lane0_raw = mx_plus_en && (state == STATE_STREAM) && (element_index_lane0_reg == bm_index_b);
             assign is_bm_a_lane1_raw = mx_plus_en && (state == STATE_STREAM) && actual_packed_mode && (element_index_lane1_reg == bm_index_a);
@@ -223,19 +202,14 @@ module tt_um_chatelao_fp8_multiplier #(
         end
 
         if (SUPPORT_INPUT_BUFFERING) begin : gen_input_buffering
-            // Optional FIFO to buffer elements for high-throughput FP4 processing.
             reg [7:0] fifo_a [0:15];
             reg [7:0] fifo_b [0:15];
             reg [3:0] write_ptr;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    write_ptr <= 4'd0;
-                end else if (ena && strobe) begin
-                    if (state == STATE_IDLE) begin
-                        write_ptr <= 4'd0;
-                    end else if (state == STATE_STREAM && logical_cycle <= 6'd18) begin
-                        write_ptr <= write_ptr + 4'd1;
-                    end
+                if (!rst_n) write_ptr <= 4'd0;
+                else if (ena && strobe) begin
+                    if (state == STATE_IDLE) write_ptr <= 4'd0;
+                    else if (state == STATE_STREAM && logical_cycle <= 6'd18) write_ptr <= write_ptr + 4'd1;
                 end
             end
             always @(posedge clk) begin
@@ -263,7 +237,6 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    // --- Scaling and Format Registers ---
     wire [7:0] scale_a_val;
     wire [7:0] scale_b_val;
     wire [2:0] format_b_val;
@@ -296,10 +269,8 @@ module tt_um_chatelao_fp8_multiplier #(
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) format_b <= 3'd0;
                 else if (ena && strobe) begin
-                    if (logical_cycle == 6'd0 && ui_in[7])
-                        format_b <= uio_in[2:0];
-                    else if (logical_cycle == 6'd2)
-                        format_b <= uio_in[2:0];
+                    if (logical_cycle == 6'd0 && ui_in[7]) format_b <= uio_in[2:0];
+                    else if (logical_cycle == 6'd2) format_b <= uio_in[2:0];
                 end
             end
             assign format_b_val = format_b;
@@ -308,7 +279,6 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    // Define cycle boundaries based on selected protocol (Short vs Standard).
     wire actual_packed_mode   = (SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
@@ -316,7 +286,6 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
     wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
 
-    // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
                        (logical_cycle <= 6'd2) ? STATE_LOAD_SCALE :
                        (logical_cycle <= capture_cycle) ? STATE_STREAM :
@@ -331,14 +300,9 @@ module tt_um_chatelao_fp8_multiplier #(
         lns_mode_reg = 2'd0;
     end
 
-    // Configure bidirectional pins as inputs for Tiny Tapeout.
     assign uio_oe  = 8'b00000000; 
     assign uio_out = 8'b00000000;
 
-    /**
-     * Cycle Counter and Main FSM Controller
-     * Captures configuration metadata and advances the protocol state.
-     */
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             cycle_count <= {COUNTER_WIDTH{1'b0}};
@@ -349,51 +313,39 @@ module tt_um_chatelao_fp8_multiplier #(
             lns_mode_reg <= 2'd0;
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
-                // Capture Metadata at the start of a block (Cycle 0).
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
                 lns_mode_reg      <= ui_in[4:3];
 
                 if (ui_in[7]) begin
-                    // Fast Start: Skip scale loading and reuse previous values.
                     cycle_count <= 6'd3;
                     if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
                 end else begin
                     cycle_count <= 6'd1;
                 end
             end else begin
-                // Standard progression.
                 cycle_count <= (logical_cycle == last_cycle) ? {COUNTER_WIDTH{1'b0}} : logical_cycle + {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1};
-
                 if (logical_cycle == 6'd1) begin
-                    // Capture Format A in Cycle 1.
                     if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
                 end
             end
         end
     end
 
-    // ------------------------------------------------------------------------
-    // MAC Datapath Integration
-    // ------------------------------------------------------------------------
-
     localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
-    // Control signal to enable the accumulator only when valid products are arriving.
     wire acc_en    = strobe && (SUPPORT_PIPELINING ?
                      ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && state == STATE_STREAM) :
                      ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && state == STATE_STREAM));
 
-    // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
     wire mul_nan_lane0, mul_nan_lane1;
     wire mul_inf_lane0, mul_inf_lane1;
 
-    // Buffer for packed elements in bit-serial modes.
     reg [3:0] packed_a_buf, packed_b_buf;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -405,20 +357,18 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     end
 
-    // Input lane selection logic: handles Standard, Packed, and Buffered modes.
     wire [7:0] a_lane0 = actual_packed_mode ? {4'd0, ui_in[3:0]} :
                         (actual_input_buffering ? buffered_a_lane0 :
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
     /* verilator lint_on UNUSEDSIGNAL */
 
 
-    // Instantiate Multipliers (either standard or LNS based on parameters).
     generate
         if (USE_LNS_MUL) begin : lns_gen
             fp8_mul_lns #(
@@ -432,18 +382,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
                 .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
             ) multiplier_lane0 (
-                .a(a_lane0),
-                .b(b_lane0),
-                .format_a(format_a),
-                .format_b(format_b_val),
-                .is_bm_a(is_bm_a_lane0_raw),
-                .is_bm_b(is_bm_b_lane0_raw),
-                .lns_mode(lns_mode_reg),
-                .prod(mul_prod_lane0),
-                .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .nan(mul_nan_lane0),
-                .inf(mul_inf_lane0)
+                .a(a_lane0), .b(b_lane0), .format_a(format_a), .format_b(format_b_val),
+                .is_bm_a(is_bm_a_lane0_raw), .is_bm_b(is_bm_b_lane0_raw), .lns_mode(lns_mode_reg),
+                .prod(mul_prod_lane0), .exp_sum(mul_exp_sum_lane0), .sign(mul_sign_lane0),
+                .nan(mul_nan_lane0), .inf(mul_inf_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul_lns #(
@@ -457,25 +399,14 @@ module tt_um_chatelao_fp8_multiplier #(
                     .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
                     .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
                 ) multiplier_lane1 (
-                    .a(a_lane1),
-                    .b(b_lane1),
-                    .format_a(format_a),
-                    .format_b(format_b_val),
-                    .is_bm_a(is_bm_a_lane1_raw),
-                    .is_bm_b(is_bm_b_lane1_raw),
-                    .lns_mode(lns_mode_reg),
-                    .prod(mul_prod_lane1),
-                    .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .nan(mul_nan_lane1),
-                    .inf(mul_inf_lane1)
+                    .a(a_lane1), .b(b_lane1), .format_a(format_a), .format_b(format_b_val),
+                    .is_bm_a(is_bm_a_lane1_raw), .is_bm_b(is_bm_b_lane1_raw), .lns_mode(lns_mode_reg),
+                    .prod(mul_prod_lane1), .exp_sum(mul_exp_sum_lane1), .sign(mul_sign_lane1),
+                    .nan(mul_nan_lane1), .inf(mul_inf_lane1)
                 );
             end else begin : no_lane1
-                assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1 = 1'b0;
-                assign mul_nan_lane1 = 1'b0;
-                assign mul_inf_lane1 = 1'b0;
+                assign mul_prod_lane1 = 16'd0; assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1 = 1'b0; assign mul_nan_lane1 = 1'b0; assign mul_inf_lane1 = 1'b0;
             end
         end else begin : std_gen
             fp8_mul #(
@@ -488,18 +419,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
                 .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
             ) multiplier_lane0 (
-                .a(a_lane0),
-                .b(b_lane0),
-                .format_a(format_a),
-                .format_b(format_b_val),
-                .is_bm_a(is_bm_a_lane0_raw),
-                .is_bm_b(is_bm_b_lane0_raw),
-                .lns_mode(lns_mode_reg),
-                .prod(mul_prod_lane0),
-                .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .nan(mul_nan_lane0),
-                .inf(mul_inf_lane0)
+                .a(a_lane0), .b(b_lane0), .format_a(format_a), .format_b(format_b_val),
+                .is_bm_a(is_bm_a_lane0_raw), .is_bm_b(is_bm_b_lane0_raw), .lns_mode(lns_mode_reg),
+                .prod(mul_prod_lane0), .exp_sum(mul_exp_sum_lane0), .sign(mul_sign_lane0),
+                .nan(mul_nan_lane0), .inf(mul_inf_lane0)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul #(
@@ -512,30 +435,18 @@ module tt_um_chatelao_fp8_multiplier #(
                     .SUPPORT_MX_PLUS(SUPPORT_MX_PLUS),
                     .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
                 ) multiplier_lane1 (
-                    .a(a_lane1),
-                    .b(b_lane1),
-                    .format_a(format_a),
-                    .format_b(format_b_val),
-                    .is_bm_a(is_bm_a_lane1_raw),
-                    .is_bm_b(is_bm_b_lane1_raw),
-                    .lns_mode(lns_mode_reg),
-                    .prod(mul_prod_lane1),
-                    .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .nan(mul_nan_lane1),
-                    .inf(mul_inf_lane1)
+                    .a(a_lane1), .b(b_lane1), .format_a(format_a), .format_b(format_b_val),
+                    .is_bm_a(is_bm_a_lane1_raw), .is_bm_b(is_bm_b_lane1_raw), .lns_mode(lns_mode_reg),
+                    .prod(mul_prod_lane1), .exp_sum(mul_exp_sum_lane1), .sign(mul_sign_lane1),
+                    .nan(mul_nan_lane1), .inf(mul_inf_lane1)
                 );
             end else begin : no_lane1
-                assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1 = 1'b0;
-                assign mul_nan_lane1 = 1'b0;
-                assign mul_inf_lane1 = 1'b0;
+                assign mul_prod_lane1 = 16'd0; assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1 = 1'b0; assign mul_nan_lane1 = 1'b0; assign mul_inf_lane1 = 1'b0;
             end
         end
     endgenerate
 
-    // Pipeline registers: Improve timing by breaking long paths after the multipliers.
     /* verilator lint_off UNUSEDSIGNAL */
     wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
@@ -554,29 +465,19 @@ module tt_um_chatelao_fp8_multiplier #(
 
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
-                    mul_prod_lane0_reg <= 16'd0;
-                    mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
-                    mul_sign_lane0_reg <= 1'b0;
-                    mul_nan_lane0_reg <= 1'b0;
-                    mul_inf_lane0_reg <= 1'b0;
-                    is_bm_a_lane0_reg <= 1'b0;
-                    is_bm_b_lane0_reg <= 1'b0;
+                    mul_prod_lane0_reg <= 16'd0; mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
+                    mul_sign_lane0_reg <= 1'b0; mul_nan_lane0_reg <= 1'b0; mul_inf_lane0_reg <= 1'b0;
+                    is_bm_a_lane0_reg <= 1'b0; is_bm_b_lane0_reg <= 1'b0;
                 end else if (ena && strobe) begin
-                    mul_prod_lane0_reg <= mul_prod_lane0;
-                    mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
-                    mul_sign_lane0_reg <= mul_sign_lane0;
-                    mul_nan_lane0_reg <= mul_nan_lane0;
-                    mul_inf_lane0_reg <= mul_inf_lane0;
-                    is_bm_a_lane0_reg <= is_bm_a_lane0_raw;
+                    mul_prod_lane0_reg <= mul_prod_lane0; mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
+                    mul_sign_lane0_reg <= mul_sign_lane0; mul_nan_lane0_reg <= mul_nan_lane0;
+                    mul_inf_lane0_reg <= mul_inf_lane0; is_bm_a_lane0_reg <= is_bm_a_lane0_raw;
                     is_bm_b_lane0_reg <= is_bm_b_lane0_raw;
                 end
             end
-            assign mul_prod_lane0_val = mul_prod_lane0_reg;
-            assign mul_exp_sum_lane0_val = mul_exp_sum_lane0_reg;
-            assign mul_sign_lane0_val = mul_sign_lane0_reg;
-            assign mul_nan_lane0_val = mul_nan_lane0_reg;
-            assign mul_inf_lane0_val = mul_inf_lane0_reg;
-            assign is_bm_a_lane0_val = is_bm_a_lane0_reg;
+            assign mul_prod_lane0_val = mul_prod_lane0_reg; assign mul_exp_sum_lane0_val = mul_exp_sum_lane0_reg;
+            assign mul_sign_lane0_val = mul_sign_lane0_reg; assign mul_nan_lane0_val = mul_nan_lane0_reg;
+            assign mul_inf_lane0_val = mul_inf_lane0_reg; assign is_bm_a_lane0_val = is_bm_a_lane0_reg;
             assign is_bm_b_lane0_val = is_bm_b_lane0_reg;
 
             if (SUPPORT_VECTOR_PACKING) begin : gen_pipeline_lane1
@@ -588,84 +489,53 @@ module tt_um_chatelao_fp8_multiplier #(
 
                 always @(posedge clk or negedge rst_n) begin
                     if (!rst_n) begin
-                        mul_prod_lane1_reg <= 16'd0;
-                        mul_exp_sum_lane1_reg <= {EXP_SUM_WIDTH{1'b0}};
-                        mul_sign_lane1_reg <= 1'b0;
-                        mul_nan_lane1_reg <= 1'b0;
-                        mul_inf_lane1_reg <= 1'b0;
-                        is_bm_a_lane1_reg <= 1'b0;
-                        is_bm_b_lane1_reg <= 1'b0;
+                        mul_prod_lane1_reg <= 16'd0; mul_exp_sum_lane1_reg <= {EXP_SUM_WIDTH{1'b0}};
+                        mul_sign_lane1_reg <= 1'b0; mul_nan_lane1_reg <= 1'b0; mul_inf_lane1_reg <= 1'b0;
+                        is_bm_a_lane1_reg <= 1'b0; is_bm_b_lane1_reg <= 1'b0;
                     end else if (ena && strobe) begin
-                        mul_prod_lane1_reg <= mul_prod_lane1;
-                        mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
-                        mul_sign_lane1_reg <= mul_sign_lane1;
-                        mul_nan_lane1_reg <= mul_nan_lane1;
-                        mul_inf_lane1_reg <= mul_inf_lane1;
-                        is_bm_a_lane1_reg <= is_bm_a_lane1_raw;
+                        mul_prod_lane1_reg <= mul_prod_lane1; mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
+                        mul_sign_lane1_reg <= mul_sign_lane1; mul_nan_lane1_reg <= mul_nan_lane1;
+                        mul_inf_lane1_reg <= mul_inf_lane1; is_bm_a_lane1_reg <= is_bm_a_lane1_raw;
                         is_bm_b_lane1_reg <= is_bm_b_lane1_raw;
                     end
                 end
-                assign mul_prod_lane1_val = mul_prod_lane1_reg;
-                assign mul_exp_sum_lane1_val = mul_exp_sum_lane1_reg;
-                assign mul_sign_lane1_val = mul_sign_lane1_reg;
-                assign mul_nan_lane1_val = mul_nan_lane1_reg;
-                assign mul_inf_lane1_val = mul_inf_lane1_reg;
-                assign is_bm_a_lane1_val = is_bm_a_lane1_reg;
+                assign mul_prod_lane1_val = mul_prod_lane1_reg; assign mul_exp_sum_lane1_val = mul_exp_sum_lane1_reg;
+                assign mul_sign_lane1_val = mul_sign_lane1_reg; assign mul_nan_lane1_val = mul_nan_lane1_reg;
+                assign mul_inf_lane1_val = mul_inf_lane1_reg; assign is_bm_a_lane1_val = is_bm_a_lane1_reg;
                 assign is_bm_b_lane1_val = is_bm_b_lane1_reg;
             end else begin : gen_no_pipeline_lane1
-                assign mul_prod_lane1_val = 16'd0;
-                assign mul_exp_sum_lane1_val = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1_val = 1'b0;
-                assign mul_nan_lane1_val = 1'b0;
-                assign mul_inf_lane1_val = 1'b0;
-                assign is_bm_a_lane1_val = 1'b0;
-                assign is_bm_b_lane1_val = 1'b0;
+                assign mul_prod_lane1_val = 16'd0; assign mul_exp_sum_lane1_val = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1_val = 1'b0; assign mul_nan_lane1_val = 1'b0; assign mul_inf_lane1_val = 1'b0;
+                assign is_bm_a_lane1_val = 1'b0; assign is_bm_b_lane1_val = 1'b0;
             end
         end else begin : gen_no_pipeline
-            assign mul_prod_lane0_val = mul_prod_lane0;
-            assign mul_exp_sum_lane0_val = mul_exp_sum_lane0;
-            assign mul_sign_lane0_val = mul_sign_lane0;
-            assign mul_nan_lane0_val = mul_nan_lane0;
-            assign mul_inf_lane0_val = mul_inf_lane0;
-            assign is_bm_a_lane0_val = is_bm_a_lane0_raw;
+            assign mul_prod_lane0_val = mul_prod_lane0; assign mul_exp_sum_lane0_val = mul_exp_sum_lane0;
+            assign mul_sign_lane0_val = mul_sign_lane0; assign mul_nan_lane0_val = mul_nan_lane0;
+            assign mul_inf_lane0_val = mul_inf_lane0; assign is_bm_a_lane0_val = is_bm_a_lane0_raw;
             assign is_bm_b_lane0_val = is_bm_b_lane0_raw;
-            assign mul_prod_lane1_val = mul_prod_lane1;
-            assign mul_exp_sum_lane1_val = mul_exp_sum_lane1;
-            assign mul_sign_lane1_val = mul_sign_lane1;
-            assign mul_nan_lane1_val = mul_nan_lane1;
-            assign mul_inf_lane1_val = mul_inf_lane1;
-            assign is_bm_a_lane1_val = is_bm_a_lane1_raw;
+            assign mul_prod_lane1_val = mul_prod_lane1; assign mul_exp_sum_lane1_val = mul_exp_sum_lane1;
+            assign mul_sign_lane1_val = mul_sign_lane1; assign mul_nan_lane1_val = mul_nan_lane1;
+            assign mul_inf_lane1_val = mul_inf_lane1; assign is_bm_a_lane1_val = is_bm_a_lane1_raw;
             assign is_bm_b_lane1_val = is_bm_b_lane1_raw;
         end
     endgenerate
 
-    // 1.5 Sticky Registers for Exception Tracking
-    // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
-    // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
-    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
     wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            nan_sticky <= 1'b0;
-            inf_pos_sticky <= 1'b0;
-            inf_neg_sticky <= 1'b0;
+            nan_sticky <= 1'b0; inf_pos_sticky <= 1'b0; inf_neg_sticky <= 1'b0;
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
-                // Check if we are starting a Short Protocol block with NaN scales already loaded
                 nan_sticky <= ENABLE_SHARED_SCALING && ui_in[7] && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
-                inf_pos_sticky <= 1'b0;
-                inf_neg_sticky <= 1'b0;
+                inf_pos_sticky <= 1'b0; inf_neg_sticky <= 1'b0;
             end else begin
-                // Latch element-level special values
                 if (sticky_latch_en) begin
                     nan_sticky <= nan_sticky | mul_nan_lane0_val | mul_nan_lane1_val;
                     inf_pos_sticky <= inf_pos_sticky | (mul_inf_lane0_val & ~mul_sign_lane0_val) | (mul_inf_lane1_val & ~mul_sign_lane1_val);
                     inf_neg_sticky <= inf_neg_sticky | (mul_inf_lane0_val & mul_sign_lane0_val) | (mul_inf_lane1_val & mul_sign_lane1_val);
                 end
-                // Latch block-level Shared Scale NaN Rule (Scale=0xFF)
                 if (ENABLE_SHARED_SCALING && (logical_cycle == 6'd1 || logical_cycle == 6'd2)) begin
                     if (ui_in == 8'hFF) nan_sticky <= 1'b1;
                 end
@@ -673,24 +543,10 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     end
 
-    // 2. Shared Scale Calculation: S = XA + XB - 254. UE8M0 has bias 127.
     wire signed [9:0] shared_exp = $signed({2'b0, scale_a_val}) + $signed({2'b0, scale_b_val}) - 10'sd254;
 
-    // 3. Aligner Multiplexing
-    // We reuse the 'fp8_aligner' for both per-element scaling and final shared scaling to save area.
     wire [ACCUMULATOR_WIDTH-1:0] acc_out;
 
-    wire [ACCUMULATOR_WIDTH-1:0] acc_abs_val;
-    generate
-        if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
-            assign acc_abs_val = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
-        end else begin : gen_no_acc_abs
-            assign acc_abs_val = {ACCUMULATOR_WIDTH{1'b0}};
-        end
-    endgenerate
-
-    // MX++ Exponent Offset (Step 6)
-    // Subtract offsets if the element is NOT a BM.
     wire signed [9:0] exp_sum_lane0_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0_val} -
                                           (is_bm_a_lane0_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                           (is_bm_b_lane0_val ? 10'd0 : {7'd0, nbm_offset_b_val});
@@ -701,7 +557,6 @@ module tt_um_chatelao_fp8_multiplier #(
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
 
-    // Multiplier for Aligner Input.
     wire [31:0] aligner_lane0_in_prod = {16'd0, mul_prod_lane0_val};
     wire signed [9:0] aligner_lane0_in_exp  = exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = mul_sign_lane0_val;
@@ -712,12 +567,8 @@ module tt_um_chatelao_fp8_multiplier #(
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
         .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
     ) aligner_lane0_inst (
-        .prod(aligner_lane0_in_prod),
-        .exp_sum(aligner_lane0_in_exp),
-        .sign(aligner_lane0_in_sign),
-        .round_mode(round_mode),
-        .overflow_wrap(overflow_wrap),
-        .aligned(aligned_lane0_res)
+        .prod(aligner_lane0_in_prod), .exp_sum(aligner_lane0_in_exp), .sign(aligner_lane0_in_sign),
+        .round_mode(round_mode), .overflow_wrap(overflow_wrap), .aligned(aligned_lane0_res)
     );
 
     /* verilator lint_off UNUSEDSIGNAL */
@@ -730,82 +581,76 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
                 .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
-                .prod({16'd0, mul_prod_lane1_val}),
-                .exp_sum(exp_sum_lane1_adj),
-                .sign(mul_sign_lane1_val),
-                .round_mode(round_mode),
-                .overflow_wrap(overflow_wrap),
-                .aligned(aligned_lane1_res)
+                .prod({16'd0, mul_prod_lane1_val}), .exp_sum(exp_sum_lane1_adj), .sign(mul_sign_lane1_val),
+                .round_mode(round_mode), .overflow_wrap(overflow_wrap), .aligned(aligned_lane1_res)
             );
         end else begin : no_aligner_lane1
-            assign aligned_lane1_res = 32'd0;
+            assign aligned_lane1_res = {ALIGNER_WIDTH{1'b0}};
         end
     endgenerate
 
-    // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({aligned_lane0_res[ACCUMULATOR_WIDTH-1], aligned_lane0_res}) + $signed({aligned_lane1_res[ACCUMULATOR_WIDTH-1], aligned_lane1_res});
-    wire combined_overflow = (aligned_lane0_res[ACCUMULATOR_WIDTH-1] == aligned_lane1_res[ACCUMULATOR_WIDTH-1]) && (combined_full[ACCUMULATOR_WIDTH-1] != aligned_lane0_res[ACCUMULATOR_WIDTH-1]);
+    wire signed [ALIGNER_WIDTH:0] combined_full = $signed({aligned_lane0_res[ALIGNER_WIDTH-1], aligned_lane0_res}) + $signed({aligned_lane1_res[ALIGNER_WIDTH-1], aligned_lane1_res});
+    wire combined_overflow = (aligned_lane0_res[ALIGNER_WIDTH-1] == aligned_lane1_res[ALIGNER_WIDTH-1]) && (combined_full[ALIGNER_WIDTH-1] != aligned_lane0_res[ALIGNER_WIDTH-1]);
     wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
-                                                     (aligned_lane0_res[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
+                                                     (aligned_lane0_res[ALIGNER_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
                                                      combined_full[ACCUMULATOR_WIDTH-1:0];
 
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
 
-    // --- IEEE 754 Float32 Conversion Stage ---
     reg [31:0] float32_res;
 
     wire [ACCUMULATOR_WIDTH-1:0] conv_src = acc_out;
-    /* verilator lint_off UNUSEDSIGNAL */
-    wire [ACCUMULATOR_WIDTH-1:0] conv_abs = conv_src[ACCUMULATOR_WIDTH-1] ? -conv_src : conv_src;
-    /* verilator lint_on UNUSEDSIGNAL */
+    wire [79:0] conv_abs_80 = {{(80-ACCUMULATOR_WIDTH){1'b0}}, (conv_src[ACCUMULATOR_WIDTH-1] ? -conv_src : conv_src)};
 
-    // Leading zero detection for normalization.
+    /* verilator lint_off SELRANGE */
     wire [6:0] leading_zeros;
     assign leading_zeros =
-        conv_abs[79] ? 7'd0  : conv_abs[78] ? 7'd1  : conv_abs[77] ? 7'd2  : conv_abs[76] ? 7'd3  :
-        conv_abs[75] ? 7'd4  : conv_abs[74] ? 7'd5  : conv_abs[73] ? 7'd6  : conv_abs[72] ? 7'd7  :
-        conv_abs[71] ? 7'd8  : conv_abs[70] ? 7'd9  : conv_abs[69] ? 7'd10 : conv_abs[68] ? 7'd11 :
-        conv_abs[67] ? 7'd12 : conv_abs[66] ? 7'd13 : conv_abs[65] ? 7'd14 : conv_abs[64] ? 7'd15 :
-        conv_abs[63] ? 7'd16 : conv_abs[62] ? 7'd17 : conv_abs[61] ? 7'd18 : conv_abs[60] ? 7'd19 :
-        conv_abs[59] ? 7'd20 : conv_abs[58] ? 7'd21 : conv_abs[57] ? 7'd22 : conv_abs[56] ? 7'd23 :
-        conv_abs[55] ? 7'd24 : conv_abs[54] ? 7'd25 : conv_abs[53] ? 7'd26 : conv_abs[52] ? 7'd27 :
-        conv_abs[51] ? 7'd28 : conv_abs[50] ? 7'd29 : conv_abs[49] ? 7'd30 : conv_abs[48] ? 7'd31 :
-        conv_abs[47] ? 7'd32 : conv_abs[46] ? 7'd33 : conv_abs[45] ? 7'd34 : conv_abs[44] ? 7'd35 :
-        conv_abs[43] ? 7'd36 : conv_abs[42] ? 7'd37 : conv_abs[41] ? 7'd38 : conv_abs[40] ? 7'd39 :
-        conv_abs[39] ? 7'd40 : conv_abs[38] ? 7'd41 : conv_abs[37] ? 7'd42 : conv_abs[36] ? 7'd43 :
-        conv_abs[35] ? 7'd44 : conv_abs[34] ? 7'd45 : conv_abs[33] ? 7'd46 : conv_abs[32] ? 7'd47 :
-        conv_abs[31] ? 7'd48 : conv_abs[30] ? 7'd49 : conv_abs[29] ? 7'd50 : conv_abs[28] ? 7'd51 :
-        conv_abs[27] ? 7'd52 : conv_abs[26] ? 7'd53 : conv_abs[25] ? 7'd54 : conv_abs[24] ? 7'd55 :
-        conv_abs[23] ? 7'd56 : conv_abs[22] ? 7'd57 : conv_abs[21] ? 7'd58 : conv_abs[20] ? 7'd59 :
-        conv_abs[19] ? 7'd60 : conv_abs[18] ? 7'd61 : conv_abs[17] ? 7'd62 : conv_abs[16] ? 7'd63 :
-        conv_abs[15] ? 7'd64 : conv_abs[14] ? 7'd65 : conv_abs[13] ? 7'd66 : conv_abs[12] ? 7'd67 :
-        conv_abs[11] ? 7'd68 : conv_abs[10] ? 7'd69 : conv_abs[9]  ? 7'd70 : conv_abs[8]  ? 7'd71 :
-        conv_abs[7]  ? 7'd72 : conv_abs[6]  ? 7'd73 : conv_abs[5]  ? 7'd74 : conv_abs[4]  ? 7'd75 :
-        conv_abs[3]  ? 7'd76 : conv_abs[2]  ? 7'd77 : conv_abs[1]  ? 7'd78 : conv_abs[0]  ? 7'd79 : 7'd80;
+        conv_abs_80[79] ? 7'd0  : conv_abs_80[78] ? 7'd1  : conv_abs_80[77] ? 7'd2  : conv_abs_80[76] ? 7'd3  :
+        conv_abs_80[75] ? 7'd4  : conv_abs_80[74] ? 7'd5  : conv_abs_80[73] ? 7'd6  : conv_abs_80[72] ? 7'd7  :
+        conv_abs_80[71] ? 7'd8  : conv_abs_80[70] ? 7'd9  : conv_abs_80[69] ? 7'd10 : conv_abs_80[68] ? 7'd11 :
+        conv_abs_80[67] ? 7'd12 : conv_abs_80[66] ? 7'd13 : conv_abs_80[65] ? 7'd14 : conv_abs_80[64] ? 7'd15 :
+        conv_abs_80[63] ? 7'd16 : conv_abs_80[62] ? 7'd17 : conv_abs_80[61] ? 7'd18 : conv_abs_80[60] ? 7'd19 :
+        conv_abs_80[59] ? 7'd20 : conv_abs_80[58] ? 7'd21 : conv_abs_80[57] ? 7'd22 : conv_abs_80[56] ? 7'd23 :
+        conv_abs_80[55] ? 7'd24 : conv_abs_80[54] ? 7'd25 : conv_abs_80[53] ? 7'd26 : conv_abs_80[52] ? 7'd27 :
+        conv_abs_80[51] ? 7'd28 : conv_abs_80[50] ? 7'd29 : conv_abs_80[49] ? 7'd30 : conv_abs_80[48] ? 7'd31 :
+        conv_abs_80[47] ? 7'd32 : conv_abs_80[46] ? 7'd33 : conv_abs_80[45] ? 7'd34 : conv_abs_80[44] ? 7'd35 :
+        conv_abs_80[43] ? 7'd36 : conv_abs_80[42] ? 7'd37 : conv_abs_80[41] ? 7'd38 : conv_abs_80[40] ? 7'd39 :
+        conv_abs_80[39] ? 7'd40 : conv_abs_80[38] ? 7'd41 : conv_abs_80[37] ? 7'd42 : conv_abs_80[36] ? 7'd43 :
+        conv_abs_80[35] ? 7'd44 : conv_abs_80[34] ? 7'd45 : conv_abs_80[33] ? 7'd46 : conv_abs_80[32] ? 7'd47 :
+        conv_abs_80[31] ? 7'd48 : conv_abs_80[30] ? 7'd49 : conv_abs_80[29] ? 7'd50 : conv_abs_80[28] ? 7'd51 :
+        conv_abs_80[27] ? 7'd52 : conv_abs_80[26] ? 7'd53 : conv_abs_80[25] ? 7'd54 : conv_abs_80[24] ? 7'd55 :
+        conv_abs_80[23] ? 7'd56 : conv_abs_80[22] ? 7'd57 : conv_abs_80[21] ? 7'd58 : conv_abs_80[20] ? 7'd59 :
+        conv_abs_80[19] ? 7'd60 : conv_abs_80[18] ? 7'd61 : conv_abs_80[17] ? 7'd62 : conv_abs_80[16] ? 7'd63 :
+        conv_abs_80[15] ? 7'd64 : conv_abs_80[14] ? 7'd65 : conv_abs_80[13] ? 7'd66 : conv_abs_80[12] ? 7'd67 :
+        conv_abs_80[11] ? 7'd68 : conv_abs_80[10] ? 7'd69 : conv_abs_80[9]  ? 7'd70 : conv_abs_80[8]  ? 7'd71 :
+        conv_abs_80[7]  ? 7'd72 : conv_abs_80[6]  ? 7'd73 : conv_abs_80[5]  ? 7'd74 : conv_abs_80[4]  ? 7'd75 :
+        conv_abs_80[3]  ? 7'd76 : conv_abs_80[2]  ? 7'd77 : conv_abs_80[1]  ? 7'd78 : conv_abs_80[0]  ? 7'd79 : 7'd80;
+    /* verilator lint_on SELRANGE */
 
     wire signed [10:0] f32_exp_shared = $signed(shared_exp) + $signed(11'sd127) + $signed({4'd0, 7'd79 - leading_zeros}) - 11'sd34;
     wire [7:0] final_f32_exp = (f32_exp_shared >= 255) ? 8'hFF : (f32_exp_shared <= 0) ? 8'h00 : f32_exp_shared[7:0];
-    wire [127:0] normalized_mant = {conv_abs, 48'd0} << leading_zeros;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [127:0] normalized_mant = {conv_abs_80, 48'd0} << leading_zeros;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [22:0] f32_mant = normalized_mant[126:104];
     wire round_bit_val = normalized_mant[103];
     wire sticky_bit_val = |normalized_mant[102:0];
 
-    // Round-to-nearest-even
     wire [22:0] rounded_mant = (round_bit_val && (sticky_bit_val || f32_mant[0])) ? f32_mant + 23'd1 : f32_mant;
     wire mant_overflow = (round_bit_val && (sticky_bit_val || f32_mant[0]) && (f32_mant == 23'h7FFFFF));
     wire [7:0] final_exp_norm = mant_overflow ? final_f32_exp + 8'd1 : final_f32_exp;
 
     always @(*) begin
         if (nan_sticky || (inf_pos_sticky && inf_neg_sticky) || (final_f32_exp == 8'hFF && !inf_pos_sticky && !inf_neg_sticky)) begin
-            float32_res = 32'h7FC00000; // NaN
+            float32_res = 32'h7FC00000;
         end else if (inf_pos_sticky || (final_f32_exp == 8'hFF && !conv_src[ACCUMULATOR_WIDTH-1])) begin
-            float32_res = 32'h7F800000; // +Inf
+            float32_res = 32'h7F800000;
         end else if (inf_neg_sticky || (final_f32_exp == 8'hFF && conv_src[ACCUMULATOR_WIDTH-1])) begin
-            float32_res = 32'hFF800000; // -Inf
-        end else if (conv_src == 80'd0) begin
-            float32_res = 32'h00000000; // Zero
+            float32_res = 32'hFF800000;
+        end else if (conv_abs_80 == 80'd0) begin
+            float32_res = 32'h00000000;
         end else begin
             float32_res = {conv_src[ACCUMULATOR_WIDTH-1], final_exp_norm, mant_overflow ? 23'd0 : rounded_mant};
         end
@@ -813,37 +658,24 @@ module tt_um_chatelao_fp8_multiplier #(
 
     reg [31:0] float32_shift_reg;
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            float32_shift_reg <= 32'd0;
-        end else if (ena && strobe) begin
-            if (logical_cycle == capture_cycle)
-                float32_shift_reg <= float32_res;
-            else if (state == STATE_OUTPUT)
-                float32_shift_reg <= {float32_shift_reg[23:0], 8'd0};
+        if (!rst_n) float32_shift_reg <= 32'd0;
+        else if (ena && strobe) begin
+            if (logical_cycle == capture_cycle) float32_shift_reg <= float32_res;
+            else if (state == STATE_OUTPUT) float32_shift_reg <= {float32_shift_reg[23:0], 8'd0};
         end
     end
     assign acc_shift_out = float32_shift_reg[31:24];
 
-    wire [31:0] final_scaled_result = float32_res;
-
-    // Accumulator instance.
-    accumulator #(
-        .WIDTH(ACCUMULATOR_WIDTH)
-    ) acc_inst (
-        .clk(clk),
-        .rst_n(rst_n),
-        .clear(acc_clear),
-        .en(acc_en),
-        .overflow_wrap(overflow_wrap),
-        .data_in(aligned_combined),
-        .load_en(1'b0),
-        .load_data(32'd0),
-        .shift_en(1'b0),
+    accumulator #(.WIDTH(ACCUMULATOR_WIDTH)) acc_inst (
+        .clk(clk), .rst_n(rst_n), .clear(acc_clear), .en(acc_en),
+        .overflow_wrap(overflow_wrap), .data_in(aligned_combined),
+        .load_en(1'b0), .load_data(32'd0), .shift_en(1'b0),
+        /* verilator lint_off PINCONNECTEMPTY */
         .shift_out(),
+        /* verilator lint_on PINCONNECTEMPTY */
         .data_out(acc_out)
     );
 
-    // --- Probing and Echo Logic ---
     wire [7:0] metadata_echo;
     wire [7:0] probe_data;
 
@@ -865,70 +697,46 @@ module tt_um_chatelao_fp8_multiplier #(
                                 (probe_sel_val == 4'hD) ? {mul_sign_lane1_val, mul_nan_lane1_val, mul_inf_lane1_val, mul_exp_sum_lane1_val[4:0]} :
                                 8'h00;
         end else begin : gen_no_debug_output
-            assign metadata_echo = 8'h00;
-            assign probe_data = 8'h00;
+            assign metadata_echo = 8'h00; assign probe_data = 8'h00;
         end
     endgenerate
 
-    // --- Main Output Multiplexer ---
-    // Decides what data to send to uo_out based on current cycle and configuration.
     assign uo_out = loopback_en_val ? (ui_in ^ uio_in) :
-                    (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
-                    acc_shift_out :
+                    (state == STATE_OUTPUT && logical_cycle > capture_cycle) ? acc_shift_out :
                     (debug_en_val && logical_cycle == capture_cycle - 6'd1) ? metadata_echo :
-                    (debug_en_val && logical_cycle < capture_cycle) ? probe_data :
-                    8'h00;
+                    (debug_en_val && logical_cycle < capture_cycle) ? probe_data : 8'h00;
 
 `ifdef FORMAL
-    /**
-     * Formal Verification Block
-     * This code is only used by formal tools (like SymbiYosys) to prove invariants.
-     */
-    // 0. Formal-only capture register for serialization verification
     reg [31:0] f_scaled_acc_reg;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) f_scaled_acc_reg <= 32'd0;
-        else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= final_scaled_result;
+        else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= float32_res;
     end
 
-    // 1. Reset and Clock assumptions
     reg f_past_valid = 1'b0;
     always @(posedge clk) f_past_valid <= 1'b1;
 
     initial assume(!rst_n);
     always @(posedge clk) begin
-        if (!f_past_valid)
-            assume(!rst_n);
-        else
-            assume(rst_n);
+        if (!f_past_valid) assume(!rst_n);
+        else assume(rst_n);
     end
 
-    // 2. Global Assumptions
     always @(*) assume(ena == 1'b1);
 
-    // 3. Invariants
-    // Prove that the cycle counter stays within bounds.
     always @(posedge clk) begin
-        if (rst_n) begin
-            assert(logical_cycle <= 6'd40);
-        end
+        if (rst_n) assert(logical_cycle <= 6'd40);
     end
 
-    // 4. Protocol FSM Transitions
-    // Prove FSM transitions.
     always @(posedge clk) begin
         if (f_past_valid && $past(rst_n) && rst_n && $past(strobe)) begin
-            // Cycle count progression
             if ($past(state) == STATE_IDLE && $past(ui_in[7])) begin
-                assert(logical_cycle == 6'd3);
-                assert(state == STATE_STREAM);
+                assert(logical_cycle == 6'd3); assert(state == STATE_STREAM);
             end else if ($past(logical_cycle) == last_cycle) begin
                 assert(logical_cycle == 6'd0);
             end else begin
                 assert(logical_cycle == $past(logical_cycle) + 6'd1);
             end
-
-            // State progression (verified by combinatorial definition)
             assert(state == ((logical_cycle == 6'd0) ? STATE_IDLE :
                              (logical_cycle <= 6'd2) ? STATE_LOAD_SCALE :
                              (logical_cycle <= capture_cycle) ? STATE_STREAM :
@@ -936,44 +744,28 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     end
 
-    // 5. Register Stability
-    // Prove register stability during a block.
     always @(posedge clk) begin
         if (f_past_valid && $past(rst_n) && rst_n && $past(strobe)) begin
-            // round_mode, overflow_wrap loaded at cycle 0
             if ($past(logical_cycle) != 6'd0) begin
                 assert(round_mode    == $past(round_mode));
                 assert(overflow_wrap == $past(overflow_wrap));
                 assert(packed_mode   == $past(packed_mode));
             end
-
-            // format_a loaded at cycle 0 (Short) or 1 (Standard)
             if ($past(logical_cycle) != 6'd1 && !($past(logical_cycle) == 6'd0 && $past(ui_in[7]))) begin
                 assert(format_a      == $past(format_a));
             end
-
             if (SUPPORT_MX_PLUS) begin
-                // bm_index_a loaded at cycle 1
-                if ($past(logical_cycle) != 6'd1) begin
-                    assert(bm_index_a_val == $past(bm_index_a_val));
-                end
-                if ($past(logical_cycle) != 6'd2) begin
-                    assert(bm_index_b_val == $past(bm_index_b_val));
-                end
-                // mx_plus_en loaded at cycle 0
-                if ($past(logical_cycle) != 6'd0) begin
-                    assert(mx_plus_en_val == $past(mx_plus_en_val));
-                end
+                if ($past(logical_cycle) != 6'd1) assert(bm_index_a_val == $past(bm_index_a_val));
+                if ($past(logical_cycle) != 6'd2) assert(bm_index_b_val == $past(bm_index_b_val));
+                if ($past(logical_cycle) != 6'd0) assert(mx_plus_en_val == $past(mx_plus_en_val));
             end
         end
     end
 
-    // 6. Output Gating & Serialization
     always @(*) begin
         if (rst_n) begin
-            if (loopback_en_val) begin
-                assert(uo_out == (ui_in ^ uio_in));
-            end else if (state == STATE_OUTPUT && logical_cycle > capture_cycle) begin
+            if (loopback_en_val) assert(uo_out == (ui_in ^ uio_in));
+            else if (state == STATE_OUTPUT && logical_cycle > capture_cycle) begin
                 case (logical_cycle - capture_cycle)
                     6'd1: assert(uo_out == f_scaled_acc_reg[31:24]);
                     6'd2: assert(uo_out == f_scaled_acc_reg[23:16]);
@@ -981,36 +773,25 @@ module tt_um_chatelao_fp8_multiplier #(
                     6'd4: assert(uo_out == f_scaled_acc_reg[7:0]);
                     default: assert(uo_out == 8'd0);
                 endcase
-            end else if (debug_en_val && logical_cycle == capture_cycle - 6'd1) begin
-                assert(uo_out == metadata_echo);
-            end else if (debug_en_val && logical_cycle < capture_cycle) begin
-                assert(uo_out == probe_data);
-            end else begin
-                assert(uo_out == 8'd0);
-            end
+            end else if (debug_en_val && logical_cycle == capture_cycle - 6'd1) assert(uo_out == metadata_echo);
+            else if (debug_en_val && logical_cycle < capture_cycle) assert(uo_out == probe_data);
+            else assert(uo_out == 8'd0);
         end
     end
 
-    // 7. MX+ Block Max Detection
-    // Note: assertions must account for 1 cycle pipeline delay if active
     always @(posedge clk) begin
         if (rst_n && SUPPORT_MX_PLUS && state == STATE_STREAM) begin
-            // Internal signals from gen_mx_plus (match elements being processed by multipliers)
             if (gen_mx_plus.element_index_lane0_reg == bm_index_a_val) assert(is_bm_a_lane0_raw);
             else assert(!is_bm_a_lane0_raw);
-
             if (gen_mx_plus.element_index_lane0_reg == bm_index_b_val) assert(is_bm_b_lane0_raw);
             else assert(!is_bm_b_lane0_raw);
-
             if (actual_packed_mode) begin
                 if (gen_mx_plus.element_index_lane1_reg == bm_index_a_val) assert(is_bm_a_lane1_raw);
                 else assert(!is_bm_a_lane1_raw);
-
                 if (gen_mx_plus.element_index_lane1_reg == bm_index_b_val) assert(is_bm_b_lane1_raw);
                 else assert(!is_bm_b_lane1_raw);
             end else begin
-                assert(!is_bm_a_lane1_raw);
-                assert(!is_bm_b_lane1_raw);
+                assert(!is_bm_a_lane1_raw); assert(!is_bm_b_lane1_raw);
             end
         end
     end
