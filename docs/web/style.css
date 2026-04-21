@@ -63,6 +63,10 @@ h2 {
     gap: 1rem;
 }
 
+.secondary-config {
+    margin-top: 1rem;
+}
+
 .control-group {
     margin-bottom: 0.75rem;
 }
@@ -80,6 +84,38 @@ h2 {
     border: 1px solid var(--border);
     border-radius: 4px;
     box-sizing: border-box;
+    min-height: 44px;
+}
+
+.control-buttons {
+    margin-top: 1rem;
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.step-info {
+    background: #eee;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    color: #333;
+}
+
+.nav-links {
+    margin-bottom: 20px;
+}
+
+.nav-links a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+#streaming-data, #results, .nav-links {
+    grid-column: span 2;
 }
 
 .card {
@@ -102,6 +138,7 @@ h2 {
 .table-container {
     max-height: 400px;
     overflow-y: auto;
+    overflow-x: auto;
     border: 1px solid var(--border);
     border-radius: 4px;
 }
@@ -139,6 +176,14 @@ th {
     margin-bottom: 1.5rem;
 }
 
+.bin-result {
+    grid-column: span 2;
+}
+
+#acc-bin {
+    font-size: 0.85rem;
+}
+
 .result-item .label {
     display: block;
     font-size: 0.8rem;
@@ -161,6 +206,7 @@ button {
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.3s;
+    min-height: 44px;
 }
 
 button:hover {
@@ -182,11 +228,34 @@ pre {
     white-space: pre-wrap;
 }
 
+@media (max-width: 900px) {
+    #streaming-data, #results, .nav-links {
+        grid-column: span 1 !important;
+    }
+}
+
 @media (max-width: 768px) {
     main {
         grid-template-columns: 1fr;
+        padding: 1rem;
     }
     .grid-container {
         grid-template-columns: 1fr;
+    }
+    .control-buttons {
+        flex-direction: column;
+    }
+    .control-buttons button {
+        width: 100%;
+    }
+    footer {
+        height: 120px;
+    }
+    .bin-result {
+        grid-column: span 1;
+    }
+    #acc-bin {
+        font-size: 0.7rem !important;
+        word-break: break-all;
     }
 }

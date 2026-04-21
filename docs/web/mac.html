@@ -5,37 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OCP MXFP8 MAC Generator</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-        .step-info {
-            background: #eee;
-            padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            color: #333;
-        }
-        .nav-links {
-            margin-bottom: 20px;
-        }
-        .nav-links a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: bold;
-        }
-        main {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1.5rem;
-        }
-        @media (max-width: 900px) {
-            main {
-                grid-template-columns: 1fr;
-            }
-            #streaming-data {
-                grid-column: span 1 !important;
-            }
-        }
-    </style>
 </head>
 <body>
     <header>
@@ -44,7 +13,7 @@
     </header>
 
     <main>
-        <div class="nav-links" style="grid-column: span 2;">
+        <div class="nav-links">
             <a href="index.html">&larr; Back to Digital Twin</a>
         </div>
 
@@ -113,7 +82,7 @@
                 </div>
             </div>
 
-            <div class="grid-container" style="margin-top: 1rem;">
+            <div class="grid-container secondary-config">
                 <div class="card">
                     <h3>Operand A Config</h3>
                     <div class="control-group">
@@ -145,7 +114,7 @@
                     </div>
                 </div>
             </div>
-            <div style="margin-top: 1rem; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <div class="control-buttons">
                 <button id="randomize-btn">Randomize Elements</button>
                 <button id="twice-one-btn">Twice 1.0 the rest 0.0</button>
                 <button id="random-one-btn">Random * 1.0 the rest 0.0</button>
@@ -174,7 +143,7 @@
             </div>
         </section>
 
-        <section id="streaming-data" style="grid-column: span 2;">
+        <section id="streaming-data">
             <h2>Element Data (32 pairs)</h2>
             <div class="table-container">
                 <table id="elements-table">
@@ -195,7 +164,7 @@
             </div>
         </section>
 
-        <section id="results" style="grid-column: span 2;">
+        <section id="results">
             <div class="result-card">
                 <h2>Final Result</h2>
                 <div class="result-grid">
@@ -207,9 +176,9 @@
                         <span class="label">Accumulator (Dec)</span>
                         <span id="acc-dec" class="value">0.0</span>
                     </div>
-                    <div class="result-item" style="grid-column: span 2;">
+                    <div class="result-item bin-result">
                         <span class="label">Binary (S | E8 | M23)</span>
-                        <span id="acc-bin" class="value" style="font-size: 0.85rem;">0 | 00000000 | 00000000000000000000000</span>
+                        <span id="acc-bin" class="value">0 | 00000000 | 00000000000000000000000</span>
                     </div>
                     <div class="result-item">
                         <span class="label">Status</span>
