@@ -142,9 +142,9 @@ function renderElements() {
         row.id = `row-${i}`;
         row.innerHTML = `
             <td>${i}</td>
-            <td>0x${pair.a.toString(16).padStart(2, '0').toUpperCase()}</td>
+            <td class="hide-mobile">0x${pair.a.toString(16).padStart(2, '0').toUpperCase()}</td>
             <td>${aDec.toExponential(2)}</td>
-            <td>0x${pair.b.toString(16).padStart(2, '0').toUpperCase()}</td>
+            <td class="hide-mobile">0x${pair.b.toString(16).padStart(2, '0').toUpperCase()}</td>
             <td>${bDec.toExponential(2)}</td>
             <td>${prod.toExponential(2)}</td>
         `;

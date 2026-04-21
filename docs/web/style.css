@@ -34,7 +34,7 @@ header h1 {
 
 main {
     padding: 2rem;
-    max-width: 1200px;
+    max-width: 1600px;
     margin: 0 auto;
     flex: 1;
     display: grid;
@@ -114,8 +114,14 @@ h2 {
     font-weight: bold;
 }
 
-#streaming-data, #results, .nav-links {
-    grid-column: span 2;
+#streaming-data, .nav-links {
+    grid-column: 1 / -1;
+}
+
+@media (min-width: 1200px) {
+    main {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 .card {
@@ -145,8 +151,15 @@ h2 {
 
 table {
     width: 100%;
+    min-width: 600px;
     border-collapse: collapse;
     font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+    table {
+        min-width: unset;
+    }
 }
 
 th, td {
@@ -228,13 +241,28 @@ pre {
     white-space: pre-wrap;
 }
 
+@media (max-width: 1200px) {
+    #results {
+        grid-column: span 2;
+    }
+}
+
 @media (max-width: 900px) {
-    #streaming-data, #results, .nav-links {
+    #results {
         grid-column: span 1 !important;
     }
 }
 
+@media (max-width: 1024px) {
+    .hide-tablet {
+        display: none !important;
+    }
+}
+
 @media (max-width: 768px) {
+    .hide-mobile {
+        display: none !important;
+    }
     main {
         grid-template-columns: 1fr;
         padding: 1rem;
