@@ -680,15 +680,6 @@ module tt_um_chatelao_fp8_multiplier #(
     // We reuse the 'fp8_aligner' for both per-element scaling and final shared scaling to save area.
     wire [ACCUMULATOR_WIDTH-1:0] acc_out;
 
-    wire [ACCUMULATOR_WIDTH-1:0] acc_abs_val;
-    generate
-        if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
-            assign acc_abs_val = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
-        end else begin : gen_no_acc_abs
-            assign acc_abs_val = {ACCUMULATOR_WIDTH{1'b0}};
-        end
-    endgenerate
-
     // MX++ Exponent Offset (Step 6)
     // Subtract offsets if the element is NOT a BM.
     wire signed [9:0] exp_sum_lane0_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0_val} -
@@ -701,21 +692,10 @@ module tt_um_chatelao_fp8_multiplier #(
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
 
-    // Multiplier for Aligner Input based on current protocol phase.
-    wire [31:0] aligner_lane0_in_prod_acc;
-    generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_aligner_prod_acc_wide
-            assign aligner_lane0_in_prod_acc = acc_abs_val[31:0];
-        end else begin : gen_aligner_prod_acc_narrow
-            assign aligner_lane0_in_prod_acc = {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val};
-        end
-    endgenerate
-
-    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    aligner_lane0_in_prod_acc :
-                                    {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
+    // Multiplier for Aligner Input
+    wire [31:0] aligner_lane0_in_prod = {16'd0, mul_prod_lane0_val};
+    wire signed [9:0] aligner_lane0_in_exp  = exp_sum_lane0_adj;
+    wire aligner_lane0_in_sign = mul_sign_lane0_val;
 
     wire [31:0] aligned_lane0_res;
     fp8_aligner #(
@@ -785,7 +765,57 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
+    // ------------------------------------------------------------------------
+    // Fixed-to-Float32 Conversion Logic
+    // ------------------------------------------------------------------------
+    wire [ACCUMULATOR_WIDTH-1:0] acc_abs_val = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
+    wire [39:0] f32_abs_40 = {{(40-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val};
+    wire [5:0] f32_lzc;
+    wire f32_no_one = (acc_abs_val == {ACCUMULATOR_WIDTH{1'b0}});
+
+    assign f32_lzc = f32_abs_40[39] ? 6'd39 : f32_abs_40[38] ? 6'd38 :
+                     f32_abs_40[37] ? 6'd37 : f32_abs_40[36] ? 6'd36 :
+                     f32_abs_40[35] ? 6'd35 : f32_abs_40[34] ? 6'd34 :
+                     f32_abs_40[33] ? 6'd33 : f32_abs_40[32] ? 6'd32 :
+                     f32_abs_40[31] ? 6'd31 : f32_abs_40[30] ? 6'd30 :
+                     f32_abs_40[29] ? 6'd29 : f32_abs_40[28] ? 6'd28 :
+                     f32_abs_40[27] ? 6'd27 : f32_abs_40[26] ? 6'd26 :
+                     f32_abs_40[25] ? 6'd25 : f32_abs_40[24] ? 6'd24 :
+                     f32_abs_40[23] ? 6'd23 : f32_abs_40[22] ? 6'd22 :
+                     f32_abs_40[21] ? 6'd21 : f32_abs_40[20] ? 6'd20 :
+                     f32_abs_40[19] ? 6'd19 : f32_abs_40[18] ? 6'd18 :
+                     f32_abs_40[17] ? 6'd17 : f32_abs_40[16] ? 6'd16 :
+                     f32_abs_40[15] ? 6'd15 : f32_abs_40[14] ? 6'd14 :
+                     f32_abs_40[13] ? 6'd13 : f32_abs_40[12] ? 6'd12 :
+                     f32_abs_40[11] ? 6'd11 : f32_abs_40[10] ? 6'd10 :
+                     f32_abs_40[9]  ? 6'd9  : f32_abs_40[8]  ? 6'd8  :
+                     f32_abs_40[7]  ? 6'd7  : f32_abs_40[6]  ? 6'd6  :
+                     f32_abs_40[5]  ? 6'd5  : f32_abs_40[4]  ? 6'd4  :
+                     f32_abs_40[3]  ? 6'd3  : f32_abs_40[2]  ? 6'd2  :
+                     f32_abs_40[1]  ? 6'd1  : 6'd0;
+
+    wire signed [10:0] f32_exp_unbiased = $signed({5'd0, f32_lzc}) +
+                                          (ENABLE_SHARED_SCALING ? shared_exp : 10'sd0) + 11'sd119;
+
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [78:0] f32_mant_full = {f32_abs_40, 39'd0} << (39 - f32_lzc);
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    wire [23:0] f32_mant_pre = f32_mant_full[78:55];
+    wire f32_round = f32_mant_full[54];
+    wire f32_sticky = |f32_mant_full[53:0];
+    wire f32_inc = f32_round && (f32_sticky || f32_mant_pre[0]);
+    wire [24:0] f32_mant_rounded = {1'b0, f32_mant_pre} + {24'd0, f32_inc};
+
+    wire signed [10:0] f32_exp_adj = f32_mant_rounded[24] ? (f32_exp_unbiased + 11'sd1) : f32_exp_unbiased;
+    wire [22:0] f32_mant_final = f32_mant_rounded[24] ? 23'd0 : f32_mant_rounded[22:0];
+
+    wire [31:0] f32_res = f32_no_one ? 32'd0 :
+                          (f32_exp_adj >= 255) ? {acc_out[ACCUMULATOR_WIDTH-1], 8'hFF, 23'd0} :
+                          (f32_exp_adj <= 0) ? 32'd0 :
+                          {acc_out[ACCUMULATOR_WIDTH-1], f32_exp_adj[7:0], f32_mant_final};
+
+    wire [31:0] final_scaled_result = f32_res;
 
     // Accumulator instance.
     accumulator #(
