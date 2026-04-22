@@ -12,38 +12,39 @@ skinparam state {
 
 state IDLE {
     IDLE : **Cycle 0**
-    IDLE : Capture Metadata:
+    IDLE : Capture Metadata (19 FFs):
     IDLE : - Debug, Overflow, Rounding, MX+
     IDLE : - If Short Protocol (ui_in[7]=1): Capture Format A/B
 }
 
-IDLE --> LOAD_SCALE : Standard Start\n(ui_in[7]=0)
-IDLE --> STREAM_DATA : Short Protocol <<Short>>\n(ui_in[7]=1)
+IDLE --> LOAD_SCALE : Standard Start (8 bits)\n(ui_in[7]=0)
+IDLE --> STREAM_DATA : Short Protocol <<Short>> (8 bits)\n(ui_in[7]=1)
 
 state LOAD_SCALE {
     LOAD_SCALE : **Cycles 1-2**
-    LOAD_SCALE : C1: Scale A, Format A, BM Index A
-    LOAD_SCALE : C2: Scale B, Format B, BM Index B
+    LOAD_SCALE : C1: Scale A, Format A, BM Index A (16 FFs)
+    LOAD_SCALE : C2: Scale B, Format B, BM Index B (16 FFs)
 }
 
-LOAD_SCALE --> STREAM_DATA : Cycle 3
+LOAD_SCALE --> STREAM_DATA : Cycle 3 (8 bits)
 
 state STREAM {
     state STREAM_DATA {
         STREAM_DATA : **Cycles 3-34 (Std) / 3-18 (Pk)**
-        STREAM_DATA : Stream 32 Element Pairs (A_i, B_i)
+        STREAM_DATA : Stream 32 Element Pairs (A_i, B_i) (8 bits each)
+        STREAM_DATA : Pipeline Staging (56 FFs)
     }
 
     state STREAM_FLUSH {
         STREAM_FLUSH : **Cycle 35 (Std) / 19 (Pk)**
         STREAM_FLUSH : Pipeline Flush
-        STREAM_FLUSH : Metadata Echo (if Debug En)
+        STREAM_FLUSH : Metadata Echo (8 bits)
     }
 
     state STREAM_SCALE {
         STREAM_SCALE : **Cycle 36 (Std) / 20 (Pk)**
-        STREAM_SCALE : Final Shared Scaling
-        STREAM_SCALE : Result Capture (into Accumulator)
+        STREAM_SCALE : Final Shared Scaling (32 bits)
+        STREAM_SCALE : Result Capture (32 FFs)
     }
 
     STREAM_DATA -> STREAM_FLUSH
@@ -60,5 +61,5 @@ state OUTPUT {
 
 OUTPUT --> IDLE : Cycle 0 (Next Block)
 
-footer Note: Packed Mode (Pk) requires FP4 format and uio_in[6]=1 in Cycle 0.
+footer Note: Total internal state uses 416 Flip-Flops (Full variant).
 @enduml

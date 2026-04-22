@@ -10,28 +10,36 @@
     \draw (-1,1.5) node[anchor=east] {ena} -- (0,1.5);
 
     % Functional Blocks
-    \draw (1,4.5) rectangle (3,7.5) node[midway, align=center] {FSM \&\\Control\\Logic};
+    \draw (1,4.5) rectangle (3,7.5) node[midway, align=center] {FSM \&\\Control\\Logic\\(57 FFs)};
 
     % Multiplier (Circle with X)
     \draw[thick] (5,6) circle (0.8);
     \node at (5,6) {\Huge $\times$};
     \node[anchor=north] at (5,5.2) {\scriptsize Dual Multiplier};
+    \node[anchor=north] at (5,4.9) {\tiny (56 Pipeline FFs)};
 
     % Aligner Stage
-    \draw (7,5) rectangle (9,7) node[midway, align=center] {Dual\\Aligner\\Stage};
+    \draw (7,5) rectangle (9,7) node[midway, align=center] {Dual\\Aligner\\Stage\\(0 FFs)};
 
     % Accumulator (ALU shape)
     \draw[thick] (7,3) -- (7.8,3) -- (8,2.7) -- (8.2,3) -- (9,3) -- (8.5,1) -- (7.5,1) -- cycle;
     \node at (8,2.2) {\Huge $+$};
     \node[anchor=north] at (8,0.8) {\scriptsize 32-bit Accumulator};
+    \node[anchor=north] at (8,0.5) {\tiny (32 FFs)};
+
+    % Input Buffers (Bottom Left)
+    \draw (1,1) rectangle (3,3) node[midway, align=center] {Input\\Buffers\\(268 FFs)};
+
+    % Sticky Regs
+    \draw (4.5,1) rectangle (5.5,2.5) node[midway, align=center] {Sticky\\(3 FFs)};
 
     % Connections
     % Data paths with bandwidth labels
     \draw[->, thick] (3,6) -- (4.2,6); % FSM to Multiplier
-    \draw (3.5,5.9) -- (3.7,6.1) node[above left] {\tiny 8};
+    \draw (3.5,5.9) -- (3.7,6.1) node[above left] {\tiny 16};
 
     \draw[->, thick] (5.8,6) -- (7,6); % Multiplier to Aligner
-    \draw (6.3,5.9) -- (6.5,6.1) node[above left] {\tiny 16};
+    \draw (6.3,5.9) -- (6.5,6.1) node[above left] {\tiny 56};
 
     \draw[->, thick] (8,5) -- (8,3); % Aligner to Accumulator
     \draw (7.9,3.9) -- (8.1,4.1) node[above left] {\tiny 32};
@@ -52,7 +60,7 @@
     \draw (9.9,1.9) -- (10.1,2.1) node[above left] {\tiny 8};
 
     % Legend
-    \draw[dashed] (0.5,0.5) rectangle (4,2.5);
-    \node[anchor=west] at (0.6,2.2) {\small \textbf{Legend:}};
-    \draw[thick] (0.8,1.7) -- (1.5,1.7) node[right] {\scriptsize Data Path};
-    \draw[dashed] (0.8,1.2) -- (1.5,1.2) node[right] {\scriptsize Control Path};
+    \draw[dashed] (0.5,-0.5) rectangle (4,0.8);
+    \node[anchor=west] at (0.6,0.6) {\small \textbf{Legend:}};
+    \draw[thick] (0.8,0.3) -- (1.5,0.3) node[right] {\scriptsize Data Path};
+    \draw[dashed] (0.8,-0.1) -- (1.5,-0.1) node[right] {\scriptsize Control Path};
