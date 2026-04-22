@@ -16,24 +16,24 @@ UpdateBoundaryStyle("system", $type="system")
 
 Person(host, "Host System", "FPGA, Microcontroller, or Testbench")
 
-Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
+Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit (416 FFs Total)") {
 
-    Container_Boundary(fsm_block, "FSM & Control") {
-        Component(counter, "Cycle Counter", "7-bit", "Tracks protocol cycles (Standard/Packed).")
-        Component(fsm_logic, "State Machine", "Verilog", "IDLE, LOAD, STREAM, OUTPUT transitions.")
-        Component(config_regs, "Config Registers", "Registers", "Stores scales, formats, modes, and MX+ metadata.")
+    Container_Boundary(fsm_block, "FSM & Control (57 FFs)") {
+        Component(counter, "Cycle Counter", "6-bit / 6 FFs", "Tracks protocol cycles (Standard/Packed).")
+        Component(fsm_logic, "State Machine", "Combinatorial", "IDLE, LOAD, STREAM, OUTPUT transitions.")
+        Component(config_regs, "Config Registers", "51 FFs", "Stores scales, formats, modes, and MX+ metadata.")
         Component(fast_start, "Short Protocol Logic", "Logic", "Cycle 0 metadata capture & fast start.")
 
         Rel_D(fast_start, counter, "Jump", "Cycle 3")
-        Rel_D(counter, fsm_logic, "Count", "7-bit")
+        Rel_D(counter, fsm_logic, "Count", "6-bit")
         Rel_D(fsm_logic, config_regs, "Load", "Enable")
     }
 
-    Container_Boundary(mul_block, "Dual-Lane Multiplier") {
-        Component(decoders, "Operand Decoders", "fp8_mul[_lns].v", "Supports MXFP8/6/4, INT8, and MX+ repurposed exponents.")
-        Component(m_mul, "Significand Multiplier", "8x8 / 4x4", "Parallel or Bit-Serial LNS logic.")
-        Component(exp_arith, "Exponent Path", "Logic", "Summation, bias adjustment, and MX++ offsets.")
-        Component(mul_regs, "Pipeline Registers", "Registers", "Optional 1-cycle latency staging.")
+    Container_Boundary(mul_block, "Dual-Lane Multiplier (56 FFs)") {
+        Component(decoders, "Operand Decoders", "Logic (0 FFs)", "Supports MXFP8/6/4, INT8, and MX+ repurposed exponents.")
+        Component(m_mul, "Significand Multiplier", "Logic (0 FFs)", "Parallel or Bit-Serial LNS logic.")
+        Component(exp_arith, "Exponent Path", "Logic (0 FFs)", "Summation, bias adjustment, and MX++ offsets.")
+        Component(mul_regs, "Pipeline Registers", "56 FFs", "1-cycle latency staging (Prod, Exp, Sign, Exc).")
 
         Rel_D(decoders, m_mul, "Significands")
         Rel_D(decoders, exp_arith, "Exponents")
@@ -41,30 +41,31 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
         Rel_D(exp_arith, mul_regs, "Exp/Sign")
     }
 
-    Container_Boundary(align_block, "Dual Aligner Stage") {
-        Component(shifter, "Barrel Shifters", "fp8_aligner.v", "Parameterized (WIDTH) alignment & MXFP4 optimization.")
-        Component(round_unit, "Rounding & Saturation", "Logic", "RNE, TRN, CEL, FLR modes + Clamping.")
+    Container_Boundary(align_block, "Dual Aligner Stage (0 FFs)") {
+        Component(shifter, "Barrel Shifters", "Logic (0 FFs)", "Parameterized (WIDTH) alignment & MXFP4 optimization.")
+        Component(round_unit, "Rounding & Saturation", "Logic (0 FFs)", "RNE, TRN, CEL, FLR modes + Clamping.")
 
         Rel_D(shifter, round_unit, "Aligned Data")
     }
 
-    Container_Boundary(acc_block, "Accumulator") {
-        Component(adder, "Signed Adder", "accumulator.v", "Sums dual lanes into fixed-point accumulator.")
-        Component(acc_reg, "Accumulation Reg", "Register", "Stores running sum (WIDTH-bit).")
+    Container_Boundary(acc_block, "Accumulator (32 FFs)") {
+        Component(adder, "Signed Adder", "Logic (0 FFs)", "Sums dual lanes into fixed-point accumulator.")
+        Component(acc_reg, "Accumulation Reg", "32 FFs", "Stores running sum (32-bit).")
 
         Rel_D(adder, acc_reg, "Update")
         Rel_U(acc_reg, adder, "Feedback")
     }
 
-    Container_Boundary(exception_block, "Exception & Robustness") {
-        Component(sticky, "Sticky Registers", "DFFs", "Latches NaN/Inf from multipliers and scale factors.")
-        Component(override, "Output Mux", "Logic", "Overrides results with OCP special patterns.")
+    Container_Boundary(exception_block, "Exception & Robustness (3 FFs)") {
+        Component(sticky, "Sticky Registers", "3 FFs", "Latches NaN/Inf from multipliers and scale factors.")
+        Component(override, "Output Mux", "Logic (0 FFs)", "Overrides results with OCP special patterns.")
 
         Rel_D(sticky, override, "Trigger")
     }
 
-    Container_Boundary(serial_block, "Output Serializer") {
-        Component(byte_mux, "Byte Multiplexer", "Verilog", "Extracts 8-bit chunks for uo_out.")
+    Container_Boundary(serial_block, "Buffers & Serializer (268 FFs)") {
+        Component(fifo_regs, "Input FIFOs", "268 FFs", "16x8-bit (Lane A/B) + Ptrs + Packed Bufs.")
+        Component(byte_mux, "Byte Multiplexer", "Logic (0 FFs)", "Extracts 8-bit chunks for uo_out.")
 
         Rel_U(byte_mux, override, "Result Data")
     }
@@ -72,7 +73,7 @@ Container_Boundary(mac_unit, "OCP MXFP8 Streaming MAC Unit") {
 
 Rel_D(host, fsm_logic, "Control", "clk, rst_n, ena")
 Rel_D(host, config_regs, "Metadata", "ui_in, uio_in (Cycles 0-2)")
-Rel_D(host, decoders, "Streaming Data", "ui_in, uio_in (STREAM phase)")
+Rel_D(host, fifo_regs, "Streaming Data", "ui_in, uio_in (STREAM phase)")
 
 Rel_R(config_regs, decoders, "Formats/MX+", "Metadata")
 Rel_D(config_regs, round_unit, "Rounding Mode", "2-bit")
