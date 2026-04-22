@@ -707,7 +707,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ACCUMULATOR_WIDTH-1:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                     aligner_lane0_in_prod_acc :
                                     {{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - 10'sd3) : exp_sum_lane0_adj;
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - $signed({2'b0, ALIGNER_WIDTH[7:0]}) + 10'sd37) : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
     wire [ACCUMULATOR_WIDTH-1:0] aligned_lane0_res;
@@ -799,7 +799,9 @@ module tt_um_chatelao_fp8_multiplier #(
             assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
 
             // Padded version for safe probing regardless of ACCUMULATOR_WIDTH
+            /* verilator lint_off UNUSEDSIGNAL */
             wire [39:0] acc_probe_padded = {{(40-ACCUMULATOR_WIDTH){acc_out_ext[ACCUMULATOR_WIDTH-1]}}, acc_out_ext};
+            /* verilator lint_on UNUSEDSIGNAL */
 
             assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
                                 (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
@@ -836,11 +838,16 @@ module tt_um_chatelao_fp8_multiplier #(
      * This code is only used by formal tools (like SymbiYosys) to prove invariants.
      */
     // 0. Formal-only capture register for serialization verification
-    // Use a fixed width of 40 to avoid selection range errors in smaller variants
+    // Use a fixed width of 40 and pad with zeros on the right for WIDTH < 32 to match hardware serialization
     reg [39:0] f_scaled_acc_reg;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) f_scaled_acc_reg <= 40'd0;
-        else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= {{(40-ACCUMULATOR_WIDTH){final_scaled_result[ACCUMULATOR_WIDTH-1]}}, final_scaled_result};
+        else if (ena && strobe && logical_cycle == capture_cycle) begin
+            if (ACCUMULATOR_WIDTH >= 32)
+                f_scaled_acc_reg <= {{(40-ACCUMULATOR_WIDTH){final_scaled_result[ACCUMULATOR_WIDTH-1]}}, final_scaled_result};
+            else
+                f_scaled_acc_reg <= {{(40-32){final_scaled_result[ACCUMULATOR_WIDTH-1]}}, final_scaled_result, {(32-ACCUMULATOR_WIDTH){1'b0}}};
+        end
     end
 
     // 1. Reset and Clock assumptions

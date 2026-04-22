@@ -32,8 +32,9 @@ module fp8_aligner #(
     localparam R_RNE = 2'b11; // Round-to-Nearest-Ties-to-Even
 
     // shift_amt: We calculate how many positions to shift based on the bias-adjusted exponent.
-    // +3 aligns the product such that bit 16 represents 2^0 (Internal S23.16 format).
-    wire signed [10:0] shift_amt = $signed(exp_sum) + 11'sd3;
+    // This formula ensures the internal binary point is at bit (WIDTH-24), keeping the MSB at 2^23.
+    // For WIDTH=40, offset is +3 (bit 16 is 2^0). For WIDTH=32, offset is -5 (bit 8 is 2^0).
+    wire signed [10:0] shift_amt = $signed(exp_sum) + $signed({1'b0, WIDTH[9:0]}) - 11'sd37;
 
     generate
     if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized

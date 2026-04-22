@@ -123,8 +123,9 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
     return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
-    # +3 aligns the product such that bit 16 represents 2^0 (Internal S23.16 format).
-    shift_amt = exp_sum + 3
+    # The formula ensures the internal binary point is at bit (WIDTH-24), keeping MSB at 2^23.
+    # For WIDTH=40, offset is +3 (bit 16 is 2^0). For WIDTH=32, offset is -5 (bit 8 is 2^0).
+    shift_amt = exp_sum + width - 37
     WIDTH = width
 
     huge = False
@@ -221,7 +222,7 @@ def get_param(dut, name, default=1):
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
         "ALIGNER_WIDTH": 40,
-        "ACCUMULATOR_WIDTH": 32,
+        "ACCUMULATOR_WIDTH": 40,
         "SUPPORT_E4M3": 1,
         "SUPPORT_E5M2": 1,
         "SUPPORT_MXFP6": 1,
@@ -501,7 +502,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         # For shared scaling, we extract the top 32 bits of the aligned result.
         # Hardware uses final_scaled_result = aligned_lane0_res
         # then it shifts out acc_reg[REG_WIDTH-1:REG_WIDTH-8]
-        full_aligned = align_model(acc_abs, shared_exp - 3, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, round_mode, overflow_wrap, width=aligner_width)
         # Shift to align MSB to 32-bit output. If width < 32, we pad with zeros (left shift).
         if acc_width >= 32:
             expected_final = (full_aligned >> (acc_width - 32))
@@ -806,7 +807,7 @@ async def test_fast_start_scale_compression(dut):
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        full_aligned = align_model(acc_abs, shared_exp - 3, acc_sign, width=aligner_width)
+        full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, width=aligner_width)
         if acc_width >= 32:
             expected_final = (full_aligned >> (acc_width - 32))
         else:
