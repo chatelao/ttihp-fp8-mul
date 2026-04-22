@@ -1,0 +1,16 @@
+# Makefile for LZC unit test
+
+# Cocotb environment
+TOPLEVEL_LANG ?= verilog
+SIM ?= icarus
+
+VERILOG_SOURCES += $(PWD)/../src/lzc40.v
+
+# TOPLEVEL is the name of the toplevel module in your Verilog or VHDL file
+TOPLEVEL = lzc40
+
+# MODULE is the name of the Python test file
+MODULE = test_lzc
+
+# Include cocotb's make rules to take care of the simulator setup
+include $(shell cocotb-config --makefiles)/Makefile.sim

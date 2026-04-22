@@ -216,7 +216,7 @@ def get_param(dut, name, default=1):
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
         "ALIGNER_WIDTH": 40,
-        "ACCUMULATOR_WIDTH": 32,
+        "ACCUMULATOR_WIDTH": 40,
         "SUPPORT_E4M3": 1,
         "SUPPORT_E5M2": 1,
         "SUPPORT_MXFP6": 1,
@@ -494,11 +494,12 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
         expected_final_full = align_model(acc_abs, shared_exp - 3, acc_sign, round_mode, overflow_wrap, width=aligner_width)
-        # Extract top 32 bits
-        expected_final = (expected_final_full >> (acc_width - 32))
+        # Mapping: bit 16 (2^0) in internal datapath maps to bit 8 (2^0) in output.
+        # So we always shift right by 8 to align weights, regardless of internal width.
+        expected_final = (expected_final_full >> 8)
     else:
-        # If no shared scaling, the result is effectively the top 32 bits of the accumulator
-        expected_final = (expected_acc >> (acc_width - 32))
+        # If no shared scaling, the result is effectively the output-aligned value of the accumulator
+        expected_final = (expected_acc >> 8)
 
     # Mask to 32-bit signed
     expected_final &= 0xFFFFFFFF
@@ -796,9 +797,9 @@ async def test_fast_start_scale_compression(dut):
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
         expected_final_full = align_model(acc_abs, shared_exp - 3, acc_sign, width=aligner_width)
-        expected_final = (expected_final_full >> (acc_width - 32))
+        expected_final = (expected_final_full >> 8)
     else:
-        expected_final = (expected_acc >> (acc_width - 32))
+        expected_final = (expected_acc >> 8)
 
     # Mask to 32-bit signed
     expected_final &= 0xFFFFFFFF

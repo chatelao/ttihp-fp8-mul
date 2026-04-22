@@ -713,8 +713,9 @@ module tt_um_chatelao_fp8_multiplier #(
                                             acc_abs_val :
                                             {{(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val};
         end else begin : gen_aligner_in_prod_lane0_narrow
+            // Bit-0 aligned mapping to preserve weights (bit 16 is 2^0)
             assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                            acc_abs_val[ACCUMULATOR_WIDTH-1 : ACCUMULATOR_WIDTH-ALIGNER_WIDTH] :
+                                            acc_abs_val[ALIGNER_WIDTH-1 : 0] :
                                             {{(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val};
         end
     endgenerate
@@ -776,8 +777,9 @@ module tt_um_chatelao_fp8_multiplier #(
         end else if (ACCUMULATOR_WIDTH == ALIGNER_WIDTH) begin : gen_data_in_same
             assign data_in_val = aligned_combined_res;
         end else begin : gen_data_in_narrow
+            // Bit-0 aligned mapping to preserve weights (bit 16 is 2^0)
             /* verilator lint_off UNUSEDSIGNAL */
-            assign data_in_val = aligned_combined_res[ALIGNER_WIDTH-1 : ALIGNER_WIDTH-ACCUMULATOR_WIDTH];
+            assign data_in_val = aligned_combined_res[ACCUMULATOR_WIDTH-1 : 0];
             /* verilator lint_on UNUSEDSIGNAL */
         end
     endgenerate
@@ -823,8 +825,9 @@ module tt_um_chatelao_fp8_multiplier #(
             end else if (40 == ALIGNER_WIDTH) begin : gen_final_scaled_shared_same
                 assign final_scaled_result = aligned_lane0_res;
             end else begin : gen_final_scaled_shared_narrow
+                // Bit-0 aligned mapping to preserve weights
                 /* verilator lint_off UNUSEDSIGNAL */
-                assign final_scaled_result = aligned_lane0_res[ALIGNER_WIDTH-1 : ALIGNER_WIDTH-40];
+                assign final_scaled_result = aligned_lane0_res[39 : 0];
                 /* verilator lint_on UNUSEDSIGNAL */
             end
         end else begin : gen_final_scaled_fixed
