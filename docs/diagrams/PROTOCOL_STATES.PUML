@@ -1,6 +1,8 @@
 @startuml PROTOCOL_STATES
 title OCP MXFP8 MAC Protocol State Machine
 
+left to right direction
+
 skinparam state {
   BackgroundColor<<Short>> #E1F5FE
   BorderColor<<Short>> #01579B
@@ -27,7 +29,6 @@ state LOAD_SCALE {
 LOAD_SCALE --> STREAM_DATA : Cycle 3
 
 state STREAM {
-    direction lr
     state STREAM_DATA {
         STREAM_DATA : **Cycles 3-34 (Std) / 3-18 (Pk)**
         STREAM_DATA : Stream 32 Element Pairs (A_i, B_i)
