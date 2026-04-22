@@ -33,6 +33,6 @@ Regardless of the specific bit alignment, the **finite window of the accumulator
 
 ## 4. Remediation Plan (Technical)
 To align the hardware with the OCP MX and Float32 requirements, the following changes are necessary:
-1.  **Widening the Accumulator**: Increase internal width to **40 or 48 bits** to prevent intermediate overflow and preserve subnormal precision (at least 16 fractional bits).
+1.  **Widening the Accumulator**: [COMPLETED] Increased internal width to **40 bits** and fractional precision to **16 bits**. This prevents intermediate overflow and preserves subnormal products that were previously truncated to zero.
 2.  **Hardware F2F Engine**: Implement a single-cycle or pipelined fixed-to-float converter in `src/project.v` before the output shift register.
-3.  **Aligner Refinement**: Adjust `fp8_aligner.v` to support the wider dynamic range provided by the new accumulator.
+3.  **Aligner Refinement**: [COMPLETED] Updated `fp8_aligner.v` to support 40-bit dynamic range and new bit-level alignment.

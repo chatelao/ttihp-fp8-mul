@@ -23,7 +23,7 @@ Featuring hardware-accelerated shared scaling and an area-efficient logarithmic 
     *   INT8 / INT8_SYM
 *   **High-Precision Datapath**:
     *   40-bit internal aligner for high-dynamic range support.
-    *   32-bit signed fixed-point accumulator.
+    *   40-bit signed fixed-point accumulator with 16 fractional bits.
 *   **Vector Packing**: 2x throughput for 4-bit formats (FP4) via dual-lane streaming.
 *   **Hardware Scaling**: Automatic UE8M0 shared exponent application ($2^{E-127}$).
 *   **Flexible Rounding**: Supports RNE (Round-to-Nearest-Even), TRN, CEL, and FLR.

@@ -123,7 +123,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
     return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
-    shift_amt = exp_sum - 5
+    shift_amt = exp_sum + 3
     WIDTH = width
 
     if shift_amt >= 0:
@@ -172,25 +172,24 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
 
     if sign:
         # Check saturation for negative
-        # Magnitude > 2^31 saturates to -2^31
-        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
-        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+        # Magnitude > 2^(WIDTH-1) saturates to -2^(WIDTH-1)
+        if not overflow_wrap and (huge or (aligned >> (WIDTH-1)) != 0):
+            res = -(1 << (WIDTH - 1))
         else:
             res = -aligned
     else:
-        # Magnitude > 2^31-1 saturates to 2^31-1
-        # In RTL: (huge || |rounded[WIDTH-1:31])
-        if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+        # Magnitude > 2^(WIDTH-1)-1 saturates to 2^(WIDTH-1)-1
+        if not overflow_wrap and (huge or (aligned >> (WIDTH-1)) != 0):
+            res = (1 << (WIDTH - 1)) - 1
         else:
             res = aligned
 
-    # Return as 32-bit signed integer
-    res_32 = res & 0xFFFFFFFF
-    if res_32 & 0x80000000:
-        return res_32 - 0x100000000
-    return res_32
+    # Return as WIDTH-bit signed integer
+    mask = (1 << WIDTH) - 1
+    res_width = res & mask
+    if res_width & (1 << (WIDTH - 1)):
+        return res_width - (1 << WIDTH)
+    return res_width
 
 def get_param(dut, name, default=1):
     # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
@@ -484,25 +483,30 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-        expected_final = 0x7FC00000
+        expected_32_s = 0x7FC00000
     elif inf_pos_sticky:
-        expected_final = 0x7F800000
+        expected_32_s = 0x7F800000
     elif inf_neg_sticky:
-        expected_final = 0xFF800000
-    elif support_shared:
-        shared_exp = scale_a + scale_b - 254
-        acc_abs = abs(expected_acc)
-        acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        expected_32_s = 0xFF800000
     else:
-        # If no shared scaling, the result is sign-extended to 32-bit in hardware
-        if expected_acc < 0:
-            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
+        if support_shared:
+            shared_exp = scale_a + scale_b - 254
+            acc_abs = abs(expected_acc)
+            acc_sign = 1 if expected_acc < 0 else 0
+            expected_final = align_model(acc_abs, shared_exp - 3, acc_sign, round_mode, overflow_wrap, width=acc_width)
         else:
             expected_final = expected_acc
 
-    if expected_final >= 0x80000000:
-        expected_final -= 0x100000000
+        # Normalize expected_final to 32-bit for serialization comparison
+        # Hardware shift_out extracts top 8 bits of 40-bit register 4 times.
+        # So we want expected_final[39:8].
+        # For a signed 40-bit value, if we shift right by 8, we expect a 32-bit signed value.
+        expected_32_s = expected_final >> 8
+
+    # Standardize to signed 32-bit
+    expected_32_s = expected_32_s & 0xFFFFFFFF
+    if expected_32_s & 0x80000000:
+        expected_32_s -= 0x100000000
 
     # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0
@@ -515,13 +519,13 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         actual_acc -= 0x100000000
 
     if expected_override is not None:
-        expected_final = expected_override
+        expected_32_s = expected_override
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
-    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
-    assert actual_acc == expected_final
+    dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_32_s}, Actual: {actual_acc}")
+    assert actual_acc == expected_32_s
 
 @cocotb.test()
 async def test_mxfp8_mac_shared_scale(dut):
@@ -534,12 +538,14 @@ async def test_mxfp8_mac_shared_scale(dut):
 
     # Scale A = 128 (2^1), Scale B = 127 (2^0) -> Total scale 2^1
     # Expected: 32 * 1.0 * 2^1 = 64
-    # In fixed point (bit 8=1), 64 is 64*256 = 16384
+    # In fixed point (bit 16=1), 64 is 64 * 65536 = 4194304
+    # Serialization gives top 32 bits: 4194304 >> 8 = 16384
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=128, scale_b=127)
 
     # Scale A = 126 (2^-1), Scale B = 127 (2^0) -> Total scale 2^-1
     # Expected: 32 * 1.0 * 2^-1 = 16
-    # In fixed point, 16 is 16*256 = 4096
+    # In fixed point, 16 is 16 * 65536 = 1048576
+    # Serialization gives top 32 bits: 1048576 >> 8 = 4096
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=126, scale_b=127)
 
 @cocotb.test()
@@ -791,9 +797,13 @@ async def test_fast_start_scale_compression(dut):
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
+        expected_final = align_model(acc_abs, shared_exp - 3, acc_sign, width=acc_width)
     else:
         expected_final = expected_acc
+
+    expected_32_s = expected_final >> 8
+    if expected_32_s & 0x80000000:
+        expected_32_s -= 0x100000000
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]
@@ -809,7 +819,7 @@ async def test_fast_start_scale_compression(dut):
         await ClockCycles(dut.clk, k_factor_eff)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
-    assert actual_acc == expected_final
+    assert actual_acc == expected_32_s
 
 async def run_yaml_file(dut, filename):
     dut._log.info(f"Start YAML Test Cases from {filename}")
@@ -1081,7 +1091,8 @@ async def test_mxfp8_subnormals(dut):
     # Sum of 32 such products: 32 * 2^-6 * 0.125 = 2^5 * 2^-6 * 2^-3 = 2^-4 = 0.0625
 
     # In our fixed-point model (bit 8 = 1.0):
-    # 0.0625 * 256 = 16
+    # 0.0625 * 65536 = 4096
+    # Top 32 bits: 4096 >> 8 = 16. (Same result, but more internal precision)
 
     a_elements = [0x01] * 32
     b_elements = [0x38] * 32

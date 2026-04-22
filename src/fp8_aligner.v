@@ -17,12 +17,12 @@ module fp8_aligner #(
     parameter SUPPORT_ADV_ROUNDING = 1, // Enable support for advanced rounding modes.
     parameter OPTIMIZE_FOR_FP4 = 0      // 1 = simplified area-optimized version for FP4.
 )(
-    input  wire [31:0] prod,           // The 32-bit product from the multiplier stage.
+    input  wire [WIDTH-1:0] prod,      // The product from the multiplier stage.
     input  wire signed [9:0] exp_sum,  // The combined (summed) exponent from the multiplier stage.
     input  wire        sign,           // The sign bit of the product (1 = negative).
     input  wire [1:0]  round_mode,     // Selects the rounding mode: 0=TRN, 1=CEL, 2=FLR, 3=RNE.
     input  wire        overflow_wrap,  // 1 = wrap around on overflow, 0 = saturate.
-    output reg  [31:0] aligned         // The 32-bit aligned fixed-point result.
+    output reg  [WIDTH-1:0] aligned    // The aligned fixed-point result.
 );
 
     // Constant definitions for rounding modes (2 bits each).
@@ -32,8 +32,15 @@ module fp8_aligner #(
     localparam R_RNE = 2'b11; // Round-to-Nearest-Ties-to-Even
 
     // shift_amt: We calculate how many positions to shift based on the bias-adjusted exponent.
-    // 5 is subtracted to align with the fixed-point accumulator (bit 8 = 2^0).
-    wire signed [10:0] shift_amt = $signed(exp_sum) - 11'sd5;
+    // +3 is used to align with the 40-bit fixed-point accumulator (bit 16 = 2^0).
+    // Derivation: Mantissa product is Q8.6 (8 bits, 6 fractional).
+    // To align Q8.6 to bit 16 (Q24.16), we need to shift by 10 bits when exp=0?
+    // Wait, let's re-verify.
+    // If exp_sum = 7 (which is 1.0 * 1.0), we want bit 6 of mantissa product to land at bit 16.
+    // shift_amt = 16 - 6 = 10.
+    // exp_sum + offset = 10 => 7 + offset = 10 => offset = 3.
+    // So shift_amt = exp_sum + 3. Correct.
+    wire signed [10:0] shift_amt = $signed(exp_sum) + 11'sd3;
 
     generate
     if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized
@@ -43,7 +50,7 @@ module fp8_aligner #(
          */
         always @(*) begin : fp4_opt_logic
             reg [WIDTH-1:0] base;
-            base = {{(WIDTH > 32 ? WIDTH-32 : 0){1'b0}}, prod};
+            base = prod;
             if (shift_amt >= 0)
                 base = base << shift_amt; // Left shift: increase value.
             else
@@ -51,9 +58,9 @@ module fp8_aligner #(
 
             // Handle sign: if negative, convert magnitude to 2's complement negative.
             if (sign)
-                aligned = -base[31:0];
+                aligned = -base;
             else
-                aligned = base[31:0];
+                aligned = base;
         end
     end else begin : gen_standard
         /**
@@ -72,8 +79,7 @@ module fp8_aligner #(
             reg [WIDTH-1:0] mask;
 
             // Initialize all variables to zero to prevent unintentional hardware 'latches'.
-            shifted = {WIDTH{1'b0}};
-            shifted[31:0] = prod;
+            shifted = prod;
             base = {WIDTH{1'b0}};
             rounded = {WIDTH{1'b0}};
             huge = 1'b0;
@@ -81,12 +87,12 @@ module fp8_aligner #(
             sticky = 1'b0;
             round_bit = 1'b0;
             n = 11'd0;
-            aligned = 32'd0;
+            aligned = {WIDTH{1'b0}};
             mask = {WIDTH{1'b0}};
 
             if (shift_amt >= 0) begin
                 // Left shift: Elements are larger than the current base exponent.
-                if (prod != 32'd0) begin
+                if (prod != {WIDTH{1'b0}}) begin
                     // Check if shift is too large for the internal width.
                     if (shift_amt >= $signed({1'b0, WIDTH[9:0]})) begin
                         huge = 1'b1;
@@ -105,7 +111,7 @@ module fp8_aligner #(
                 if (n >= $signed({1'b0, WIDTH[9:0]})) begin
                     // Shift distance exceeds width: result is zero, but maybe sticky.
                     base = {WIDTH{1'b0}};
-                    sticky = (prod != 32'd0);
+                    sticky = (prod != {WIDTH{1'b0}});
                     round_bit = 1'b0;
                 end else begin
                     // Perform the shift and calculate precision markers.
@@ -141,19 +147,19 @@ module fp8_aligner #(
             end
 
             // Saturation Logic:
-            // For signed 32-bit: positive max is 0x7FFFFFFF, negative min is -0x80000000.
+            // For signed WIDTH-bit: positive max is {0, 1...1}, negative min is {1, 0...0}.
             if (sign) begin
                 // Check if negative value is too large to represent.
-                if (!overflow_wrap && (huge || |(rounded >> 32) || (rounded[31] && |rounded[30:0])))
-                    aligned = 32'h80000000; // Negative maximum (saturation).
+                if (!overflow_wrap && (huge || (rounded[WIDTH-1] && |rounded[WIDTH-2:0])))
+                    aligned = {1'b1, {(WIDTH-1){1'b0}}}; // Negative maximum (saturation).
                 else
-                    aligned = -rounded[31:0];
+                    aligned = -rounded;
             end else begin
                 // Check if positive value is too large to represent.
-                if (!overflow_wrap && (huge || |(rounded >> 31)))
-                    aligned = 32'h7FFFFFFF; // Positive maximum (saturation).
+                if (!overflow_wrap && (huge || rounded[WIDTH-1]))
+                    aligned = {1'b0, {(WIDTH-1){1'b1}}}; // Positive maximum (saturation).
                 else
-                    aligned = rounded[31:0];
+                    aligned = rounded;
             end
         end
     end

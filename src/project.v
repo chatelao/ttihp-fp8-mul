@@ -18,7 +18,7 @@
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
     parameter ALIGNER_WIDTH = 40,
-    parameter ACCUMULATOR_WIDTH = 32,
+    parameter ACCUMULATOR_WIDTH = 40,
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
@@ -702,24 +702,15 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
     // Multiplier for Aligner Input based on current protocol phase.
-    wire [31:0] aligner_lane0_in_prod_acc;
-    generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_aligner_prod_acc_wide
-            assign aligner_lane0_in_prod_acc = acc_abs_val[31:0];
-        end else begin : gen_aligner_prod_acc_narrow
-            assign aligner_lane0_in_prod_acc = {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val};
-        end
-    endgenerate
-
-    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    aligner_lane0_in_prod_acc :
-                                    {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
+    wire [ACCUMULATOR_WIDTH-1:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                    acc_abs_val :
+                                    {{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane0_val};
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - 10'sd3) : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
-    wire [31:0] aligned_lane0_res;
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
-        .WIDTH(ALIGNER_WIDTH),
+        .WIDTH(ACCUMULATOR_WIDTH),
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
         .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
     ) aligner_lane0_inst (
@@ -732,16 +723,16 @@ module tt_um_chatelao_fp8_multiplier #(
     );
 
     /* verilator lint_off UNUSEDSIGNAL */
-    wire [31:0] aligned_lane1_res;
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_lane1_res;
     /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             fp8_aligner #(
-                .WIDTH(ALIGNER_WIDTH),
+                .WIDTH(ACCUMULATOR_WIDTH),
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
                 .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
-                .prod({16'd0, mul_prod_lane1_val}),
+                .prod({{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane1_val}),
                 .exp_sum(exp_sum_lane1_adj),
                 .sign(mul_sign_lane1_val),
                 .round_mode(round_mode),
@@ -763,14 +754,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
-    wire [31:0] acc_out_ext;
-    generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_acc_out_ext_wide
-            assign acc_out_ext = acc_out[31:0];
-        end else begin : gen_acc_out_ext_narrow
-            assign acc_out_ext = {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
-        end
-    endgenerate
+    wire [ACCUMULATOR_WIDTH-1:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out;
 
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
@@ -784,8 +768,6 @@ module tt_um_chatelao_fp8_multiplier #(
         endcase
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
-
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
 
     // Accumulator instance.
     accumulator #(
@@ -813,10 +795,10 @@ module tt_um_chatelao_fp8_multiplier #(
             assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
             assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
                                 (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
-                                (probe_sel_val == 4'h3) ? acc_out_ext[31:24] :
-                                (probe_sel_val == 4'h4) ? acc_out_ext[23:16] :
-                                (probe_sel_val == 4'h5) ? acc_out_ext[15:8] :
-                                (probe_sel_val == 4'h6) ? acc_out_ext[7:0] :
+                                (probe_sel_val == 4'h3) ? acc_out[39:32] :
+                                (probe_sel_val == 4'h4) ? acc_out[31:24] :
+                                (probe_sel_val == 4'h5) ? acc_out[23:16] :
+                                (probe_sel_val == 4'h6) ? acc_out[15:8] :
                                 (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
                                 (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
                                 (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} :
