@@ -702,15 +702,29 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
     // Multiplier for Aligner Input based on current protocol phase.
-    wire [ACCUMULATOR_WIDTH-1:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    acc_abs_val :
-                                    {{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane0_val};
+    wire [ALIGNER_WIDTH-1:0] aligner_lane0_in_prod;
+    generate
+        if (ALIGNER_WIDTH > ACCUMULATOR_WIDTH) begin : gen_aligner_in_prod_lane0_wide
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            {{(ALIGNER_WIDTH-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val} :
+                                            {{(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val};
+        end else if (ALIGNER_WIDTH == ACCUMULATOR_WIDTH) begin : gen_aligner_in_prod_lane0_same
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            acc_abs_val :
+                                            {{(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val};
+        end else begin : gen_aligner_in_prod_lane0_narrow
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            acc_abs_val[ACCUMULATOR_WIDTH-1 : ACCUMULATOR_WIDTH-ALIGNER_WIDTH] :
+                                            {{(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val};
+        end
+    endgenerate
+
     wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - 10'sd3) : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_lane0_res;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
-        .WIDTH(ACCUMULATOR_WIDTH),
+        .WIDTH(ALIGNER_WIDTH),
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
         .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
     ) aligner_lane0_inst (
@@ -722,17 +736,15 @@ module tt_um_chatelao_fp8_multiplier #(
         .aligned(aligned_lane0_res)
     );
 
-    /* verilator lint_off UNUSEDSIGNAL */
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_lane1_res;
-    /* verilator lint_on UNUSEDSIGNAL */
+    wire [ALIGNER_WIDTH-1:0] aligned_lane1_res;
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             fp8_aligner #(
-                .WIDTH(ACCUMULATOR_WIDTH),
+                .WIDTH(ALIGNER_WIDTH),
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
                 .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
-                .prod({{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane1_val}),
+                .prod({{(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane1_val}),
                 .exp_sum(exp_sum_lane1_adj),
                 .sign(mul_sign_lane1_val),
                 .round_mode(round_mode),
@@ -740,21 +752,55 @@ module tt_um_chatelao_fp8_multiplier #(
                 .aligned(aligned_lane1_res)
             );
         end else begin : no_aligner_lane1
-            assign aligned_lane1_res = {ACCUMULATOR_WIDTH{1'b0}};
+            assign aligned_lane1_res = {ALIGNER_WIDTH{1'b0}};
         end
     endgenerate
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({aligned_lane0_res[ACCUMULATOR_WIDTH-1], aligned_lane0_res[ACCUMULATOR_WIDTH-1:0]}) + $signed({aligned_lane1_res[ACCUMULATOR_WIDTH-1], aligned_lane1_res[ACCUMULATOR_WIDTH-1:0]});
-    wire combined_overflow = (aligned_lane0_res[ACCUMULATOR_WIDTH-1] == aligned_lane1_res[ACCUMULATOR_WIDTH-1]) && (combined_full[ACCUMULATOR_WIDTH-1] != aligned_lane0_res[ACCUMULATOR_WIDTH-1]);
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
-                                                     (aligned_lane0_res[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
-                                                     combined_full[ACCUMULATOR_WIDTH-1:0];
+    // Note: We use ALIGNER_WIDTH for intermediate lane results.
+    wire signed [ALIGNER_WIDTH:0] combined_full = $signed({aligned_lane0_res[ALIGNER_WIDTH-1], aligned_lane0_res}) + $signed({aligned_lane1_res[ALIGNER_WIDTH-1], aligned_lane1_res});
+    wire combined_overflow = (aligned_lane0_res[ALIGNER_WIDTH-1] == aligned_lane1_res[ALIGNER_WIDTH-1]) && (combined_full[ALIGNER_WIDTH-1] != aligned_lane0_res[ALIGNER_WIDTH-1]);
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [ALIGNER_WIDTH-1:0] aligned_combined_res = (!overflow_wrap && combined_overflow) ?
+                                                     (aligned_lane0_res[ALIGNER_WIDTH-1] ? {1'b1, {(ALIGNER_WIDTH-1){1'b0}}} : {1'b0, {(ALIGNER_WIDTH-1){1'b1}}}) :
+                                                     combined_full[ALIGNER_WIDTH-1:0];
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    // Map aligned_combined_res (ALIGNER_WIDTH) to data_in (ACCUMULATOR_WIDTH)
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [ACCUMULATOR_WIDTH-1:0] data_in_val;
+    /* verilator lint_on UNUSEDSIGNAL */
+    generate
+        if (ACCUMULATOR_WIDTH > ALIGNER_WIDTH) begin : gen_data_in_wide
+            assign data_in_val = {{(ACCUMULATOR_WIDTH-ALIGNER_WIDTH){aligned_combined_res[ALIGNER_WIDTH-1]}}, aligned_combined_res};
+        end else if (ACCUMULATOR_WIDTH == ALIGNER_WIDTH) begin : gen_data_in_same
+            assign data_in_val = aligned_combined_res;
+        end else begin : gen_data_in_narrow
+            /* verilator lint_off UNUSEDSIGNAL */
+            assign data_in_val = aligned_combined_res[ALIGNER_WIDTH-1 : ALIGNER_WIDTH-ACCUMULATOR_WIDTH];
+            /* verilator lint_on UNUSEDSIGNAL */
+        end
+    endgenerate
 
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
-    wire [31:0] acc_out_ext = acc_out[ACCUMULATOR_WIDTH-1 : ACCUMULATOR_WIDTH-32];
+    wire [31:0] acc_out_ext;
+    generate
+        if (ACCUMULATOR_WIDTH >= 40) begin : gen_acc_out_ext_wide
+            // Standard 40-bit or larger: bit 16 maps to bit 8 of output
+            assign acc_out_ext = acc_out[39:8];
+        end else begin : gen_acc_out_ext_narrow
+            // Smaller widths: bit 16 maps to bit 8 of output via sign-extended shift
+            wire signed [ACCUMULATOR_WIDTH-1:0] s_acc = acc_out;
+            /* verilator lint_off WIDTHEXPAND */
+            /* verilator lint_off UNUSEDSIGNAL */
+            wire signed [47:0] s_acc_wide = s_acc;
+            /* verilator lint_on UNUSEDSIGNAL */
+            /* verilator lint_on WIDTHEXPAND */
+            assign acc_out_ext = s_acc_wide[39:8];
+        end
+    endgenerate
 
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
@@ -769,7 +815,24 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [ACCUMULATOR_WIDTH-1:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : {acc_out_ext, {(ACCUMULATOR_WIDTH-32){1'b0}}};
+    wire [39:0] final_scaled_result;
+    generate
+        if (ENABLE_SHARED_SCALING) begin : gen_final_scaled_shared
+            if (40 > ALIGNER_WIDTH) begin : gen_final_scaled_shared_wide
+                assign final_scaled_result = {{(40-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res};
+            end else if (40 == ALIGNER_WIDTH) begin : gen_final_scaled_shared_same
+                assign final_scaled_result = aligned_lane0_res;
+            end else begin : gen_final_scaled_shared_narrow
+                /* verilator lint_off UNUSEDSIGNAL */
+                assign final_scaled_result = aligned_lane0_res[ALIGNER_WIDTH-1 : ALIGNER_WIDTH-40];
+                /* verilator lint_on UNUSEDSIGNAL */
+            end
+        end else begin : gen_final_scaled_fixed
+            // If bit 16 = 1.0, then 32-bit output S23.8 is [39:8]
+            // We load it back such that serialization works.
+            assign final_scaled_result = {acc_out_ext, 8'd0};
+        end
+    endgenerate
 
     // Accumulator instance.
     accumulator #(
@@ -780,7 +843,7 @@ module tt_um_chatelao_fp8_multiplier #(
         .clear(acc_clear),
         .en(acc_en),
         .overflow_wrap(overflow_wrap),
-        .data_in(aligned_combined),
+        .data_in(data_in_val),
         .load_en(ena && strobe && logical_cycle == capture_cycle),
         .load_data(final_scaled_result),
         .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),

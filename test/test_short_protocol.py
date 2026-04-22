@@ -62,6 +62,23 @@ async def test_short_protocol_metadata(dut):
         await ClockCycles(dut.clk, k_factor)
 
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
+    # With bit 16 alignment, 32.0 is 32 * 2^16 = 2097152 (0x200000).
+    # Since we extract top 32 bits [39:8] of 40-bit accumulator:
+    # 32.0 in datapath is 32 << 16 = 0x2000000.
+    # acc_out_ext = 0x2000000 >> 8 = 0x20000 = 131072?
+    # Wait.
+    # bit 16 is 2^0.
+    # bit 16+5 = bit 21 is 2^5 = 32.
+    # 0x1 << 21 = 2097152.
+    # We extract [39:8].
+    # 2^21 in datapath => bit 21 is 1.
+    # In extracted 32-bit result: bit (21-8) = bit 13 is 1.
+    # 2^13 = 8192.
+    # So expected is still 8192 if the mapping is correct.
+    # Let's re-verify:
+    # bit 16 (internal) -> bit 8 (output)
+    # bit 21 (internal, value 32) -> bit 13 (output, value 8192)
+    # Yes, expected remains 8192 if the internal value is 32.0.
     expected = 0 if support_shared else 8192
 
     dut._log.info(f"Actual Result: {actual_acc}, Expected: {expected}")
