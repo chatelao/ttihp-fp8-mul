@@ -32,7 +32,9 @@ Regardless of the specific bit alignment, the **finite window of the accumulator
 *   **Overflow Handling**: While the unit supports a "Wrap" mode, standard AI inference requires saturation or high-dynamic range (Float32).
 
 ## 4. Remediation Plan (Technical)
-To align the hardware with the OCP MX and Float32 requirements, the following changes are necessary:
-1.  **Widening the Accumulator**: Increase internal width to **40 or 48 bits** to prevent intermediate overflow and preserve subnormal precision (at least 16 fractional bits).
-2.  **Hardware F2F Engine**: Implement a single-cycle or pipelined fixed-to-float converter in `src/project.v` before the output shift register.
-3.  **Aligner Refinement**: Adjust `fp8_aligner.v` to support the wider dynamic range provided by the new accumulator.
+To align the hardware with the OCP MX and Float32 requirements, the project follows a granular 20-step roadmap detailed in [ROADMAP.md](ROADMAP.md#5-numerical-precision--fp32-compliance).
+
+### Key Execution Phases:
+1.  **Infrastructure & Datapath (Steps 9-10)**: Parameterize widths to 40-bit and shift the binary point to bit 16 to preserve FP8 subnormal precision.
+2.  **Hardware F2F Engine (Steps 11-24)**: Implement a pipelined Fixed-to-Float converter including Leading Zero Count (LZC), normalization, RNE rounding, and special value (NaN/Inf) muxing.
+3.  **Integration & Verification (Steps 25-28)**: Hook up the Float32 mode to the streaming protocol and validate compliance using a bit-accurate Cocotb reference model.
