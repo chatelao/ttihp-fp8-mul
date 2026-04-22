@@ -501,19 +501,13 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         acc_sign = 1 if expected_acc < 0 else 0
         # For shared scaling, we extract the top 32 bits of the aligned result.
         # Hardware uses final_scaled_result = aligned_lane0_res
-        # then it shifts out acc_reg[REG_WIDTH-1:REG_WIDTH-8]
+        # then it shifts out acc_reg[WIDTH-1:WIDTH-8] (MSB first)
         full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, round_mode, overflow_wrap, width=aligner_width)
-        # Shift to align MSB to 32-bit output. If width < 32, we pad with zeros (left shift).
-        if acc_width >= 32:
-            expected_final = (full_aligned >> (acc_width - 32))
-        else:
-            expected_final = (full_aligned << (32 - acc_width))
+        # Always extract top 32 bits of the specified width.
+        expected_final = (full_aligned >> (acc_width - 32)) if acc_width >= 32 else (full_aligned << (32 - acc_width))
     else:
-        # If no shared scaling, the result is the top 32 bits of the accumulator
-        if acc_width >= 32:
-            expected_final = (expected_acc >> (acc_width - 32))
-        else:
-            expected_final = (expected_acc << (32 - acc_width))
+        # If no shared scaling, result is the top 32 bits of the accumulator.
+        expected_final = (expected_acc >> (acc_width - 32)) if acc_width >= 32 else (expected_acc << (32 - acc_width))
 
     if expected_final >= 0x80000000:
         expected_final -= 0x100000000
@@ -808,10 +802,7 @@ async def test_fast_start_scale_compression(dut):
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
         full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, width=aligner_width)
-        if acc_width >= 32:
-            expected_final = (full_aligned >> (acc_width - 32))
-        else:
-            expected_final = (full_aligned << (32 - acc_width))
+        expected_final = (full_aligned >> (acc_width - 32)) if acc_width >= 32 else (full_aligned << (32 - acc_width))
     else:
         if acc_width >= 32:
             expected_final = (expected_acc >> (acc_width - 32))
