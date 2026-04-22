@@ -28,5 +28,13 @@ Integration with the SERV bit-serial CPU and compliance with the ZvfofpXmin conc
 - [ ] **Physical Verification**: Functional verification on FPGA (HIL) and silicon validation (Tiny Tapeout demo board). ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
 - [ ] **LLM Serving Benchmarks**: Benchmark the system using `vLLM` methodologies for real-world utility. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#5-phase-4-robustness--benchmarking))
 
+## 5. Numerical Precision & FP32 Compliance
+Address the gaps identified in the `FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
+
+- [ ] **Step 9: Wide Accumulator (40-bit)**: Increase internal accumulator width to 40 bits with 16 fractional bits to preserve subnormal precision. ([details](FP32_AUDIT.md#4-remediation-plan-technical))
+- [ ] **Step 10: Hardware F2F Engine**: Implement a Leading Zero Count (LZC) and normalizer to convert the 40-bit fixed-point result to an IEEE 754 Float32 bit pattern. ([details](FP32_AUDIT.md#4-remediation-plan-technical))
+- [ ] **Step 11: Dynamic Aligner Range**: Update the `fp8_aligner` to support the increased dynamic range of the 40-bit accumulator and handle subnormal alignment correctly. ([details](FP32_AUDIT.md#4-remediation-plan-technical))
+- [ ] **Step 12: Float32 Sticky Exceptions**: Implement hardware latching for NaN/Inf in the fixed-to-float path to ensure bit-accurate Float32 exception handling. ([details](docs/architecture/NAN_INF_PROPAGATION.md))
+
 ---
 *Last updated: March 2025*
