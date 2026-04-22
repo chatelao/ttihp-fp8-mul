@@ -37,6 +37,9 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 *Source: [docs/diagrams/DATAPATH_DIAGRAM.PUML](docs/diagrams/DATAPATH_DIAGRAM.PUML)*
 
 - [Read the documentation for project](docs/info.md)
+- [Die Size & Area Analysis](docs/hardware/DIE_SIZE_ANALYSIS.md)
+- [Flip-Flop Usage Analysis](docs/hardware/FLIP_FLOP_USAGE.md)
+- [LUT and Gate Usage Analysis](docs/hardware/LUT_USAGE.md)
 - [Consolidated Project Roadmap](ROADMAP.md)
 - [Project Concept & Detailed Roadmap](docs/architecture/MXFP8_CONCEPT.md)
 - [MX+ Implementation Roadmap](docs/architecture/MX_PLUS.md)

@@ -83,7 +83,14 @@ The implementation has been refactored to support aggressive area optimizations,
 | **LNS Multiplier (Precise)** | Precise LNS multiplier | 7254 | +445 |
 | **1x1 Tile Target (Min)**| Min. widths (24/20) | 1657 | -5152 |
 
-## 5. JTAG Integration Area Impact
+## 5. Resource Usage Detailed Breakdown
+
+For more granular analysis of hardware resources, refer to the following documents:
+
+- **[Flip-Flop Usage Analysis](FLIP_FLOP_USAGE.md)**: Detailed breakdown of register usage per sub-module and design variant.
+- **[LUT and Gate Usage Analysis](LUT_USAGE.md)**: Breakdown of combinatorial logic complexity for ASIC (gates) and FPGA (LUTs).
+
+## 6. JTAG Integration Area Impact
 
 Based on the [JTAG Integration Concept](../../JTAG_CONCEPT.md), the following estimated area impacts are expected for adding JTAG debugging:
 
