@@ -125,6 +125,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     # The formula ensures the internal binary point is at bit (WIDTH-24), keeping MSB at 2^23.
     # For WIDTH=40, offset is +3 (bit 16 is 2^0). For WIDTH=32, offset is -5 (bit 8 is 2^0).
+    # When ENABLE_SHARED_SCALING is active, the aligner uses WIDTH=40 internally.
     shift_amt = exp_sum + width - 37
     WIDTH = width
 
@@ -504,7 +505,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         # then it shifts out acc_reg[WIDTH-1:WIDTH-8] (MSB first)
         full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, round_mode, overflow_wrap, width=aligner_width)
         # Always extract top 32 bits of the specified width.
-        expected_final = (full_aligned >> (acc_width - 32)) if acc_width >= 32 else (full_aligned << (32 - acc_width))
+        expected_final = (full_aligned >> (aligner_width - 32)) if aligner_width >= 32 else (full_aligned << (32 - aligner_width))
     else:
         # If no shared scaling, result is the top 32 bits of the accumulator.
         expected_final = (expected_acc >> (acc_width - 32)) if acc_width >= 32 else (expected_acc << (32 - acc_width))

@@ -31,8 +31,10 @@ module accumulator #(
     assign shift_out = acc_reg[WIDTH-1:WIDTH-8];
 
     // Signed arithmetic: extend width by 1 bit to detect overflow.
+    /* verilator lint_off UNUSEDSIGNAL */
     wire signed [WIDTH:0] sum_full = $signed({acc_reg[WIDTH-1], acc_reg}) + $signed({data_in[WIDTH-1], data_in});
     wire [WIDTH-1:0] sum = sum_full[WIDTH-1:0];
+    /* verilator lint_on UNUSEDSIGNAL */
 
     // Overflow check
     wire overflow = (acc_reg[WIDTH-1] == data_in[WIDTH-1]) && (sum[WIDTH-1] != acc_reg[WIDTH-1]);
