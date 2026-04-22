@@ -123,12 +123,19 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
     return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
-    shift_amt = exp_sum - 5
+    # +3 aligns the product such that bit 16 represents 2^0 (Internal S23.16 format).
+    shift_amt = exp_sum + 3
     WIDTH = width
 
     if shift_amt >= 0:
-        if not overflow_wrap and shift_amt >= WIDTH:
-            aligned = (1 << WIDTH) - 1 if prod != 0 else 0
+        if not overflow_wrap and (shift_amt >= WIDTH or (prod << shift_amt) >= (1 << (WIDTH-1))):
+            # Check for saturation in magnitude
+            if prod != 0:
+                huge = True
+                aligned = (1 << WIDTH) # temporary for model
+            else:
+                huge = False
+                aligned = 0
         else:
             aligned = prod << shift_amt
         sticky = 0
@@ -171,26 +178,19 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
             aligned = base
 
     if sign:
-        # Check saturation for negative
-        # Magnitude > 2^31 saturates to -2^31
-        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
-        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+        # Negative saturation: magnitude > 2^(WIDTH-1)
+        if not overflow_wrap and (huge or aligned >= (1 << (WIDTH-1))):
+            res = -(1 << (WIDTH-1))
         else:
             res = -aligned
     else:
-        # Magnitude > 2^31-1 saturates to 2^31-1
-        # In RTL: (huge || |rounded[WIDTH-1:31])
-        if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+        # Positive saturation: magnitude > 2^(WIDTH-1)-1
+        if not overflow_wrap and (huge or aligned >= (1 << (WIDTH-1))):
+            res = (1 << (WIDTH-1)) - 1
         else:
             res = aligned
 
-    # Return as 32-bit signed integer
-    res_32 = res & 0xFFFFFFFF
-    if res_32 & 0x80000000:
-        return res_32 - 0x100000000
-    return res_32
+    return res
 
 def get_param(dut, name, default=1):
     # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
@@ -493,16 +493,20 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        # For shared scaling, we extract the top 32 bits of the aligned result.
+        # Hardware uses final_scaled_result = aligned_lane0_res
+        # then it shifts out acc_reg[REG_WIDTH-1:REG_WIDTH-8]
+        full_aligned = align_model(acc_abs, shared_exp - 3, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        # Shift to align MSB to 32-bit output
+        expected_final = (full_aligned >> (acc_width - 32))
     else:
-        # If no shared scaling, the result is sign-extended to 32-bit in hardware
-        if expected_acc < 0:
-            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
-        else:
-            expected_final = expected_acc
+        # If no shared scaling, the result is the top 32 bits of the accumulator
+        expected_final = (expected_acc >> (acc_width - 32))
 
     if expected_final >= 0x80000000:
         expected_final -= 0x100000000
+    elif expected_final < -0x80000000:
+        expected_final += 0x100000000
 
     # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0

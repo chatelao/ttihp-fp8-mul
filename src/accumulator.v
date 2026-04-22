@@ -13,7 +13,7 @@
  * 'WIDTH' here determines how many bits the accumulator can hold.
  */
 module accumulator #(
-    parameter WIDTH = 32 // The bit-width of the internal accumulation register.
+    parameter WIDTH = 40 // The bit-width of the internal accumulation register.
 )(
     input  wire        clk,           // System clock: All operations happen on the rising edge.
     input  wire        rst_n,         // Active-low asynchronous reset: Returns the register to zero immediately.
@@ -22,7 +22,7 @@ module accumulator #(
     input  wire        overflow_wrap, // Configurable overflow: 1 = wrap around (modulo), 0 = saturate (clamp to max/min).
     input  wire [WIDTH-1:0] data_in,  // The aligned product to be added to the current value.
     input  wire        load_en,       // Load enable: Used to set the register to a specific value (e.g., for initialization).
-    input  wire [31:0] load_data,     // The 32-bit value to be loaded into the register.
+    input  wire [WIDTH-1:0] load_data, // The value to be loaded into the register.
     input  wire        shift_en,      // Shift enable: Used to shift the result out 8 bits at a time for serial output.
     output wire [7:0]  shift_out,     // The 8 most significant bits (MSB) of the register, used for serialization.
     output wire [WIDTH-1:0] data_out  // The current full value stored in the accumulator.
@@ -62,7 +62,7 @@ module accumulator #(
             acc_reg <= {REG_WIDTH{1'b0}};
         end else if (load_en) begin
             // Load: Direct assignment from load_data.
-            acc_reg <= {load_data, {(REG_WIDTH-32){1'b0}}};
+            acc_reg <= {load_data, {(REG_WIDTH-WIDTH){1'b0}}};
         end else if (shift_en) begin
             // Shift: Move bits 8 positions to the left, filling with zeros from the right.
             acc_reg <= {acc_reg[REG_WIDTH-9:0], 8'd0};

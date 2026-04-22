@@ -29,9 +29,9 @@ async def test_accumulator_basic(dut):
         expected_sum += val
 
         actual_sum = int(dut.data_out.value)
-        # Handle 32-bit signed in Python
-        if actual_sum & 0x80000000:
-            actual_sum -= 0x100000000
+        # Handle 40-bit signed in Python
+        if actual_sum & 0x8000000000:
+            actual_sum -= 0x10000000000
 
         assert actual_sum == expected_sum, f"Iteration {i}: Expected {expected_sum}, got {actual_sum}"
 
@@ -69,7 +69,7 @@ async def test_accumulator_32_elements(dut):
         expected_sum += val
 
     actual_sum = int(dut.data_out.value)
-    if actual_sum & 0x80000000:
-        actual_sum -= 0x100000000
+    if actual_sum & 0x8000000000:
+        actual_sum -= 0x10000000000
 
     assert actual_sum == expected_sum, f"32-element sum: Expected {expected_sum}, got {actual_sum}"
