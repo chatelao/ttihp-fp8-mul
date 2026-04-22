@@ -22,21 +22,20 @@ module accumulator #(
     input  wire        overflow_wrap, // Configurable overflow: 1 = wrap around (modulo), 0 = saturate (clamp to max/min).
     input  wire [WIDTH-1:0] data_in,  // The aligned product to be added to the current value.
     input  wire        load_en,       // Load enable: Used to set the register to a specific value (e.g., for initialization).
-    input  wire [31:0] load_data,     // The 32-bit value to be loaded into the register.
+    input  wire [WIDTH-1:0] load_data, // The value to be loaded into the register.
     input  wire        shift_en,      // Shift enable: Used to shift the result out 8 bits at a time for serial output.
     output wire [7:0]  shift_out,     // The 8 most significant bits (MSB) of the register, used for serialization.
     output wire [WIDTH-1:0] data_out  // The current full value stored in the accumulator.
 );
 
     // 'localparam' is a constant that is only visible inside this module.
-    // We ensure REG_WIDTH is at least 32 bits to match 'load_data'.
-    localparam REG_WIDTH = (WIDTH > 32) ? WIDTH : 32;
+    localparam REG_WIDTH = WIDTH;
 
     // 'reg' is a Verilog data type that can hold a value. In this case, it will be synthesized into flip-flops.
     reg [REG_WIDTH-1:0] acc_reg;
 
     // 'assign' statements create combinational logic that continuously drives a wire.
-    assign data_out  = acc_reg[WIDTH-1:0];
+    assign data_out  = acc_reg;
     assign shift_out = acc_reg[REG_WIDTH-1:REG_WIDTH-8];
 
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
@@ -62,7 +61,7 @@ module accumulator #(
             acc_reg <= {REG_WIDTH{1'b0}};
         end else if (load_en) begin
             // Load: Direct assignment from load_data.
-            acc_reg <= {load_data, {(REG_WIDTH-32){1'b0}}};
+            acc_reg <= load_data;
         end else if (shift_en) begin
             // Shift: Move bits 8 positions to the left, filling with zeros from the right.
             acc_reg <= {acc_reg[REG_WIDTH-9:0], 8'd0};

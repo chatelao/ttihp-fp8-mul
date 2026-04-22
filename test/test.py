@@ -123,7 +123,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
     return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
-    shift_amt = exp_sum - 5
+    shift_amt = exp_sum + 3
     WIDTH = width
 
     if shift_amt >= 0:
@@ -160,37 +160,37 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
         elif round_mode == 2: # FLR
             aligned = base + 1 if (sign and (shifted_out != 0 or sticky)) else base
         elif round_mode == 3: # RNE
-            half = 1 << (n - 1)
-            if shifted_out > half:
-                aligned = base + 1
-            elif shifted_out < half:
+            if n > 0:
+                round_bit = (prod >> (n - 1)) & 1
+                sticky = (prod & ((1 << (n - 1)) - 1)) != 0
+                if round_bit:
+                    if sticky or (base & 1):
+                        aligned = base + 1
+                    else:
+                        aligned = base
+                else:
+                    aligned = base
+            else:
                 aligned = base
-            else: # Tie
-                aligned = base + 1 if (base & 1) else base
         else:
             aligned = base
 
     if sign:
         # Check saturation for negative
-        # Magnitude > 2^31 saturates to -2^31
-        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
-        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+        # Magnitude > 2^(WIDTH-1) saturates to -2^(WIDTH-1)
+        # For negative, magnitude 'aligned' must be <= 2^(WIDTH-1).
+        if not overflow_wrap and (huge or (aligned >> (WIDTH-1) != 0 and (aligned & ((1 << (WIDTH-1)) - 1)) != 0)):
+            res = -(1 << (WIDTH-1))
         else:
             res = -aligned
     else:
-        # Magnitude > 2^31-1 saturates to 2^31-1
-        # In RTL: (huge || |rounded[WIDTH-1:31])
-        if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+        # Magnitude > 2^(WIDTH-1)-1 saturates to 2^(WIDTH-1)-1
+        if not overflow_wrap and (huge or (aligned >> (WIDTH-1)) != 0):
+            res = (1 << (WIDTH-1)) - 1
         else:
             res = aligned
 
-    # Return as 32-bit signed integer
-    res_32 = res & 0xFFFFFFFF
-    if res_32 & 0x80000000:
-        return res_32 - 0x100000000
-    return res_32
+    return res
 
 def get_param(dut, name, default=1):
     # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
@@ -493,15 +493,16 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        expected_final_full = align_model(acc_abs, shared_exp - 3, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        # Extract top 32 bits
+        expected_final = (expected_final_full >> (acc_width - 32))
     else:
-        # If no shared scaling, the result is sign-extended to 32-bit in hardware
-        if expected_acc < 0:
-            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
-        else:
-            expected_final = expected_acc
+        # If no shared scaling, the result is effectively the top 32 bits of the accumulator
+        expected_final = (expected_acc >> (acc_width - 32))
 
-    if expected_final >= 0x80000000:
+    # Mask to 32-bit signed
+    expected_final &= 0xFFFFFFFF
+    if expected_final & 0x80000000:
         expected_final -= 0x100000000
 
     # Cycle 37-40 (or 21-24): Output Serialized Result
@@ -515,7 +516,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         actual_acc -= 0x100000000
 
     if expected_override is not None:
-        expected_final = expected_override
+        if not nan_sticky and not inf_pos_sticky and not inf_neg_sticky:
+            expected_final = expected_override
 
     format_names = ["E4M3", "E5M2", "E3M2", "E2M3", "E2M1", "INT8", "INT8_SYM"]
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
@@ -575,7 +577,8 @@ async def test_rounding_modes(dut):
     a_elements = [0x29] * 32
     b_elements = [0x31] * 32
 
-    # TRN: 40 * 32 = 1280
+    # TRN: 40 * 32 = 1280 (at bit 8). At bit 16, it is 1280 * 256 = 327680
+    # Expected output is top 32 bits of 40-bit acc. 327680 >> 8 = 1280.
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
     # CEL: (40+1) * 32 = 1312
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=1)
@@ -587,7 +590,8 @@ async def test_rounding_modes(dut):
     # Negative test
     a_elements = [0xA9] * 32 # -0.28125
     b_elements = [0x31] * 32 # 0.5625
-    # a*b = -0.158203125. Fixed point magnitude = 40.5.
+    # a*b = -0.158203125. Fixed point magnitude = 40.5 (at bit 8).
+    # At bit 16, it is 40.5 * 256 = 10368.
     # TRN: -40 * 32 = -1280
     await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
     # CEL: -40 * 32 = -1280 (negative, ceil towards 0)
@@ -791,9 +795,15 @@ async def test_fast_start_scale_compression(dut):
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
+        expected_final_full = align_model(acc_abs, shared_exp - 3, acc_sign, width=aligner_width)
+        expected_final = (expected_final_full >> (acc_width - 32))
     else:
-        expected_final = expected_acc
+        expected_final = (expected_acc >> (acc_width - 32))
+
+    # Mask to 32-bit signed
+    expected_final &= 0xFFFFFFFF
+    if expected_final & 0x80000000:
+        expected_final -= 0x100000000
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]
@@ -1081,7 +1091,8 @@ async def test_mxfp8_subnormals(dut):
     # Sum of 32 such products: 32 * 2^-6 * 0.125 = 2^5 * 2^-6 * 2^-3 = 2^-4 = 0.0625
 
     # In our fixed-point model (bit 8 = 1.0):
-    # 0.0625 * 256 = 16
+    # 0.0625 * 256 = 16 (if bit 8 = 1.0)
+    # At bit 16 = 1.0, 0.0625 is 4096. Top 32 bits [39:8] is 4096 >> 8 = 16.
 
     a_elements = [0x01] * 32
     b_elements = [0x38] * 32
@@ -1109,12 +1120,16 @@ async def test_lane_overflow(dut):
     # Combined sum = 0xC0000000 (Negative if not saturated)
 
     # E2M1: 0x02 is 1.0. 1.0 * 1.0 = 1.0.
-    # To get 0x60000000: magnitude must be 0x60000000 / 256 = 0x600000 = 6,291,456.
-    # 2^22 approx 4 million. 2^23 approx 8 million.
-    # exp_sum - 5 = 22 -> exp_sum = 27.
+    # To get 0x60000000: magnitude must be 0x60000000 * 2^8 = 0x6000000000 / 2^16 (roughly)
+    # Wait, the output is top 32 bits [39:8].
+    # To get 0x60000000 at output, the internal value must be 0x60000000 << 8 = 0x6000000000.
+    # Binary point at bit 16. Magnitude = 0x6000000000 / 2^16 = 0x600000 = 6,291,456.
+    # log2(6,291,456) = 22.58.
+    # shift_amt = 22 or 23.
+    # shift_amt = exp_sum + 3 => exp_sum = 19 or 20.
     # Standard exp_sum for E2M1 is 9.
-    # We use shared scaling to add 18. scale_a + scale_b - 254 = 18.
-    # scale_a = 145, scale_b = 127 -> 145 + 127 - 254 = 18.
+    # We use shared scaling to add 10. scale_a + scale_b - 254 = 10.
+    # scale_a = 137, scale_b = 127 -> 137 + 127 - 254 = 10.
 
     a_elements = [0x02] * 32 # 1.0
     b_elements = [0x02] * 32 # 1.0
@@ -1138,5 +1153,6 @@ async def test_mxfp4_full_range(dut):
     a_elements = list(range(16)) * 2
     b_elements = list(range(16)) * 2
     # Expected: 2 * sum(v*v for v in range(16)) = 2 * 137.0 = 274.0.
-    # Fixed point (8 bits): 274.0 * 256 = 70144
+    # Fixed point (16 bits): 274.0 * 65536 = 17956864.
+    # Top 32 bits [39:8]: 17956864 >> 8 = 70144.
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
