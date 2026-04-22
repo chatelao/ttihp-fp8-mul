@@ -44,30 +44,30 @@ UpdateBoundaryStyle("container", $type="container")
 title OCP MXFP8 MAC Unit - Internal Datapath (Registers & Processing)
 
 Container_Boundary(input_pins, "Physical Interface") {
-    Component(ui_in, "ui_in[7:0]", "Input Pins", "Metadata & Operand A")
-    Component(uio_in, "uio_in[7:0]", "Input Pins", "Metadata & Operand B")
+    Component(ui_in, "ui_in[7:0]", "Input Pins", "Metadata, Scale A (UE8M0), Operand A (FP8/6/4, INT8)")
+    Component(uio_in, "uio_in[7:0]", "Input Pins", "Metadata, Scale B (UE8M0), Operand B (FP8/6/4, INT8)")
 }
 
 Container_Boundary(reg_file, "Configuration Registers") {
-    Component(cfg_reg0, "Cycle 0 Regs", "Registers", "Modes, Debug, MX+ En")
-    Component(cfg_reg1, "Cycle 1 Regs", "Registers", "Scale A, Format A, BM A")
-    Component(cfg_reg2, "Cycle 2 Regs", "Registers", "Scale B, Format B, BM B")
+    Component(cfg_reg0, "Cycle 0 Regs", "Registers", "Short Protocol, Debug, LNS Mode, MX+ En, Packed En")
+    Component(cfg_reg1, "Cycle 1 Regs", "Registers", "Scale A (8-bit UE8M0), Format A (3-bit), BM Index A (5-bit)")
+    Component(cfg_reg2, "Cycle 2 Regs", "Registers", "Scale B (8-bit UE8M0), Format B (3-bit), BM Index B (5-bit)")
 }
 
 Container_Boundary(datapath, "Processing Datapath") {
-    Component(fifo, "Input FIFOs", "Registers", "16x8-bit (Lane A/B)")
-    Component(mul, "Dual Multipliers", "Logic", "8x8 / 4x4 / LNS")
-    Component(pipe_reg, "Pipeline Regs", "Registers", "Product Staging")
-    Component(align, "Dual Aligners", "Logic", "Barrel Shifters")
-    Component(acc, "32-bit Accumulator", "Register", "Fixed-point Sum")
+    Component(fifo, "Input FIFOs", "Registers", "16x8-bit (Lane A/B) - Raw elements")
+    Component(mul, "Dual Multipliers", "Logic", "8x8 / 4x4 / LNS -> 16-bit Product + Exp Sum")
+    Component(pipe_reg, "Pipeline Regs", "Registers", "16-bit Product Staging")
+    Component(align, "Dual Aligners", "Logic", "40-bit internal Barrel Shifters -> 32-bit Fixed-point")
+    Component(acc, "32-bit Accumulator", "Register", "32-bit Signed Fixed-point Sum")
 }
 
 Container_Boundary(output_logic, "Output Logic") {
-    Component(sticky, "Sticky Regs", "Registers", "Exception Flags")
-    Component(ser, "Serializer", "Logic", "Byte Selector")
+    Component(sticky, "Sticky Regs", "Registers", "Exception Flags (NaN, Inf+, Inf-)")
+    Component(ser, "Serializer", "Logic", "Byte Selector (32-bit Result -> 4x8-bit)")
 }
 
-Component(uo_out, "uo_out[7:0]", "Output Pins", "MAC Result / Probes")
+Component(uo_out, "uo_out[7:0]", "Output Pins", "Serialized IEEE 754 Float32 / Debug Probes")
 
 ' Dataflow Arrows
 Rel_D(ui_in, cfg_reg0, "Capture", "Cycle 0")
@@ -77,25 +77,25 @@ Rel_D(uio_in, cfg_reg1, "Capture", "Cycle 1")
 Rel_D(ui_in, cfg_reg2, "Capture", "Cycle 2")
 Rel_D(uio_in, cfg_reg2, "Capture", "Cycle 2")
 
-Rel_D(ui_in, fifo, "Stream", "STREAM phase")
-Rel_D(uio_in, fifo, "Stream", "STREAM phase")
+Rel_D(ui_in, fifo, "Stream", "STREAM phase (8-bit elements)")
+Rel_D(uio_in, fifo, "Stream", "STREAM phase (8-bit elements)")
 
-Rel_D(fifo, mul, "Operands")
+Rel_D(fifo, mul, "Operands (8-bit)")
 Rel_D(cfg_reg1, mul, "Format A")
 Rel_D(cfg_reg2, mul, "Format B")
 
-Rel_D(mul, pipe_reg, "Partial Products")
+Rel_D(mul, pipe_reg, "Products (16-bit)")
 Rel_D(pipe_reg, align, "Staged Data")
 Rel_L(cfg_reg1, align, "Scale A")
 Rel_L(cfg_reg2, align, "Scale B")
 
-Rel_D(align, acc, "Aligned Terms")
+Rel_D(align, acc, "Aligned (32-bit S15.16)")
 Rel_U(acc, acc, "Feedback")
 
 Rel_D(mul, sticky, "Exceptions")
 Rel_D(acc, ser, "32-bit Result")
-Rel_D(sticky, ser, "Override")
+Rel_D(sticky, ser, "Override (NaN/Inf)")
 
-Rel_D(ser, uo_out, "Serialized Byte", "OUTPUT phase")
+Rel_D(ser, uo_out, "Byte (8-bit)", "OUTPUT phase")
 
 @enduml
