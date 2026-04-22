@@ -15,7 +15,8 @@
 module fp8_aligner #(
     parameter WIDTH = 40,               // Bit-width of the internal alignment datapath.
     parameter SUPPORT_ADV_ROUNDING = 1, // Enable support for advanced rounding modes.
-    parameter OPTIMIZE_FOR_FP4 = 0      // 1 = simplified area-optimized version for FP4.
+    parameter OPTIMIZE_FOR_FP4 = 0,     // 1 = simplified area-optimized version for FP4.
+    parameter signed [3:0] SHIFT_OFFSET = 3 // Alignment offset to achieve desired fractional bits.
 )(
     input  wire [WIDTH-1:0] prod,      // The product from the multiplier stage.
     input  wire signed [9:0] exp_sum,  // The combined (summed) exponent from the multiplier stage.
@@ -32,15 +33,10 @@ module fp8_aligner #(
     localparam R_RNE = 2'b11; // Round-to-Nearest-Ties-to-Even
 
     // shift_amt: We calculate how many positions to shift based on the bias-adjusted exponent.
-    // +3 is used to align with the 40-bit fixed-point accumulator (bit 16 = 2^0).
-    // Derivation: Mantissa product is Q8.6 (8 bits, 6 fractional).
-    // To align Q8.6 to bit 16 (Q24.16), we need to shift by 10 bits when exp=0?
-    // Wait, let's re-verify.
-    // If exp_sum = 7 (which is 1.0 * 1.0), we want bit 6 of mantissa product to land at bit 16.
-    // shift_amt = 16 - 6 = 10.
-    // exp_sum + offset = 10 => 7 + offset = 10 => offset = 3.
-    // So shift_amt = exp_sum + 3. Correct.
-    wire signed [10:0] shift_amt = $signed(exp_sum) + 11'sd3;
+    // SHIFT_OFFSET is used to align with the fixed-point accumulator fractional point.
+    // Standard: +3 aligns Q8.6 to bit 16 (16 fractional bits).
+    // Legacy: -5 aligns Q8.6 to bit 8 (8 fractional bits).
+    wire signed [10:0] shift_amt = $signed(exp_sum) + $signed({ { (11-4){SHIFT_OFFSET[3]} }, SHIFT_OFFSET[3:0] });
 
     generate
     if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized

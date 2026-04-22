@@ -62,9 +62,11 @@ async def test_short_protocol_metadata(dut):
         await ClockCycles(dut.clk, k_factor)
 
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    expected = 0 if support_shared else 8192
+    # 32.0 in Float32 is 0x42000000.
+    # 32.0 in Fixed (bit 16=2^0) is 32 * 65536 = 2097152 (0x200000).
+    expected = 0x42000000 if support_shared else 0x200000
 
-    dut._log.info(f"Actual Result: {actual_acc}, Expected: {expected}")
+    dut._log.info(f"Actual Result: 0x{actual_acc & 0xFFFFFFFF:08X}, Expected: 0x{expected & 0xFFFFFFFF:08X}")
     assert actual_acc == expected
 
 @cocotb.test()

@@ -8,16 +8,14 @@
  * This is the main entry point for the Tiny Tapeout project.
  * It coordinates the streaming of data, performs Multiply-Accumulate (MAC) operations,
  * and handles the communication protocol between the external controller and the internal hardware.
- *
- * Beginner Note:
- * In Tiny Tapeout, the top-level module always has a specific set of inputs and outputs
- * (ui_in, uo_out, uio_in, uio_out, uio_oe, ena, clk, rst_n).
  */
 
 /* verilator lint_off DECLFILENAME */
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
+    /* verilator lint_off UNUSEDPARAM */
     parameter ALIGNER_WIDTH = 40,
+    /* verilator lint_on UNUSEDPARAM */
     parameter ACCUMULATOR_WIDTH = 40,
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
@@ -272,23 +270,23 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_a <= 8'd0;
+                if (!rst_n) scale_a <= 8'h7F; // Reset to 1.0 (Bias 127)
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
         end else begin : gen_no_scale_a
-            assign scale_a_val = 8'd0;
+            assign scale_a_val = 8'h7F;
         end
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_b <= 8'd0;
+                if (!rst_n) scale_b <= 8'h7F;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
         end else begin : gen_no_scale_b
-            assign scale_b_val = 8'd0;
+            assign scale_b_val = 8'h7F;
         end
 
         if (SUPPORT_MIXED_PRECISION && !FIXED_FORMAT) begin : gen_format_b
@@ -411,7 +409,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
@@ -701,18 +699,21 @@ module tt_um_chatelao_fp8_multiplier #(
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
 
-    // Multiplier for Aligner Input based on current protocol phase.
-    wire [ACCUMULATOR_WIDTH-1:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    acc_abs_val :
-                                    {{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - 10'sd3) : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
+    // Dynamic Precision Control
+    localparam FRAC_BITS = (ACCUMULATOR_WIDTH >= 32) ? 16 : 8;
+    localparam signed [7:0] ALIGN_OFFSET = (ACCUMULATOR_WIDTH >= 32) ? 8'sd3 : -8'sd5;
+
+    // Multiplier for Aligner Input
+    wire [ACCUMULATOR_WIDTH-1:0] aligner_lane0_in_prod = {{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane0_val};
+    wire signed [9:0] aligner_lane0_in_exp  = exp_sum_lane0_adj;
+    wire aligner_lane0_in_sign = mul_sign_lane0_val;
 
     wire [ACCUMULATOR_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
         .WIDTH(ACCUMULATOR_WIDTH),
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
-        .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
+        .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING),
+        .SHIFT_OFFSET(ALIGN_OFFSET)
     ) aligner_lane0_inst (
         .prod(aligner_lane0_in_prod),
         .exp_sum(aligner_lane0_in_exp),
@@ -720,6 +721,20 @@ module tt_um_chatelao_fp8_multiplier #(
         .round_mode(round_mode),
         .overflow_wrap(overflow_wrap),
         .aligned(aligned_lane0_res)
+    );
+
+    // Fixed-to-Float Conversion Engine for final output
+    wire [31:0] f2f_out;
+    fixed_to_float #(
+        .WIDTH(ACCUMULATOR_WIDTH),
+        .FRAC_BITS(FRAC_BITS)
+    ) f2f_inst (
+        .data_in(acc_out),
+        .shared_exp(shared_exp),
+        .nan_sticky(nan_sticky),
+        .inf_pos_sticky(inf_pos_sticky),
+        .inf_neg_sticky(inf_neg_sticky),
+        .data_out(f2f_out)
     );
 
     /* verilator lint_off UNUSEDSIGNAL */
@@ -730,7 +745,8 @@ module tt_um_chatelao_fp8_multiplier #(
             fp8_aligner #(
                 .WIDTH(ACCUMULATOR_WIDTH),
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
-                .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
+                .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING),
+                .SHIFT_OFFSET(ALIGN_OFFSET)
             ) aligner_lane1_inst (
                 .prod({{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane1_val}),
                 .exp_sum(exp_sum_lane1_adj),
@@ -754,7 +770,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
-    wire [ACCUMULATOR_WIDTH-1:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out;
+    wire [ACCUMULATOR_WIDTH-1:0] final_scaled_result = ENABLE_SHARED_SCALING ? {f2f_out, {(ACCUMULATOR_WIDTH-32){1'b0}}} : acc_out;
 
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
@@ -793,12 +809,14 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_DEBUG) begin : gen_debug_output
             assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
+            // Create a safe 40-bit wire for probing to avoid SELRANGE warnings in CI when ACC_WIDTH < 40.
+            wire [39:0] acc_out_40 = { {(40-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out };
             assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
                                 (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
-                                (probe_sel_val == 4'h3) ? acc_out[39:32] :
-                                (probe_sel_val == 4'h4) ? acc_out[31:24] :
-                                (probe_sel_val == 4'h5) ? acc_out[23:16] :
-                                (probe_sel_val == 4'h6) ? acc_out[15:8] :
+                                (probe_sel_val == 4'h3) ? acc_out_40[39:32] :
+                                (probe_sel_val == 4'h4) ? acc_out_40[31:24] :
+                                (probe_sel_val == 4'h5) ? acc_out_40[23:16] :
+                                (probe_sel_val == 4'h6) ? acc_out_40[15:8] :
                                 (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
                                 (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
                                 (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} :

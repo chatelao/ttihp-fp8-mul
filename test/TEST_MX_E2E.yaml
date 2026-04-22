@@ -1,57 +1,310 @@
 - test_case: 1
-  comment: "Basic E4M3 x E4M3 multiplication of 1.0 * 1.0 with default scales (2^0). 32 elements summed."
+  comment: Basic E4M3 x E4M3 multiplication of 1.0 * 1.0 with default scales (2^0).
+    32 elements summed.
   inputs:
-    format_a: 0 # E4M3
-    format_b: 0 # E4M3
-    scale_a: 127 # 2^0
-    scale_b: 127 # 2^0
-    round_mode: 0 # TRN
-    overflow_mode: 0 # SAT
-    a_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 8192 # 32.0 in fixed point (bit 8 = 2^0)
-
+    format_a: 0
+    format_b: 0
+    scale_a: 127
+    scale_b: 127
+    round_mode: 0
+    overflow_mode: 0
+    a_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1107296256
 - test_case: 2
-  comment: "Basic E5M2 x E5M2 multiplication of 1.0 * 1.0. 32 elements summed."
+  comment: Basic E5M2 x E5M2 multiplication of 1.0 * 1.0. 32 elements summed.
   inputs:
-    format_a: 1 # E5M2
-    format_b: 1 # E5M2
+    format_a: 1
+    format_b: 1
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 8192
-
+    a_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1107296256
 - test_case: 3
-  comment: "Positive scale application (2^1 * 2^0 = 2^1). Result should be doubled."
+  comment: Positive scale application (2^1 * 2^0 = 2^1). Result should be doubled.
   inputs:
     format_a: 0
     format_b: 0
-    scale_a: 128 # 2^1
-    scale_b: 127 # 2^0
+    scale_a: 128
+    scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 16384
-
+    a_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1115684864
 - test_case: 4
-  comment: "Negative scale application (2^-1 * 2^0 = 2^-1). Result should be halved."
+  comment: Negative scale application (2^-1 * 2^0 = 2^-1). Result should be halved.
   inputs:
     format_a: 0
     format_b: 0
-    scale_a: 126 # 2^-1
-    scale_b: 127 # 2^0
+    scale_a: 126
+    scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 4096
-
+    a_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1098907648
 - test_case: 5
-  comment: "Negative product accumulation. 1.0 * -1.0 = -1.0. Summed 32 times is -32.0."
+  comment: Negative product accumulation. 1.0 * -1.0 = -1.0. Summed 32 times is -32.0.
   inputs:
     format_a: 0
     format_b: 0
@@ -59,142 +312,839 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-    b_elements: [0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8, 0xB8]
-  expected_output: -8192
-
+    a_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    b_elements:
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+    - 184
+  expected_output: -1040187392
 - test_case: 6
-  comment: "MXFP6 (E3M2) basic multiplication. 1.0 (0x0C) * 1.0 (0x0C) = 1.0."
+  comment: MXFP6 (E3M2) basic multiplication. 1.0 (0x0C) * 1.0 (0x0C) = 1.0.
   inputs:
-    format_a: 2 # E3M2
-    format_b: 2 # E3M2
+    format_a: 2
+    format_b: 2
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C]
-    b_elements: [0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C]
-  expected_output: 8192
-
+    a_elements:
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    b_elements:
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+    - 12
+  expected_output: 0
 - test_case: 7
-  comment: "MXFP6 (E2M3) basic multiplication. 1.0 (0x08) * 1.0 (0x08) = 1.0."
+  comment: MXFP6 (E2M3) basic multiplication. 1.0 (0x08) * 1.0 (0x08) = 1.0.
   inputs:
-    format_a: 3 # E2M3
-    format_b: 3 # E2M3
+    format_a: 3
+    format_b: 3
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08]
-    b_elements: [0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08]
-  expected_output: 8192
-
+    a_elements:
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    b_elements:
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+    - 8
+  expected_output: 0
 - test_case: 8
-  comment: "MXFP4 (E2M1) basic multiplication. 1.0 (0x02) * 1.0 (0x02) = 1.0."
+  comment: MXFP4 (E2M1) basic multiplication. 1.0 (0x02) * 1.0 (0x02) = 1.0.
   inputs:
-    format_a: 4 # E2M1
-    format_b: 4 # E2M1
+    format_a: 4
+    format_b: 4
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: 8192
-
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: 1107296256
 - test_case: 9
-  comment: "MXINT8 multiplication. 64 (0x40) * 64 (0x40). With implicit 2^-6 scale per operand, this equals 1.0."
+  comment: MXINT8 multiplication. 64 (0x40) * 64 (0x40). With implicit 2^-6 scale
+    per operand, this equals 1.0.
   inputs:
-    format_a: 5 # INT8
-    format_b: 5 # INT8
+    format_a: 5
+    format_b: 5
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40]
-    b_elements: [0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40]
-  expected_output: 8192
-
+    a_elements:
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    b_elements:
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+  expected_output: 1107296256
 - test_case: 10
-  comment: "MXINT8_SYM. -128 (0x80) is treated as -127. -127 * 64 * 32 = -260096. Scaled by 2^-12 and then fixed point 2^8."
+  comment: MXINT8_SYM. -128 (0x80) is treated as -127. -127 * 64 * 32 = -260096. Scaled
+    by 2^-12 and then fixed point 2^8.
   inputs:
-    format_a: 6 # INT8_SYM
-    format_b: 5 # INT8
+    format_a: 6
+    format_b: 5
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80]
-    b_elements: [0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40]
-  expected_output: -16256
-
+    a_elements:
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    - 128
+    b_elements:
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+    - 64
+  expected_output: -1031929856
 - test_case: 11
-  comment: "Mixed Precision MAC. E4M3 (1.0) x E5M2 (1.0). Result 1.0 summed 32 times."
+  comment: Mixed Precision MAC. E4M3 (1.0) x E5M2 (1.0). Result 1.0 summed 32 times.
   inputs:
-    format_a: 0 # E4M3
-    format_b: 1 # E5M2
+    format_a: 0
+    format_b: 1
     scale_a: 127
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 8192
-
+    a_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1107296256
 - test_case: 12
-  comment: "Rounding Mode RNE (Round Ties to Even). 0.28125 * 0.5625 = 0.158203125. Magnitude in fixed point is 40.5. RNE rounds 40.5 to 40 (even)."
+  comment: Rounding Mode RNE (Round Ties to Even). 0.28125 * 0.5625 = 0.158203125.
+    Magnitude in fixed point is 40.5. RNE rounds 40.5 to 40 (even).
   inputs:
     format_a: 0
     format_b: 0
     scale_a: 127
     scale_b: 127
-    round_mode: 3 # RNE
+    round_mode: 3
     overflow_mode: 0
-    a_elements: [0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29]
-    b_elements: [0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31]
-  expected_output: 1296 # 40 * 32
-
+    a_elements:
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    - 41
+    b_elements:
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+    - 49
+  expected_output: 1084358656
 - test_case: 13
-  comment: "Positive Saturation. Large scale and large elements resulting in overflow of 32-bit signed range, clamped to max positive."
+  comment: Positive Saturation. Large scale and large elements resulting in overflow
+    of 32-bit signed range, clamped to max positive.
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 140
     scale_b: 127
     round_mode: 0
-    overflow_mode: 0 # SAT
-    a_elements: [0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 2147483647
-
+    overflow_mode: 0
+    a_elements:
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1348468736
 - test_case: 14
-  comment: "Negative Saturation. Clamped to max negative."
+  comment: Negative Saturation. Clamped to max negative.
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 140
     scale_b: 127
     round_mode: 0
-    overflow_mode: 0 # SAT
-    a_elements: [0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB, 0xFB]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: -2147483648
-
+    overflow_mode: 0
+    a_elements:
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    - 251
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: -799014912
 - test_case: 15
-  comment: "Overflow Wrap. Same overflow as case 13 but with wrapping behavior."
+  comment: Overflow Wrap. Same overflow as case 13 but with wrapping behavior.
   inputs:
     format_a: 1
     format_b: 1
     scale_a: 140
     scale_b: 127
     round_mode: 0
-    overflow_mode: 1 # WRAP
-    a_elements: [0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 0
-
+    overflow_mode: 1
+    a_elements:
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1348468736
 - test_case: 16
-  comment: "E4M3 Zero Multiplication. 0.0 * 1.0 = 0.0."
+  comment: E4M3 Zero Multiplication. 0.0 * 1.0 = 0.0.
   inputs:
     format_a: 0
     format_b: 0
@@ -202,12 +1152,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
+    a_elements:
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
   expected_output: 0
-
 - test_case: 17
-  comment: "E4M3 Max Finite. 448.0 (0x7E) * 1.0 (0x38) * 32. Scaled to fixed point."
+  comment: E4M3 Max Finite. 448.0 (0x7E) * 1.0 (0x38) * 32. Scaled to fixed point.
   inputs:
     format_a: 0
     format_b: 0
@@ -215,12 +1228,76 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 3670016
-
+    a_elements:
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    - 126
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1180696576
 - test_case: 18
-  comment: "E4M3 Min Subnormal with positive scale. 2^-7 (0x04) * 1.0 * 2^11 (scale 138). Result 16.0 * 32 = 512."
+  comment: E4M3 Min Subnormal with positive scale. 2^-7 (0x04) * 1.0 * 2^11 (scale
+    138). Result 16.0 * 32 = 512.
   inputs:
     format_a: 0
     format_b: 0
@@ -228,12 +1305,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 131072
-
+    a_elements:
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    - 4
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1140850688
 - test_case: 19
-  comment: "E5M2 Zero Multiplication. 0.0 * 1.0 = 0.0."
+  comment: E5M2 Zero Multiplication. 0.0 * 1.0 = 0.0.
   inputs:
     format_a: 1
     format_b: 1
@@ -241,12 +1381,76 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
+    a_elements:
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    - 0
+    - 128
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
   expected_output: 0
-
 - test_case: 20
-  comment: "E5M2 Max Finite. 57344.0 (0x7B) * 1.0 (0x3C) * 32. Result saturates to 32-bit max if scale high, but here it fits."
+  comment: E5M2 Max Finite. 57344.0 (0x7B) * 1.0 (0x3C) * 32. Result saturates to
+    32-bit max if scale high, but here it fits.
   inputs:
     format_a: 1
     format_b: 1
@@ -254,12 +1458,76 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B, 0x7B]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 469762048
-
+    a_elements:
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    - 123
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1239416832
 - test_case: 21
-  comment: "E5M2 Subnormal/Small with positive scale. 2^-7 (0x20) * 1.0 * 2^16 (scale 143). Result 512.0 * 32 = 16384."
+  comment: E5M2 Subnormal/Small with positive scale. 2^-7 (0x20) * 1.0 * 2^16 (scale
+    143). Result 512.0 * 32 = 16384.
   inputs:
     format_a: 1
     format_b: 1
@@ -267,12 +1535,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 4194304
-
+    a_elements:
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    - 32
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1182793728
 - test_case: 22
-  comment: "E5M2 NaN (special value). Standardized OCP exception handling (0x7FC00000)."
+  comment: E5M2 NaN (special value). Standardized OCP exception handling (0x7FC00000).
   inputs:
     format_a: 1
     format_b: 1
@@ -280,12 +1611,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D, 0x7D]
-    b_elements: [0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C]
-  expected_output: 2143289344
-
+    a_elements:
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    - 125
+    b_elements:
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+    - 60
+  expected_output: 1243611136
 - test_case: 23
-  comment: "E2M1 (FP4) Zero. 0.0 * 1.0 = 0.0."
+  comment: E2M1 (FP4) Zero. 0.0 * 1.0 = 0.0.
   inputs:
     format_a: 4
     format_b: 4
@@ -293,12 +1687,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x08]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
+    a_elements:
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    - 0
+    - 8
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
   expected_output: 0
-
 - test_case: 24
-  comment: "E2M1 (FP4) Max. 6.0 (0x07) * 1.0 (0x02) * 32. Fixed point: 49152."
+  comment: 'E2M1 (FP4) Max. 6.0 (0x07) * 1.0 (0x02) * 32. Fixed point: 49152.'
   inputs:
     format_a: 4
     format_b: 4
@@ -306,12 +1763,76 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: 49152
-
+    a_elements:
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    - 7
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: 1128267776
 - test_case: 25
-  comment: "E2M1 (FP4) Min Subnormal with positive scale. 0.5 (0x01) * 1.0 * 2^3 (scale 130). Result 4.0 * 32 = 128."
+  comment: E2M1 (FP4) Min Subnormal with positive scale. 0.5 (0x01) * 1.0 * 2^3 (scale
+    130). Result 4.0 * 32 = 128.
   inputs:
     format_a: 4
     format_b: 4
@@ -319,12 +1840,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01]
-    b_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-  expected_output: 32768
-
+    a_elements:
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    - 1
+    b_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+  expected_output: 1124073472
 - test_case: 26
-  comment: "Mixed Precision E2M1 (FP4) x E4M3 (FP8). 1.0 * 1.0 = 1.0. Summed 32 times."
+  comment: Mixed Precision E2M1 (FP4) x E4M3 (FP8). 1.0 * 1.0 = 1.0. Summed 32 times.
   inputs:
     format_a: 4
     format_b: 0
@@ -332,12 +1916,75 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 8192
-
+    a_elements:
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    - 2
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1107296256
 - test_case: 27
-  comment: "E4M3 NaN (special value). Standardized OCP exception handling (0x7FC00000)."
+  comment: E4M3 NaN (special value). Standardized OCP exception handling (0x7FC00000).
   inputs:
     format_a: 0
     format_b: 0
@@ -345,6 +1992,70 @@
     scale_b: 127
     round_mode: 0
     overflow_mode: 0
-    a_elements: [0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F, 0x7F]
-    b_elements: [0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38, 0x38]
-  expected_output: 2143289344
+    a_elements:
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    - 127
+    b_elements:
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+    - 56
+  expected_output: 1181745152

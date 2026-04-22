@@ -32,7 +32,9 @@ module accumulator #(
     assign shift_out = acc_reg[WIDTH-1:WIDTH-8];
 
     // Signed arithmetic with overflow detection.
+    /* verilator lint_off UNUSEDSIGNAL */
     wire signed [WIDTH:0] sum_full = $signed({acc_reg[WIDTH-1], acc_reg}) + $signed({data_in[WIDTH-1], data_in});
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [WIDTH-1:0] sum = sum_full[WIDTH-1:0];
 
     // Overflow check: If the signs of the inputs are the same but the sign of the result is different.
@@ -47,7 +49,8 @@ module accumulator #(
             acc_reg <= load_data;
         end else if (shift_en) begin
             // Shift left by 8 bits, filling with zeros.
-            acc_reg <= {acc_reg[WIDTH-9:0], 8'd0};
+            // Handle WIDTH < 8 by padding if necessary, but WIDTH is >= 32 here.
+            acc_reg <= (WIDTH > 8) ? {acc_reg[WIDTH-9:0], 8'd0} : 8'd0;
         end else if (en) begin
             if (overflow && !overflow_wrap) begin
                 // Saturation.
