@@ -15,11 +15,11 @@ The following table summarizes the data formats for individual data elements ($P
 
 | Format Name | Type | Bits | Sign | Exponent | Mantissa | Bias | Special Values | Detailed Table |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- | :--- |
-| **E4M3** | MXFP8 | 8 | [7] | [6:3] | [2:0] | 7 | NaN (0x7F/0xFF) | [View Table](FP8_E4M3_TABLE.md) |
-| **E5M2** | MXFP8 | 8 | [7] | [6:2] | [1:0] | 15 | Inf, NaN | [View Table](FP8_E5M2_TABLE.md) |
-| **E3M2** | MXFP6 | 6 | [5] | [4:2] | [1:0] | 3 | Saturation | [View Table](FP6_E3M2_TABLE.md) |
-| **E2M3** | MXFP6 | 6 | [5] | [4:3] | [2:0] | 1 | Saturation | [View Table](FP6_E2M3_TABLE.md) |
-| **E2M1** | MXFP4 | 4 | [3] | [2:1] | [0] | 1 | Saturation | [View Table](FP4_E2M1_TABLE.md) |
+| **E4M3** | MXFP8 | 8 | [7] | [6:3] | [2:0] | 7 | NaN (0x7F/0xFF) | [View Table](LOOKUP_TABLES.md#fp8-e4m3-table) |
+| **E5M2** | MXFP8 | 8 | [7] | [6:2] | [1:0] | 15 | Inf, NaN | [View Table](LOOKUP_TABLES.md#fp8-e5m2-table) |
+| **E3M2** | MXFP6 | 6 | [5] | [4:2] | [1:0] | 3 | Saturation | [View Table](LOOKUP_TABLES.md#fp6-e3m2-table) |
+| **E2M3** | MXFP6 | 6 | [5] | [4:3] | [2:0] | 1 | Saturation | [View Table](LOOKUP_TABLES.md#fp6-e2m3-table) |
+| **E2M1** | MXFP4 | 4 | [3] | [2:1] | [0] | 1 | Saturation | [View Table](LOOKUP_TABLES.md#fp4-e2m1-table) |
 | **INT8** | MXINT8 | 8 | [7] | N/A | [6:0] | N/A | Two's Comp | N/A |
 | **INT8_SYM**| MXINT8 | 8 | [7] | N/A | [6:0] | N/A | Symmetric | N/A |
 
@@ -36,7 +36,7 @@ The scale factor ($X$) is shared across a block of $k=32$ elements.
 
 | Format Name | Type | Bits | Description | Bias | Range | Detailed Table |
 | :--- | :--- | :---: | :--- | :---: | :--- | :--- |
-| **UE8M0** | Scale | 8 | Unsigned Biased Exponent | 127 | $2^{-127}$ to $2^{127}$ | [View Table](UFP8_E8M0_TABLE.md) |
+| **UE8M0** | Scale | 8 | Unsigned Biased Exponent | 127 | $2^{-127}$ to $2^{127}$ | [View Table](LOOKUP_TABLES.md#shared-scale-ue8m0-table) |
 
 ---
 

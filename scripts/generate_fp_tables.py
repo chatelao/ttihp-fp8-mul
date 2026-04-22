@@ -191,32 +191,46 @@ def generate_table_ue8m0():
 if __name__ == "__main__":
     os.makedirs("docs/reference", exist_ok=True)
 
-    with open("docs/reference/FP4_E2M1_TABLE.md", "w") as f:
-        f.write("# OCP MX FP4 (E2M1) Value Table\n\n")
+    with open("docs/reference/LOOKUP_TABLES.md", "w") as f:
+        f.write("# OCP MX Data Lookup Tables\n\n")
+        f.write("This document provides detailed value tables for all supported OCP MX floating-point formats.\n\n")
+
+        f.write("## Table of Contents\n")
+        f.write("1. [FP4 (E2M1) Table](#fp4-e2m1-table)\n")
+        f.write("2. [FP6 (E3M2) Table](#fp6-e3m2-table)\n")
+        f.write("3. [FP6 (E2M3) Table](#fp6-e2m3-table)\n")
+        f.write("4. [FP8 (E4M3) Table](#fp8-e4m3-table)\n")
+        f.write("5. [FP8 (E5M2) Table](#fp8-e5m2-table)\n")
+        f.write("6. [Shared Scale (UE8M0) Table](#shared-scale-ue8m0-table)\n\n")
+
+        f.write("---\n\n")
+
+        f.write("## FP4 (E2M1) Table\n\n")
         f.write("Format: [3] Sign, [2:1] Exponent (Bias 1), [0] Mantissa\n\n")
         f.write(generate_table_fp4())
+        f.write("\n\n---\n\n")
 
-    with open("docs/reference/FP6_E3M2_TABLE.md", "w") as f:
-        f.write("# OCP MX FP6 (E3M2) Value Table\n\n")
+        f.write("## FP6 (E3M2) Table\n\n")
         f.write("Format: [5] Sign, [4:2] Exponent (Bias 3), [1:0] Mantissa\n\n")
         f.write(generate_table_fp6_e3m2())
+        f.write("\n\n---\n\n")
 
-    with open("docs/reference/FP6_E2M3_TABLE.md", "w") as f:
-        f.write("# OCP MX FP6 (E2M3) Value Table\n\n")
+        f.write("## FP6 (E2M3) Table\n\n")
         f.write("Format: [5] Sign, [4:3] Exponent (Bias 1), [2:0] Mantissa\n\n")
         f.write(generate_table_fp6_e2m3())
+        f.write("\n\n---\n\n")
 
-    with open("docs/reference/FP8_E4M3_TABLE.md", "w") as f:
-        f.write("# OCP MX FP8 (E4M3) Value Table\n\n")
+        f.write("## FP8 (E4M3) Table\n\n")
         f.write("Format: [7] Sign, [6:3] Exponent (Bias 7), [2:0] Mantissa\n\n")
         f.write(generate_table_fp8_e4m3())
+        f.write("\n\n---\n\n")
 
-    with open("docs/reference/FP8_E5M2_TABLE.md", "w") as f:
-        f.write("# OCP MX FP8 (E5M2) Value Table\n\n")
+        f.write("## FP8 (E5M2) Table\n\n")
         f.write("Format: [7] Sign, [6:2] Exponent (Bias 15), [1:0] Mantissa\n\n")
         f.write(generate_table_fp8_e5m2())
+        f.write("\n\n---\n\n")
 
-    with open("docs/reference/UFP8_E8M0_TABLE.md", "w") as f:
-        f.write("# OCP MX UFP8 (UE8M0) Value Table (Shared Scale)\n\n")
+        f.write("## Shared Scale (UE8M0) Table\n\n")
         f.write("Format: 8-bit Unsigned Biased Exponent (Bias 127)\n\n")
         f.write(generate_table_ue8m0())
+        f.write("\n")
