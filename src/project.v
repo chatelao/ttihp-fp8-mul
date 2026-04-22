@@ -797,12 +797,16 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_DEBUG) begin : gen_debug_output
             assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
+
+            // Padded version for safe probing regardless of ACCUMULATOR_WIDTH
+            wire [39:0] acc_probe_padded = {{(40-ACCUMULATOR_WIDTH){acc_out_ext[ACCUMULATOR_WIDTH-1]}}, acc_out_ext};
+
             assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
                                 (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
-                                (probe_sel_val == 4'h3) ? acc_out_ext[39:32] :
-                                (probe_sel_val == 4'h4) ? acc_out_ext[31:24] :
-                                (probe_sel_val == 4'h5) ? acc_out_ext[23:16] :
-                                (probe_sel_val == 4'h6) ? acc_out_ext[15:8] :
+                                (probe_sel_val == 4'h3) ? acc_probe_padded[39:32] :
+                                (probe_sel_val == 4'h4) ? acc_probe_padded[31:24] :
+                                (probe_sel_val == 4'h5) ? acc_probe_padded[23:16] :
+                                (probe_sel_val == 4'h6) ? acc_probe_padded[15:8] :
                                 (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
                                 (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
                                 (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} :
@@ -832,10 +836,11 @@ module tt_um_chatelao_fp8_multiplier #(
      * This code is only used by formal tools (like SymbiYosys) to prove invariants.
      */
     // 0. Formal-only capture register for serialization verification
-    reg [ACCUMULATOR_WIDTH-1:0] f_scaled_acc_reg;
+    // Use a fixed width of 40 to avoid selection range errors in smaller variants
+    reg [39:0] f_scaled_acc_reg;
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) f_scaled_acc_reg <= {ACCUMULATOR_WIDTH{1'b0}};
-        else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= final_scaled_result;
+        if (!rst_n) f_scaled_acc_reg <= 40'd0;
+        else if (ena && strobe && logical_cycle == capture_cycle) f_scaled_acc_reg <= {{(40-ACCUMULATOR_WIDTH){final_scaled_result[ACCUMULATOR_WIDTH-1]}}, final_scaled_result};
     end
 
     // 1. Reset and Clock assumptions
@@ -924,11 +929,15 @@ module tt_um_chatelao_fp8_multiplier #(
                 if (sticky_any) begin
                     assert(uo_out == sticky_byte);
                 end else begin
+                    // Determine where the top byte starts in f_scaled_acc_reg
+                    // If WIDTH < 32, it's padded to 32 bits for shifting out.
+                    // If WIDTH >= 32, it's WIDTH bits.
+                    localparam TRACK_WIDTH = (ACCUMULATOR_WIDTH > 32) ? ACCUMULATOR_WIDTH : 32;
                     case (logical_cycle - capture_cycle)
-                        6'd1: assert(uo_out == f_scaled_acc_reg[ACCUMULATOR_WIDTH-1:ACCUMULATOR_WIDTH-8]);
-                        6'd2: assert(uo_out == f_scaled_acc_reg[ACCUMULATOR_WIDTH-9:ACCUMULATOR_WIDTH-16]);
-                        6'd3: assert(uo_out == f_scaled_acc_reg[ACCUMULATOR_WIDTH-17:ACCUMULATOR_WIDTH-24]);
-                        6'd4: assert(uo_out == f_scaled_acc_reg[ACCUMULATOR_WIDTH-25:ACCUMULATOR_WIDTH-32]);
+                        6'd1: assert(uo_out == f_scaled_acc_reg[TRACK_WIDTH-1:TRACK_WIDTH-8]);
+                        6'd2: assert(uo_out == f_scaled_acc_reg[TRACK_WIDTH-9:TRACK_WIDTH-16]);
+                        6'd3: assert(uo_out == f_scaled_acc_reg[TRACK_WIDTH-17:TRACK_WIDTH-24]);
+                        6'd4: assert(uo_out == f_scaled_acc_reg[TRACK_WIDTH-25:TRACK_WIDTH-32]);
                         default: assert(uo_out == 8'd0);
                     endcase
                 end

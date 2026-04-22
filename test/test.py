@@ -127,6 +127,7 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     shift_amt = exp_sum + 3
     WIDTH = width
 
+    huge = False
     if shift_amt >= 0:
         if not overflow_wrap and (shift_amt >= WIDTH or (prod << shift_amt) >= (1 << (WIDTH-1))):
             # Check for saturation in magnitude
@@ -143,10 +144,9 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
         base = aligned
 
         # Huge detection: if bits are shifted out of WIDTH-bit window
-        huge = False
-        if shift_amt >= WIDTH:
+        if not huge and shift_amt >= WIDTH:
             if prod != 0: huge = True
-        elif shift_amt > 0:
+        elif not huge and shift_amt > 0:
             if (prod >> (WIDTH - shift_amt)) != 0: huge = True
     else:
         n = -shift_amt
@@ -190,7 +190,12 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
         else:
             res = aligned
 
-    return res
+    # Final Masking to simulate hardware register width
+    mask = (1 << WIDTH) - 1
+    res_masked = res & mask
+    if res_masked & (1 << (WIDTH - 1)):
+        return res_masked - (1 << WIDTH)
+    return res_masked
 
 def get_param(dut, name, default=1):
     # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
@@ -497,11 +502,17 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         # Hardware uses final_scaled_result = aligned_lane0_res
         # then it shifts out acc_reg[REG_WIDTH-1:REG_WIDTH-8]
         full_aligned = align_model(acc_abs, shared_exp - 3, acc_sign, round_mode, overflow_wrap, width=aligner_width)
-        # Shift to align MSB to 32-bit output
-        expected_final = (full_aligned >> (acc_width - 32))
+        # Shift to align MSB to 32-bit output. If width < 32, we pad with zeros (left shift).
+        if acc_width >= 32:
+            expected_final = (full_aligned >> (acc_width - 32))
+        else:
+            expected_final = (full_aligned << (32 - acc_width))
     else:
         # If no shared scaling, the result is the top 32 bits of the accumulator
-        expected_final = (expected_acc >> (acc_width - 32))
+        if acc_width >= 32:
+            expected_final = (expected_acc >> (acc_width - 32))
+        else:
+            expected_final = (expected_acc << (32 - acc_width))
 
     if expected_final >= 0x80000000:
         expected_final -= 0x100000000
@@ -795,9 +806,21 @@ async def test_fast_start_scale_compression(dut):
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
+        full_aligned = align_model(acc_abs, shared_exp - 3, acc_sign, width=aligner_width)
+        if acc_width >= 32:
+            expected_final = (full_aligned >> (acc_width - 32))
+        else:
+            expected_final = (full_aligned << (32 - acc_width))
     else:
-        expected_final = expected_acc
+        if acc_width >= 32:
+            expected_final = (expected_acc >> (acc_width - 32))
+        else:
+            expected_final = (expected_acc << (32 - acc_width))
+
+    # Serialization Truncation to 32-bit signed
+    expected_final &= 0xFFFFFFFF
+    if expected_final & 0x80000000:
+        expected_final -= 0x100000000
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]
