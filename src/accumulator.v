@@ -13,7 +13,7 @@
  * 'WIDTH' here determines how many bits the accumulator can hold.
  */
 module accumulator #(
-    parameter WIDTH = 32 // The bit-width of the internal accumulation register.
+    parameter WIDTH = 40 // The bit-width of the internal accumulation register.
 )(
     input  wire        clk,           // System clock: All operations happen on the rising edge.
     input  wire        rst_n,         // Active-low asynchronous reset: Returns the register to zero immediately.

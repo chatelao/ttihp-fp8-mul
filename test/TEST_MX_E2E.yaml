@@ -839,7 +839,8 @@
   expected_output: 8192
 - test_case: 12
   comment: Rounding Mode RNE (Round Ties to Even). 0.28125 * 0.5625 = 0.158203125.
-    Magnitude in fixed point is 40.5. RNE rounds 40.5 to 40 (even).
+    With higher internal precision (bit 16 alignment), the sum of 32 products (5.0625)
+    is preserved. S23.8 output is 5.0625 * 256 = 1296.
   inputs:
     format_a: 0
     format_b: 0

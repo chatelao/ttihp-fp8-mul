@@ -207,8 +207,8 @@ def get_param(dut, name, default=1):
     compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
     # Match -Pname=val, -P hierarchy.name=val, etc.
-    # regex looks for either whitespace or a dot before the name to avoid partial matches
-    pattern = r"[\s\.]" + re.escape(name) + r"=(\d+)"
+    # regex looks for whitespace, dot, or -P before the name to avoid partial matches
+    pattern = r"(?:^|\s|\.|\-P)(?:[\w\.]*\.)?" + re.escape(name) + r"=(\d+)"
     match = re.search(pattern, compile_args)
     if match:
         return int(match.group(1))
@@ -357,7 +357,7 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     support_int8 = get_param(dut, "SUPPORT_INT8", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
-    acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
+    acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 40)
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     # Custom reset to handle Cycle 0 sampling
@@ -747,7 +747,7 @@ async def test_fast_start_scale_compression(dut):
     b_elements = [0x38] * 32
 
     support_mxplus_hw = get_param(dut, "SUPPORT_MX_PLUS", 0)
-    acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
+    acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 40)
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1)
 
     # 1. Normal Start
@@ -797,8 +797,11 @@ async def test_fast_start_scale_compression(dut):
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
         expected_final_full = align_model(acc_abs, shared_exp - 3, acc_sign, width=aligner_width)
+        # Mapping: bit 16 (2^0) in internal datapath maps to bit 8 (2^0) in output.
+        # So we always shift right by 8 to align weights, regardless of internal width.
         expected_final = (expected_final_full >> 8)
     else:
+        # If no shared scaling, the result is effectively the output-aligned value of the accumulator
         expected_final = (expected_acc >> 8)
 
     # Mask to 32-bit signed
