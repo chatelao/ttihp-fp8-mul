@@ -210,12 +210,12 @@ def get_param(dut, name, default=1):
             pass
 
     # 2. Try to get from COMPILE_ARGS environment variable
-    # Parameters can be passed as -Pname=val or -Phierarchy.name=val
+    # Parameters can be passed as -Pname=val or -Phierarchy.name=val (e.g., -P tb.name=val)
     compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
     # Match -Pname=val, -P hierarchy.name=val, etc.
-    # regex looks for either whitespace or a dot before the name to avoid partial matches
-    pattern = r"[\s\.]" + re.escape(name) + r"=(\d+)"
+    # Allow optional hierarchy prefix like 'tb.'
+    pattern = r"(?:^|[\s\.])(?:\w+\.)?" + re.escape(name) + r"=(\d+)"
     match = re.search(pattern, compile_args)
     if match:
         return int(match.group(1))
@@ -365,7 +365,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
     acc_width = get_param(dut, "ACCUMULATOR_WIDTH", 32)
-    aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
+    # Internally, the hardware uses the same width for alignment and accumulation.
+    aligner_width = acc_width
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
@@ -503,9 +504,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         # For shared scaling, we extract the top 32 bits of the aligned result.
         # Hardware uses final_scaled_result = aligned_lane0_res
         # then it shifts out acc_reg[WIDTH-1:WIDTH-8] (MSB first)
-        full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        full_aligned = align_model(acc_abs, shared_exp - (acc_width - 37), acc_sign, round_mode, overflow_wrap, width=acc_width)
         # Always extract top 32 bits of the specified width.
-        expected_final = (full_aligned >> (aligner_width - 32)) if aligner_width >= 32 else (full_aligned << (32 - aligner_width))
+        expected_final = (full_aligned >> (acc_width - 32)) if acc_width >= 32 else (full_aligned << (32 - acc_width))
     else:
         # If no shared scaling, result is the top 32 bits of the accumulator.
         expected_final = (expected_acc >> (acc_width - 32)) if acc_width >= 32 else (expected_acc << (32 - acc_width))
@@ -782,12 +783,11 @@ async def test_fast_start_scale_compression(dut):
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
-    aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
     for a, b in zip(a_elements, b_elements):
         prod = align_product_model(a, b, format_a, format_b,
-                                   support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width, lns_mode=lns_mode)
+                                   support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=acc_width, lns_mode=lns_mode)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -802,7 +802,7 @@ async def test_fast_start_scale_compression(dut):
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        full_aligned = align_model(acc_abs, shared_exp - (aligner_width - 37), acc_sign, width=aligner_width)
+        full_aligned = align_model(acc_abs, shared_exp - (acc_width - 37), acc_sign, width=acc_width)
         expected_final = (full_aligned >> (acc_width - 32)) if acc_width >= 32 else (full_aligned << (32 - acc_width))
     else:
         if acc_width >= 32:

@@ -14,7 +14,7 @@
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
     /* verilator lint_off UNUSEDPARAM */
-    parameter ALIGNER_WIDTH = 40,
+    parameter ALIGNER_WIDTH = 40, // Deprecated: used as a fallback for consistency.
     /* verilator lint_on UNUSEDPARAM */
     parameter ACCUMULATOR_WIDTH = 40,
     parameter SUPPORT_E4M3  = 1,
@@ -705,12 +705,19 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ACCUMULATOR_WIDTH-1:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                     aligner_lane0_in_prod_acc :
                                     {{(ACCUMULATOR_WIDTH-16){1'b0}}, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - $signed({2'b0, ALIGNER_WIDTH[7:0]}) + 10'sd37) : exp_sum_lane0_adj;
+    // Formula for shift_amt in aligner: shift_amt = exp_sum + WIDTH - 37.
+    // To align shared_exp to binary point at bit (WIDTH-24), we need:
+    // (shared_exp + adj) + WIDTH - 37 = WIDTH - 24  =>  shared_exp + adj = 13  => adj = 13 - shared_exp.
+    // Wait, the previous logic was: aligner_lane0_in_exp = shared_exp - WIDTH + 37.
+    // Let's re-verify: shift_amt = (shared_exp - WIDTH + 37) + WIDTH - 37 = shared_exp.
+    // If shared_exp = 0, shift_amt = 0. Binary point at bit (WIDTH-24).
+    // This correctly maps 1.0 (shared_exp=0) to bit (WIDTH-24).
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp - $signed({2'b0, ACCUMULATOR_WIDTH[7:0]}) + 10'sd37) : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
 
     wire [ACCUMULATOR_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
-        .WIDTH(ALIGNER_WIDTH),
+        .WIDTH(ACCUMULATOR_WIDTH),
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
         .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
     ) aligner_lane0_inst (
@@ -728,7 +735,7 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
             fp8_aligner #(
-                .WIDTH(ALIGNER_WIDTH),
+                .WIDTH(ACCUMULATOR_WIDTH),
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
                 .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
