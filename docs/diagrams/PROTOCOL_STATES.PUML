@@ -1,8 +1,6 @@
 @startuml PROTOCOL_STATES
 title OCP MXFP8 MAC Protocol State Machine
 
-left to right direction
-
 skinparam state {
   BackgroundColor<<Short>> #E1F5FE
   BorderColor<<Short>> #01579B
