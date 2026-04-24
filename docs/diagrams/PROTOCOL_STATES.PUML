@@ -57,7 +57,7 @@ state OUTPUT {
     OUTPUT : 8-bit per Cycle (MSB first)
 }
 
-OUTPUT --> IDLE : Cycle 0 (Next Block)
+OUTPUT -> IDLE : Cycle 0 (Next Block)
 
 footer Note: Total internal state uses 416 Flip-Flops (Full variant).
 @enduml
