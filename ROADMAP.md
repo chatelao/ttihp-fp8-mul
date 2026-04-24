@@ -23,12 +23,17 @@ Integration with the SERV bit-serial CPU and compliance with the ZvfofpXmin conc
 ## 3. Numerical Robustness & Optimization
 - [ ] **Dynamic Block Size**: Allow parameterization of the block size $k$ beyond the fixed 32/16 elements. ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
 
-## 4. Verification & Benchmarking
+## 4. Architectural Refactoring & Infrastructure Prep
+- [ ] **Step 8.1: [Refactor] Decouple Output Multiplexer**: Separate the 8-bit serialization logic in `src/project.v` (common to both fixed-point and future Float32 results) from the protocol-level output gating to simplify the integration of the `fixed_to_float` path.
+- [ ] **Step 8.2: [Refactor] Standardize Probing Interface**: Reorganize the `probe_data` multiplexer and `SUPPORT_DEBUG` block in `src/project.v` to facilitate the future addition of internal probes for the F2F engine (e.g., LZC output, normalization shifts).
+- [ ] **Step 8.3: [Refactor] Accumulator Port Expansion**: Modify the `accumulator` module and its instantiation in `src/project.v` to explicitly expose the full internal width (preparing for the 40-bit upgrade) to the top-level for direct connection to the F2F engine, bypassing the serial shift logic.
+
+## 5. Verification & Benchmarking
 - [ ] **Phase D: Benchmarking**: Perform gate-level power profiling and side-by-side area comparisons. ([details](docs/architecture/LNS_FP8_DESIGN.md#104-phase-d-benchmarking--physical-analysis))
 - [ ] **Physical Verification**: Functional verification on FPGA (HIL) and silicon validation (Tiny Tapeout demo board). ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
 - [ ] **LLM Serving Benchmarks**: Benchmark the system using `vLLM` methodologies for real-world utility. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#5-phase-4-robustness--benchmarking))
 
-## 5. Numerical Precision & FP32 Compliance
+## 6. Numerical Precision & FP32 Compliance
 Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
 
 - [ ] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v` while verifying that existing 32-bit fixed-point tests still pass with MSB-aligned serialization.
