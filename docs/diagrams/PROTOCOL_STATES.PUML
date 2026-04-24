@@ -45,7 +45,7 @@ state STREAM {
         STREAM_SCALE : Result Capture (32 FFs)
     }
 
-    STREAM_DATA -> STREAM_FLUSH
+    STREAM_DATA --> STREAM_FLUSH
     STREAM_FLUSH -> STREAM_SCALE
 }
 
