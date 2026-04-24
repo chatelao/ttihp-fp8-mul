@@ -19,3 +19,4 @@ src/project/
 netlist.v
 obj_dir/
 wasm/obj_dir/
+docs/_build/

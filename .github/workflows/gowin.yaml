@@ -10,6 +10,7 @@ jobs:
   gowin:
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       max-parallel: 3
       matrix:
         variant: [Full, Lite, Tiny, Ultra-Tiny, Tiny-Serial, M3-GPIO, M3-APB, M3-AHB, M3-AHB-DMA]
@@ -31,7 +32,7 @@ jobs:
       - name: Install Apycula dependencies
         run: |
           # Use the python/pip from oss-cad-suite to avoid warnings and improve performance
-          pip install numpy fastcrc
+          python3 -m pip install numpy fastcrc
 
       - name: Create build directory
         run: mkdir -p build
