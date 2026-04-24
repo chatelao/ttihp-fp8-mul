@@ -1,4 +1,4 @@
-![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
+![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg) [![Documentation Status](https://readthedocs.org/projects/ttihp-fp8-mul/badge/?version=latest)](https://ttihp-fp8-mul.readthedocs.io/en/latest/?badge=latest)
 
 # Tiny Tapeout IHP 26a - OCP MXFP8 Streaming MAC Unit
 
