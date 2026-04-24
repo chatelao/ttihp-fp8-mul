@@ -2,38 +2,12 @@
 
 This document centralizes the open issues and development roadmaps across the project. It tracks the evolution from a standalone MAC unit to a fully integrated RISC-V vector accelerator.
 
-## 1. Bit-Serial Evolution (Tiny-Serial)
-The goal is to achieve an ultra-minimal footprint (< 500 gates) by processing data one bit at a time, inspired by the SERV core.
-
-- [ ] **Step 5: Bit-Serial Aligner**: Replace parallel barrel shifter with a serial shifter/delay-line based aligner. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
-- [ ] **Step 6: Bit-Serial Accumulator**: Replace 32-bit parallel accumulator with a circulating shift register and a 1-bit adder. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
-- [ ] **Step 7: Register Pruning**: Convert internal state registers to bit-serial shift registers. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
-- [ ] **Step 8: Final Area Benchmarking**: Target < 500 gates for the complete bit-serial implementation. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
-- [ ] **Phase C: Serial Integration**: Swap the bit-serial multiplier into the Tiny-Serial variant and align timing. ([details](docs/architecture/LNS_FP8_DESIGN.md#103-phase-c-serial-integration--stretched-protocol))
-
-## 2. RISC-V & ISA Integration
-Integration with the SERV bit-serial CPU and compliance with the ZvfofpXmin concept.
-
-- [ ] **Custom Scalar Extension (MX.MAC)**: Implement base OCP-MX-V ISA using SERV's extension interface. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#2-phase-1-custom-scalar-extension-mxmac))
-- [ ] **CSR Implementation**: Implement the `vmxfmt` custom CSR for format and rounding control. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#52-sub-step-1-csr-implementation))
-- [ ] **VRF-to-Stream Bridge**: Hardware shim to automate the 41-cycle OCP protocol from the Vector Register File. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#53-sub-step-2-vrf-to-stream-bridge))
-- [ ] **Tightly-Coupled Snooping**: Optimize area by snooping SERV's internal data streams directly. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#4-phase-3-tightly-coupled-snooping-variant-b))
-- [ ] **RVV 1.0 Compliance**: Support `vstart` and `vl` for standard vector compliance. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#55-sub-step-4-rvv-10-compliance))
-
-## 3. Numerical Robustness & Optimization
-- [ ] **Dynamic Block Size**: Allow parameterization of the block size $k$ beyond the fixed 32/16 elements. ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
-
-## 4. Architectural Refactoring & Infrastructure Prep
+## 1. Architectural Refactoring & Infrastructure Prep
 - [ ] **Step 8.1: [Refactor] Decouple Output Multiplexer**: Separate the 8-bit serialization logic in `src/project.v` (common to both fixed-point and future Float32 results) from the protocol-level output gating to simplify the integration of the `fixed_to_float` path.
 - [ ] **Step 8.2: [Refactor] Standardize Probing Interface**: Reorganize the `probe_data` multiplexer and `SUPPORT_DEBUG` block in `src/project.v` to facilitate the future addition of internal probes for the F2F engine (e.g., LZC output, normalization shifts).
 - [ ] **Step 8.3: [Refactor] Accumulator Port Expansion**: Modify the `accumulator` module and its instantiation in `src/project.v` to explicitly expose the full internal width (preparing for the 40-bit upgrade) to the top-level for direct connection to the F2F engine, bypassing the serial shift logic.
 
-## 5. Verification & Benchmarking
-- [ ] **Phase D: Benchmarking**: Perform gate-level power profiling and side-by-side area comparisons. ([details](docs/architecture/LNS_FP8_DESIGN.md#104-phase-d-benchmarking--physical-analysis))
-- [ ] **Physical Verification**: Functional verification on FPGA (HIL) and silicon validation (Tiny Tapeout demo board). ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
-- [ ] **LLM Serving Benchmarks**: Benchmark the system using `vLLM` methodologies for real-world utility. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#5-phase-4-robustness--benchmarking))
-
-## 6. Numerical Precision & FP32 Compliance
+## 2. Numerical Precision & FP32 Compliance
 Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
 
 - [ ] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v` while verifying that existing 32-bit fixed-point tests still pass with MSB-aligned serialization.
@@ -56,6 +30,32 @@ Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full complianc
 - [ ] **Step 26: [Integration] Output Mux & Hookup**: Integrate the F2F module into `src/project.v` and add a multiplexer to select between raw fixed-point and Float32 results based on the configuration bit.
 - [ ] **Step 27: [Verification] Cocotb Float32 Reference Model**: Update `test/test.py` with a bit-accurate Float32 reference model and implement a `test_float32_basic` regression.
 - [ ] **Step 28: [Verification] Final Compliance Validation**: Develop and run a comprehensive test suite targeting edge cases (subnormals, overflow-to-Inf, NaN propagation) to ensure 100% OCP MX and IEEE 754 compliance.
+
+## 3. Verification & Benchmarking
+- [ ] **Phase D: Benchmarking**: Perform gate-level power profiling and side-by-side area comparisons. ([details](docs/architecture/LNS_FP8_DESIGN.md#104-phase-d-benchmarking--physical-analysis))
+- [ ] **Physical Verification**: Functional verification on FPGA (HIL) and silicon validation (Tiny Tapeout demo board). ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
+- [ ] **LLM Serving Benchmarks**: Benchmark the system using `vLLM` methodologies for real-world utility. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#5-phase-4-robustness--benchmarking))
+
+## 4. Bit-Serial Evolution (Tiny-Serial)
+The goal is to achieve an ultra-minimal footprint (< 500 gates) by processing data one bit at a time, inspired by the SERV core.
+
+- [ ] **Step 5: Bit-Serial Aligner**: Replace parallel barrel shifter with a serial shifter/delay-line based aligner. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [ ] **Step 6: Bit-Serial Accumulator**: Replace 32-bit parallel accumulator with a circulating shift register and a 1-bit adder. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [ ] **Step 7: Register Pruning**: Convert internal state registers to bit-serial shift registers. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
+- [ ] **Step 8: Final Area Benchmarking**: Target < 500 gates for the complete bit-serial implementation. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
+- [ ] **Phase C: Serial Integration**: Swap the bit-serial multiplier into the Tiny-Serial variant and align timing. ([details](docs/architecture/LNS_FP8_DESIGN.md#103-phase-c-serial-integration--stretched-protocol))
+
+## 5. RISC-V & ISA Integration
+Integration with the SERV bit-serial CPU and compliance with the ZvfofpXmin concept.
+
+- [ ] **Custom Scalar Extension (MX.MAC)**: Implement base OCP-MX-V ISA using SERV's extension interface. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#2-phase-1-custom-scalar-extension-mxmac))
+- [ ] **CSR Implementation**: Implement the `vmxfmt` custom CSR for format and rounding control. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#52-sub-step-1-csr-implementation))
+- [ ] **VRF-to-Stream Bridge**: Hardware shim to automate the 41-cycle OCP protocol from the Vector Register File. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#53-sub-step-2-vrf-to-stream-bridge))
+- [ ] **Tightly-Coupled Snooping**: Optimize area by snooping SERV's internal data streams directly. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#4-phase-3-tightly-coupled-snooping-variant-b))
+- [ ] **RVV 1.0 Compliance**: Support `vstart` and `vl` for standard vector compliance. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#55-sub-step-4-rvv-10-compliance))
+
+## 6. Numerical Robustness & Optimization
+- [ ] **Dynamic Block Size**: Allow parameterization of the block size $k$ beyond the fixed 32/16 elements. ([details](docs/architecture/MXFP8_CONCEPT.md#6-gaps-and-future-work))
 
 ---
 *Last updated: March 2025*
