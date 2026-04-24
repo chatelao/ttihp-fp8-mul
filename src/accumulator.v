@@ -25,7 +25,7 @@ module accumulator #(
     input  wire [31:0] load_data,     // The 32-bit value to be loaded into the register.
     input  wire        shift_en,      // Shift enable: Used to shift the result out 8 bits at a time for serial output.
     output wire [7:0]  shift_out,     // The 8 most significant bits (MSB) of the register, used for serialization.
-    output wire [WIDTH-1:0] data_out  // The current full value stored in the accumulator.
+    output wire [(WIDTH > 32 ? WIDTH : 32)-1:0] data_out  // Expose full internal width (at least 32 bits)
 );
 
     // 'localparam' is a constant that is only visible inside this module.
@@ -36,7 +36,7 @@ module accumulator #(
     reg [REG_WIDTH-1:0] acc_reg;
 
     // 'assign' statements create combinational logic that continuously drives a wire.
-    assign data_out  = acc_reg[WIDTH-1:0];
+    assign data_out  = acc_reg;
     assign shift_out = acc_reg[REG_WIDTH-1:REG_WIDTH-8];
 
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
@@ -70,10 +70,14 @@ module accumulator #(
             // Accumulate: Decide between saturation and wrapping if an overflow occurred.
             if (overflow && !overflow_wrap) begin
                 // Saturation: Clamp to the maximum positive or maximum negative 2's complement value.
-                acc_reg[WIDTH-1:0] <= acc_reg[WIDTH-1] ? {1'b1, {(WIDTH-1){1'b0}}} : {1'b0, {(WIDTH-1){1'b1}}};
+                // We use concatenations for full-register assignments to ensure sign extension and
+                // compliance with IEEE 1800-2023 regarding 0-width replications.
+                acc_reg <= acc_reg[WIDTH-1] ?
+                           { {(REG_WIDTH-WIDTH+1){1'b1}}, {(WIDTH-1){1'b0}} } :
+                           { {(REG_WIDTH-WIDTH+1){1'b0}}, {(WIDTH-1){1'b1}} };
             end else begin
-                // Wrapping: Standard addition result.
-                acc_reg[WIDTH-1:0] <= sum;
+                // Wrapping: Standard addition result with explicit sign extension.
+                acc_reg <= { {(REG_WIDTH-WIDTH){sum[WIDTH-1]}}, sum };
             end
         end
     end

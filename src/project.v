@@ -678,14 +678,17 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 3. Aligner Multiplexing
     // We reuse the 'fp8_aligner' for both per-element scaling and final shared scaling to save area.
-    wire [ACCUMULATOR_WIDTH-1:0] acc_out;
+    localparam ACTUAL_ACC_WIDTH = (ACCUMULATOR_WIDTH > 32) ? ACCUMULATOR_WIDTH : 32;
+    wire [ACTUAL_ACC_WIDTH-1:0] acc_out;
 
-    wire [ACCUMULATOR_WIDTH-1:0] acc_abs_val;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [ACTUAL_ACC_WIDTH-1:0] acc_abs_val;
+    /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
-            assign acc_abs_val = acc_out[ACCUMULATOR_WIDTH-1] ? -acc_out : acc_out;
+            assign acc_abs_val = acc_out[ACTUAL_ACC_WIDTH-1] ? -acc_out : acc_out;
         end else begin : gen_no_acc_abs
-            assign acc_abs_val = {ACCUMULATOR_WIDTH{1'b0}};
+            assign acc_abs_val = {ACTUAL_ACC_WIDTH{1'b0}};
         end
     endgenerate
 
@@ -703,19 +706,13 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Multiplier for Aligner Input based on current protocol phase.
     wire [31:0] aligner_lane0_in_prod_acc;
-    generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_aligner_prod_acc_wide
-            assign aligner_lane0_in_prod_acc = acc_abs_val[31:0];
-        end else begin : gen_aligner_prod_acc_narrow
-            assign aligner_lane0_in_prod_acc = {{(32-ACCUMULATOR_WIDTH){1'b0}}, acc_abs_val};
-        end
-    endgenerate
+    assign aligner_lane0_in_prod_acc = acc_abs_val[31:0];
 
     wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                     aligner_lane0_in_prod_acc :
                                     {16'd0, mul_prod_lane0_val};
     wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACCUMULATOR_WIDTH-1] : mul_sign_lane0_val;
+    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val;
 
     wire [31:0] aligned_lane0_res;
     fp8_aligner #(
@@ -754,11 +751,17 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({aligned_lane0_res[ACCUMULATOR_WIDTH-1], aligned_lane0_res[ACCUMULATOR_WIDTH-1:0]}) + $signed({aligned_lane1_res[ACCUMULATOR_WIDTH-1], aligned_lane1_res[ACCUMULATOR_WIDTH-1:0]});
-    wire combined_overflow = (aligned_lane0_res[ACCUMULATOR_WIDTH-1] == aligned_lane1_res[ACCUMULATOR_WIDTH-1]) && (combined_full[ACCUMULATOR_WIDTH-1] != aligned_lane0_res[ACCUMULATOR_WIDTH-1]);
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
-                                                     (aligned_lane0_res[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
-                                                     combined_full[ACCUMULATOR_WIDTH-1:0];
+    // Sign-extend 32-bit lane results to match the internal accumulator width.
+    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended = { {(ACTUAL_ACC_WIDTH-32){aligned_lane0_res[31]}}, aligned_lane0_res };
+    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended = { {(ACTUAL_ACC_WIDTH-32){aligned_lane1_res[31]}}, aligned_lane1_res };
+
+    wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
+                                                     $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
+    wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH-1] == lane1_extended[ACTUAL_ACC_WIDTH-1]) &&
+                             (combined_full[ACTUAL_ACC_WIDTH-1] != lane0_extended[ACTUAL_ACC_WIDTH-1]);
+    wire [ACTUAL_ACC_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
+                                                     (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
+                                                     combined_full[ACTUAL_ACC_WIDTH-1:0];
 
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
@@ -768,7 +771,9 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ACCUMULATOR_WIDTH > 32) begin : gen_acc_out_ext_wide
             assign acc_out_ext = acc_out[31:0];
         end else begin : gen_acc_out_ext_narrow
-            assign acc_out_ext = {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
+            // ACTUAL_ACC_WIDTH is 32 when ACCUMULATOR_WIDTH <= 32.
+            // The accumulator module already handles sign extension to 32 bits.
+            assign acc_out_ext = acc_out;
         end
     endgenerate
 
@@ -811,20 +816,34 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (SUPPORT_DEBUG) begin : gen_debug_output
             assign metadata_echo = {mx_plus_en_val, packed_mode_reg, overflow_wrap_reg, round_mode_reg, format_a_reg};
-            assign probe_data = (probe_sel_val == 4'h1) ? {state, logical_cycle[5:0]} :
-                                (probe_sel_val == 4'h2) ? {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0} :
-                                (probe_sel_val == 4'h3) ? acc_out_ext[31:24] :
-                                (probe_sel_val == 4'h4) ? acc_out_ext[23:16] :
-                                (probe_sel_val == 4'h5) ? acc_out_ext[15:8] :
-                                (probe_sel_val == 4'h6) ? acc_out_ext[7:0] :
-                                (probe_sel_val == 4'h7) ? mul_prod_lane0_val[15:8] :
-                                (probe_sel_val == 4'h8) ? mul_prod_lane0_val[7:0] :
-                                (probe_sel_val == 4'h9) ? {ena, strobe, acc_en, acc_clear, 4'd0} :
-                                (probe_sel_val == 4'hA) ? {mul_sign_lane0_val, mul_nan_lane0_val, mul_inf_lane0_val, mul_exp_sum_lane0_val[4:0]} :
-                                (probe_sel_val == 4'hB) ? mul_prod_lane1_val[15:8] :
-                                (probe_sel_val == 4'hC) ? mul_prod_lane1_val[7:0] :
-                                (probe_sel_val == 4'hD) ? {mul_sign_lane1_val, mul_nan_lane1_val, mul_inf_lane1_val, mul_exp_sum_lane1_val[4:0]} :
-                                8'h00;
+
+            reg [7:0] probe_data_reg;
+            always @(*) begin
+                case (probe_sel_val)
+                    4'h1: probe_data_reg = {state, logical_cycle[5:0]};
+                    4'h2: probe_data_reg = {nan_sticky, inf_pos_sticky, inf_neg_sticky, strobe, 4'd0};
+                    // Accumulator Probes
+                    4'h3: probe_data_reg = acc_out_ext[31:24];
+                    4'h4: probe_data_reg = acc_out_ext[23:16];
+                    4'h5: probe_data_reg = acc_out_ext[15:8];
+                    4'h6: probe_data_reg = acc_out_ext[7:0];
+                    // Multiplier Lane 0 Probes
+                    4'h7: probe_data_reg = mul_prod_lane0_val[15:8];
+                    4'h8: probe_data_reg = mul_prod_lane0_val[7:0];
+                    4'hA: probe_data_reg = {mul_sign_lane0_val, mul_nan_lane0_val, mul_inf_lane0_val, mul_exp_sum_lane0_val[4:0]};
+                    // Multiplier Lane 1 Probes
+                    4'hB: probe_data_reg = mul_prod_lane1_val[15:8];
+                    4'hC: probe_data_reg = mul_prod_lane1_val[7:0];
+                    4'hD: probe_data_reg = {mul_sign_lane1_val, mul_nan_lane1_val, mul_inf_lane1_val, mul_exp_sum_lane1_val[4:0]};
+                    // Control/Status Probes
+                    4'h9: probe_data_reg = {ena, strobe, acc_en, acc_clear, 4'd0};
+                    // Reserved for Future F2F Engine (Step 11+)
+                    4'hE: probe_data_reg = 8'hEE; // LZC / Normalization probe placeholder
+                    4'hF: probe_data_reg = 8'hFF; // Shifter / Rounding probe placeholder
+                    default: probe_data_reg = 8'h00;
+                endcase
+            end
+            assign probe_data = probe_data_reg;
         end else begin : gen_no_debug_output
             assign metadata_echo = 8'h00;
             assign probe_data = 8'h00;
@@ -833,9 +852,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // --- Main Output Multiplexer ---
     // Decides what data to send to uo_out based on current cycle and configuration.
+    wire [7:0] serialized_byte = acc_shift_out;
+    wire [7:0] protocol_result_byte = sticky_any ? sticky_byte : serialized_byte;
+
     assign uo_out = loopback_en_val ? (ui_in ^ uio_in) :
-                    (state == STATE_OUTPUT && logical_cycle > capture_cycle) ?
-                    (sticky_any ? sticky_byte : acc_shift_out) :
+                    (state == STATE_OUTPUT && logical_cycle > capture_cycle) ? protocol_result_byte :
                     (debug_en_val && logical_cycle == capture_cycle - 6'd1) ? metadata_echo :
                     (debug_en_val && logical_cycle < capture_cycle) ? probe_data :
                     8'h00;

@@ -3,9 +3,9 @@
 This document centralizes the open issues and development roadmaps across the project. It tracks the evolution from a standalone MAC unit to a fully integrated RISC-V vector accelerator.
 
 ## 1. Architectural Refactoring & Infrastructure Prep
-- [ ] **Step 8.1: [Refactor] Decouple Output Multiplexer**: Separate the 8-bit serialization logic in `src/project.v` (common to both fixed-point and future Float32 results) from the protocol-level output gating to simplify the integration of the `fixed_to_float` path.
-- [ ] **Step 8.2: [Refactor] Standardize Probing Interface**: Reorganize the `probe_data` multiplexer and `SUPPORT_DEBUG` block in `src/project.v` to facilitate the future addition of internal probes for the F2F engine (e.g., LZC output, normalization shifts).
-- [ ] **Step 8.3: [Refactor] Accumulator Port Expansion**: Modify the `accumulator` module and its instantiation in `src/project.v` to explicitly expose the full internal width (preparing for the 40-bit upgrade) to the top-level for direct connection to the F2F engine, bypassing the serial shift logic.
+- [x] **Step 8.1: [Refactor] Decouple Output Multiplexer**: Separate the 8-bit serialization logic in `src/project.v` (common to both fixed-point and future Float32 results) from the protocol-level output gating to simplify the integration of the `fixed_to_float` path.
+- [x] **Step 8.2: [Refactor] Standardize Probing Interface**: Reorganize the `probe_data` multiplexer and `SUPPORT_DEBUG` block in `src/project.v` to facilitate the future addition of internal probes for the F2F engine (e.g., LZC output, normalization shifts).
+- [x] **Step 8.3: [Refactor] Accumulator Port Expansion**: Modify the `accumulator` module and its instantiation in `src/project.v` to explicitly expose the full internal width (preparing for the 40-bit upgrade) to the top-level for direct connection to the F2F engine, bypassing the serial shift logic.
 
 ## 2. Numerical Precision & FP32 Compliance
 Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
