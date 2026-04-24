@@ -1,0 +1,9 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1777049943" />
+    <testcase name="performance_sweep" classname="test_performance" file="/app/test/test_performance.py" lineno="19" time="0.9068093299865723" sim_time_ns="40100.0" ratio_time="44220.98303795991" />
+    <testcase name="high_switching_activity" classname="test_performance" file="/app/test/test_performance.py" lineno="63" time="0" sim_time_ns="0" ratio_time="0">
+      <skipped />
+    </testcase>
+  </testsuite>
+</testsuites>

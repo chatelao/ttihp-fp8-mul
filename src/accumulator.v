@@ -25,7 +25,7 @@ module accumulator #(
     input  wire [31:0] load_data,     // The 32-bit value to be loaded into the register.
     input  wire        shift_en,      // Shift enable: Used to shift the result out 8 bits at a time for serial output.
     output wire [7:0]  shift_out,     // The 8 most significant bits (MSB) of the register, used for serialization.
-    output wire [WIDTH-1:0] data_out  // The current full value stored in the accumulator.
+    output wire [(WIDTH > 32 ? WIDTH : 32)-1:0] data_out  // Expose full internal width (at least 32 bits)
 );
 
     // 'localparam' is a constant that is only visible inside this module.
@@ -36,7 +36,7 @@ module accumulator #(
     reg [REG_WIDTH-1:0] acc_reg;
 
     // 'assign' statements create combinational logic that continuously drives a wire.
-    assign data_out  = acc_reg[WIDTH-1:0];
+    assign data_out  = acc_reg;
     assign shift_out = acc_reg[REG_WIDTH-1:REG_WIDTH-8];
 
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
