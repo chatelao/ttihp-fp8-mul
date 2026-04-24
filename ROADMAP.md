@@ -29,7 +29,7 @@ Integration with the SERV bit-serial CPU and compliance with the ZvfofpXmin conc
 - [ ] **LLM Serving Benchmarks**: Benchmark the system using `vLLM` methodologies for real-world utility. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#5-phase-4-robustness--benchmarking))
 
 ## 5. Numerical Precision & FP32 Compliance
-Address the gaps identified in the `FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
+Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
 
 - [ ] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v` while verifying that existing 32-bit fixed-point tests still pass with MSB-aligned serialization.
 - [ ] **Step 10: [Datapath] 16-bit Fractional Alignment**: Shift the internal binary point from bit 8 to bit 16 ($2^0$) in the aligner and accumulator. Verify that FP8 subnormal products (e.g., $2^{-9}$) are now preserved in the accumulator instead of being truncated.

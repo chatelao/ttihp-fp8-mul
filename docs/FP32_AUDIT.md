@@ -32,7 +32,7 @@ Regardless of the specific bit alignment, the **finite window of the accumulator
 *   **Overflow Handling**: While the unit supports a "Wrap" mode, standard AI inference requires saturation or high-dynamic range (Float32).
 
 ## 4. Remediation Plan (Technical)
-To align the hardware with the OCP MX and Float32 requirements, the project follows a granular 20-step roadmap detailed in [ROADMAP.md](ROADMAP.md#5-numerical-precision--fp32-compliance).
+To align the hardware with the OCP MX and Float32 requirements, the project follows a granular 20-step roadmap detailed in [ROADMAP.md](../ROADMAP.md#5-numerical-precision--fp32-compliance).
 
 ### Key Execution Phases:
 1.  **Infrastructure & Datapath (Steps 9-10)**: Parameterize widths to 40-bit and shift the binary point to bit 16 to preserve FP8 subnormal precision.

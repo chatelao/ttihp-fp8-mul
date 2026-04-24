@@ -132,7 +132,7 @@ When enabled via `ui_in[6]` in Cycle 0, the `uo_out[7:0]` port provides real-tim
 - **Cycles 0-34 (Standard)** or **0-18 (Packed)**: `uo_out` outputs the selected **Probe Data** (e.g., Accumulator MSB, Multiplier outputs, FSM state).
 - **Cycle 35 (Standard)** or **19 (Packed)**: `uo_out` outputs a **Metadata Echo**, confirming the captured configuration.
 
-For a full list of available probes and the metadata echo bit-mapping, see [DEBUG_TT.md](DEBUG_TT.md).
+For a full list of available probes and the metadata echo bit-mapping, see [DEBUG_TT.md](docs/DEBUG_TT.md).
 
 - [Silicon Online Viewer](https://gds-viewer.tinytapeout.com/?pdk=ihp-sg13g2&model=https%3A%2F%2Fchatelao.github.io%2Fttihp-fp8-mul%2Ftinytapeout.oas)
 - [Interactive Digital Twin (WASM Demo)](https://chatelao.github.io/ttihp-fp8-mul/demo/)

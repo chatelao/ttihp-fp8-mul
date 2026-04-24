@@ -6,7 +6,7 @@ The **OCP MXFP8 Streaming MAC Unit** is implemented as a 32-element streaming Mu
 
 The following diagram illustrates the top-level module interface and the primary internal functional blocks.
 
-![System Circuit Diagram](docs/circuit.svg)
+![System Circuit Diagram](circuit.svg)
 
 ## Architectural Components
 
