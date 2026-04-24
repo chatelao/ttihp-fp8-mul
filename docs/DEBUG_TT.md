@@ -11,7 +11,7 @@ A "Debug Instruction" is sampled in **Cycle 0** (STATE_IDLE):
 - `ui_in[6]`: **Enable Debug Mode** (1 = Active, 0 = Normal)
 - `uio_in[3:0]`: **Probe Selector** (Determines what signal is muxed to `uo_out`)
 
-![Metadata 1 (uio_in) Debug Mode](docs/metadata_c0_uio_debug.svg)
+![Metadata 1 (uio_in) Debug Mode](metadata_c0_uio_debug.svg)
 
 ### Probe Mappings (`uo_out` during Cycles 0-36)
 

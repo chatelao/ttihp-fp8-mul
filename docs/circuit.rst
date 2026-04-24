@@ -1,5 +1,5 @@
 Circuit & Architecture
 ======================
 
-.. include:: ../CIRCUIT.md
+.. include:: CIRCUIT.md
    :parser: myst_parser.sphinx_
