@@ -70,18 +70,14 @@ module accumulator #(
             // Accumulate: Decide between saturation and wrapping if an overflow occurred.
             if (overflow && !overflow_wrap) begin
                 // Saturation: Clamp to the maximum positive or maximum negative 2's complement value.
-                acc_reg[WIDTH-1:0] <= acc_reg[WIDTH-1] ? {1'b1, {(WIDTH-1){1'b0}}} : {1'b0, {(WIDTH-1){1'b1}}};
-                // Ensure sign extension if REG_WIDTH > WIDTH
-                if (REG_WIDTH > WIDTH) begin
-                    acc_reg[REG_WIDTH-1:WIDTH] <= {(REG_WIDTH-WIDTH){acc_reg[WIDTH-1]}};
-                end
+                // We use concatenations for full-register assignments to ensure sign extension and
+                // compliance with IEEE 1800-2023 regarding 0-width replications.
+                acc_reg <= acc_reg[WIDTH-1] ?
+                           { {(REG_WIDTH-WIDTH+1){1'b1}}, {(WIDTH-1){1'b0}} } :
+                           { {(REG_WIDTH-WIDTH+1){1'b0}}, {(WIDTH-1){1'b1}} };
             end else begin
-                // Wrapping: Standard addition result.
-                acc_reg[WIDTH-1:0] <= sum;
-                // Ensure sign extension if REG_WIDTH > WIDTH
-                if (REG_WIDTH > WIDTH) begin
-                    acc_reg[REG_WIDTH-1:WIDTH] <= {(REG_WIDTH-WIDTH){sum[WIDTH-1]}};
-                end
+                // Wrapping: Standard addition result with explicit sign extension.
+                acc_reg <= { {(REG_WIDTH-WIDTH){sum[WIDTH-1]}}, sum };
             end
         end
     end

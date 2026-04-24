@@ -681,7 +681,9 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam ACTUAL_ACC_WIDTH = (ACCUMULATOR_WIDTH > 32) ? ACCUMULATOR_WIDTH : 32;
     wire [ACTUAL_ACC_WIDTH-1:0] acc_out;
 
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [ACTUAL_ACC_WIDTH-1:0] acc_abs_val;
+    /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
             assign acc_abs_val = acc_out[ACTUAL_ACC_WIDTH-1] ? -acc_out : acc_out;
@@ -749,11 +751,17 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({aligned_lane0_res[ACCUMULATOR_WIDTH-1], aligned_lane0_res[ACCUMULATOR_WIDTH-1:0]}) + $signed({aligned_lane1_res[ACCUMULATOR_WIDTH-1], aligned_lane1_res[ACCUMULATOR_WIDTH-1:0]});
-    wire combined_overflow = (aligned_lane0_res[ACCUMULATOR_WIDTH-1] == aligned_lane1_res[ACCUMULATOR_WIDTH-1]) && (combined_full[ACCUMULATOR_WIDTH-1] != aligned_lane0_res[ACCUMULATOR_WIDTH-1]);
-    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
-                                                     (aligned_lane0_res[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
-                                                     combined_full[ACCUMULATOR_WIDTH-1:0];
+    // Sign-extend 32-bit lane results to match the internal accumulator width.
+    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended = { {(ACTUAL_ACC_WIDTH-32){aligned_lane0_res[31]}}, aligned_lane0_res };
+    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended = { {(ACTUAL_ACC_WIDTH-32){aligned_lane1_res[31]}}, aligned_lane1_res };
+
+    wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
+                                                     $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
+    wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH-1] == lane1_extended[ACTUAL_ACC_WIDTH-1]) &&
+                             (combined_full[ACTUAL_ACC_WIDTH-1] != lane0_extended[ACTUAL_ACC_WIDTH-1]);
+    wire [ACTUAL_ACC_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
+                                                     (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
+                                                     combined_full[ACTUAL_ACC_WIDTH-1:0];
 
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
@@ -763,7 +771,9 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ACCUMULATOR_WIDTH > 32) begin : gen_acc_out_ext_wide
             assign acc_out_ext = acc_out[31:0];
         end else begin : gen_acc_out_ext_narrow
-            assign acc_out_ext = {{(32-ACCUMULATOR_WIDTH){acc_out[ACCUMULATOR_WIDTH-1]}}, acc_out};
+            // ACTUAL_ACC_WIDTH is 32 when ACCUMULATOR_WIDTH <= 32.
+            // The accumulator module already handles sign extension to 32 bits.
+            assign acc_out_ext = acc_out;
         end
     endgenerate
 
