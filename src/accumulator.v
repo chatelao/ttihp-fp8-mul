@@ -71,9 +71,17 @@ module accumulator #(
             if (overflow && !overflow_wrap) begin
                 // Saturation: Clamp to the maximum positive or maximum negative 2's complement value.
                 acc_reg[WIDTH-1:0] <= acc_reg[WIDTH-1] ? {1'b1, {(WIDTH-1){1'b0}}} : {1'b0, {(WIDTH-1){1'b1}}};
+                // Ensure sign extension if REG_WIDTH > WIDTH
+                if (REG_WIDTH > WIDTH) begin
+                    acc_reg[REG_WIDTH-1:WIDTH] <= {(REG_WIDTH-WIDTH){acc_reg[WIDTH-1]}};
+                end
             end else begin
                 // Wrapping: Standard addition result.
                 acc_reg[WIDTH-1:0] <= sum;
+                // Ensure sign extension if REG_WIDTH > WIDTH
+                if (REG_WIDTH > WIDTH) begin
+                    acc_reg[REG_WIDTH-1:WIDTH] <= {(REG_WIDTH-WIDTH){sum[WIDTH-1]}};
+                end
             end
         end
     end
