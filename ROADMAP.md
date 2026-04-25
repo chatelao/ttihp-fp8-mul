@@ -10,8 +10,8 @@ This document centralizes the open issues and development roadmaps across the pr
 ## 2. Numerical Precision & FP32 Compliance
 Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
 
-- [ ] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v` while verifying that existing 32-bit fixed-point tests still pass with MSB-aligned serialization.
-- [ ] **Step 10: [Datapath] 16-bit Fractional Alignment**: Shift the internal binary point from bit 8 to bit 16 ($2^0$) in the aligner and accumulator. Verify that FP8 subnormal products (e.g., $2^{-9}$) are now preserved in the accumulator instead of being truncated.
+- [ ] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v`. Update serialization logic to extract the appropriate 32-bit window (maintaining S23.8 mapping for backward compatibility) and verify that existing fixed-point tests pass.
+- [ ] **Step 10: [Datapath] 16-bit Fractional Alignment**: Shift the internal binary point from bit 8 to bit 16 ($2^0$) in the aligner and accumulator. Verify that FP8 subnormal products (e.g., $2^{-9}$) are now preserved in the accumulator instead of being truncated, and ensure consistency with the Step 9 extraction window.
 - [ ] **Step 11: [F2F] Leading Zero Count (LZC40) Module**: Implement a 40-bit LZC module to determine the normalization shift required for Float32 conversion and verify it with a dedicated unit test.
 - [ ] **Step 12: [F2F] Sign-Magnitude Extraction**: Implement logic to extract the sign bit and calculate the 39-bit absolute magnitude of the signed 40-bit accumulator.
 - [ ] **Step 13: [F2F] Normalization Barrel Shifter**: Design a shifter that uses the LZC40 output to left-justify the accumulator magnitude, preparing it for mantissa extraction.
@@ -39,17 +39,23 @@ Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full complianc
 ## 4. Bit-Serial Evolution (Tiny-Serial)
 The goal is to achieve an ultra-minimal footprint (< 500 gates) by processing data one bit at a time, inspired by the SERV core.
 
-- [ ] **Step 5: Bit-Serial Aligner**: Replace parallel barrel shifter with a serial shifter/delay-line based aligner. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
-- [ ] **Step 6: Bit-Serial Accumulator**: Replace 32-bit parallel accumulator with a circulating shift register and a 1-bit adder. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
-- [ ] **Step 7: Register Pruning**: Convert internal state registers to bit-serial shift registers. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
+- [ ] **Step 5.1: [Datapath] 1-bit Delay-Line Aligner**: Implement the core serial alignment logic using a delay-line approach. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [ ] **Step 5.2: [Integration] Aligner Swap**: Integrate the serial aligner into the `Tiny-Serial` variant and verify functional parity. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [ ] **Step 6.1: [Datapath] Circulating Shift Register Accumulator**: Implement the serial storage and 1-bit adder with carry-out FF. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [ ] **Step 6.2: [Integration] Accumulator Swap**: Replace the parallel accumulator in the serial path and verify bit-serial accumulation. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [ ] **Step 7.1: [Refactor] Serial Config Registers**: Convert format, rounding, and metadata registers to serial shift registers. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
+- [ ] **Step 7.2: [Refactor] Serial Control Logic**: Optimize the FSM and pointers for bit-serial state management. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
 - [ ] **Step 8: Final Area Benchmarking**: Target < 500 gates for the complete bit-serial implementation. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
 - [ ] **Phase C: Serial Integration**: Swap the bit-serial multiplier into the Tiny-Serial variant and align timing. ([details](docs/architecture/LNS_FP8_DESIGN.md#103-phase-c-serial-integration--stretched-protocol))
 
 ## 5. RISC-V & ISA Integration
 Integration with the SERV bit-serial CPU and compliance with the ZvfofpXmin concept.
 
-- [ ] **Custom Scalar Extension (MX.MAC)**: Implement base OCP-MX-V ISA using SERV's extension interface. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#2-phase-1-custom-scalar-extension-mxmac))
-- [ ] **CSR Implementation**: Implement the `vmxfmt` custom CSR for format and rounding control. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#52-sub-step-1-csr-implementation))
+- [ ] **Step 5.1.1: [ISA] Format & Scale Instructions**: Implement `MX.SETFMT` and `MX.LOADS`. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#2-phase-1-custom-scalar-extension-mxmac))
+- [ ] **Step 5.1.2: [ISA] MAC Instruction**: Implement the packed `MX.MAC` instruction. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#2-phase-1-custom-scalar-extension-mxmac))
+- [ ] **Step 5.1.3: [ISA] Read Instruction**: Implement `MX.READ` for accumulator retrieval. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#2-phase-1-custom-scalar-extension-mxmac))
+- [ ] **Step 5.2.1: [CSR] vmxfmt Definition**: Implement the custom CSR bitfields and rounding control logic. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#52-sub-step-1-csr-implementation))
+- [ ] **Step 5.2.2: [Integration] SERV CSR Bridge**: Integrate CSR access via SERV's extension interface. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#52-sub-step-1-csr-implementation))
 - [ ] **VRF-to-Stream Bridge**: Hardware shim to automate the 41-cycle OCP protocol from the Vector Register File. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#53-sub-step-2-vrf-to-stream-bridge))
 - [ ] **Tightly-Coupled Snooping**: Optimize area by snooping SERV's internal data streams directly. ([details](docs/integration/VMXDOTP_SERV_ROADMAP.md#4-phase-3-tightly-coupled-snooping-variant-b))
 - [ ] **RVV 1.0 Compliance**: Support `vstart` and `vl` for standard vector compliance. ([details](docs/integration/CSR_RVV_CONCEPT_AND_ROADMAP.md#55-sub-step-4-rvv-10-compliance))
