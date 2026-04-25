@@ -2,6 +2,8 @@
 `define __LZC40_V__
 `default_nettype none
 
+/* verilator lint_off DECLFILENAME */
+
 /**
  * 40-bit Leading Zero Counter (LZC)
  *
