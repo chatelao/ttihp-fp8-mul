@@ -42,7 +42,7 @@ module accumulator #(
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
     // $signed() tells the simulator/synthesizer to treat the bits as 2's complement numbers.
     /* verilator lint_off UNUSEDSIGNAL */
-    wire signed [WIDTH:0] sum_full = $signed({acc_reg[WIDTH-1], acc_reg[WIDTH-1:0]}) + $signed({data_in[WIDTH-1], data_in});
+    wire signed [WIDTH:0] sum_full = $signed({acc_reg[REG_WIDTH-1], acc_reg[WIDTH-1:0]}) + $signed({data_in[WIDTH-1], data_in});
     /* verilator lint_on UNUSEDSIGNAL */
 
     // 'sum' is the standard result of the addition (which naturally wraps if it exceeds 'WIDTH').
@@ -72,12 +72,14 @@ module accumulator #(
                 // Saturation: Clamp to the maximum positive or maximum negative 2's complement value.
                 // We use concatenations for full-register assignments to ensure sign extension and
                 // compliance with IEEE 1800-2023 regarding 0-width replications.
-                acc_reg <= acc_reg[WIDTH-1] ?
+                // Using (REG_WIDTH-WIDTH+1) ensures replication factor >= 1 even if REG_WIDTH=WIDTH.
+                acc_reg <= acc_reg[REG_WIDTH-1] ?
                            { {(REG_WIDTH-WIDTH+1){1'b1}}, {(WIDTH-1){1'b0}} } :
                            { {(REG_WIDTH-WIDTH+1){1'b0}}, {(WIDTH-1){1'b1}} };
             end else begin
                 // Wrapping: Standard addition result with explicit sign extension.
-                acc_reg <= { {(REG_WIDTH-WIDTH){sum[WIDTH-1]}}, sum };
+                // Guarded concatenation: we use (REG_WIDTH-WIDTH+1) and then slice to REG_WIDTH.
+                acc_reg <= { {(REG_WIDTH-WIDTH+1){sum[WIDTH-1]}}, sum[WIDTH-2:0] };
             end
         end
     end

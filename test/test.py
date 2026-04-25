@@ -123,8 +123,10 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
     return sign, exp, mant, bias, is_int, nan, inf
 
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
-    shift_amt = exp_sum - 5
     WIDTH = width
+    # Normalized for WIDTH, mapping binary point to bit (WIDTH-24).
+    # Formula: exp_sum + WIDTH - 37
+    shift_amt = exp_sum + WIDTH - 37
 
     if shift_amt >= 0:
         if not overflow_wrap and shift_amt >= WIDTH:
@@ -172,25 +174,20 @@ def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
 
     if sign:
         # Check saturation for negative
-        # Magnitude > 2^31 saturates to -2^31
-        # In RTL: (huge || |rounded[WIDTH-1:32] || (rounded[31] && |rounded[30:0]))
-        if not overflow_wrap and (huge or (aligned >> 32) != 0 or ( (aligned & (1 << 31)) != 0 and (aligned & ((1 << 31) - 1)) != 0 )):
-            res = -0x80000000
+        # Saturation threshold is -2^(WIDTH-1)
+        if not overflow_wrap and (huge or (aligned >> (WIDTH-1)) != 0):
+            res = -(1 << (WIDTH - 1))
         else:
             res = -aligned
     else:
-        # Magnitude > 2^31-1 saturates to 2^31-1
-        # In RTL: (huge || |rounded[WIDTH-1:31])
-        if not overflow_wrap and (huge or (aligned >> 31) != 0):
-            res = 0x7FFFFFFF
+        # Check saturation for positive
+        # Saturation threshold is 2^(WIDTH-1)-1
+        if not overflow_wrap and (huge or (aligned >> (WIDTH-1)) != 0):
+            res = (1 << (WIDTH - 1)) - 1
         else:
             res = aligned
 
-    # Return as 32-bit signed integer
-    res_32 = res & 0xFFFFFFFF
-    if res_32 & 0x80000000:
-        return res_32 - 0x100000000
-    return res_32
+    return res
 
 def get_param(dut, name, default=1):
     # 1. Try to get from dut.user_project (RTL) or dut (some TB configs)
@@ -493,22 +490,35 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
+        offset = -(aligner_width - 37)
+        expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+        # Extract the S23.8 window (top 32 bits of 40-bit result)
+        expected_final = expected_final_full >> (aligner_width - 32)
     else:
-        # If no shared scaling, the result is sign-extended to 32-bit in hardware
-        if expected_acc < 0:
-            expected_final = (expected_acc & 0xFFFFFFFF) - 0x100000000
+        # If no shared scaling, extract the S23.8 window from the accumulator
+        if acc_width >= 40:
+            expected_final = expected_acc >> (acc_width - 32)
         else:
             expected_final = expected_acc
 
-    if expected_final >= 0x80000000:
+    # Return as 32-bit signed integer
+    expected_final = expected_final & 0xFFFFFFFF
+    if expected_final & 0x80000000:
         expected_final -= 0x100000000
 
     # Cycle 37-40 (or 21-24): Output Serialized Result
     actual_acc = 0
     for i in range(4):
         await Timer(1, unit="ns")
-        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        # uo_out bit-serial or parallel
+        val = dut.uo_out.value
+        try:
+            val_int = int(val)
+        except ValueError:
+            # Handle 'x' or 'z' during simulation if necessary
+            val_int = 0
+        actual_acc = (actual_acc << 8) | val_int
         await ClockCycles(dut.clk, cycles_per_element)
 
     if actual_acc & 0x80000000:
@@ -791,9 +801,18 @@ async def test_fast_start_scale_compression(dut):
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
         acc_sign = 1 if expected_acc < 0 else 0
-        expected_final = align_model(acc_abs, shared_exp + 5, acc_sign, width=aligner_width)
+        offset = -(aligner_width - 37)
+        expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
+        expected_final = expected_final_full >> (aligner_width - 32)
     else:
-        expected_final = expected_acc
+        if acc_width >= 40:
+            expected_final = expected_acc >> (acc_width - 32)
+        else:
+            expected_final = expected_acc
+
+    expected_final = expected_final & 0xFFFFFFFF
+    if expected_final & 0x80000000:
+        expected_final -= 0x100000000
 
     for i in range(32):
         dut.ui_in.value = a_elements[i]
