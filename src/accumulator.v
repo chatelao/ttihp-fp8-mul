@@ -41,8 +41,12 @@ module accumulator #(
 
     // Signed arithmetic: We extend the width by 1 bit to detect if an overflow occurred.
     // $signed() tells the simulator/synthesizer to treat the bits as 2's complement numbers.
+    // Explicitly handle width mismatches to avoid Verilator warnings.
+    wire signed [WIDTH-1:0] data_in_signed = $signed(data_in);
+    wire signed [WIDTH-1:0] acc_reg_signed  = $signed(acc_reg[WIDTH-1:0]);
+
     /* verilator lint_off UNUSEDSIGNAL */
-    wire signed [WIDTH:0] sum_full = $signed({acc_reg[REG_WIDTH-1], acc_reg[WIDTH-1:0]}) + $signed({data_in[WIDTH-1], data_in});
+    wire signed [WIDTH:0] sum_full = $signed({acc_reg_signed[WIDTH-1], acc_reg_signed}) + $signed({data_in_signed[WIDTH-1], data_in_signed});
     /* verilator lint_on UNUSEDSIGNAL */
 
     // 'sum' is the standard result of the addition (which naturally wraps if it exceeds 'WIDTH').

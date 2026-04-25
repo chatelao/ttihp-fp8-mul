@@ -213,7 +213,7 @@ def get_param(dut, name, default=1):
     # 3. Fallback to hardcoded defaults in tb.v (which we just updated to Full)
     defaults = {
         "ALIGNER_WIDTH": 40,
-        "ACCUMULATOR_WIDTH": 32,
+        "ACCUMULATOR_WIDTH": 40,
         "SUPPORT_E4M3": 1,
         "SUPPORT_E5M2": 1,
         "SUPPORT_MXFP6": 1,

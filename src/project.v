@@ -709,9 +709,17 @@ module tt_um_chatelao_fp8_multiplier #(
     // Multiplier for Aligner Input based on current protocol phase.
     wire [ALIGNER_WIDTH-1:0] aligner_lane0_in_prod;
 
-    assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    acc_abs_val[ALIGNER_WIDTH-1:0] :
-                                    mul_prod_lane0_ext;
+    generate
+        if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            acc_abs_val[ALIGNER_WIDTH-1:0] :
+                                            mul_prod_lane0_ext;
+        end else begin : gen_aligner_in_narrow
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){1'b0}}, acc_abs_val } :
+                                            mul_prod_lane0_ext;
+        end
+    endgenerate
 
     // Shared scale alignment mapping:
     // We want the result to land in the [39:8] extraction window as S23.8.
@@ -761,8 +769,22 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
     // Sign-extend lane results to match the internal accumulator width.
-    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH+1){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res[ALIGNER_WIDTH-2:0] };
-    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH+1){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res[ALIGNER_WIDTH-2:0] };
+    // Using guarded concatenation to avoid negative replication factors during elaboration.
+    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended;
+    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended;
+
+    generate
+        if (ACTUAL_ACC_WIDTH > ALIGNER_WIDTH) begin : gen_lane_ext_wide
+            assign lane0_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res };
+            assign lane1_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res };
+        end else if (ACTUAL_ACC_WIDTH < ALIGNER_WIDTH) begin : gen_lane_ext_narrow
+            assign lane0_extended = aligned_lane0_res[ACTUAL_ACC_WIDTH-1:0];
+            assign lane1_extended = aligned_lane1_res[ACTUAL_ACC_WIDTH-1:0];
+        end else begin : gen_lane_ext_equal
+            assign lane0_extended = aligned_lane0_res;
+            assign lane1_extended = aligned_lane1_res;
+        end
+    endgenerate
 
     wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
                                                      $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
