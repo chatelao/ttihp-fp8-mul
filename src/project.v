@@ -18,7 +18,7 @@
 module tt_um_chatelao_fp8_multiplier #(
     // Parameters allow customizing the hardware size and features during synthesis.
     parameter ALIGNER_WIDTH = 40,
-    parameter ACCUMULATOR_WIDTH = 32,
+    parameter ACCUMULATOR_WIDTH = 40,
     parameter SUPPORT_E4M3  = 1,
     parameter SUPPORT_E5M2  = 1,
     parameter SUPPORT_MXFP6 = 1,
@@ -388,6 +388,8 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
+    // Extended product wires for aligner compatibility
+    wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val };
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
     wire mul_nan_lane0, mul_nan_lane1;
@@ -705,16 +707,31 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
     // Multiplier for Aligner Input based on current protocol phase.
-    wire [31:0] aligner_lane0_in_prod_acc;
-    assign aligner_lane0_in_prod_acc = acc_abs_val[31:0];
+    wire [ALIGNER_WIDTH-1:0] aligner_lane0_in_prod;
 
-    wire [31:0] aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                    aligner_lane0_in_prod_acc :
-                                    {16'd0, mul_prod_lane0_val};
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? (shared_exp + 10'sd5) : exp_sum_lane0_adj;
+    generate
+        if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            acc_abs_val[ALIGNER_WIDTH-1:0] :
+                                            mul_prod_lane0_ext;
+        end else begin : gen_aligner_in_narrow
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+                                            { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){1'b0}}, acc_abs_val } :
+                                            mul_prod_lane0_ext;
+        end
+    endgenerate
+
+    // Shared scale alignment mapping:
+    // We want the result to land in the [39:8] extraction window as S23.8.
+    // Binary point of acc is bit 16 ($2^0$).
+    // Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
+    // For 40-bit: shared_exp - (40 - 37) = shared_exp - 3.
+    wire signed [9:0] shared_exp_offset = shared_exp - ($signed({2'b0, ALIGNER_WIDTH[7:0]}) - 10'sd37);
+
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? shared_exp_offset : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val;
 
-    wire [31:0] aligned_lane0_res;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
         .WIDTH(ALIGNER_WIDTH),
         .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
@@ -729,7 +746,7 @@ module tt_um_chatelao_fp8_multiplier #(
     );
 
     /* verilator lint_off UNUSEDSIGNAL */
-    wire [31:0] aligned_lane1_res;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane1_res;
     /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (SUPPORT_VECTOR_PACKING) begin : gen_aligner_lane1
@@ -738,7 +755,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .SUPPORT_ADV_ROUNDING(SUPPORT_ADV_ROUNDING),
                 .OPTIMIZE_FOR_FP4(IS_FP4_ONLY && !ENABLE_SHARED_SCALING)
             ) aligner_lane1_inst (
-                .prod({16'd0, mul_prod_lane1_val}),
+                .prod({ {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane1_val }),
                 .exp_sum(exp_sum_lane1_adj),
                 .sign(mul_sign_lane1_val),
                 .round_mode(round_mode),
@@ -746,14 +763,28 @@ module tt_um_chatelao_fp8_multiplier #(
                 .aligned(aligned_lane1_res)
             );
         end else begin : no_aligner_lane1
-            assign aligned_lane1_res = 32'd0;
+            assign aligned_lane1_res = {ALIGNER_WIDTH{1'b0}};
         end
     endgenerate
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    // Sign-extend 32-bit lane results to match the internal accumulator width.
-    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended = { {(ACTUAL_ACC_WIDTH-32){aligned_lane0_res[31]}}, aligned_lane0_res };
-    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended = { {(ACTUAL_ACC_WIDTH-32){aligned_lane1_res[31]}}, aligned_lane1_res };
+    // Sign-extend lane results to match the internal accumulator width.
+    // Using guarded concatenation to avoid negative replication factors during elaboration.
+    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended;
+    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended;
+
+    generate
+        if (ACTUAL_ACC_WIDTH > ALIGNER_WIDTH) begin : gen_lane_ext_wide
+            assign lane0_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res };
+            assign lane1_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res };
+        end else if (ACTUAL_ACC_WIDTH < ALIGNER_WIDTH) begin : gen_lane_ext_narrow
+            assign lane0_extended = aligned_lane0_res[ACTUAL_ACC_WIDTH-1:0];
+            assign lane1_extended = aligned_lane1_res[ACTUAL_ACC_WIDTH-1:0];
+        end else begin : gen_lane_ext_equal
+            assign lane0_extended = aligned_lane0_res;
+            assign lane1_extended = aligned_lane1_res;
+        end
+    endgenerate
 
     wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
                                                      $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
@@ -768,12 +799,12 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;
     generate
-        if (ACCUMULATOR_WIDTH > 32) begin : gen_acc_out_ext_wide
-            assign acc_out_ext = acc_out[31:0];
+        if (ACTUAL_ACC_WIDTH >= 40) begin : gen_acc_out_ext_wide
+            // Extract the S23.8 window (bits 39 down to 8)
+            assign acc_out_ext = acc_out[39:8];
         end else begin : gen_acc_out_ext_narrow
-            // ACTUAL_ACC_WIDTH is 32 when ACCUMULATOR_WIDTH <= 32.
-            // The accumulator module already handles sign extension to 32 bits.
-            assign acc_out_ext = acc_out;
+            // Fallback for narrower accumulators
+            assign acc_out_ext = acc_out[31:0];
         end
     endgenerate
 
@@ -790,7 +821,7 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res : acc_out_ext;
+    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext;
 
     // Accumulator instance.
     accumulator #(
