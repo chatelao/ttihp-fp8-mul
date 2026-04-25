@@ -10,9 +10,9 @@ This document centralizes the open issues and development roadmaps across the pr
 ## 2. Numerical Precision & FP32 Compliance
 Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full compliance with OCP MX and IEEE 754 expectations.
 
-- [ ] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v`. Update serialization logic to extract the appropriate 32-bit window (maintaining S23.8 mapping for backward compatibility) and verify that existing fixed-point tests pass.
-- [ ] **Step 10: [Datapath] 16-bit Fractional Alignment**: Shift the internal binary point from bit 8 to bit 16 ($2^0$) in the aligner and accumulator. Verify that FP8 subnormal products (e.g., $2^{-9}$) are now preserved in the accumulator instead of being truncated, and ensure consistency with the Step 9 extraction window.
-- [ ] **Step 11: [F2F] Leading Zero Count (LZC40) Module**: Implement a 40-bit LZC module to determine the normalization shift required for Float32 conversion and verify it with a dedicated unit test.
+- [x] **Step 9: [Infra] Parameterize Datapath Widths**: Unify `ALIGNER_WIDTH` and `ACCUMULATOR_WIDTH` to 40 bits across `src/project.v`, `src/accumulator.v`, and `src/fp8_aligner.v`. Update serialization logic to extract the appropriate 32-bit window (maintaining S23.8 mapping for backward compatibility) and verify that existing fixed-point tests pass.
+- [x] **Step 10: [Datapath] 16-bit Fractional Alignment**: Shift the internal binary point from bit 8 to bit 16 ($2^0$) in the aligner and accumulator. Verify that FP8 subnormal products (e.g., $2^{-9}$) are now preserved in the accumulator instead of being truncated, and ensure consistency with the Step 9 extraction window.
+- [x] **Step 11: [F2F] Leading Zero Count (LZC40) Module**: Implement a 40-bit LZC module to determine the normalization shift required for Float32 conversion and verify it with a dedicated unit test.
 - [ ] **Step 12: [F2F] Sign-Magnitude Extraction**: Implement logic to extract the sign bit and calculate the 39-bit absolute magnitude of the signed 40-bit accumulator.
 - [ ] **Step 13: [F2F] Normalization Barrel Shifter**: Design a shifter that uses the LZC40 output to left-justify the accumulator magnitude, preparing it for mantissa extraction.
 - [ ] **Step 14: [F2F] Base Exponent Estimation**: Implement logic to calculate the initial IEEE 754 biased exponent from the LZC result, accounting for the S23.16 fixed-point offset.

@@ -1108,6 +1108,29 @@ async def test_mxfp8_subnormals(dut):
     await run_mac_test(dut, 0, 0, a_elements, b_elements)
 
 @cocotb.test()
+async def test_mxfp8_subnormal_precision(dut):
+    """
+    Test that small subnormal products (e.g., 2^-9) are preserved by the
+    16-bit fractional datapath and correctly accumulated.
+    With 8-bit fractional precision, 2^-9 would be truncated to 0.
+    """
+    dut._log.info("Start MXFP8 Subnormal Precision Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # E4M3: 0x01 is subnormal (2^-6 * 0.125 = 2^-9)
+    # 0x38 is 1.0
+    # Product: 1.0 * 2^-9 = 2^-9
+    # Sum of 32: 32 * 2^-9 = 2^-4 = 0.0625
+    # Result in S23.8: 0.0625 * 256 = 16
+
+    a_elements = [0x01] * 32
+    b_elements = [0x38] * 32
+
+    # We expect 16. If precision was 8-bit, we'd get 0.
+    await run_mac_test(dut, 0, 0, a_elements, b_elements)
+
+@cocotb.test()
 async def test_lane_overflow(dut):
     """
     Specifically test that dual-lane addition in Packed Mode saturates

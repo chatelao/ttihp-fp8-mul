@@ -1,0 +1,12 @@
+# test/Makefile_lzc40
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+SRC_DIR = ../src
+
+VERILOG_SOURCES += $(SRC_DIR)/lzc40.v
+VERILOG_SOURCES += $(PWD)/tb_lzc40.v
+
+TOPLEVEL = tb_lzc40
+MODULE = test_lzc40
+
+include $(shell cocotb-config --makefiles)/Makefile.sim
