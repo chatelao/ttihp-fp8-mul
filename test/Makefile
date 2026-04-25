@@ -5,7 +5,7 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = ../src
-PROJECT_SOURCES = project.v fp8_mul.v fp8_mul_lns.v fp8_mul_serial_lns.v fp8_aligner.v accumulator.v
+PROJECT_SOURCES = project.v fp8_mul.v fp8_mul_lns.v fp8_mul_serial_lns.v fp8_aligner.v accumulator.v lzc40.v fixed_to_float.v
 
 ifeq ($(GATES),yes)
 
