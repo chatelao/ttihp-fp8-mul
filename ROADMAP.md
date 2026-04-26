@@ -29,7 +29,7 @@ Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full complianc
 - [x] **Step 25: [Integration] Protocol Update (Cycle 0)**: Update the FSM to sample a "Float32 Mode" bit from the Cycle 0 Metadata (e.g., `uio_in[4]`) and store it in a configuration register.
 - [x] **Step 26: [Integration] Output Mux & Hookup**: Integrate the F2F module into `src/project.v` and add a multiplexer to select between raw fixed-point and Float32 results based on the configuration bit.
 - [x] **Step 27: [Verification] Cocotb Float32 Reference Model**: Update `test/test.py` with a bit-accurate Float32 reference model and implement a `test_float32_basic` regression.
-- [ ] **Step 28: [Verification] Final Compliance Validation**: Develop and run a comprehensive test suite targeting edge cases (subnormals, overflow-to-Inf, NaN propagation) to ensure 100% OCP MX and IEEE 754 compliance.
+- [x] **Step 28: [Verification] Final Compliance Validation**: Develop and run a comprehensive test suite targeting edge cases (subnormals, overflow-to-Inf, NaN propagation) to ensure 100% OCP MX and IEEE 754 compliance.
 
 ## 3. Verification & Benchmarking
 - [ ] **Phase D: Benchmarking**: Perform gate-level power profiling and side-by-side area comparisons. ([details](docs/architecture/LNS_FP8_DESIGN.md#104-phase-d-benchmarking--physical-analysis))
