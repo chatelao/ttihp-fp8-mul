@@ -491,9 +491,11 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         # Bit-accurate Float32 reference model
         import struct
         shared_exp = scale_a + scale_b - 254
-        # expected_acc is the fixed-point sum with bit 16 as 2^0.
-        # Float value = expected_acc * 2^-16 * 2^shared_exp
-        val = expected_acc * (2**-16) * (2**shared_exp)
+        # expected_acc is the fixed-point sum.
+        # Binary point is at bit (aligner_width - 24).
+        # For 40-bit aligner: bit 16 is 2^0.
+        # For 32-bit aligner: bit 8 is 2^0.
+        val = expected_acc * (2**-(aligner_width - 24)) * (2**shared_exp)
         # Note: This simple Python float conversion may differ from hardware for extreme edge cases,
         # but for general functional verification of Step 26, it serves as a baseline.
         # Bit-accurate subnormal/rounding handling will be refined in Step 28.

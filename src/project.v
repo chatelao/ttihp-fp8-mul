@@ -273,23 +273,23 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_a <= 8'd0;
+                if (!rst_n) scale_a <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
         end else begin : gen_no_scale_a
-            assign scale_a_val = 8'd0;
+            assign scale_a_val = 8'd127;
         end
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_b <= 8'd0;
+                if (!rst_n) scale_b <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
         end else begin : gen_no_scale_b
-            assign scale_b_val = 8'd0;
+            assign scale_b_val = 8'd127;
         end
 
         if (SUPPORT_MIXED_PRECISION && !FIXED_FORMAT) begin : gen_format_b
@@ -815,11 +815,22 @@ module tt_um_chatelao_fp8_multiplier #(
     // --- Fixed-to-Float Conversion ---
     wire [31:0] f2f_result;
     wire [5:0]  f2f_lzc;
-    wire signed [11:0] f2f_exp_biased;
+    wire signed [11:0] f2f_exp_biased /* verilator lint_off UNUSEDSIGNAL */;
     wire        f2f_underflow;
 
+    // Align the input to F2F such that bit 16 is always 2^0
+    wire [39:0] f2f_acc_in;
+    generate
+        if (ACTUAL_ACC_WIDTH >= 40) begin : gen_f2f_in_wide
+            assign f2f_acc_in = acc_out[39:0];
+        end else begin : gen_f2f_in_narrow
+            // ACTUAL_ACC_WIDTH=32 case: bit 8 is 2^0. Shift left by 8 to align to bit 16.
+            assign f2f_acc_in = { acc_out[31:0], 8'b0 };
+        end
+    endgenerate
+
     fixed_to_float f2f_inst (
-        .acc(acc_out[39:0]),
+        .acc(f2f_acc_in),
         .shared_exp(shared_exp),
         .nan_sticky(nan_sticky),
         .inf_pos_sticky(inf_pos_sticky),
@@ -828,12 +839,7 @@ module tt_um_chatelao_fp8_multiplier #(
         // Probes
         .lzc(f2f_lzc),
         .exp_biased(f2f_exp_biased),
-        .underflow(f2f_underflow),
-        .sign(),
-        .mag(),
-        .norm_mag(),
-        .mantissa(),
-        .zero()
+        .underflow(f2f_underflow)
     );
 
     // --- Sticky Override Logic ---

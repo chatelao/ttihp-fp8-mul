@@ -1,0 +1,426 @@
+rm -f results.xml
+"make" -f Makefile results.xml
+make[1]: Entering directory '/app/test'
+mkdir -p sim_build/rtl
+/usr/bin/iverilog -o sim_build/rtl/sim.vvp -s tb -g2012 -Ptb.ACCUMULATOR_WIDTH=24 -Ptb.ALIGNER_WIDTH=32 -Ptb.SUPPORT_E5M2=0 -Ptb.SUPPORT_MXFP6=0 -Ptb.SUPPORT_PIPELINING=0 -Ptb.ENABLE_SHARED_SCALING=0 -DRTL_SIM -I../src -f sim_build/rtl/cmds.f -DRTL_SIM -I../src -f sim_build/rtl/cmds.f  ../src/project.v ../src/fp8_mul.v ../src/fp8_mul_lns.v ../src/fp8_mul_serial_lns.v ../src/fp8_aligner.v ../src/accumulator.v ../src/lzc40.v ../src/fixed_to_float.v /app/test/tb.v
+Command File: Warning: default timescale is being set multiple times.
+                     : using the last valid +timescale found.
+../src/project.v:861: warning: Port 6 (data_in) of accumulator expects 24 bits, got 32.
+../src/project.v:861:        : Pruning 8 high bits of the expression.
+rm -f results.xml
+COCOTB_TEST_MODULES=test,test_coverage,test_performance,test_short_protocol,test_exhaustive COCOTB_TESTCASE= COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=tb TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/rtl/sim.vvp
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.12.4 interpreter at /home/jules/.pyenv/versions/3.12.13/bin/python3.12
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb                             Seeding Python random module with 1777187518
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb
+     0.00ns ERROR    cocotb.regression                  Configuring the assertion rewrite hook using pytest 8.4.2 failed. Please file a bug report!
+                                                        Traceback (most recent call last):
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/regression.py", line 278, in setup_pytest_assertion_rewriting
+                                                            pytest_conf = Config.fromdictargs(
+                                                                          ^^^^^^^^^^^^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1201, in fromdictargs
+                                                            config.parse(args, addopts=False)
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1527, in parse
+                                                            self._preparse(args, addopts=addopts)
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1412, in _preparse
+                                                            self.pluginmanager.load_setuptools_entrypoints("pytest11")
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/pluggy/_manager.py", line 416, in load_setuptools_entrypoints
+                                                            plugin = ep.load()
+                                                                     ^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/importlib/metadata/__init__.py", line 205, in load
+                                                            module = import_module(match.group('module'))
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/importlib/__init__.py", line 90, in import_module
+                                                            return _bootstrap._gcd_import(name[level:], package, level)
+                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+                                                          File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+                                                          File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+                                                          File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+                                                          File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+                                                          File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+                                                          File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+                                                        ModuleNotFoundError: No module named 'cocotb_tools.pytest'
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_shared_scale (1/36)
+     0.00ns INFO     cocotb.tb                          Start MXFP8 MAC Shared Scale Test
+   500.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,127, Expected: 8192, Actual: 32
+   500.00ns WARNING  ..cale.test_mxfp8_mac_shared_scale assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 563, in test_mxfp8_mac_shared_scale
+                                                            await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=128, scale_b=127)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+   500.00ns WARNING  cocotb.regression                  test.test_mxfp8_mac_shared_scale failed
+   500.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_e4m3 (2/36)
+   500.00ns INFO     cocotb.tb                          Start MXFP8 MAC Test (E4M3)
+  1010.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 32
+  1010.00ns WARNING  ..fp8_mac_e4m3.test_mxfp8_mac_e4m3 assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 577, in test_mxfp8_mac_e4m3
+                                                            await run_mac_test(dut, 0, 0, a_elements, b_elements)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+  1010.00ns WARNING  cocotb.regression                  test.test_mxfp8_mac_e4m3 failed
+  1010.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_e5m2 (3/36)
+  1010.00ns INFO     cocotb.tb                          Start MXFP8 MAC Test (E5M2)
+  1520.00ns INFO     cocotb.tb                          Format: E5M2xE5M2, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  1520.00ns INFO     cocotb.regression                  test.test_mxfp8_mac_e5m2 passed
+  1520.00ns INFO     cocotb.regression                  running test.test_rounding_modes (4/36)
+  1520.00ns INFO     cocotb.tb                          Start Rounding Modes Test
+  2030.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1280, Actual: 5
+  2030.00ns WARNING  ..unding_modes.test_rounding_modes assert 5 == 1280
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 604, in test_rounding_modes
+                                                            await run_mac_test(dut, 0, 0, a_elements, b_elements, round_mode=0)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 5 == 1280
+  2030.00ns WARNING  cocotb.regression                  test.test_rounding_modes failed
+  2030.00ns INFO     cocotb.regression                  running test.test_overflow_saturation (5/36)
+  2030.00ns INFO     cocotb.tb                          Skipping E5M2 Overflow Saturation Test (SUPPORT_E5M2=0)
+  2030.00ns INFO     cocotb.regression                  test.test_overflow_saturation passed
+  2030.00ns INFO     cocotb.regression                  running test.test_accumulator_saturation (6/36)
+  2030.01ns INFO     cocotb.tb                          Skipping E5M2 Accumulator Saturation Test (SUPPORT_E5M2=0)
+  2030.01ns INFO     cocotb.regression                  test.test_accumulator_saturation passed
+  2030.01ns INFO     cocotb.regression                  running test.test_mxfp4_packed_serial (7/36)
+  2030.01ns INFO     cocotb.tb                          Skipping Serial Packed FP4 Test (SUPPORT_PACKED_SERIAL=0)
+  2030.01ns INFO     cocotb.regression                  test.test_mxfp4_packed_serial passed
+  2030.01ns INFO     cocotb.regression                  running test.test_mxfp4_packed (8/36)
+  2030.01ns INFO     cocotb.tb                          Start Packed FP4 Test
+  2380.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 32
+  2380.01ns WARNING  ..t_mxfp4_packed.test_mxfp4_packed assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 695, in test_mxfp4_packed
+                                                            await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+  2380.01ns WARNING  cocotb.regression                  test.test_mxfp4_packed failed
+  2380.01ns INFO     cocotb.regression                  running test.test_mixed_precision (9/36)
+  2380.01ns INFO     cocotb.tb                          Start Mixed-Precision MAC Test
+  2890.01ns INFO     cocotb.tb                          Format: E4M3xE5M2, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  3400.01ns INFO     cocotb.tb                          Format: E3M2xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  3400.01ns INFO     cocotb.regression                  test.test_mixed_precision passed
+  3400.01ns INFO     cocotb.regression                  running test.test_mxfp_mac_randomized (10/36)
+  3400.01ns INFO     cocotb.tb                          Start Randomized MXFP MAC Test (E4M3=1, E5M2=0, MXFP6=0, MXFP4=1, ADV=1, MIX=1)
+  3910.01ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 123,133, Expected: -2699, Actual: -11
+  3910.01ns WARNING  ..domized.test_mxfp_mac_randomized assert -11 == -2699
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 749, in test_mxfp_mac_randomized
+                                                            await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert -11 == -2699
+  3910.01ns WARNING  cocotb.regression                  test.test_mxfp_mac_randomized failed
+  3910.01ns INFO     cocotb.regression                  running test.test_fast_start_scale_compression (11/36)
+  3910.01ns INFO     cocotb.tb                          Start Fast Start (Scale Compression) Test
+  4420.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,127, Expected: 8192, Actual: 32
+  4420.01ns WARNING  ..est_fast_start_scale_compression assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 774, in test_fast_start_scale_compression
+                                                            await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+  4420.01ns WARNING  cocotb.regression                  test.test_fast_start_scale_compression failed
+  4420.01ns INFO     cocotb.regression                  running test.test_yaml_cases (12/36)
+  4420.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MX_E2E.yaml
+  4420.01ns INFO     cocotb.tb                          Running Case 1: Basic E4M3 x E4M3 multiplication of 1.0 * 1.0 with default scales (2^0). 32 elements summed.
+  4930.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 32
+  4930.01ns WARNING  .. test_yaml_cases.test_yaml_cases assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 935, in test_yaml_cases
+                                                            await run_yaml_file(dut, "TEST_MX_E2E.yaml")
+                                                          File "/app/test/test.py", line 915, in run_yaml_file
+                                                            await run_mac_test(dut,
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+  4930.01ns WARNING  cocotb.regression                  test.test_yaml_cases failed
+  4930.01ns INFO     cocotb.regression                  running test.test_mx_fp4_yaml (13/36)
+  4930.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MX_FP4.yaml
+  4930.01ns INFO     cocotb.tb                          Running Case 1: Standard MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed is 32.0.
+  5440.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 32
+  5440.01ns WARNING  ..est_mx_fp4_yaml.test_mx_fp4_yaml assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 939, in test_mx_fp4_yaml
+                                                            await run_yaml_file(dut, "TEST_MX_FP4.yaml")
+                                                          File "/app/test/test.py", line 915, in run_yaml_file
+                                                            await run_mac_test(dut,
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+  5440.01ns WARNING  cocotb.regression                  test.test_mx_fp4_yaml failed
+  5440.01ns INFO     cocotb.regression                  running test.test_min_max_zero_yaml (14/36)
+  5440.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MIN_MAX_ZERO.yaml
+  5440.01ns INFO     cocotb.tb                          Running Case 101: E4M3 Max Finite * 1.0
+  5950.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3670016, Actual: 14336
+  5950.01ns WARNING  ..zero_yaml.test_min_max_zero_yaml assert 14336 == 3670016
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 943, in test_min_max_zero_yaml
+                                                            await run_yaml_file(dut, "TEST_MIN_MAX_ZERO.yaml")
+                                                          File "/app/test/test.py", line 915, in run_yaml_file
+                                                            await run_mac_test(dut,
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 14336 == 3670016
+  5950.01ns WARNING  cocotb.regression                  test.test_min_max_zero_yaml failed
+  5950.01ns INFO     cocotb.regression                  running test.test_mxplus_yaml (15/36)
+  5950.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MXPLUS.yaml
+  5950.01ns INFO     cocotb.tb                          Running Case 1: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x02)=5.0, b[31] is BM(0x02)=5.0. Others 1.0. Total = 5 + 30 + 5 = 40.0. Fixed = 10240.
+  6460.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 10240, Actual: 40
+  6460.01ns WARNING  ..est_mxplus_yaml.test_mxplus_yaml assert 40 == 10240
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 954, in test_mxplus_yaml
+                                                            await run_yaml_file(dut, "TEST_MXPLUS.yaml")
+                                                          File "/app/test/test.py", line 915, in run_yaml_file
+                                                            await run_mac_test(dut,
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 40 == 10240
+  6460.01ns WARNING  cocotb.regression                  test.test_mxplus_yaml failed
+  6460.01ns INFO     cocotb.regression                  running test.test_mxfp4_input_buffering (16/36)
+  6460.02ns INFO     cocotb.tb                          Skipping Input Buffering FP4 Test (SUPPORT_VECTOR_PACKING=1 (takes precedence))
+  6460.02ns INFO     cocotb.regression                  test.test_mxfp4_input_buffering passed
+  6460.02ns INFO     cocotb.regression                  running test.test_mxfp8_sticky_flags (17/36)
+  6460.02ns INFO     cocotb.tb                          Start MXFP8 Sticky Flags (NaN/Inf) Test
+  6460.02ns INFO     cocotb.tb                          Testing Element-level NaN (E4M3)
+  6970.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+  6970.02ns INFO     cocotb.regression                  test.test_mxfp8_sticky_flags passed
+  6970.02ns INFO     cocotb.regression                  running test.test_lns_modes (18/36)
+  6970.02ns INFO     cocotb.tb                          Start LNS Modes Test
+  6970.02ns INFO     cocotb.tb                          Skipping LNS Modes Test (USE_LNS_MUL=0)
+  6970.02ns INFO     cocotb.regression                  test.test_lns_modes passed
+  6970.02ns INFO     cocotb.regression                  running test.test_mxfp8_subnormals (19/36)
+  6970.02ns INFO     cocotb.tb                          Start MXFP8 Subnormals Test
+  7480.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  7480.02ns INFO     cocotb.regression                  test.test_mxfp8_subnormals passed
+  7480.02ns INFO     cocotb.regression                  running test.test_mxfp8_subnormal_precision (20/36)
+                                                            Test that small subnormal products (e.g., 2^-9) are preserved by the
+  7480.02ns INFO     cocotb.tb                          Start MXFP8 Subnormal Precision Test
+  7990.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  7990.02ns INFO     cocotb.regression                  test.test_mxfp8_subnormal_precision passed
+  7990.02ns INFO     cocotb.regression                  running test.test_lane_overflow (21/36)
+                                                            Specifically test that dual-lane addition in Packed Mode saturates
+  7990.02ns INFO     cocotb.tb                          Start Lane Overflow Test (Packed Mode)
+  8340.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 157,127, Expected: 8192, Actual: 32
+  8340.02ns WARNING  ..lane_overflow.test_lane_overflow assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 1181, in test_lane_overflow
+                                                            await run_mac_test(dut, 4, 4, a_elements, b_elements, scale_a=157, scale_b=127, packed_mode=1)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+  8340.02ns WARNING  cocotb.regression                  test.test_lane_overflow failed
+  8340.02ns INFO     cocotb.regression                  running test.test_float32_mode (22/36)
+                                                            Verify that setting the FLOAT32_EN bit in Cycle 0 produces
+  8340.02ns INFO     cocotb.tb                          Start Float32 Mode Integration Test
+  8850.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1040187392, Actual: 0
+  8850.02ns WARNING  ..t_float32_mode.test_float32_mode assert 0 == 1040187392
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 1199, in test_float32_mode
+                                                            await run_mac_test(dut, 0, 0, a_elements, b_elements, float32_mode=1)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 0 == 1040187392
+  8850.02ns WARNING  cocotb.regression                  test.test_float32_mode failed
+  8850.02ns INFO     cocotb.regression                  running test.test_mxfp4_full_range (23/36)
+  8850.02ns INFO     cocotb.tb                          Start Full Range Packed FP4 Test
+  9200.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 70144, Actual: 274
+  9200.02ns WARNING  ..full_range.test_mxfp4_full_range assert 274 == 70144
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 1223, in test_mxfp4_full_range
+                                                            await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 274 == 70144
+  9200.02ns WARNING  cocotb.regression                  test.test_mxfp4_full_range failed
+  9200.02ns INFO     cocotb.regression                  running test_coverage.test_exhaustive_formats_subset (24/36)
+                                                            Run exhaustive 256x256 for a few key format combinations
+  9200.02ns INFO     cocotb.tb                          Exhaustive test for 0 x 0 (packed=0)
+  9710.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 10220.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 10730.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 11240.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 11750.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -107448, Actual: -420
+ 11750.02ns WARNING  ..t.test_exhaustive_formats_subset assert -420 == -107448
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test_coverage.py", line 134, in test_exhaustive_formats_subset
+                                                            await run_mac_test_covered(dut, fa, fb, a_els, b_els, packed_mode=pm)
+                                                          File "/app/test/test_coverage.py", line 103, in run_mac_test_covered
+                                                            await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap, packed_mode=packed_mode, lns_mode=lns_mode, mx_plus_mode=mx_plus_mode, bm_index_a=bm_index_a, bm_index_b=bm_index_b)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert -420 == -107448
+ 11750.02ns WARNING  cocotb.regression                  test_coverage.test_exhaustive_formats_subset failed
+ 11750.02ns INFO     cocotb.regression                  running test_coverage.test_edge_cases (25/36)
+                                                            Targeted edge cases for all formats
+ 12260.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 12770.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 18432, Actual: 72
+ 12770.02ns WARNING  .. test_edge_cases.test_edge_cases assert 72 == 18432
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test_coverage.py", line 156, in test_edge_cases
+                                                            await run_mac_test_covered(dut, fmt, fmt, elements, elements)
+                                                          File "/app/test/test_coverage.py", line 103, in run_mac_test_covered
+                                                            await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap, packed_mode=packed_mode, lns_mode=lns_mode, mx_plus_mode=mx_plus_mode, bm_index_a=bm_index_a, bm_index_b=bm_index_b)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 72 == 18432
+ 12770.02ns WARNING  cocotb.regression                  test_coverage.test_edge_cases failed
+ 12770.02ns INFO     cocotb.regression                  running test_coverage.test_shared_scale_coverage (26/36)
+                                                            Test various shared scale combinations
+ 13280.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 0,0, Expected: 8192, Actual: 32
+ 13280.02ns WARNING  ..erage.test_shared_scale_coverage assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test_coverage.py", line 175, in test_shared_scale_coverage
+                                                            await run_mac_test_covered(dut, 0, 0, a_els, b_els, scale_a=sa, scale_b=sb)
+                                                          File "/app/test/test_coverage.py", line 103, in run_mac_test_covered
+                                                            await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap, packed_mode=packed_mode, lns_mode=lns_mode, mx_plus_mode=mx_plus_mode, bm_index_a=bm_index_a, bm_index_b=bm_index_b)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 32 == 8192
+ 13280.02ns WARNING  cocotb.regression                  test_coverage.test_shared_scale_coverage failed
+ 13280.02ns INFO     cocotb.regression                  running test_coverage.test_lns_coverage (27/36)
+                                                            Targeted coverage for LNS and Hybrid modes
+ 13280.03ns INFO     cocotb.tb                          Skipping LNS Coverage Test (USE_LNS_MUL=0)
+ 13280.03ns INFO     cocotb.regression                  test_coverage.test_lns_coverage passed
+ 13280.03ns INFO     cocotb.regression                  running test_coverage.test_randomized_coverage (28/36)
+                                                            Run many randomized tests to fill coverage
+ 13790.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 1, Scales: 139,173, Expected: 2143289344, Actual: 2143289344
+ 14300.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 0, Scales: 209,85, Expected: 1911, Actual: 7
+ 14300.03ns WARNING  ..overage.test_randomized_coverage assert 7 == 1911
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test_coverage.py", line 250, in test_randomized_coverage
+                                                            await run_mac_test_covered(dut, fa, fb, a_els, b_els, sa, sb, rm, ov, packed_mode=pm, lns_mode=lm, mx_plus_mode=mx, bm_index_a=bma, bm_index_b=bmb)
+                                                          File "/app/test/test_coverage.py", line 103, in run_mac_test_covered
+                                                            await run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a, scale_b, round_mode, overflow_wrap, packed_mode=packed_mode, lns_mode=lns_mode, mx_plus_mode=mx_plus_mode, bm_index_a=bm_index_a, bm_index_b=bm_index_b)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 7 == 1911
+ 14300.03ns WARNING  cocotb.regression                  test_coverage.test_randomized_coverage failed
+ 14300.03ns INFO     cocotb.regression                  running test_coverage.test_coverage_report (29/36)
+                                                            Print coverage report
+ 14300.03ns INFO     cocotb.tb                          Final Coverage Report:
+ 14300.03ns INFO     cocotb.tb                            top.format_a: 42.86%
+ 14300.03ns INFO     cocotb.tb                            top.format_b: 42.86%
+ 14300.03ns INFO     cocotb.tb                            top.round_mode: 50.00%
+ 14300.03ns INFO     cocotb.tb                            top.overflow_wrap: 100.00%
+ 14300.03ns INFO     cocotb.tb                            top.packed_mode: 50.00%
+ 14300.03ns INFO     cocotb.tb                            top.lns_mode: 33.33%
+ 14300.03ns INFO     cocotb.tb                            top.mx_plus_mode: 100.00%
+ 14300.03ns INFO     cocotb.tb                            top.is_bm_a: 100.00%
+ 14300.03ns INFO     cocotb.tb                            top.is_bm_b: 100.00%
+ 14300.03ns INFO     cocotb.tb                            top.op_class_a: 55.56%
+ 14300.03ns INFO     cocotb.tb                            top.op_class_b: 55.56%
+ 14300.03ns INFO     cocotb.tb                            top.format_cross: 8.16%
+ 14300.03ns INFO     cocotb.tb                            top.format_packed_cross: 21.43%
+ 14300.03ns INFO     cocotb.tb                            top.round_overflow_cross: 37.50%
+ 14300.03ns INFO     cocotb.tb                            top.lns_format_cross: 14.29%
+ 14300.03ns INFO     cocotb.tb                            top.mx_plus_bm_a_cross: 100.00%
+ 14300.03ns INFO     cocotb.tb                            top.mx_plus_bm_b_cross: 100.00%
+ 14300.03ns INFO     cocotb.regression                  test_coverage.test_coverage_report passed
+ 14300.03ns INFO     cocotb.regression                  running test_performance.performance_sweep (30/36)
+                                                            Measure throughput for multiple blocks.
+ 14300.03ns INFO     cocotb.tb                          Starting Performance Sweep
+ 54410.03ns INFO     cocotb.tb                          Processed 100 blocks (3200 MAC ops) in 0.8264s (simulated time: 41000ns)
+ 54410.03ns INFO     cocotb.tb                          Cycles per block: 41
+ 54410.03ns INFO     cocotb.tb                          Throughput: 0.7805 MACs/cycle
+ 54410.03ns INFO     cocotb.regression                  test_performance.performance_sweep passed
+ 54410.03ns INFO     cocotb.regression                  running test_performance.high_switching_activity (31/36)
+                                                            Generate high switching activity for power analysis simulation.
+ 54410.03ns INFO     cocotb.tb                          Starting High Switching Activity Test
+834650.03ns INFO     cocotb.tb                          High switching activity sequence complete.
+834650.03ns INFO     cocotb.regression                  test_performance.high_switching_activity passed
+834650.03ns INFO     cocotb.regression                  running test_short_protocol.test_short_protocol_metadata (32/36)
+                                                            Verify that Short Protocol correctly captures metadata from uio_in[2:0] in Cycle 0.
+834650.03ns INFO     cocotb.tb                          Start Short Protocol Metadata Test
+834711.03ns INFO     cocotb.tb                          Verified active format A: 4
+835090.03ns INFO     cocotb.tb                          Actual Result: 32, Expected: 8192
+835090.03ns WARNING  ..ata.test_short_protocol_metadata assert 32 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test_short_protocol.py", line 68, in test_short_protocol_metadata
+                                                            assert actual_acc == expected
+                                                        AssertionError: assert 32 == 8192
+835090.03ns WARNING  cocotb.regression                  test_short_protocol.test_short_protocol_metadata failed
+835090.03ns INFO     cocotb.regression                  running test_short_protocol.test_short_protocol_nan_scale_reuse (33/36)
+                                                            Test that starting a Short Protocol block with reused NaN (0xFF) scales
+835090.03ns INFO     cocotb.tb                          Start Short Protocol NaN Scale Reuse Test
+835090.03ns INFO     cocotb.tb                          Skipping test (ENABLE_SHARED_SCALING=0)
+835090.03ns INFO     cocotb.regression                  test_short_protocol.test_short_protocol_nan_scale_reuse passed
+835090.03ns INFO     cocotb.regression                  running test_exhaustive.test_fp4_exhaustive (34/36)
+                                                            Test all 16x16 = 256 combinations of FP4 (E2M1) bit patterns
+835600.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+836110.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+836620.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+837130.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+837640.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+838150.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+838660.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+839170.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+839170.03ns INFO     cocotb.regression                  test_exhaustive.test_fp4_exhaustive passed
+839170.03ns INFO     cocotb.regression                  running test_exhaustive.test_fp8_e4m3_mantissa_exhaustive (35/36)
+                                                            Test all 8x8 = 64 combinations of E4M3 normal mantissas
+839680.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 13984, Actual: 54
+839680.03ns WARNING  ..est_fp8_e4m3_mantissa_exhaustive assert 54 == 13984
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test_exhaustive.py", line 48, in test_fp8_e4m3_mantissa_exhaustive
+                                                            await run_mac_test(dut, format_a=0, format_b=0, a_elements=a_els, b_elements=b_els)
+                                                          File "/app/test/test.py", line 549, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 54 == 13984
+839680.03ns WARNING  cocotb.regression                  test_exhaustive.test_fp8_e4m3_mantissa_exhaustive failed
+839680.03ns INFO     cocotb.regression                  running test_exhaustive.test_fp8_e5m2_mantissa_exhaustive (36/36)
+                                                            Test all 8x8 = 64 combinations of E5M2 mantissas (including subnormals)
+839680.04ns INFO     cocotb.tb                          Skipping E5M2 exhaustive test: SUPPORT_E5M2=0
+839680.04ns INFO     cocotb.regression                  test_exhaustive.test_fp8_e5m2_mantissa_exhaustive passed
+839680.04ns INFO     cocotb.regression                  *****************************************************************************************************************
+                                                        ** TEST                                                     STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        *****************************************************************************************************************
+                                                        ** test.test_mxfp8_mac_shared_scale                          FAIL         500.00           0.02      26997.67  **
+                                                        ** test.test_mxfp8_mac_e4m3                                  FAIL         510.00           0.01      52294.22  **
+                                                        ** test.test_mxfp8_mac_e5m2                                  PASS         510.00           0.01      62652.89  **
+                                                        ** test.test_rounding_modes                                  FAIL         510.00           0.01      52292.94  **
+                                                        ** test.test_overflow_saturation                             PASS           0.00           0.00          0.00  **
+                                                        ** test.test_accumulator_saturation                          PASS           0.00           0.00          0.00  **
+                                                        ** test.test_mxfp4_packed_serial                             PASS           0.00           0.00          0.00  **
+                                                        ** test.test_mxfp4_packed                                    FAIL         350.00           0.01      46472.08  **
+                                                        ** test.test_mixed_precision                                 PASS        1020.00           0.02      63342.12  **
+                                                        ** test.test_mxfp_mac_randomized                             FAIL         510.00           0.01      41272.96  **
+                                                        ** test.test_fast_start_scale_compression                    FAIL         510.00           0.01      51939.95  **
+                                                        ** test.test_yaml_cases                                      FAIL         510.00           0.13       3979.58  **
+                                                        ** test.test_mx_fp4_yaml                                     FAIL         510.00           0.05      11256.20  **
+                                                        ** test.test_min_max_zero_yaml                               FAIL         510.00           0.09       5873.97  **
+                                                        ** test.test_mxplus_yaml                                     FAIL         510.00           0.06       9146.32  **
+                                                        ** test.test_mxfp4_input_buffering                           PASS           0.00           0.00          0.00  **
+                                                        ** test.test_mxfp8_sticky_flags                              PASS         510.00           0.01      55137.00  **
+                                                        ** test.test_lns_modes                                       PASS           0.00           0.00          0.00  **
+                                                        ** test.test_mxfp8_subnormals                                PASS         510.00           0.01      62051.32  **
+                                                        ** test.test_mxfp8_subnormal_precision                       PASS         510.00           0.01      60802.57  **
+                                                        ** test.test_lane_overflow                                   FAIL         350.00           0.01      45007.40  **
+                                                        ** test.test_float32_mode                                    FAIL         510.00           0.01      52923.01  **
+                                                        ** test.test_mxfp4_full_range                                FAIL         350.00           0.01      38827.93  **
+                                                        ** test_coverage.test_exhaustive_formats_subset              FAIL        2550.00           0.14      18600.60  **
+                                                        ** test_coverage.test_edge_cases                             FAIL        1020.00           0.02      43770.68  **
+                                                        ** test_coverage.test_shared_scale_coverage                  FAIL         510.00           0.01      42493.79  **
+                                                        ** test_coverage.test_lns_coverage                           PASS           0.00           0.00          0.00  **
+                                                        ** test_coverage.test_randomized_coverage                    FAIL        1020.00           0.03      36192.36  **
+                                                        ** test_coverage.test_coverage_report                        PASS           0.00           0.00          0.00  **
+                                                        ** test_performance.performance_sweep                        PASS       40110.00           0.83      48435.87  **
+                                                        ** test_performance.high_switching_activity                  PASS      780240.00           7.21     108227.52  **
+                                                        ** test_short_protocol.test_short_protocol_metadata          FAIL         440.00           0.01      50281.82  **
+                                                        ** test_short_protocol.test_short_protocol_nan_scale_reuse   PASS           0.00           0.00          0.00  **
+                                                        ** test_exhaustive.test_fp4_exhaustive                       PASS        4080.00           0.08      50391.08  **
+                                                        ** test_exhaustive.test_fp8_e4m3_mantissa_exhaustive         FAIL         510.00           0.01      45048.75  **
+                                                        ** test_exhaustive.test_fp8_e5m2_mantissa_exhaustive         PASS           0.00           0.00          0.00  **
+                                                        *****************************************************************************************************************
+                                                        ** TESTS=36 PASS=17 FAIL=19 SKIP=0                                     839680.04           8.84      94942.15  **
+                                                        *****************************************************************************************************************
+VCD info: dumpfile tb.vcd opened for output.
+make[1]: *** [/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb_tools/makefiles/simulators/Makefile.icarus:67: results.xml] Error 19
+make[1]: Leaving directory '/app/test'
+make: *** [/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb_tools/makefiles/Makefile.inc:17: sim] Error 2
