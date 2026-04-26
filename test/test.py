@@ -391,7 +391,7 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0, float32_mode=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0, float32_mode=0, skip_metadata_check=False):
     # Enforce parameter constraints in model
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
@@ -429,16 +429,16 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
     # Cycle 0: Initial Metadata
-    # ui_in[1:0]: NBM Offset A (reduced to 2 bits)
+    # ui_in[2:0]: NBM Offset A (3 bits restored)
     # ui_in[4:3]: LNS Mode
     # uio_in[1:0]: NBM Offset B (reduced to 2 bits)
-    # uio_in[3:2]: Rounding Mode (shifted)
-    # uio_in[4]: Float32 Mode
+    # uio_in[2]: Float32 Mode
+    # uio_in[4:3]: Rounding Mode
     # uio_in[5]: Overflow Mode
     # uio_in[6]: Packed Mode
     # uio_in[7]: MX+ Enable
-    dut.ui_in.value = (nbm_offset_a & 0x3) | (lns_mode << 3)
-    dut.uio_in.value = (nbm_offset_b & 0x3) | (round_mode << 2) | (float32_mode << 4) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3)
+    dut.uio_in.value = (nbm_offset_b & 0x3) | (float32_mode << 2) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
 
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
@@ -861,9 +861,9 @@ async def test_fast_start_scale_compression(dut):
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
     # Also need to provide metadata in uio_in
-    # uio_in[2:0]: Format A, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
+    # uio_in[1:0]: NBM Offset B, [2]: F32 Mode, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
     dut.ui_in.value = 0x80
-    dut.uio_in.value = (format_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    dut.uio_in.value = (nbm_offset_b & 0x3) | (float32_mode << 2) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
     k_factor_eff = k_factor if support_serial_hw else 1
     await ClockCycles(dut.clk, k_factor_eff)

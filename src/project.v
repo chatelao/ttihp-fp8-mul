@@ -183,7 +183,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         // Capture MX+ configuration in Cycle 0.
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
-                            nbm_offset_a <= {1'b0, ui_in[1:0]};
+                            nbm_offset_a <= ui_in[2:0];
                             nbm_offset_b <= {1'b0, uio_in[1:0]};
                         end
                     end
@@ -353,10 +353,10 @@ module tt_um_chatelao_fp8_multiplier #(
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                 // Capture Metadata at the start of a block (Cycle 0).
-                round_mode_reg    <= uio_in[3:2];
+                round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
-                float32_mode_reg  <= uio_in[4];
+                float32_mode_reg  <= uio_in[2];
                 lns_mode_reg      <= ui_in[4:3];
 
                 if (ui_in[7]) begin
@@ -417,7 +417,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
@@ -715,9 +715,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     generate
         if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
+            /* verilator lint_off SELRANGE */
             assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                             acc_abs_val[ALIGNER_WIDTH-1:0] :
                                             mul_prod_lane0_ext;
+            /* verilator lint_on SELRANGE */
         end else begin : gen_aligner_in_narrow
             assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                             { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){1'b0}}, acc_abs_val } :
@@ -792,8 +794,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
                                                      $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
+    /* verilator lint_off UNUSEDSIGNAL */
     wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH-1] == lane1_extended[ACTUAL_ACC_WIDTH-1]) &&
                              (combined_full[ACTUAL_ACC_WIDTH-1] != lane0_extended[ACTUAL_ACC_WIDTH-1]);
+    wire combined_full_msb_unused = combined_full[ACTUAL_ACC_WIDTH];
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [ACTUAL_ACC_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
                                                      (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
                                                      combined_full[ACTUAL_ACC_WIDTH-1:0];
@@ -803,12 +808,12 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] acc_shift_out;
     wire [31:0] acc_out_ext;
     generate
-        if (ACTUAL_ACC_WIDTH >= 40) begin : gen_acc_out_ext_wide
-            // Extract the S23.8 window (bits 39 down to 8)
-            assign acc_out_ext = acc_out[39:8];
+        if (ACCUMULATOR_WIDTH >= 32) begin : gen_acc_out_ext_wide
+            // Extraction window starts at (WIDTH - 24) - 8 = WIDTH - 32
+            assign acc_out_ext = acc_out[ACCUMULATOR_WIDTH-1 : ACCUMULATOR_WIDTH-32];
         end else begin : gen_acc_out_ext_narrow
-            // Fallback for narrower accumulators
-            assign acc_out_ext = acc_out[31:0];
+            // Pad with zeros to fulfill 32-bit output requirement
+            assign acc_out_ext = { acc_out[ACCUMULATOR_WIDTH-1:0], {(32-ACCUMULATOR_WIDTH){1'b0}} };
         end
     endgenerate
 
@@ -817,16 +822,44 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [5:0]  f2f_lzc;
     wire        f2f_underflow;
     wire [11:0] f2f_exp_biased;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire        f2f_sign;
+    wire [39:0] f2f_mag;
+    wire [39:0] f2f_norm_mag;
+    wire [22:0] f2f_mantissa;
+    wire        f2f_zero;
+    wire [3:0]  f2f_exp_biased_unused = f2f_exp_biased[11:8];
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    wire [39:0] f2f_acc_in;
+    // required shift to align internal binary point (WIDTH-24) to f2f binary point (16)
+    // shift = 16 - (WIDTH - 24) = 40 - WIDTH
+    localparam F2F_SHIFT = 40 - ACTUAL_ACC_WIDTH;
+    generate
+        if (F2F_SHIFT > 0) begin : gen_f2f_pad
+            assign f2f_acc_in = { acc_out[ACTUAL_ACC_WIDTH-1:0], {F2F_SHIFT{1'b0}} };
+        end else if (F2F_SHIFT < 0) begin : gen_f2f_trunc
+            assign f2f_acc_in = acc_out[ACTUAL_ACC_WIDTH-1 : -F2F_SHIFT];
+        end else begin : gen_f2f_direct
+            assign f2f_acc_in = acc_out[39:0];
+        end
+    endgenerate
+
     fixed_to_float f2f_inst (
-        .acc(acc_out[39:0]),
+        .acc(f2f_acc_in),
         .shared_exp(shared_exp),
         .nan_sticky(nan_sticky),
         .inf_pos_sticky(inf_pos_sticky),
         .inf_neg_sticky(inf_neg_sticky),
         .result(f2f_result),
+        .sign(f2f_sign),
+        .mag(f2f_mag),
         .lzc(f2f_lzc),
-        .underflow(f2f_underflow),
-        .exp_biased(f2f_exp_biased)
+        .norm_mag(f2f_norm_mag),
+        .exp_biased(f2f_exp_biased),
+        .mantissa(f2f_mantissa),
+        .zero(f2f_zero),
+        .underflow(f2f_underflow)
     );
 
     // --- Sticky Override Logic ---
@@ -842,8 +875,17 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
+    wire [31:0] final_scaled_result_sh;
+    generate
+        if (ALIGNER_WIDTH >= 32) begin : gen_final_scaled_wide
+            assign final_scaled_result_sh = aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32];
+        end else begin : gen_final_scaled_narrow
+            assign final_scaled_result_sh = { aligned_lane0_res, {(32-ALIGNER_WIDTH){1'b0}} };
+        end
+    endgenerate
+
     wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result :
-                                      (ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext);
+                                      (ENABLE_SHARED_SCALING ? final_scaled_result_sh : acc_out_ext);
 
     // Accumulator instance.
     accumulator #(
