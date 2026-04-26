@@ -9,6 +9,7 @@ module tb_fixed_to_float (
     output wire [5:0]  lzc,
     output wire [39:0] norm_mag,
     output wire signed [11:0] exp_biased,
+    output wire [22:0] mantissa,
     output wire        zero,
     output wire        underflow
 );
@@ -21,6 +22,7 @@ module tb_fixed_to_float (
         .lzc(lzc),
         .norm_mag(norm_mag),
         .exp_biased(exp_biased),
+        .mantissa(mantissa),
         .zero(zero),
         .underflow(underflow)
     );
