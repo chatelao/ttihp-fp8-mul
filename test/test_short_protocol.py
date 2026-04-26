@@ -62,7 +62,8 @@ async def test_short_protocol_metadata(dut):
         await ClockCycles(dut.clk, k_factor)
 
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    expected = 0 if support_shared else 8192
+    # 32 elements of 1.0 * 1.0 = 32.0. In S23.8 fixed point, 32.0 is 32 * 256 = 8192.
+    expected = 8192
 
     dut._log.info(f"Actual Result: {actual_acc}, Expected: {expected}")
     assert actual_acc == expected

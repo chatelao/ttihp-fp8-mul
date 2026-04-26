@@ -1,0 +1,1015 @@
+rm -f results.xml
+"make" -f Makefile results.xml
+make[1]: Entering directory '/app/test'
+mkdir -p sim_build/rtl
+/usr/bin/iverilog -o sim_build/rtl/sim.vvp -s tb -g2012 -Ptb.ACCUMULATOR_WIDTH=24 -Ptb.ALIGNER_WIDTH=32 -Ptb.SUPPORT_E5M2=0 -Ptb.SUPPORT_MXFP6=0 -Ptb.SUPPORT_PIPELINING=0 -Ptb.ENABLE_SHARED_SCALING=0 -DRTL_SIM -I../src -f sim_build/rtl/cmds.f -DRTL_SIM -I../src -f sim_build/rtl/cmds.f  ../src/project.v ../src/fp8_mul.v ../src/fp8_mul_lns.v ../src/fp8_mul_serial_lns.v ../src/fp8_aligner.v ../src/accumulator.v ../src/lzc40.v ../src/fixed_to_float.v /app/test/tb.v
+Command File: Warning: default timescale is being set multiple times.
+                     : using the last valid +timescale found.
+../src/project.v:873: warning: Port 6 (data_in) of accumulator expects 24 bits, got 32.
+../src/project.v:873:        : Pruning 8 high bits of the expression.
+rm -f results.xml
+COCOTB_TEST_MODULES=test,test_coverage,test_performance,test_short_protocol,test_exhaustive COCOTB_TESTCASE= COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=tb TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/rtl/sim.vvp
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.12.4 interpreter at /home/jules/.pyenv/versions/3.12.13/bin/python3.12
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb                             Seeding Python random module with 1777194500
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb
+     0.00ns ERROR    cocotb.regression                  Configuring the assertion rewrite hook using pytest 8.4.2 failed. Please file a bug report!
+                                                        Traceback (most recent call last):
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/regression.py", line 278, in setup_pytest_assertion_rewriting
+                                                            pytest_conf = Config.fromdictargs(
+                                                                          ^^^^^^^^^^^^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1201, in fromdictargs
+                                                            config.parse(args, addopts=False)
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1527, in parse
+                                                            self._preparse(args, addopts=addopts)
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1412, in _preparse
+                                                            self.pluginmanager.load_setuptools_entrypoints("pytest11")
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/pluggy/_manager.py", line 416, in load_setuptools_entrypoints
+                                                            plugin = ep.load()
+                                                                     ^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/importlib/metadata/__init__.py", line 205, in load
+                                                            module = import_module(match.group('module'))
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/importlib/__init__.py", line 90, in import_module
+                                                            return _bootstrap._gcd_import(name[level:], package, level)
+                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+                                                          File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+                                                          File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+                                                          File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+                                                          File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+                                                          File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+                                                          File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+                                                        ModuleNotFoundError: No module named 'cocotb_tools.pytest'
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_shared_scale (1/36)
+     0.00ns INFO     cocotb.tb                          Start MXFP8 MAC Shared Scale Test
+   500.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,127, Expected: 8192, Actual: 8192
+  1010.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 126,127, Expected: 8192, Actual: 8192
+  1010.00ns INFO     cocotb.regression                  test.test_mxfp8_mac_shared_scale passed
+  1010.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_e4m3 (2/36)
+  1010.00ns INFO     cocotb.tb                          Start MXFP8 MAC Test (E4M3)
+  1520.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+  1520.00ns INFO     cocotb.regression                  test.test_mxfp8_mac_e4m3 passed
+  1520.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_e5m2 (3/36)
+  1520.00ns INFO     cocotb.tb                          Start MXFP8 MAC Test (E5M2)
+  2030.00ns INFO     cocotb.tb                          Format: E5M2xE5M2, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  2030.00ns INFO     cocotb.regression                  test.test_mxfp8_mac_e5m2 passed
+  2030.00ns INFO     cocotb.regression                  running test.test_rounding_modes (4/36)
+  2030.00ns INFO     cocotb.tb                          Start Rounding Modes Test
+  2540.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1280, Actual: 1280
+  3050.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 0, Scales: 127,127, Expected: 1312, Actual: 1312
+  3560.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 0, Scales: 127,127, Expected: 1280, Actual: 1280
+  4070.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 127,127, Expected: 1280, Actual: 1280
+  4580.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1280, Actual: -1280
+  5090.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 0, Scales: 127,127, Expected: -1280, Actual: -1280
+  5600.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 0, Scales: 127,127, Expected: -1312, Actual: -1312
+  6110.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 127,127, Expected: -1280, Actual: -1280
+  6110.00ns INFO     cocotb.regression                  test.test_rounding_modes passed
+  6110.00ns INFO     cocotb.regression                  running test.test_overflow_saturation (5/36)
+  6110.00ns INFO     cocotb.tb                          Skipping E5M2 Overflow Saturation Test (SUPPORT_E5M2=0)
+  6110.00ns INFO     cocotb.regression                  test.test_overflow_saturation passed
+  6110.00ns INFO     cocotb.regression                  running test.test_accumulator_saturation (6/36)
+  6110.01ns INFO     cocotb.tb                          Skipping E5M2 Accumulator Saturation Test (SUPPORT_E5M2=0)
+  6110.01ns INFO     cocotb.regression                  test.test_accumulator_saturation passed
+  6110.01ns INFO     cocotb.regression                  running test.test_mxfp4_packed_serial (7/36)
+  6110.01ns INFO     cocotb.tb                          Skipping Serial Packed FP4 Test (SUPPORT_PACKED_SERIAL=0)
+  6110.01ns INFO     cocotb.regression                  test.test_mxfp4_packed_serial passed
+  6110.01ns INFO     cocotb.regression                  running test.test_mxfp4_packed (8/36)
+  6110.01ns INFO     cocotb.tb                          Start Packed FP4 Test
+  6460.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+  6460.01ns INFO     cocotb.regression                  test.test_mxfp4_packed passed
+  6460.01ns INFO     cocotb.regression                  running test.test_mixed_precision (9/36)
+  6460.01ns INFO     cocotb.tb                          Start Mixed-Precision MAC Test
+  6970.01ns INFO     cocotb.tb                          Format: E4M3xE5M2, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  7480.01ns INFO     cocotb.tb                          Format: E3M2xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+  7480.01ns INFO     cocotb.regression                  test.test_mixed_precision passed
+  7480.01ns INFO     cocotb.regression                  running test.test_mxfp_mac_randomized (10/36)
+  7480.01ns INFO     cocotb.tb                          Start Randomized MXFP MAC Test (E4M3=1, E5M2=0, MXFP6=0, MXFP4=1, ADV=1, MIX=1)
+  7990.01ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 136,117, Expected: 174832, Actual: 174832
+  8500.01ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 1, Scales: 123,122, Expected: -115907, Actual: -115907
+  9010.01ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 0, Wrap: 1, Scales: 125,126, Expected: -1770, Actual: -1770
+  9520.01ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 1, Scales: 111,123, Expected: -470451, Actual: -470451
+ 10030.01ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 0, Scales: 124,118, Expected: 114276, Actual: 114276
+ 10540.01ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 0, Scales: 128,134, Expected: 124428, Actual: 124428
+ 11050.01ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 0, Scales: 130,123, Expected: -4118, Actual: -4118
+ 11560.01ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 3, Wrap: 0, Scales: 129,132, Expected: -1620, Actual: -1620
+ 12070.01ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 1, Scales: 118,121, Expected: 1156, Actual: 1156
+ 12580.01ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 0, Scales: 140,112, Expected: 1972, Actual: 1972
+ 13090.01ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 114,129, Expected: -3488, Actual: -3488
+ 13600.01ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 0, Scales: 124,134, Expected: 2284, Actual: 2284
+ 14110.01ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 3, Wrap: 0, Scales: 127,114, Expected: 948, Actual: 948
+ 14620.01ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 1, Wrap: 0, Scales: 120,116, Expected: 6746, Actual: 6746
+ 15130.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 1, Scales: 128,137, Expected: 389090, Actual: 389090
+ 15640.01ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 0, Scales: 136,121, Expected: -9817, Actual: -9817
+ 16150.01ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 1, Scales: 131,137, Expected: 298584, Actual: 298584
+ 16660.01ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 1, Scales: 124,117, Expected: -9858, Actual: -9858
+ 17170.01ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 1, Scales: 116,125, Expected: 2143289344, Actual: 2143289344
+ 17680.01ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 0, Scales: 131,136, Expected: -1484, Actual: -1484
+ 18190.01ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 0, Wrap: 0, Scales: 137,111, Expected: -2100, Actual: -2100
+ 18700.01ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 0, Scales: 129,139, Expected: 2548, Actual: 2548
+ 19210.01ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 111,137, Expected: 10776, Actual: 10776
+ 19720.01ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 1, Scales: 122,120, Expected: 3624, Actual: 3624
+ 20230.01ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 118,117, Expected: -7848, Actual: -7848
+ 20740.01ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 1, Scales: 121,130, Expected: -114614, Actual: -114614
+ 21250.01ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 1, Wrap: 0, Scales: 131,113, Expected: -275980, Actual: -275980
+ 21760.01ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 118,136, Expected: -161667, Actual: -161667
+ 22270.01ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 115,133, Expected: -82576, Actual: -82576
+ 22780.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 135,120, Expected: -192, Actual: -192
+ 23290.01ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 0, Scales: 132,113, Expected: 165901, Actual: 165901
+ 23800.01ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 137,135, Expected: 2638, Actual: 2638
+ 24310.01ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 128,117, Expected: -18448, Actual: -18448
+ 24820.01ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 128,139, Expected: -13392, Actual: -13392
+ 25330.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 120,139, Expected: -1895005, Actual: -1895005
+ 25840.01ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 1, Scales: 134,110, Expected: -4028, Actual: -4028
+ 26350.01ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 1, Scales: 116,133, Expected: -11568, Actual: -11568
+ 26860.01ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 0, Scales: 134,114, Expected: 2143289344, Actual: 2143289344
+ 27370.01ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 3, Wrap: 1, Scales: 135,140, Expected: 3136, Actual: 3136
+ 27880.01ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 0, Scales: 125,127, Expected: -429568, Actual: -429568
+ 28390.01ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 0, Scales: 127,111, Expected: 172052, Actual: 172052
+ 28900.01ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 0, Scales: 135,112, Expected: 2143289344, Actual: 2143289344
+ 29410.01ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 1, Scales: 125,123, Expected: 56427, Actual: 56427
+ 29920.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 1, Wrap: 1, Scales: 140,120, Expected: -8640, Actual: -8640
+ 30430.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 1, Scales: 139,119, Expected: 2143289344, Actual: 2143289344
+ 30940.01ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 1, Scales: 129,123, Expected: -4150, Actual: -4150
+ 31450.01ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 125,130, Expected: 1724, Actual: 1724
+ 31960.01ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 1, Scales: 137,122, Expected: 1075, Actual: 1075
+ 32470.01ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 0, Scales: 138,139, Expected: -1387, Actual: -1387
+ 32980.01ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 1, Scales: 130,121, Expected: -84043, Actual: -84043
+ 32980.01ns INFO     cocotb.regression                  test.test_mxfp_mac_randomized passed
+ 32980.01ns INFO     cocotb.regression                  running test.test_fast_start_scale_compression (11/36)
+ 32980.01ns INFO     cocotb.tb                          Start Fast Start (Scale Compression) Test
+ 33490.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,127, Expected: 8192, Actual: 8192
+ 33880.01ns INFO     cocotb.regression                  test.test_fast_start_scale_compression passed
+ 33880.01ns INFO     cocotb.regression                  running test.test_yaml_cases (12/36)
+ 33880.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MX_E2E.yaml
+ 33880.01ns INFO     cocotb.tb                          Running Case 1: Basic E4M3 x E4M3 multiplication of 1.0 * 1.0 with default scales (2^0). 32 elements summed.
+ 34390.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 34390.01ns INFO     cocotb.tb                          Skipping Case 2: E5M2 not supported
+ 34390.01ns INFO     cocotb.tb                          Skipping Case 3: Shared Scaling not supported
+ 34390.01ns INFO     cocotb.tb                          Skipping Case 4: Shared Scaling not supported
+ 34390.01ns INFO     cocotb.tb                          Running Case 5: Negative product accumulation. 1.0 * -1.0 = -1.0. Summed 32 times is -32.0.
+ 34900.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -8192, Actual: -8192
+ 34900.01ns INFO     cocotb.tb                          Skipping Case 6: MXFP6 not supported
+ 34900.01ns INFO     cocotb.tb                          Skipping Case 7: MXFP6 not supported
+ 34900.01ns INFO     cocotb.tb                          Running Case 8: MXFP4 (E2M1) basic multiplication. 1.0 (0x02) * 1.0 (0x02) = 1.0.
+ 35410.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 35410.01ns INFO     cocotb.tb                          Running Case 9: MXINT8 multiplication. 64 (0x40) * 64 (0x40). With implicit 2^-6 scale per operand, this equals 1.0.
+ 35920.01ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 35920.01ns INFO     cocotb.tb                          Running Case 10: MXINT8_SYM. -128 (0x80) is treated as -127. -127 * 64 * 32 = -260096. Scaled by 2^-12 and then fixed point 2^8.
+ 36430.01ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -16256, Actual: -16256
+ 36430.01ns INFO     cocotb.tb                          Skipping Case 11: E5M2 not supported
+ 36430.01ns INFO     cocotb.tb                          Skipping Case 12: Requires 16-bit fractional precision (ALIGNER_WIDTH=40)
+ 36430.01ns INFO     cocotb.tb                          Skipping Case 13: E5M2 not supported
+ 36430.01ns INFO     cocotb.tb                          Skipping Case 14: E5M2 not supported
+ 36430.01ns INFO     cocotb.tb                          Skipping Case 15: E5M2 not supported
+ 36430.01ns INFO     cocotb.tb                          Running Case 16: E4M3 Zero Multiplication. 0.0 * 1.0 = 0.0.
+ 36940.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 36940.01ns INFO     cocotb.tb                          Running Case 17: E4M3 Max Finite. 448.0 (0x7E) * 1.0 (0x38) * 32. Scaled to fixed point.
+ 37450.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3670016, Actual: 3670016
+ 37450.01ns INFO     cocotb.tb                          Skipping Case 18: Shared Scaling not supported
+ 37450.01ns INFO     cocotb.tb                          Skipping Case 19: E5M2 not supported
+ 37450.01ns INFO     cocotb.tb                          Skipping Case 20: E5M2 not supported
+ 37450.01ns INFO     cocotb.tb                          Skipping Case 21: E5M2 not supported
+ 37450.01ns INFO     cocotb.tb                          Skipping Case 22: E5M2 not supported
+ 37450.01ns INFO     cocotb.tb                          Running Case 23: E2M1 (FP4) Zero. 0.0 * 1.0 = 0.0.
+ 37960.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 37960.01ns INFO     cocotb.tb                          Running Case 24: E2M1 (FP4) Max. 6.0 (0x07) * 1.0 (0x02) * 32. Fixed point: 49152.
+ 38470.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 49152, Actual: 49152
+ 38470.01ns INFO     cocotb.tb                          Skipping Case 25: Shared Scaling not supported
+ 38470.01ns INFO     cocotb.tb                          Running Case 26: Mixed Precision E2M1 (FP4) x E4M3 (FP8). 1.0 * 1.0 = 1.0. Summed 32 times.
+ 38980.01ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 38980.01ns INFO     cocotb.tb                          Running Case 27: E4M3 NaN (special value). Standardized OCP exception handling (0x7FC00000).
+ 39490.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 39490.01ns INFO     cocotb.regression                  test.test_yaml_cases passed
+ 39490.01ns INFO     cocotb.regression                  running test.test_mx_fp4_yaml (13/36)
+ 39490.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MX_FP4.yaml
+ 39490.01ns INFO     cocotb.tb                          Running Case 1: Standard MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed is 32.0.
+ 40000.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 40000.01ns INFO     cocotb.tb                          Running Case 2: Packed MXFP4 (E2M1) multiplication. 32 elements of 1.0 * 1.0 = 1.0. Summed is 32.0.
+ 40350.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 40350.01ns INFO     cocotb.tb                          Running Case 3: Mixed Values Packed MXFP4 (E2M1). 1.0 (0x02) * 2.0 (0x04) = 2.0. Summed is 64.0.
+ 40700.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 16384, Actual: 16384
+ 40700.01ns INFO     cocotb.tb                          Running Case 4: Negative Values Packed MXFP4 (E2M1). -1.0 (0x0A) * 1.0 (0x02) = -1.0. Summed is -32.0.
+ 41050.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -8192, Actual: -8192
+ 41050.01ns INFO     cocotb.tb                          Running Case 5: Subnormal Values Packed MXFP4 (E2M1). 0.5 (0x01) * 1.0 (0x02) = 0.5. Summed is 16.0.
+ 41400.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 4096, Actual: 4096
+ 41400.01ns INFO     cocotb.tb                          Running Case 6: Edge Case Max Values Packed MXFP4 (E2M1). 6.0 (0x07) * 6.0 (0x07) = 36.0. Summed is 1152.0.
+ 41750.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 294912, Actual: 294912
+ 41750.01ns INFO     cocotb.tb                          Running Case 7: Full range FP4 (E2M1) multiplication. All 16 values squared and summed twice. Expected: 274.0.
+ 42100.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 70144, Actual: 70144
+ 42100.01ns INFO     cocotb.tb                          Running Case 7: Full range FP4 (E2M1) multiplication. All 16 values squared and summed twice. Expected: 274.0.
+ 42450.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 70144, Actual: 70144
+ 42450.01ns INFO     cocotb.regression                  test.test_mx_fp4_yaml passed
+ 42450.01ns INFO     cocotb.regression                  running test.test_min_max_zero_yaml (14/36)
+ 42450.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MIN_MAX_ZERO.yaml
+ 42450.01ns INFO     cocotb.tb                          Running Case 101: E4M3 Max Finite * 1.0
+ 42960.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3670016, Actual: 3670016
+ 42960.01ns INFO     cocotb.tb                          Running Case 102: E4M3 Negative Max Finite * 1.0
+ 43470.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -3670016, Actual: -3670016
+ 43470.01ns INFO     cocotb.tb                          Running Case 103: E4M3 Subnormal (0x01) * Max Finite (0x7E)
+ 43980.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 7168, Actual: 7168
+ 43980.01ns INFO     cocotb.tb                          Running Case 104: E4M3 Negative Subnormal (0x81) * Max Finite (0x7E)
+ 44490.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -7168, Actual: -7168
+ 44490.01ns INFO     cocotb.tb                          Running Case 105: E4M3 Zero * Max Finite
+ 45000.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 106: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 107: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 108: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 109: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 110: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 111: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Skipping Case 112: E5M2 not supported
+ 45000.01ns INFO     cocotb.tb                          Running Case 113: E2M1 Max * 1.0
+ 45510.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 49152, Actual: 49152
+ 45510.01ns INFO     cocotb.tb                          Running Case 114: E2M1 Negative Max * 1.0
+ 46020.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -49152, Actual: -49152
+ 46020.01ns INFO     cocotb.tb                          Running Case 115: E2M1 Negative Subnormal (0x09) * 1.0
+ 46530.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -4096, Actual: -4096
+ 46530.01ns INFO     cocotb.tb                          Running Case 116: E2M1 Negative Zero * 1.0
+ 47040.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 47040.01ns INFO     cocotb.tb                          Skipping Case 117: Shared Scaling not supported
+ 47040.01ns INFO     cocotb.tb                          Running Case 118: E4M3 Negative Zero * 1.0
+ 47550.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 47550.01ns INFO     cocotb.tb                          Skipping Case 119: E5M2 not supported
+ 47550.01ns INFO     cocotb.regression                  test.test_min_max_zero_yaml passed
+ 47550.01ns INFO     cocotb.regression                  running test.test_mxplus_yaml (15/36)
+ 47550.01ns INFO     cocotb.tb                          Start YAML Test Cases from TEST_MXPLUS.yaml
+ 47550.01ns INFO     cocotb.tb                          Running Case 1: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x02)=5.0, b[31] is BM(0x02)=5.0. Others 1.0. Total = 5 + 30 + 5 = 40.0. Fixed = 10240.
+ 48060.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 10240, Actual: 10240
+ 48060.01ns INFO     cocotb.tb                          Running Case 2: MXFP4+ (E2M1) BM element precision. a[0] is BM(0x05)=6.5, b[31] is BM(0x05)=6.5. Others 1.0. Total = 6.5 + 30 + 6.5 = 43.0. Fixed = 11008.
+ 48570.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 11008, Actual: 11008
+ 48570.01ns INFO     cocotb.tb                          Running Case 3: MXFP8+ (E4M3) BM element precision. a[10] is BM(0x38)=368.0, b[31] is BM(0x38)=368.0. Others 1.0. Total = 368 + 30 + 368 = 766.0. Fixed = 196096.
+ 49080.01ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 196096, Actual: 196096
+ 49080.01ns INFO     cocotb.tb                          Running Case 4: MXFP4++ (E2M1) Decoupled Scaling. a[0] is BM, b[0] is BM. nbm_offset_a=1. BM Prod = 25.0, NBM Prod = 0.5. Total = 25 + 31*0.5 = 40.5. Fixed = 10368.
+ 49590.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 10368, Actual: 10368
+ 49590.01ns INFO     cocotb.tb                          Running Case 5: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=1. BM Prod = 25.0, NBM Prod = 0.25*0.5 = 0.125. Total = 25 + 31*0.125 = 28.875. Fixed = 7392.
+ 50100.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 7392, Actual: 7392
+ 50100.01ns INFO     cocotb.tb                          Running Case 6: MXFP4++ (E2M1) Decoupled Scaling. nbm_offset_a=2, nbm_offset_b=2. BM Prod = 25.0, NBM Prod = 0.25*0.25 = 0.0625. Total = 25 + 31*0.0625 = 26.9375. Fixed = 6896.
+ 50610.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 6896, Actual: 6896
+ 50610.01ns INFO     cocotb.tb                          Running Case 7: MXFP4+ Mid-block BM index. a[7]=0x05, b[7]=0x05 are BM. 42.25 + 31 = 73.25. Fixed = 18752.
+ 51120.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 18752, Actual: 18752
+ 51120.01ns INFO     cocotb.tb                          Running Case 8: Mixed Precision MX+. a:E4M3+, b:E2M1+, index 7 are BM. Product 1024 shifted 8 = 262144.
+ 51630.01ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 262144, Actual: 262144
+ 51630.01ns INFO     cocotb.tb                          Running Case 9: MXFP4+ Zero-valued outlier (treated as 4.0). a[7] is BM(0x00)=4.0, b[7] is BM(0x02)=5.0. Total = 20.0. Fixed = 5120.
+ 52140.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 5120, Actual: 5120
+ 52140.01ns INFO     cocotb.tb                          Running Case 10: MXFP4+ Negative outlier. a[7] is BM(0x0A)=-5.0, b[7] is BM(0x02)=5.0. Total = -25.0. Fixed = -6400.
+ 52650.01ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -6400, Actual: -6400
+ 52650.01ns INFO     cocotb.regression                  test.test_mxplus_yaml passed
+ 52650.01ns INFO     cocotb.regression                  running test.test_mxfp4_input_buffering (16/36)
+ 52650.01ns INFO     cocotb.tb                          Skipping Input Buffering FP4 Test (SUPPORT_VECTOR_PACKING=1 (takes precedence))
+ 52650.01ns INFO     cocotb.regression                  test.test_mxfp4_input_buffering passed
+ 52650.01ns INFO     cocotb.regression                  running test.test_mxfp8_sticky_flags (17/36)
+ 52650.02ns INFO     cocotb.tb                          Start MXFP8 Sticky Flags (NaN/Inf) Test
+ 52650.02ns INFO     cocotb.tb                          Testing Element-level NaN (E4M3)
+ 53160.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 53160.02ns INFO     cocotb.regression                  test.test_mxfp8_sticky_flags passed
+ 53160.02ns INFO     cocotb.regression                  running test.test_lns_modes (18/36)
+ 53160.02ns INFO     cocotb.tb                          Start LNS Modes Test
+ 53160.02ns INFO     cocotb.tb                          Skipping LNS Modes Test (USE_LNS_MUL=0)
+ 53160.02ns INFO     cocotb.regression                  test.test_lns_modes passed
+ 53160.02ns INFO     cocotb.regression                  running test.test_mxfp8_subnormals (19/36)
+ 53160.02ns INFO     cocotb.tb                          Start MXFP8 Subnormals Test
+ 53670.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 53670.02ns INFO     cocotb.regression                  test.test_mxfp8_subnormals passed
+ 53670.02ns INFO     cocotb.regression                  running test.test_mxfp8_subnormal_precision (20/36)
+                                                            Test that small subnormal products (e.g., 2^-9) are preserved by the
+ 53670.02ns INFO     cocotb.tb                          Start MXFP8 Subnormal Precision Test
+ 54180.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+ 54180.02ns INFO     cocotb.regression                  test.test_mxfp8_subnormal_precision passed
+ 54180.02ns INFO     cocotb.regression                  running test.test_lane_overflow (21/36)
+                                                            Specifically test that dual-lane addition in Packed Mode saturates
+ 54180.02ns INFO     cocotb.tb                          Start Lane Overflow Test (Packed Mode)
+ 54530.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 157,127, Expected: 8192, Actual: 8192
+ 54530.02ns INFO     cocotb.regression                  test.test_lane_overflow passed
+ 54530.02ns INFO     cocotb.regression                  running test.test_float32_mode (22/36)
+                                                            Verify that setting the FLOAT32_EN bit in Cycle 0 produces
+ 54530.02ns INFO     cocotb.tb                          Start Float32 Mode Integration Test
+ 55040.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1107296256, Actual: 1107296256
+ 55550.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1098907648, Actual: 1098907648
+ 55550.02ns INFO     cocotb.regression                  test.test_float32_mode passed
+ 55550.02ns INFO     cocotb.regression                  running test.test_mxfp4_full_range (23/36)
+ 55550.02ns INFO     cocotb.tb                          Start Full Range Packed FP4 Test
+ 55900.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 70144, Actual: 70144
+ 55900.02ns INFO     cocotb.regression                  test.test_mxfp4_full_range passed
+ 55900.02ns INFO     cocotb.regression                  running test_coverage.test_exhaustive_formats_subset (24/36)
+                                                            Run exhaustive 256x256 for a few key format combinations
+ 55900.02ns INFO     cocotb.tb                          Exhaustive test for 0 x 0 (packed=0)
+ 56410.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 56920.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 57430.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2660494, Actual: 2660494
+ 57940.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -5701962, Actual: -5701962
+ 58450.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 58960.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 4154648, Actual: 4154648
+ 59470.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3247317, Actual: 3247317
+ 59980.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 60490.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 61000.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 706010, Actual: 706010
+ 61510.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -8388608, Actual: -8388608
+ 62020.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1865092, Actual: 1865092
+ 62530.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -4972092, Actual: -4972092
+ 63040.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -154982, Actual: -154982
+ 63550.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1799089, Actual: 1799089
+ 64060.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -8388577, Actual: -8388577
+ 64570.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 7526947, Actual: 7526947
+ 65080.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -8388594, Actual: -8388594
+ 65590.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 66100.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 66610.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 67120.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2464096, Actual: 2464096
+ 67630.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -731484, Actual: -731484
+ 68140.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 68650.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1135403, Actual: 1135403
+ 69160.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -8388608, Actual: -8388608
+ 69670.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -5677535, Actual: -5677535
+ 70180.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 70690.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1176790, Actual: -1176790
+ 71200.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: -3337561, Actual: -3337561
+ 71710.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3250570, Actual: 3250570
+ 72220.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 72220.02ns INFO     cocotb.tb                          Exhaustive test for 4 x 4 (packed=1)
+ 72570.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -10304, Actual: -10304
+ 72920.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -448, Actual: -448
+ 73270.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 5568, Actual: 5568
+ 73620.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 6720, Actual: 6720
+ 73970.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -3328, Actual: -3328
+ 74320.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 18688, Actual: 18688
+ 74670.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -15744, Actual: -15744
+ 75020.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1152, Actual: -1152
+ 75020.02ns INFO     cocotb.tb                          Exhaustive test for 5 x 5 (packed=0)
+ 75530.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -2646, Actual: -2646
+ 76040.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -167, Actual: -167
+ 76550.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1454, Actual: 1454
+ 77060.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1385, Actual: -1385
+ 77570.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 371, Actual: 371
+ 78080.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3269, Actual: 3269
+ 78590.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1978, Actual: 1978
+ 79100.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 114, Actual: 114
+ 79610.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 619, Actual: 619
+ 80120.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1450, Actual: -1450
+ 80630.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1370, Actual: 1370
+ 81140.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -860, Actual: -860
+ 81650.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -2431, Actual: -2431
+ 82160.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1434, Actual: -1434
+ 82670.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 745, Actual: 745
+ 83180.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1665, Actual: 1665
+ 83690.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -3138, Actual: -3138
+ 84200.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -399, Actual: -399
+ 84710.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1213, Actual: 1213
+ 85220.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2476, Actual: 2476
+ 85730.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -104, Actual: -104
+ 86240.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -163, Actual: -163
+ 86750.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -609, Actual: -609
+ 87260.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 78, Actual: 78
+ 87770.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 3530, Actual: 3530
+ 88280.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -1691, Actual: -1691
+ 88790.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -4066, Actual: -4066
+ 89300.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -4423, Actual: -4423
+ 89810.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -100, Actual: -100
+ 90320.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 1449, Actual: 1449
+ 90830.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -305, Actual: -305
+ 91340.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: -413, Actual: -413
+ 91340.02ns INFO     cocotb.regression                  test_coverage.test_exhaustive_formats_subset passed
+ 91340.02ns INFO     cocotb.regression                  running test_coverage.test_edge_cases (25/36)
+                                                            Targeted edge cases for all formats
+ 91850.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2143289344, Actual: 2143289344
+ 92360.02ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 18432, Actual: 18432
+ 92870.02ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2032, Actual: 2032
+ 93380.02ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 0, Scales: 127,127, Expected: 2016, Actual: 2016
+ 93380.02ns INFO     cocotb.regression                  test_coverage.test_edge_cases passed
+ 93380.02ns INFO     cocotb.regression                  running test_coverage.test_shared_scale_coverage (26/36)
+                                                            Test various shared scale combinations
+ 93890.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 0,0, Expected: 8192, Actual: 8192
+ 94400.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 0,127, Expected: 8192, Actual: 8192
+ 94910.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 0,128, Expected: 8192, Actual: 8192
+ 95420.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 0,255, Expected: 8192, Actual: 8192
+ 95930.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,0, Expected: 8192, Actual: 8192
+ 96440.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 8192
+ 96950.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,128, Expected: 8192, Actual: 8192
+ 97460.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,255, Expected: 8192, Actual: 8192
+ 97970.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,0, Expected: 8192, Actual: 8192
+ 98480.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,127, Expected: 8192, Actual: 8192
+ 98990.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,128, Expected: 8192, Actual: 8192
+ 99500.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 128,255, Expected: 8192, Actual: 8192
+100010.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 255,0, Expected: 8192, Actual: 8192
+100520.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 255,127, Expected: 8192, Actual: 8192
+101030.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 255,128, Expected: 8192, Actual: 8192
+101540.02ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 255,255, Expected: 8192, Actual: 8192
+101540.02ns INFO     cocotb.regression                  test_coverage.test_shared_scale_coverage passed
+101540.02ns INFO     cocotb.regression                  running test_coverage.test_lns_coverage (27/36)
+                                                            Targeted coverage for LNS and Hybrid modes
+101540.03ns INFO     cocotb.tb                          Skipping LNS Coverage Test (USE_LNS_MUL=0)
+101540.03ns INFO     cocotb.regression                  test_coverage.test_lns_coverage passed
+101540.03ns INFO     cocotb.regression                  running test_coverage.test_randomized_coverage (28/36)
+                                                            Run many randomized tests to fill coverage
+102050.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 1, Scales: 21,30, Expected: 977, Actual: 977
+102560.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 1, Scales: 246,44, Expected: -28, Actual: -28
+103070.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 0, Scales: 223,85, Expected: 2143289344, Actual: 2143289344
+103580.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 1, Scales: 29,57, Expected: -974, Actual: -974
+104090.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 1, Scales: 84,8, Expected: -288034, Actual: -288034
+104600.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 0, Scales: 212,122, Expected: 2143289344, Actual: 2143289344
+105110.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 1, Scales: 122,12, Expected: 2143289344, Actual: 2143289344
+105620.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 0, Wrap: 1, Scales: 40,233, Expected: 12140, Actual: 12140
+106130.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 1, Scales: 243,218, Expected: 3169, Actual: 3169
+106640.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 138,231, Expected: -13308, Actual: -13308
+107150.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 1, Wrap: 0, Scales: 120,28, Expected: 50100, Actual: 50100
+107660.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 236,22, Expected: 2143289344, Actual: 2143289344
+108170.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 0, Scales: 51,73, Expected: 11520, Actual: 11520
+108680.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 13,52, Expected: -269, Actual: -269
+109190.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 0, Wrap: 0, Scales: 152,44, Expected: -1914, Actual: -1914
+109700.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 3, Wrap: 1, Scales: 72,92, Expected: -201133, Actual: -201133
+110210.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 0, Scales: 117,102, Expected: 1614, Actual: 1614
+110720.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 0, Scales: 89,171, Expected: 364865, Actual: 364865
+111230.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 1, Scales: 73,3, Expected: 2143289344, Actual: 2143289344
+111740.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 1, Wrap: 0, Scales: 22,138, Expected: -1552, Actual: -1552
+112250.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 0, Scales: 230,214, Expected: 196106, Actual: 196106
+112760.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 0, Scales: 139,146, Expected: -4442, Actual: -4442
+113270.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 1, Scales: 192,152, Expected: -192453, Actual: -192453
+113780.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 0, Scales: 88,207, Expected: 1495, Actual: 1495
+114290.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 202,255, Expected: -108606, Actual: -108606
+114800.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 0, Scales: 179,28, Expected: -276806, Actual: -276806
+115310.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 1, Wrap: 0, Scales: 243,9, Expected: 3687, Actual: 3687
+115820.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 0, Scales: 28,227, Expected: 1223, Actual: 1223
+116330.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 0, Scales: 92,207, Expected: -1760, Actual: -1760
+116840.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 0, Scales: 58,40, Expected: 309, Actual: 309
+117350.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 250,103, Expected: 164348, Actual: 164348
+117860.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 29,49, Expected: 2143289344, Actual: 2143289344
+118370.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 12,204, Expected: 2143289344, Actual: 2143289344
+118880.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 1, Scales: 66,157, Expected: 2143289344, Actual: 2143289344
+119390.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 1, Scales: 192,59, Expected: -3768, Actual: -3768
+119900.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 3, Wrap: 1, Scales: 142,130, Expected: 2085, Actual: 2085
+120410.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 111,163, Expected: 2143289344, Actual: 2143289344
+120920.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 0, Scales: 224,111, Expected: -2530, Actual: -2530
+121430.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 185,151, Expected: -1840, Actual: -1840
+121940.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 1, Wrap: 1, Scales: 24,60, Expected: 8186, Actual: 8186
+122450.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 31,97, Expected: -26560, Actual: -26560
+122960.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 3, Wrap: 0, Scales: 51,106, Expected: -174, Actual: -174
+123470.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 1, Scales: 189,208, Expected: 1222, Actual: 1222
+123980.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 130,145, Expected: 2143289344, Actual: 2143289344
+124490.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 130,60, Expected: 131928, Actual: 131928
+125000.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 0, Wrap: 0, Scales: 247,117, Expected: 526, Actual: 526
+125510.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 0, Scales: 56,103, Expected: -198457, Actual: -198457
+126020.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 3, Wrap: 0, Scales: 147,31, Expected: -271, Actual: -271
+126530.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 0, Scales: 38,105, Expected: 2403, Actual: 2403
+127040.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 2, Wrap: 0, Scales: 12,5, Expected: -104777, Actual: -104777
+127550.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 105,41, Expected: -269900, Actual: -269900
+128060.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 1, Scales: 4,242, Expected: 2143289344, Actual: 2143289344
+128570.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 0, Scales: 224,187, Expected: 148643, Actual: 148643
+129080.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 1, Wrap: 0, Scales: 188,87, Expected: -38375, Actual: -38375
+129590.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 1, Scales: 160,53, Expected: 429, Actual: 429
+130100.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 1, Scales: 89,20, Expected: 1169, Actual: 1169
+130610.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 1, Scales: 180,37, Expected: -1644, Actual: -1644
+131120.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 1, Scales: 241,228, Expected: 3760, Actual: 3760
+131630.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 1, Scales: 193,23, Expected: 9664, Actual: 9664
+132140.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 1, Scales: 40,234, Expected: 2143289344, Actual: 2143289344
+132650.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 1, Scales: 238,191, Expected: 122015, Actual: 122015
+133160.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 1, Scales: 118,167, Expected: 2911, Actual: 2911
+133670.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 1, Scales: 116,166, Expected: 1920, Actual: 1920
+134180.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 131,67, Expected: -12544, Actual: -12544
+134690.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 36,110, Expected: -3350, Actual: -3350
+135200.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 1, Scales: 45,150, Expected: -3608, Actual: -3608
+135710.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 164,202, Expected: 30875, Actual: 30875
+136220.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 1, Scales: 92,20, Expected: 2166635, Actual: 2166635
+136570.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 92,26, Expected: -9088, Actual: -9088
+137080.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 1, Scales: 4,132, Expected: 2143289344, Actual: 2143289344
+137590.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 255,174, Expected: 870, Actual: 870
+138100.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 1, Scales: 198,138, Expected: 11872, Actual: 11872
+138610.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 0, Scales: 197,214, Expected: -2578, Actual: -2578
+139120.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 1, Scales: 67,87, Expected: -1762, Actual: -1762
+139630.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 1, Scales: 245,46, Expected: 2143289344, Actual: 2143289344
+140140.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 0, Scales: 84,214, Expected: -147886, Actual: -147886
+140650.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 228,117, Expected: 2143289344, Actual: 2143289344
+141160.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 0, Scales: 106,228, Expected: -3895, Actual: -3895
+141670.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 0, Scales: 138,44, Expected: 8582, Actual: 8582
+142180.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 0, Scales: 185,19, Expected: -3682, Actual: -3682
+142690.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 27,161, Expected: -200054, Actual: -200054
+143200.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 0, Scales: 165,163, Expected: 3596, Actual: 3596
+143710.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 3, Wrap: 0, Scales: 147,158, Expected: -795, Actual: -795
+144220.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 38,92, Expected: 4179, Actual: 4179
+144730.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 208,123, Expected: -11776, Actual: -11776
+145240.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 135,166, Expected: 7534634, Actual: 7534634
+145750.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 149,136, Expected: -4409, Actual: -4409
+146260.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 0, Wrap: 0, Scales: 56,158, Expected: 46259, Actual: 46259
+146770.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 0, Scales: 63,236, Expected: 6794, Actual: 6794
+147280.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 0, Scales: 85,61, Expected: -56782, Actual: -56782
+147790.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 1, Wrap: 0, Scales: 86,18, Expected: -123442, Actual: -123442
+148300.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 1, Scales: 45,132, Expected: -7756, Actual: -7756
+148810.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 0, Scales: 142,193, Expected: 2143289344, Actual: 2143289344
+149320.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 0, Scales: 251,237, Expected: 7226, Actual: 7226
+149670.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 191,194, Expected: -64, Actual: -64
+150180.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 1, Scales: 131,193, Expected: 1895, Actual: 1895
+150690.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 1, Scales: 196,13, Expected: 2709, Actual: 2709
+151200.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 0, Scales: 222,143, Expected: -289029, Actual: -289029
+151710.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 1, Wrap: 0, Scales: 159,220, Expected: 1250, Actual: 1250
+152220.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 2, Wrap: 1, Scales: 127,190, Expected: 799, Actual: 799
+152730.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 3, Wrap: 1, Scales: 135,62, Expected: -153, Actual: -153
+153240.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 0, Scales: 93,169, Expected: -87, Actual: -87
+153750.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 1, Scales: 185,32, Expected: 1269, Actual: 1269
+154260.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 253,147, Expected: 72357, Actual: 72357
+154770.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 1, Scales: 180,36, Expected: 6962, Actual: 6962
+155280.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 1, Scales: 211,117, Expected: -120439, Actual: -120439
+155790.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 0, Scales: 154,210, Expected: 347818, Actual: 347818
+156300.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 0, Scales: 215,167, Expected: 5964, Actual: 5964
+156810.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 0, Scales: 225,47, Expected: -5049, Actual: -5049
+157320.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 0, Scales: 184,192, Expected: 1536, Actual: 1536
+157830.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 1, Scales: 93,75, Expected: 247430, Actual: 247430
+158340.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 2, Wrap: 1, Scales: 135,63, Expected: -3880, Actual: -3880
+158850.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 0, Scales: 245,254, Expected: -1647537, Actual: -1647537
+159360.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 185,34, Expected: 1486, Actual: 1486
+159870.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 0, Scales: 19,243, Expected: 991, Actual: 991
+160380.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 1, Scales: 143,24, Expected: 3894, Actual: 3894
+160890.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 232,254, Expected: -6872, Actual: -6872
+161400.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 87,163, Expected: 2143289344, Actual: 2143289344
+161910.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 0, Scales: 48,36, Expected: -11264, Actual: -11264
+162420.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 0, Scales: 139,246, Expected: 2143289344, Actual: 2143289344
+162770.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 243,196, Expected: 18752, Actual: 18752
+163280.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 1, Scales: 156,176, Expected: -4676, Actual: -4676
+163790.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 1, Scales: 240,83, Expected: -204056, Actual: -204056
+164140.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 139,114, Expected: 1024, Actual: 1024
+164650.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 0, Scales: 231,87, Expected: 1424, Actual: 1424
+165160.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 3, Wrap: 1, Scales: 208,97, Expected: 1906, Actual: 1906
+165670.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 239,16, Expected: 1404, Actual: 1404
+166180.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 1, Scales: 205,223, Expected: -8940, Actual: -8940
+166690.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 0, Scales: 12,98, Expected: -24829, Actual: -24829
+167200.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 0, Scales: 101,139, Expected: 3049, Actual: 3049
+167710.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 0, Scales: 30,139, Expected: -14336, Actual: -14336
+168220.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 0, Scales: 190,59, Expected: -153011, Actual: -153011
+168730.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 1, Scales: 40,170, Expected: 772, Actual: 772
+169240.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 1, Wrap: 1, Scales: 164,254, Expected: -315454, Actual: -315454
+169750.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 1, Scales: 247,23, Expected: -3712, Actual: -3712
+170260.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 220,226, Expected: -11648, Actual: -11648
+170770.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 1, Scales: 247,173, Expected: -568, Actual: -568
+171280.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 1, Scales: 37,179, Expected: 147293, Actual: 147293
+171790.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 0, Scales: 187,93, Expected: -471378, Actual: -471378
+172300.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 1, Scales: 199,198, Expected: -60432, Actual: -60432
+172810.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 0, Scales: 143,63, Expected: 2143289344, Actual: 2143289344
+173320.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 1, Scales: 5,173, Expected: -1616, Actual: -1616
+173830.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 0, Scales: 98,246, Expected: -220262, Actual: -220262
+174340.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 1, Wrap: 0, Scales: 222,77, Expected: -603952, Actual: -603952
+174850.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 1, Scales: 87,47, Expected: -388, Actual: -388
+175360.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 0, Scales: 72,31, Expected: 1890, Actual: 1890
+175870.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 1, Scales: 133,124, Expected: 4118, Actual: 4118
+176220.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 1, Wrap: 0, Scales: 10,127, Expected: -1216, Actual: -1216
+176730.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 1, Scales: 150,8, Expected: 2143289344, Actual: 2143289344
+177240.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 1, Scales: 246,9, Expected: -540, Actual: -540
+177750.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 1, Scales: 243,201, Expected: 757, Actual: 757
+178260.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 0, Scales: 39,120, Expected: -1827, Actual: -1827
+178770.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 3, Wrap: 0, Scales: 124,214, Expected: 86205, Actual: 86205
+179280.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 2, Wrap: 0, Scales: 43,167, Expected: 2143289344, Actual: 2143289344
+179790.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 1, Scales: 87,101, Expected: -709441, Actual: -709441
+180300.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 1, Scales: 250,224, Expected: 7076, Actual: 7076
+180810.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 0, Scales: 113,67, Expected: 7852, Actual: 7852
+181320.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 111,173, Expected: 2960, Actual: 2960
+181830.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 2, Wrap: 0, Scales: 126,100, Expected: -5084, Actual: -5084
+182340.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 1, Scales: 163,185, Expected: -120814, Actual: -120814
+182850.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 241,81, Expected: 620, Actual: 620
+183360.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 0, Scales: 232,135, Expected: 349514, Actual: 349514
+183870.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 41,233, Expected: 4474, Actual: 4474
+184380.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 0, Scales: 150,174, Expected: -1949, Actual: -1949
+184890.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 0, Scales: 24,245, Expected: 3260, Actual: 3260
+185400.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 1, Scales: 252,191, Expected: -44, Actual: -44
+185910.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 1, Scales: 228,9, Expected: 42990, Actual: 42990
+186420.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 0, Scales: 58,97, Expected: -2488, Actual: -2488
+186930.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 203,139, Expected: -2976, Actual: -2976
+187440.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 0, Scales: 108,202, Expected: 2143289344, Actual: 2143289344
+187950.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 52,25, Expected: -4950, Actual: -4950
+188460.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 0, Scales: 158,126, Expected: -847837, Actual: -847837
+188970.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 0, Wrap: 1, Scales: 195,153, Expected: 985, Actual: 985
+189480.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 1, Scales: 195,239, Expected: 1550, Actual: 1550
+189990.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 78,196, Expected: 2143289344, Actual: 2143289344
+190500.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 1, Scales: 81,211, Expected: -5940, Actual: -5940
+191010.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 197,33, Expected: 34994, Actual: 34994
+191520.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 64,114, Expected: -329993, Actual: -329993
+192030.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 1, Scales: 94,131, Expected: -5124, Actual: -5124
+192540.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 3, Wrap: 1, Scales: 12,153, Expected: -1, Actual: -1
+193050.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 1, Wrap: 1, Scales: 11,233, Expected: -134558, Actual: -134558
+193560.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 1, Scales: 254,243, Expected: -346, Actual: -346
+194070.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 1, Scales: 110,116, Expected: 321408, Actual: 321408
+194580.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 0, Scales: 32,150, Expected: 416213, Actual: 416213
+195090.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 1, Scales: 93,46, Expected: -1517, Actual: -1517
+195600.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 1, Scales: 19,197, Expected: -1912, Actual: -1912
+196110.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 1, Scales: 209,203, Expected: -503, Actual: -503
+196620.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 1, Scales: 93,231, Expected: 110009, Actual: 110009
+197130.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 1, Scales: 100,73, Expected: -4232, Actual: -4232
+197640.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 0, Scales: 155,211, Expected: 534046, Actual: 534046
+198150.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 1, Scales: 114,177, Expected: 3968, Actual: 3968
+198660.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 0, Scales: 175,116, Expected: 7252, Actual: 7252
+199170.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 57,48, Expected: 26810, Actual: 26810
+199680.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 1, Scales: 93,224, Expected: -54731, Actual: -54731
+200190.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 1, Scales: 6,210, Expected: 2143289344, Actual: 2143289344
+200700.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 1, Scales: 124,15, Expected: 2472, Actual: 2472
+201210.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 0, Scales: 42,214, Expected: -68246, Actual: -68246
+201720.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 112,231, Expected: 2143289344, Actual: 2143289344
+202230.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 1, Wrap: 1, Scales: 107,217, Expected: -2496, Actual: -2496
+202740.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 1, Scales: 121,240, Expected: 286860, Actual: 286860
+203250.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 188,207, Expected: -8388608, Actual: -8388608
+203760.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 1, Wrap: 1, Scales: 244,41, Expected: -4544, Actual: -4544
+204270.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 0, Scales: 227,125, Expected: -2220, Actual: -2220
+204620.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 79,97, Expected: -38848, Actual: -38848
+205130.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 2,109, Expected: -4076685, Actual: -4076685
+205640.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 5,200, Expected: 448, Actual: 448
+206150.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 1, Scales: 47,83, Expected: -153890, Actual: -153890
+206660.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 1, Scales: 223,50, Expected: 2143289344, Actual: 2143289344
+207170.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 244,79, Expected: 6016, Actual: 6016
+207680.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 1, Scales: 126,103, Expected: -10077, Actual: -10077
+208190.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 1, Scales: 193,34, Expected: -1759, Actual: -1759
+208540.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 0, Scales: 149,37, Expected: -12288, Actual: -12288
+209050.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 99,126, Expected: 212030, Actual: 212030
+209560.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 0, Scales: 216,84, Expected: -653902, Actual: -653902
+210070.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 0, Scales: 30,0, Expected: 2143289344, Actual: 2143289344
+210580.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 147,137, Expected: -4040, Actual: -4040
+210930.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 115,248, Expected: -25920, Actual: -25920
+211440.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 1, Scales: 150,252, Expected: 945722, Actual: 945722
+211950.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 124,76, Expected: 2143289344, Actual: 2143289344
+212460.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 1, Scales: 98,118, Expected: 95917, Actual: 95917
+212970.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 1, Scales: 109,158, Expected: 8402, Actual: 8402
+213480.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 1, Scales: 67,107, Expected: -50, Actual: -50
+213990.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 2, Wrap: 1, Scales: 78,72, Expected: -674, Actual: -674
+214500.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 10,202, Expected: -22972, Actual: -22972
+215010.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 1, Scales: 194,13, Expected: -15283, Actual: -15283
+215520.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 0, Scales: 79,168, Expected: 2143289344, Actual: 2143289344
+216030.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 0, Scales: 29,48, Expected: -404920, Actual: -404920
+216540.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 158,148, Expected: 2650, Actual: 2650
+217050.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 0, Scales: 252,173, Expected: -293391, Actual: -293391
+217560.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 0, Scales: 203,206, Expected: -797539, Actual: -797539
+218070.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 1, Scales: 102,192, Expected: -3260, Actual: -3260
+218580.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 0, Scales: 204,68, Expected: -5646, Actual: -5646
+219090.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 1, Scales: 191,140, Expected: 2968, Actual: 2968
+219600.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 0, Scales: 32,202, Expected: 3986, Actual: 3986
+220110.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 1, Scales: 164,7, Expected: 682, Actual: 682
+220620.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 1, Scales: 170,199, Expected: 295753, Actual: 295753
+221130.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 0, Wrap: 0, Scales: 235,179, Expected: -65, Actual: -65
+221640.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 214,74, Expected: -10380, Actual: -10380
+222150.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 0, Scales: 211,103, Expected: 2143289344, Actual: 2143289344
+222660.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 1, Scales: 244,86, Expected: 1410, Actual: 1410
+223170.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 1, Scales: 160,75, Expected: -66222, Actual: -66222
+223680.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 0, Scales: 242,9, Expected: 2143289344, Actual: 2143289344
+224190.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 183,183, Expected: 2143289344, Actual: 2143289344
+224700.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 155,217, Expected: -2654, Actual: -2654
+225210.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 3, Wrap: 0, Scales: 0,16, Expected: -885, Actual: -885
+225720.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 200,62, Expected: -11200, Actual: -11200
+226230.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 117,91, Expected: 2432, Actual: 2432
+226740.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 79,173, Expected: -7956, Actual: -7956
+227250.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 1, Scales: 197,212, Expected: -2137, Actual: -2137
+227760.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 93,38, Expected: -1999, Actual: -1999
+228270.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 1, Wrap: 1, Scales: 243,236, Expected: -597, Actual: -597
+228780.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 1, Scales: 225,167, Expected: 445, Actual: 445
+229290.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 0, Scales: 102,247, Expected: 1050, Actual: 1050
+229640.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 0, Scales: 243,65, Expected: 2112, Actual: 2112
+230150.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 1, Scales: 174,146, Expected: -517557, Actual: -517557
+230660.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 2, Wrap: 0, Scales: 175,168, Expected: 642, Actual: 642
+231170.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 0, Wrap: 0, Scales: 62,250, Expected: -387, Actual: -387
+231680.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 1, Wrap: 1, Scales: 49,203, Expected: -3124, Actual: -3124
+232190.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 79,15, Expected: -1660, Actual: -1660
+232700.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 1, Scales: 146,249, Expected: -4876, Actual: -4876
+233210.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 203,80, Expected: -467, Actual: -467
+233720.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 0, Scales: 174,1, Expected: 6860, Actual: 6860
+234230.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 0, Scales: 37,175, Expected: 108063, Actual: 108063
+234740.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 1, Scales: 95,92, Expected: 5474, Actual: 5474
+235250.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 85,114, Expected: 3631, Actual: 3631
+235760.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 0, Scales: 15,213, Expected: -1046, Actual: -1046
+236270.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 111,57, Expected: -61255, Actual: -61255
+236780.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 0, Scales: 250,80, Expected: -1082, Actual: -1082
+237290.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 109,242, Expected: 2143289344, Actual: 2143289344
+237800.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 0, Scales: 216,95, Expected: 2143289344, Actual: 2143289344
+238310.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 0, Scales: 252,174, Expected: 2143289344, Actual: 2143289344
+238820.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 0, Scales: 178,135, Expected: 121588, Actual: 121588
+239330.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 1, Wrap: 1, Scales: 51,210, Expected: 428, Actual: 428
+239840.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 0, Scales: 132,145, Expected: -81996, Actual: -81996
+240350.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 1, Scales: 150,233, Expected: -340626, Actual: -340626
+240860.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 202,138, Expected: 604527, Actual: 604527
+241370.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 3, Wrap: 0, Scales: 241,66, Expected: -6468, Actual: -6468
+241880.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 1, Scales: 241,178, Expected: -3676, Actual: -3676
+242230.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 68,199, Expected: 14016, Actual: 14016
+242740.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 1, Scales: 8,216, Expected: 599, Actual: 599
+243250.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 29,150, Expected: -3198, Actual: -3198
+243760.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 0, Scales: 81,95, Expected: 2143289344, Actual: 2143289344
+244270.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 0, Wrap: 0, Scales: 20,99, Expected: -52, Actual: -52
+244780.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 101,150, Expected: -363, Actual: -363
+245290.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 117,34, Expected: -16, Actual: -16
+245800.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 0, Scales: 112,14, Expected: 4310, Actual: 4310
+246310.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 0, Scales: 86,99, Expected: 630, Actual: 630
+246820.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 208,58, Expected: 2143289344, Actual: 2143289344
+247330.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 0, Scales: 236,181, Expected: 895189, Actual: 895189
+247840.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 1, Scales: 178,173, Expected: 2143289344, Actual: 2143289344
+248350.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 1, Scales: 75,191, Expected: 2143289344, Actual: 2143289344
+248860.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 0, Scales: 93,111, Expected: -2599, Actual: -2599
+249370.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 58,244, Expected: 955, Actual: 955
+249880.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 1, Scales: 46,40, Expected: 1199327, Actual: 1199327
+250390.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 0, Scales: 132,205, Expected: -924060, Actual: -924060
+250900.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 1, Scales: 215,215, Expected: 23846, Actual: 23846
+251410.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 0, Scales: 232,189, Expected: 116210, Actual: 116210
+251920.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 195,111, Expected: 84279, Actual: 84279
+252430.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 242,77, Expected: -2744, Actual: -2744
+252940.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 2, Wrap: 1, Scales: 181,208, Expected: 1333, Actual: 1333
+253450.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 0, Scales: 170,78, Expected: -6888, Actual: -6888
+253960.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 0, Scales: 122,148, Expected: -85, Actual: -85
+254470.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 1, Wrap: 1, Scales: 233,194, Expected: 2041, Actual: 2041
+254980.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 93,230, Expected: -15808, Actual: -15808
+255490.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 1, Scales: 81,223, Expected: 2143289344, Actual: 2143289344
+256000.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 30,152, Expected: 7472, Actual: 7472
+256510.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 1, Wrap: 1, Scales: 172,11, Expected: -2184, Actual: -2184
+257020.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 190,99, Expected: -18688, Actual: -18688
+257530.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 92,74, Expected: -157600, Actual: -157600
+258040.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 1, Scales: 187,74, Expected: -7008, Actual: -7008
+258550.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 3, Wrap: 1, Scales: 45,163, Expected: -2606, Actual: -2606
+259060.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 0, Scales: 38,252, Expected: -1735, Actual: -1735
+259570.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 250,101, Expected: 5487014, Actual: 5487014
+260080.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 3, Wrap: 0, Scales: 118,236, Expected: -3123, Actual: -3123
+260590.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 0, Scales: 26,153, Expected: -1340, Actual: -1340
+261100.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 14,184, Expected: -139243, Actual: -139243
+261610.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 0, Wrap: 0, Scales: 54,176, Expected: 57263, Actual: 57263
+262120.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 65,143, Expected: 35608, Actual: 35608
+262630.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 0, Scales: 12,42, Expected: 486, Actual: 486
+263140.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 2, Wrap: 0, Scales: 80,113, Expected: 1050, Actual: 1050
+263650.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 0, Scales: 216,34, Expected: -1466, Actual: -1466
+264160.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 3, Wrap: 0, Scales: 125,86, Expected: 2148, Actual: 2148
+264510.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 149,84, Expected: -22144, Actual: -22144
+265020.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 1, Scales: 111,38, Expected: 2143289344, Actual: 2143289344
+265530.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 1, Scales: 238,174, Expected: -217322, Actual: -217322
+266040.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 1, Wrap: 0, Scales: 230,72, Expected: -2778, Actual: -2778
+266550.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 0, Scales: 181,70, Expected: 278, Actual: 278
+267060.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 1, Scales: 235,183, Expected: 4118, Actual: 4118
+267570.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 3, Wrap: 0, Scales: 251,214, Expected: 1988, Actual: 1988
+268080.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 229,200, Expected: -441069, Actual: -441069
+268590.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 2, Wrap: 0, Scales: 222,24, Expected: 3048, Actual: 3048
+269100.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 0, Wrap: 1, Scales: 154,78, Expected: 36993, Actual: 36993
+269610.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 105,108, Expected: -88793, Actual: -88793
+270120.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 3, Wrap: 0, Scales: 251,141, Expected: -8708, Actual: -8708
+270630.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 0, Wrap: 1, Scales: 212,88, Expected: 53347, Actual: 53347
+271140.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 1, Scales: 107,244, Expected: -197198, Actual: -197198
+271650.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 162,158, Expected: -2880, Actual: -2880
+272160.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 1, Scales: 160,17, Expected: 184123, Actual: 184123
+272670.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 148,29, Expected: 31563, Actual: 31563
+273180.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 1, Scales: 26,94, Expected: -247566, Actual: -247566
+273690.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 1, Scales: 26,140, Expected: 2143289344, Actual: 2143289344
+274200.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 0, Scales: 189,10, Expected: 2860, Actual: 2860
+274710.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 38,163, Expected: 2410, Actual: 2410
+275220.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 211,26, Expected: -8648, Actual: -8648
+275730.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 175,132, Expected: -2560, Actual: -2560
+276240.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 0, Scales: 148,175, Expected: -153912, Actual: -153912
+276750.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 0, Scales: 16,231, Expected: 232375, Actual: 232375
+277260.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 3, Wrap: 0, Scales: 71,128, Expected: -577820, Actual: -577820
+277770.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 172,225, Expected: 192, Actual: 192
+278280.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 1, Scales: 157,89, Expected: -2561, Actual: -2561
+278790.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 0, Scales: 142,138, Expected: 767, Actual: 767
+279300.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 1, Scales: 230,186, Expected: 10117, Actual: 10117
+279810.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 0, Scales: 248,76, Expected: 219654, Actual: 219654
+280320.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 1, Scales: 125,242, Expected: 2143289344, Actual: 2143289344
+280830.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 0, Scales: 51,202, Expected: 2143289344, Actual: 2143289344
+281340.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 2, Wrap: 0, Scales: 74,140, Expected: -5646, Actual: -5646
+281850.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 0, Scales: 224,242, Expected: -1854, Actual: -1854
+282360.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 1, Scales: 52,169, Expected: 35709, Actual: 35709
+282870.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 54,196, Expected: -6964, Actual: -6964
+283380.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 1, Scales: 251,83, Expected: -9726, Actual: -9726
+283890.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 1, Scales: 97,61, Expected: -1867, Actual: -1867
+284400.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 0, Wrap: 1, Scales: 239,19, Expected: 2143289344, Actual: 2143289344
+284910.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 1, Scales: 148,113, Expected: -57170, Actual: -57170
+285420.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 1, Scales: 120,73, Expected: 2143289344, Actual: 2143289344
+285770.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 0, Scales: 127,24, Expected: 17664, Actual: 17664
+286280.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 0, Scales: 174,205, Expected: 93902, Actual: 93902
+286790.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 1, Scales: 26,216, Expected: 2720, Actual: 2720
+287300.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 0, Wrap: 1, Scales: 13,231, Expected: -124, Actual: -124
+287810.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 1, Scales: 249,133, Expected: -2980, Actual: -2980
+288320.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 1, Scales: 249,96, Expected: 136142, Actual: 136142
+288830.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 1, Scales: 92,223, Expected: -2152, Actual: -2152
+289340.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 1, Scales: 223,211, Expected: 1508, Actual: 1508
+289850.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 68,244, Expected: 2143289344, Actual: 2143289344
+290360.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 3, Wrap: 1, Scales: 142,85, Expected: -1202, Actual: -1202
+290870.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 0, Scales: 243,254, Expected: 2143289344, Actual: 2143289344
+291380.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 0, Scales: 152,189, Expected: 207342, Actual: 207342
+291890.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 0, Scales: 236,213, Expected: -2585806, Actual: -2585806
+292400.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 0, Scales: 102,247, Expected: 2143289344, Actual: 2143289344
+292910.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 0, Scales: 91,29, Expected: 2143289344, Actual: 2143289344
+293420.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 1, Scales: 12,166, Expected: 164270, Actual: 164270
+293930.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 1, Scales: 138,124, Expected: 2704, Actual: 2704
+294440.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 0, Scales: 72,75, Expected: 2172, Actual: 2172
+294950.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 0, Scales: 63,192, Expected: 24256, Actual: 24256
+295460.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 0, Scales: 208,229, Expected: 4070, Actual: 4070
+295970.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 1, Wrap: 0, Scales: 70,254, Expected: 10, Actual: 10
+296480.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 0, Scales: 83,103, Expected: 7710, Actual: 7710
+296990.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 1, Scales: 85,242, Expected: -427616, Actual: -427616
+297500.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 2, Wrap: 1, Scales: 82,223, Expected: -16760, Actual: -16760
+298010.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 1, Scales: 93,176, Expected: -8114, Actual: -8114
+298520.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 2, Wrap: 1, Scales: 25,144, Expected: 2143289344, Actual: 2143289344
+299030.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 1, Wrap: 1, Scales: 28,37, Expected: 9472, Actual: 9472
+299540.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 1, Scales: 4,77, Expected: 2143289344, Actual: 2143289344
+300050.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 12,69, Expected: -1421, Actual: -1421
+300560.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 0, Scales: 47,41, Expected: 4732, Actual: 4732
+301070.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 0, Scales: 25,79, Expected: 4558, Actual: 4558
+301580.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 2, Wrap: 0, Scales: 55,121, Expected: -6428, Actual: -6428
+302090.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 1, Wrap: 1, Scales: 145,108, Expected: -3219, Actual: -3219
+302600.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 0, Scales: 32,214, Expected: 122759, Actual: 122759
+303110.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 178,241, Expected: 880, Actual: 880
+303620.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 14,137, Expected: 372440, Actual: 372440
+303970.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 0, Scales: 14,36, Expected: 1984, Actual: 1984
+304480.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 1, Wrap: 0, Scales: 93,199, Expected: -3998, Actual: -3998
+304990.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 1, Scales: 12,161, Expected: -292, Actual: -292
+305500.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 42,154, Expected: 2143289344, Actual: 2143289344
+306010.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 0, Scales: 84,191, Expected: -80368, Actual: -80368
+306520.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 2, Wrap: 1, Scales: 107,99, Expected: -8313320, Actual: -8313320
+307030.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 3, Wrap: 0, Scales: 90,180, Expected: -604, Actual: -604
+307540.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 0, Scales: 8,126, Expected: 82, Actual: 82
+308050.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 0, Wrap: 1, Scales: 171,164, Expected: 7972, Actual: 7972
+308560.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 0, Wrap: 1, Scales: 203,29, Expected: -273996, Actual: -273996
+309070.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 0, Wrap: 1, Scales: 119,180, Expected: 164557, Actual: 164557
+309580.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 3, Wrap: 0, Scales: 168,18, Expected: -6246, Actual: -6246
+310090.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 2, Wrap: 0, Scales: 168,199, Expected: 147903, Actual: 147903
+310600.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 250,133, Expected: 1472, Actual: 1472
+311110.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 0, Scales: 201,206, Expected: -3032, Actual: -3032
+311460.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 1, Wrap: 0, Scales: 44,83, Expected: 25152, Actual: 25152
+311970.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 1, Scales: 63,75, Expected: 3110, Actual: 3110
+312480.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 1, Scales: 212,21, Expected: 2143289344, Actual: 2143289344
+312990.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 1, Scales: 36,82, Expected: 164698, Actual: 164698
+313500.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 48,225, Expected: 2143289344, Actual: 2143289344
+314010.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 0, Scales: 231,22, Expected: 2669, Actual: 2669
+314520.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 3, Wrap: 1, Scales: 24,144, Expected: 7748, Actual: 7748
+315030.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 3, Wrap: 1, Scales: 219,165, Expected: -1958, Actual: -1958
+315540.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 0, Wrap: 1, Scales: 60,178, Expected: -2327, Actual: -2327
+316050.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 0, Scales: 175,24, Expected: 88103, Actual: 88103
+316560.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 0, Scales: 191,90, Expected: -289, Actual: -289
+317070.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 1, Scales: 231,45, Expected: -986302, Actual: -986302
+317580.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 1, Scales: 103,235, Expected: -10880, Actual: -10880
+317930.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 0, Scales: 219,0, Expected: -12416, Actual: -12416
+318440.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 1, Scales: 32,255, Expected: 812, Actual: 812
+318950.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 3, Wrap: 1, Scales: 125,255, Expected: 2143289344, Actual: 2143289344
+319460.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 2, Wrap: 1, Scales: 159,83, Expected: -4234, Actual: -4234
+319970.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 226,106, Expected: -258050, Actual: -258050
+320320.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 72,1, Expected: 2112, Actual: 2112
+320830.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 0, Scales: 41,252, Expected: -7904, Actual: -7904
+321340.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 1, Wrap: 1, Scales: 118,77, Expected: 2143289344, Actual: 2143289344
+321850.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 1, Wrap: 0, Scales: 46,105, Expected: 1944, Actual: 1944
+322360.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 1, Scales: 172,191, Expected: -75711, Actual: -75711
+322870.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 3, Wrap: 1, Scales: 37,132, Expected: 5668, Actual: 5668
+323380.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 53,251, Expected: -813, Actual: -813
+323890.03ns INFO     cocotb.tb                          Format: E2M1xINT8, RM: 1, Wrap: 0, Scales: 102,186, Expected: -1750, Actual: -1750
+324400.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 1, Scales: 73,7, Expected: 1987, Actual: 1987
+324910.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 1, Wrap: 1, Scales: 90,9, Expected: 150705, Actual: 150705
+325420.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 0, Wrap: 1, Scales: 201,115, Expected: 738, Actual: 738
+325930.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 0, Wrap: 0, Scales: 77,106, Expected: 2143289344, Actual: 2143289344
+326440.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 0, Scales: 60,66, Expected: 205376, Actual: 205376
+326950.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 0, Scales: 32,63, Expected: -24, Actual: -24
+327460.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 1, Scales: 85,41, Expected: 2143289344, Actual: 2143289344
+327810.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 65,168, Expected: -11520, Actual: -11520
+328320.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 1, Scales: 80,129, Expected: -1021, Actual: -1021
+328830.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 0, Scales: 214,255, Expected: -2519, Actual: -2519
+329340.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 2, Wrap: 0, Scales: 102,27, Expected: 1291, Actual: 1291
+329850.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 0, Scales: 160,44, Expected: -196761, Actual: -196761
+330360.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 2, Wrap: 0, Scales: 104,237, Expected: -174, Actual: -174
+330870.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 1, Scales: 152,192, Expected: 1549, Actual: 1549
+331380.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 1, Scales: 88,58, Expected: 124979, Actual: 124979
+331890.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 0, Scales: 68,186, Expected: 1007, Actual: 1007
+332400.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 2, Wrap: 1, Scales: 254,197, Expected: -2164, Actual: -2164
+332910.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 1, Scales: 212,171, Expected: 2143289344, Actual: 2143289344
+333420.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 2, Wrap: 1, Scales: 44,20, Expected: 2143289344, Actual: 2143289344
+333770.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 3, Wrap: 1, Scales: 60,22, Expected: -18432, Actual: -18432
+334280.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 2, Wrap: 0, Scales: 138,80, Expected: -119722, Actual: -119722
+334790.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 3, Wrap: 0, Scales: 196,196, Expected: 813, Actual: 813
+335300.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 4,221, Expected: -15445, Actual: -15445
+335810.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8_SYM, RM: 2, Wrap: 0, Scales: 207,84, Expected: -907, Actual: -907
+336320.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 1, Wrap: 1, Scales: 168,113, Expected: 7602885, Actual: 7602885
+336830.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 1, Wrap: 0, Scales: 126,246, Expected: 180686, Actual: 180686
+337340.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 3, Wrap: 1, Scales: 116,87, Expected: -6187079, Actual: -6187079
+337850.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 1, Scales: 46,47, Expected: -75982, Actual: -75982
+338360.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 0, Scales: 249,137, Expected: 94367, Actual: 94367
+338870.03ns INFO     cocotb.tb                          Format: INT8xINT8_SYM, RM: 2, Wrap: 1, Scales: 40,247, Expected: 5155, Actual: 5155
+339380.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 0, Scales: 37,22, Expected: -167773, Actual: -167773
+339890.03ns INFO     cocotb.tb                          Format: INT8xE4M3, RM: 3, Wrap: 0, Scales: 75,8, Expected: -291728, Actual: -291728
+340400.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 3, Wrap: 0, Scales: 67,48, Expected: -351261, Actual: -351261
+340910.03ns INFO     cocotb.tb                          Format: INT8_SYMxINT8, RM: 1, Wrap: 0, Scales: 170,244, Expected: -4330, Actual: -4330
+341420.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 3, Wrap: 0, Scales: 78,86, Expected: 4068, Actual: 4068
+341930.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 2, Wrap: 0, Scales: 188,109, Expected: 4758, Actual: 4758
+342440.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 0, Scales: 167,37, Expected: -182085, Actual: -182085
+342950.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 0, Wrap: 1, Scales: 127,243, Expected: 2112, Actual: 2112
+343460.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 26,105, Expected: 317170, Actual: 317170
+343970.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 1, Scales: 62,22, Expected: -340692, Actual: -340692
+344480.03ns INFO     cocotb.tb                          Format: E2M1xE4M3, RM: 3, Wrap: 0, Scales: 1,0, Expected: 100347, Actual: 100347
+344990.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 2, Wrap: 1, Scales: 137,204, Expected: -338249, Actual: -338249
+345500.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 0, Wrap: 1, Scales: 177,154, Expected: 141053, Actual: 141053
+346010.03ns INFO     cocotb.tb                          Format: INT8_SYMxE2M1, RM: 0, Wrap: 1, Scales: 244,82, Expected: -8764, Actual: -8764
+346520.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 161,50, Expected: 23936, Actual: 23936
+347030.03ns INFO     cocotb.tb                          Format: INT8xINT8, RM: 1, Wrap: 0, Scales: 114,240, Expected: -1051, Actual: -1051
+347540.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 2, Wrap: 1, Scales: 242,145, Expected: -267350, Actual: -267350
+348050.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 2, Wrap: 0, Scales: 218,204, Expected: -90485, Actual: -90485
+348560.03ns INFO     cocotb.tb                          Format: INT8_SYMxE4M3, RM: 1, Wrap: 1, Scales: 47,127, Expected: 116195, Actual: 116195
+349070.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 1, Scales: 18,118, Expected: 10164, Actual: 10164
+349420.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 2, Wrap: 0, Scales: 181,224, Expected: -5888, Actual: -5888
+349930.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 105,33, Expected: -12800, Actual: -12800
+350440.03ns INFO     cocotb.tb                          Format: E4M3xINT8, RM: 1, Wrap: 0, Scales: 66,220, Expected: 2143289344, Actual: 2143289344
+350950.03ns INFO     cocotb.tb                          Format: E2M1xINT8_SYM, RM: 1, Wrap: 1, Scales: 90,49, Expected: 4394, Actual: 4394
+351460.03ns INFO     cocotb.tb                          Format: E4M3xINT8_SYM, RM: 3, Wrap: 0, Scales: 66,2, Expected: -132151, Actual: -132151
+351970.03ns INFO     cocotb.tb                          Format: INT8xE2M1, RM: 0, Wrap: 0, Scales: 159,154, Expected: 12584, Actual: 12584
+352480.03ns INFO     cocotb.tb                          Format: E4M3xE2M1, RM: 2, Wrap: 0, Scales: 187,8, Expected: -248233, Actual: -248233
+352990.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 1, Scales: 76,151, Expected: -13056, Actual: -13056
+353500.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 11,86, Expected: 519495, Actual: 519495
+353500.03ns INFO     cocotb.regression                  test_coverage.test_randomized_coverage passed
+353500.03ns INFO     cocotb.regression                  running test_coverage.test_coverage_report (29/36)
+                                                            Print coverage report
+353500.03ns INFO     cocotb.tb                          Final Coverage Report:
+353500.03ns INFO     cocotb.tb                            top.format_a: 57.14%
+353500.03ns INFO     cocotb.tb                            top.format_b: 57.14%
+353500.03ns INFO     cocotb.tb                            top.round_mode: 100.00%
+353500.03ns INFO     cocotb.tb                            top.overflow_wrap: 100.00%
+353500.03ns INFO     cocotb.tb                            top.packed_mode: 100.00%
+353500.03ns INFO     cocotb.tb                            top.lns_mode: 33.33%
+353500.03ns INFO     cocotb.tb                            top.mx_plus_mode: 100.00%
+353500.03ns INFO     cocotb.tb                            top.is_bm_a: 100.00%
+353500.03ns INFO     cocotb.tb                            top.is_bm_b: 100.00%
+353500.03ns INFO     cocotb.tb                            top.op_class_a: 77.78%
+353500.03ns INFO     cocotb.tb                            top.op_class_b: 77.78%
+353500.03ns INFO     cocotb.tb                            top.format_cross: 32.65%
+353500.03ns INFO     cocotb.tb                            top.format_packed_cross: 35.71%
+353500.03ns INFO     cocotb.tb                            top.round_overflow_cross: 100.00%
+353500.03ns INFO     cocotb.tb                            top.lns_format_cross: 19.05%
+353500.03ns INFO     cocotb.tb                            top.mx_plus_bm_a_cross: 100.00%
+353500.03ns INFO     cocotb.tb                            top.mx_plus_bm_b_cross: 100.00%
+353500.03ns INFO     cocotb.regression                  test_coverage.test_coverage_report passed
+353500.03ns INFO     cocotb.regression                  running test_performance.performance_sweep (30/36)
+                                                            Measure throughput for multiple blocks.
+353500.03ns INFO     cocotb.tb                          Starting Performance Sweep
+393610.03ns INFO     cocotb.tb                          Processed 100 blocks (3200 MAC ops) in 0.9352s (simulated time: 41000ns)
+393610.03ns INFO     cocotb.tb                          Cycles per block: 41
+393610.03ns INFO     cocotb.tb                          Throughput: 0.7805 MACs/cycle
+393610.03ns INFO     cocotb.regression                  test_performance.performance_sweep passed
+393610.03ns INFO     cocotb.regression                  running test_performance.high_switching_activity (31/36)
+                                                            Generate high switching activity for power analysis simulation.
+393610.03ns INFO     cocotb.tb                          Starting High Switching Activity Test
+1173850.03ns INFO     cocotb.tb                          High switching activity sequence complete.
+1173850.03ns INFO     cocotb.regression                  test_performance.high_switching_activity passed
+1173850.03ns INFO     cocotb.regression                  running test_short_protocol.test_short_protocol_metadata (32/36)
+                                                             Verify that Short Protocol correctly captures metadata from uio_in[2:0] in Cycle 0.
+1173850.03ns INFO     cocotb.tb                          Start Short Protocol Metadata Test
+1173911.03ns INFO     cocotb.tb                          Verified active format A: 4
+1174290.03ns INFO     cocotb.tb                          Actual Result: 8192, Expected: 8192
+1174290.03ns INFO     cocotb.regression                  test_short_protocol.test_short_protocol_metadata passed
+1174290.03ns INFO     cocotb.regression                  running test_short_protocol.test_short_protocol_nan_scale_reuse (33/36)
+                                                             Test that starting a Short Protocol block with reused NaN (0xFF) scales
+1174290.03ns INFO     cocotb.tb                          Start Short Protocol NaN Scale Reuse Test
+1174290.03ns INFO     cocotb.tb                          Skipping test (ENABLE_SHARED_SCALING=0)
+1174290.03ns INFO     cocotb.regression                  test_short_protocol.test_short_protocol_nan_scale_reuse passed
+1174290.03ns INFO     cocotb.regression                  running test_exhaustive.test_fp4_exhaustive (34/36)
+                                                             Test all 16x16 = 256 combinations of FP4 (E2M1) bit patterns
+1174800.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1175310.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1175820.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1176330.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1176840.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1177350.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1177860.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1178370.03ns INFO     cocotb.tb                          Format: E2M1xE2M1, RM: 0, Wrap: 0, Scales: 127,127, Expected: 0, Actual: 0
+1178370.03ns INFO     cocotb.regression                  test_exhaustive.test_fp4_exhaustive passed
+1178370.03ns INFO     cocotb.regression                  running test_exhaustive.test_fp8_e4m3_mantissa_exhaustive (35/36)
+                                                             Test all 8x8 = 64 combinations of E4M3 normal mantissas
+1178880.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 13984, Actual: 13984
+1179390.03ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 19872, Actual: 19872
+1179390.03ns INFO     cocotb.regression                  test_exhaustive.test_fp8_e4m3_mantissa_exhaustive passed
+1179390.03ns INFO     cocotb.regression                  running test_exhaustive.test_fp8_e5m2_mantissa_exhaustive (36/36)
+                                                             Test all 8x8 = 64 combinations of E5M2 mantissas (including subnormals)
+1179390.03ns INFO     cocotb.tb                          Skipping E5M2 exhaustive test: SUPPORT_E5M2=0
+1179390.03ns INFO     cocotb.regression                  test_exhaustive.test_fp8_e5m2_mantissa_exhaustive passed
+1179390.03ns INFO     cocotb.regression                  *****************************************************************************************************************
+                                                         ** TEST                                                     STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                         *****************************************************************************************************************
+                                                         ** test.test_mxfp8_mac_shared_scale                          PASS        1010.00           0.19       5324.57  **
+                                                         ** test.test_mxfp8_mac_e4m3                                  PASS         510.00           0.02      25321.63  **
+                                                         ** test.test_mxfp8_mac_e5m2                                  PASS         510.00           0.02      31095.57  **
+                                                         ** test.test_rounding_modes                                  PASS        4080.00           0.16      26218.90  **
+                                                         ** test.test_overflow_saturation                             PASS           0.00           0.00          0.00  **
+                                                         ** test.test_accumulator_saturation                          PASS           0.00           0.00          0.00  **
+                                                         ** test.test_mxfp4_packed_serial                             PASS           0.00           0.00          0.00  **
+                                                         ** test.test_mxfp4_packed                                    PASS         350.00           0.01      28636.20  **
+                                                         ** test.test_mixed_precision                                 PASS        1020.00           0.04      29032.04  **
+                                                         ** test.test_mxfp_mac_randomized                             PASS       25500.00           0.90      28409.37  **
+                                                         ** test.test_fast_start_scale_compression                    PASS         900.00           0.02      43781.37  **
+                                                         ** test.test_yaml_cases                                      PASS        5610.00           0.28      20337.84  **
+                                                         ** test.test_mx_fp4_yaml                                     PASS        2960.00           0.11      26957.61  **
+                                                         ** test.test_min_max_zero_yaml                               PASS        5100.00           0.19      26391.87  **
+                                                         ** test.test_mxplus_yaml                                     PASS        5100.00           0.16      32852.55  **
+                                                         ** test.test_mxfp4_input_buffering                           PASS           0.00           0.00          0.00  **
+                                                         ** test.test_mxfp8_sticky_flags                              PASS         510.00           0.01      47021.35  **
+                                                         ** test.test_lns_modes                                       PASS           0.00           0.00          0.00  **
+                                                         ** test.test_mxfp8_subnormals                                PASS         510.00           0.01      55372.50  **
+                                                         ** test.test_mxfp8_subnormal_precision                       PASS         510.00           0.01      60657.74  **
+                                                         ** test.test_lane_overflow                                   PASS         350.00           0.01      43063.93  **
+                                                         ** test.test_float32_mode                                    PASS        1020.00           0.02      45195.81  **
+                                                         ** test.test_mxfp4_full_range                                PASS         350.00           0.01      34968.35  **
+                                                         ** test_coverage.test_exhaustive_formats_subset              PASS       35440.00           1.28      27658.91  **
+                                                         ** test_coverage.test_edge_cases                             PASS        2040.00           0.05      43113.44  **
+                                                         ** test_coverage.test_shared_scale_coverage                  PASS        8160.00           0.21      39794.66  **
+                                                         ** test_coverage.test_lns_coverage                           PASS           0.00           0.00          0.00  **
+                                                         ** test_coverage.test_randomized_coverage                    PASS      251960.00           7.95      31692.39  **
+                                                         ** test_coverage.test_coverage_report                        PASS           0.00           0.00          0.00  **
+                                                         ** test_performance.performance_sweep                        PASS       40110.00           0.94      42803.29  **
+                                                         ** test_performance.high_switching_activity                  PASS      780240.00           6.75     115639.39  **
+                                                         ** test_short_protocol.test_short_protocol_metadata          PASS         440.00           0.01      46517.63  **
+                                                         ** test_short_protocol.test_short_protocol_nan_scale_reuse   PASS           0.00           0.00          0.00  **
+                                                         ** test_exhaustive.test_fp4_exhaustive                       PASS        4080.00           0.10      42929.69  **
+                                                         ** test_exhaustive.test_fp8_e4m3_mantissa_exhaustive         PASS        1020.00           0.02      41771.86  **
+                                                         ** test_exhaustive.test_fp8_e5m2_mantissa_exhaustive         PASS           0.00           0.00          0.00  **
+                                                         *****************************************************************************************************************
+                                                         ** TESTS=36 PASS=36 FAIL=0 SKIP=0                                     1179390.03          19.50      60490.89  **
+                                                         *****************************************************************************************************************
+VCD info: dumpfile tb.vcd opened for output.
+make[1]: Leaving directory '/app/test'

@@ -298,7 +298,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 if (!rst_n) format_b <= 3'd0;
                 else if (ena && strobe) begin
                     if (logical_cycle == 6'd0 && ui_in[7])
-                        format_b <= uio_in[2:0];
+                        format_b <= ui_in[2:0];
                     else if (logical_cycle == 6'd2)
                         format_b <= uio_in[2:0];
                 end
