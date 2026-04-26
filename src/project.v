@@ -274,23 +274,23 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_a <= 8'd0;
+                if (!rst_n) scale_a <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
         end else begin : gen_no_scale_a
-            assign scale_a_val = 8'd0;
+            assign scale_a_val = 8'd127;
         end
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_b <= 8'd0;
+                if (!rst_n) scale_b <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
         end else begin : gen_no_scale_b
-            assign scale_b_val = 8'd0;
+            assign scale_b_val = 8'd127;
         end
 
         if (SUPPORT_MIXED_PRECISION && !FIXED_FORMAT) begin : gen_format_b
@@ -807,14 +807,26 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
-    wire [31:0] acc_out_ext;
+
+    // Standardize accumulator output to ALIGNER_WIDTH for consistent windowing.
+    wire [ALIGNER_WIDTH-1:0] acc_out_aligned;
     generate
-        if (ACCUMULATOR_WIDTH >= 32) begin : gen_acc_out_ext_wide
-            // Extraction window starts at (WIDTH - 24) - 8 = WIDTH - 32
-            assign acc_out_ext = acc_out[ACCUMULATOR_WIDTH-1 : ACCUMULATOR_WIDTH-32];
+        if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_acc_aligned_trunc
+            assign acc_out_aligned = acc_out[ALIGNER_WIDTH-1:0];
+        end else begin : gen_acc_aligned_ext
+            assign acc_out_aligned = { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){acc_out[ACTUAL_ACC_WIDTH-1]}}, acc_out };
+        end
+    endgenerate
+
+    wire [31:0] acc_out_ext;
+    // Window extraction must use ALIGNER_WIDTH because that defines the binary point weight (2^-24).
+    // The internal binary point is at bit ALIGNER_WIDTH - 24.
+    // The 32-bit output window starts 8 bits below the binary point: (ALIGNER_WIDTH-24)-8 = ALIGNER_WIDTH-32.
+    generate
+        if (ALIGNER_WIDTH >= 32) begin : gen_acc_out_ext_wide
+            assign acc_out_ext = acc_out_aligned[ALIGNER_WIDTH-1 : ALIGNER_WIDTH-32];
         end else begin : gen_acc_out_ext_narrow
-            // Pad with zeros to fulfill 32-bit output requirement
-            assign acc_out_ext = { acc_out[ACCUMULATOR_WIDTH-1:0], {(32-ACCUMULATOR_WIDTH){1'b0}} };
+            assign acc_out_ext = { acc_out_aligned, {(32-ALIGNER_WIDTH){1'b0}} };
         end
     endgenerate
 
@@ -833,16 +845,16 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
     wire [39:0] f2f_acc_in;
-    // required shift to align internal binary point (WIDTH-24) to f2f binary point (16)
-    // shift = 16 - (WIDTH - 24) = 40 - WIDTH
-    localparam F2F_SHIFT = 40 - ACTUAL_ACC_WIDTH;
+    // required shift to align internal binary point (ALIGNER_WIDTH-24) to f2f binary point (16)
+    // shift = 16 - (ALIGNER_WIDTH - 24) = 40 - ALIGNER_WIDTH
+    localparam F2F_SHIFT = 40 - ALIGNER_WIDTH;
     generate
         if (F2F_SHIFT > 0) begin : gen_f2f_pad
-            assign f2f_acc_in = { acc_out[ACTUAL_ACC_WIDTH-1:0], {F2F_SHIFT{1'b0}} };
+            assign f2f_acc_in = { acc_out_aligned, {F2F_SHIFT{1'b0}} };
         end else if (F2F_SHIFT < 0) begin : gen_f2f_trunc
-            assign f2f_acc_in = acc_out[ACTUAL_ACC_WIDTH-1 : -F2F_SHIFT];
+            assign f2f_acc_in = acc_out_aligned[ALIGNER_WIDTH-1 : -F2F_SHIFT];
         end else begin : gen_f2f_direct
-            assign f2f_acc_in = acc_out[39:0];
+            assign f2f_acc_in = acc_out_aligned;
         end
     endgenerate
 

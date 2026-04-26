@@ -551,7 +551,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     if float32_mode:
-        shared_exp = scale_a + scale_b - 254
+        # If hardware doesn't support shared scaling, it uses fixed scale 1.0 (shared_exp=0)
+        eff_scale_a = scale_a if support_shared else 127
+        eff_scale_b = scale_b if support_shared else 127
+        shared_exp = eff_scale_a + eff_scale_b - 254
         expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
         if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
@@ -567,14 +570,13 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
             offset = -(aligner_width - 37)
             expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, round_mode, overflow_wrap, width=aligner_width)
-            # Extract the S23.8 window (top 32 bits of 40-bit result)
+            # Extract the S23.8 window (top 32 bits of result)
+            # Standard extraction uses aligner_width bits below the binary point.
             expected_final = expected_final_full >> (aligner_width - 32)
         else:
             # If no shared scaling, extract the S23.8 window from the accumulator
-            if acc_width >= 40:
-                expected_final = expected_acc >> (acc_width - 32)
-            else:
-                expected_final = expected_acc
+            # This must also use aligner_width to match the hardware's standardize logic.
+            expected_final = expected_acc >> (aligner_width - 32)
 
     # Return as 32-bit signed integer
     expected_final = expected_final & 0xFFFFFFFF
@@ -935,10 +937,7 @@ async def test_fast_start_scale_compression(dut):
             expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
             expected_final = expected_final_full >> (aligner_width - 32)
         else:
-            if acc_width >= 40:
-                expected_final = expected_acc >> (acc_width - 32)
-            else:
-                expected_final = expected_acc
+            expected_final = expected_acc >> (aligner_width - 32)
 
     expected_final = expected_final & 0xFFFFFFFF
     if expected_final & 0x80000000:
