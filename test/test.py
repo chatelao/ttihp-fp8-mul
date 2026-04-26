@@ -235,6 +235,75 @@ def get_param(dut, name, default=1):
     }
     return defaults.get(name, default)
 
+def float32_model(acc, shared_exp, nan_sticky=False, inf_pos=False, inf_neg=False):
+    if nan_sticky or (inf_pos and inf_neg):
+        return 0x7FC00000
+    if inf_pos:
+        return 0x7F800000
+    if inf_neg:
+        return 0xFF800000
+    if acc == 0:
+        return 0x00000000
+
+    sign = 1 if acc < 0 else 0
+    mag = abs(acc) & 0xFFFFFFFFFF
+
+    # LZC
+    if mag == 0:
+        lzc = 40
+    else:
+        lzc = 40 - mag.bit_length()
+
+    exp_biased = 150 + shared_exp - lzc
+    underflow = (exp_biased <= 0)
+
+    if underflow:
+        # Subnormal alignment
+        shift = 149 + shared_exp
+        if shift >= 0:
+            norm_mag = (mag << shift)
+            sticky_sh = 0
+        else:
+            n = -shift
+            norm_mag = mag >> n
+            sticky_sh = 1 if (mag & ((1 << n) - 1)) else 0
+    else:
+        # Normal normalization
+        norm_mag = (mag << lzc)
+        sticky_sh = 0
+
+    # RNE Rounding
+    # significand (implicit bit + 23-bit mantissa) is at norm_mag[39:16]
+    # G=bit 15, R=bit 14, S=bits [13:0] | sticky_sh
+    G = (norm_mag >> 15) & 1
+    R = (norm_mag >> 14) & 1
+    S = 1 if (norm_mag & 0x3FFF) or sticky_sh else 0
+    L = (norm_mag >> 16) & 1
+
+    round_up = G and (R or S or L)
+    sig24 = (norm_mag >> 16) & 0xFFFFFF
+    rounded = sig24 + (1 if round_up else 0)
+
+    if underflow:
+        if rounded & 0x800000: # Subnormal rounded up to min normal
+            final_exp = 1
+            final_mant = rounded & 0x7FFFFF
+        else:
+            final_exp = 0
+            final_mant = rounded & 0x7FFFFF
+    else:
+        if rounded & 0x1000000: # Rounded up with carry out
+            final_exp = exp_biased + 1
+            final_mant = 0
+        else:
+            final_exp = exp_biased
+            final_mant = rounded & 0x7FFFFF
+
+    if final_exp >= 255:
+        return (sign << 31) | 0x7F800000
+
+    return (sign << 31) | ((final_exp & 0xFF) << 23) | final_mant
+
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e4m3=1, support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
                         is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0):
@@ -322,7 +391,7 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0, float32_mode=0, skip_metadata_check=False):
     # Enforce parameter constraints in model
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
@@ -360,14 +429,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
     # Cycle 0: Initial Metadata
-    # ui_in[2:0]: NBM Offset A
-    # ui_in[4:3]: LNS Mode
-    # uio_in[2:0]: NBM Offset B
-    # uio_in[4:3]: Rounding Mode
-    # uio_in[5]: Overflow Mode
-    # uio_in[6]: Packed Mode
-    # uio_in[7]: MX+ Enable
-    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3)
+    # ui_in[2:0]: NBM Offset A (3 bits)
+    # ui_in[4:3]: LNS Mode (2 bits)
+    # ui_in[5]: Float32 Mode (1 bit)
+    # uio_in[2:0]: NBM Offset B (3 bits)
+    # uio_in[4:3]: Rounding Mode (2 bits)
+    # uio_in[5]: Overflow Mode (1 bit)
+    # uio_in[6]: Packed Mode (1 bit)
+    # uio_in[7]: MX+ Enable (1 bit)
+    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3) | (float32_mode << 5)
     dut.uio_in.value = (nbm_offset_b & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
 
     dut.rst_n.value = 0
@@ -480,27 +550,33 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-        expected_final = 0x7FC00000
-    elif inf_pos_sticky:
-        expected_final = 0x7F800000
-    elif inf_neg_sticky:
-        expected_final = 0xFF800000
-    elif support_shared:
-        shared_exp = scale_a + scale_b - 254
-        acc_abs = abs(expected_acc)
-        acc_sign = 1 if expected_acc < 0 else 0
-        # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
-        offset = -(aligner_width - 37)
-        expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, round_mode, overflow_wrap, width=aligner_width)
-        # Extract the S23.8 window (top 32 bits of 40-bit result)
-        expected_final = expected_final_full >> (aligner_width - 32)
+    if float32_mode:
+        # If hardware doesn't support shared scaling, it uses fixed scale 1.0 (shared_exp=0)
+        eff_scale_a = scale_a if support_shared else 127
+        eff_scale_b = scale_b if support_shared else 127
+        shared_exp = eff_scale_a + eff_scale_b - 254
+        expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
-        # If no shared scaling, extract the S23.8 window from the accumulator
-        if acc_width >= 40:
-            expected_final = expected_acc >> (acc_width - 32)
+        if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
+            expected_final = 0x7FC00000
+        elif inf_pos_sticky:
+            expected_final = 0x7F800000
+        elif inf_neg_sticky:
+            expected_final = 0xFF800000
+        elif support_shared:
+            shared_exp = scale_a + scale_b - 254
+            acc_abs = abs(expected_acc)
+            acc_sign = 1 if expected_acc < 0 else 0
+            # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
+            offset = -(aligner_width - 37)
+            expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, round_mode, overflow_wrap, width=aligner_width)
+            # Extract the S23.8 window (top 32 bits of result)
+            # Standard extraction uses aligner_width bits below the binary point.
+            expected_final = expected_final_full >> (aligner_width - 32)
         else:
-            expected_final = expected_acc
+            # If no shared scaling, extract the S23.8 window from the accumulator
+            # This must also use aligner_width to match the hardware's standardize logic.
+            expected_final = expected_acc >> (aligner_width - 32)
 
     # Return as 32-bit signed integer
     expected_final = expected_final & 0xFFFFFFFF
@@ -551,6 +627,25 @@ async def test_mxfp8_mac_shared_scale(dut):
     # Expected: 32 * 1.0 * 2^-1 = 16
     # In fixed point, 16 is 16*256 = 4096
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=126, scale_b=127)
+
+@cocotb.test()
+async def test_float32_basic(dut):
+    dut._log.info("Start Float32 Basic Integration Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    a_elements = [0x38] * 32 # 1.0 in E4M3
+    b_elements = [0x38] * 32
+
+    # Case 1: 32 * 1.0 = 32.0 (shared_exp = 0)
+    # Binary32 for 32.0 is 0x42000000
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, float32_mode=1)
+
+    # Case 2: With Shared Scaling
+    # Scale A = 128 (2^1), Scale B = 127 (2^0) -> Total scale 2^1
+    # Expected: 32 * 1.0 * 2^1 = 64.0
+    # Binary32 for 64.0 is 0x42800000
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=128, scale_b=127, float32_mode=1)
 
 @cocotb.test()
 async def test_mxfp8_mac_e4m3(dut):
@@ -746,6 +841,9 @@ async def test_fast_start_scale_compression(dut):
     packed_mode = 0
     mx_plus_mode = 0
     lns_mode = 0
+    float32_mode = 0
+    nbm_offset_a = 0
+    nbm_offset_b = 0
     scale_a = 128
     scale_b = 127
     a_elements = [0x38] * 32 # 1.0
@@ -767,10 +865,11 @@ async def test_fast_start_scale_compression(dut):
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
-    # Also need to provide metadata in uio_in
-    # uio_in[2:0]: Format A, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
-    dut.ui_in.value = 0x80
-    dut.uio_in.value = (format_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    # Also need to provide metadata in ui_in and uio_in
+    # ui_in[5]: F32 Mode, [2:0]: NBM Offset A, [4:3]: LNS Mode
+    # uio_in[2:0]: NBM Offset B, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
+    dut.ui_in.value = 0x80 | (nbm_offset_a & 0x7) | (lns_mode << 3) | (float32_mode << 5)
+    dut.uio_in.value = (nbm_offset_b & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
     k_factor_eff = k_factor if support_serial_hw else 1
     await ClockCycles(dut.clk, k_factor_eff)
@@ -784,7 +883,30 @@ async def test_fast_start_scale_compression(dut):
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
+    format_b = format_a
+    nan_sticky = support_shared and (scale_a == 0xFF or scale_b == 0xFF)
+    inf_pos_sticky = False
+    inf_neg_sticky = False
+
     for a, b in zip(a_elements, b_elements):
+        # Basic NaN/Inf model for sticky registers
+        sa, ea, ma, ba, inta, nana, infa = decode_format(a, format_a, False, False,
+                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+        sb, eb, mb, bb, intb, nanb, infb = decode_format(b, format_b, False, False,
+                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+
+        is_zero_a = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a == 0)
+        is_zero_b = (not intb and eb == 0 and (mb & 0x7) == 0) or (intb and b == 0)
+
+        nan_el = nana or nanb or (infa and is_zero_b) or (infb and is_zero_a)
+        inf_el = (infa or infb) and not nan_el
+        sign_el = sa ^ sb
+
+        if nan_el: nan_sticky = True
+        if inf_el:
+            if sign_el: inf_neg_sticky = True
+            else:      inf_pos_sticky = True
+
         prod = align_product_model(a, b, format_a, format_b,
                                    support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width, lns_mode=lns_mode)
 
@@ -797,18 +919,28 @@ async def test_fast_start_scale_compression(dut):
         else:
             expected_acc = sum_masked
 
-    if support_shared:
-        shared_exp = scale_a + scale_b - 254
-        acc_abs = abs(expected_acc)
-        acc_sign = 1 if expected_acc < 0 else 0
-        offset = -(aligner_width - 37)
-        expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
-        expected_final = expected_final_full >> (aligner_width - 32)
+    if float32_mode:
+        # If hardware doesn't support shared scaling, it uses fixed scale 1.0 (shared_exp=0)
+        eff_scale_a = scale_a if support_shared else 127
+        eff_scale_b = scale_b if support_shared else 127
+        shared_exp = eff_scale_a + eff_scale_b - 254
+        expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
-        if acc_width >= 40:
-            expected_final = expected_acc >> (acc_width - 32)
+        if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
+            expected_final = 0x7FC00000
+        elif inf_pos_sticky:
+            expected_final = 0x7F800000
+        elif inf_neg_sticky:
+            expected_final = 0xFF800000
+        elif support_shared:
+            shared_exp = scale_a + scale_b - 254
+            acc_abs = abs(expected_acc)
+            acc_sign = 1 if expected_acc < 0 else 0
+            offset = -(aligner_width - 37)
+            expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
+            expected_final = expected_final_full >> (aligner_width - 32)
         else:
-            expected_final = expected_acc
+            expected_final = expected_acc >> (aligner_width - 32)
 
     expected_final = expected_final & 0xFFFFFFFF
     if expected_final & 0x80000000:
@@ -1182,3 +1314,66 @@ async def test_mxfp4_full_range(dut):
     # Expected: 2 * sum(v*v for v in range(16)) = 2 * 137.0 = 274.0.
     # Fixed point (8 bits): 274.0 * 256 = 70144
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
+
+@cocotb.test()
+async def test_float32_randomized(dut):
+    """
+    Perform randomized tests for the Float32 conversion path.
+    Tests various combinations of shared scales and input formats.
+    """
+    dut._log.info("Start Randomized Float32 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
+
+    allowed_formats = [5, 6] # INT8
+    if support_e4m3: allowed_formats.append(0)
+    if support_e5m2: allowed_formats.append(1)
+    if support_mxfp6: allowed_formats.extend([2, 3])
+    if support_mxfp4: allowed_formats.append(4)
+
+    import random
+    for i in range(50):
+        format_a = random.choice(allowed_formats)
+        format_b = random.choice(allowed_formats) if support_mixed else format_a
+        scale_a = random.randint(100, 154) # Range around 1.0 (127) to avoid constant overflow/underflow
+        scale_b = random.randint(100, 154)
+        a_elements = [random.randint(0, 255) for _ in range(32)]
+        b_elements = [random.randint(0, 255) for _ in range(32)]
+
+        await run_mac_test(dut, format_a, format_b, a_elements, b_elements,
+                           scale_a=scale_a, scale_b=scale_b, float32_mode=1)
+
+@cocotb.test()
+async def test_float32_exceptions_integration(dut):
+    """
+    Verify that NaNs and Infinities correctly propagate through the F2F path
+    in top-level integration.
+    """
+    dut._log.info("Start Float32 Exceptions Integration Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # Case 1: Shared Scale NaN Rule (Scale=0xFF)
+    a_elements = [0x38] * 32
+    b_elements = [0x38] * 32
+    # Should result in 0x7FC00000 (NaN)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=0xFF, float32_mode=1)
+
+    # Case 2: Element-level NaN
+    a_elements[5] = 0x7F # NaN in E4M3
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, float32_mode=1)
+
+    # Case 3: Overflow to Infinity
+    # 1.0 * 1.0 = 1.0. Sum of 32 = 32.0.
+    # Shared exp = 127 + 127 = 254.
+    # To overflow Binary32 (exp > 127), shared_exp needs to be large.
+    # Scale A = 254 (2^127), Scale B = 127 (2^0) -> shared_exp = 127.
+    # 32.0 * 2^127 will definitely overflow Binary32.
+    a_elements = [0x38] * 32
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=254, scale_b=127, float32_mode=1)

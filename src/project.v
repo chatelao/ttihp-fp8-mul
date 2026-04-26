@@ -101,6 +101,7 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [1:0] round_mode_reg;
     reg       overflow_wrap_reg;
     reg       packed_mode_reg;
+    reg       float32_mode_reg;
     reg [1:0] lns_mode_reg;
 
     // --- Debug and Probing Logic ---
@@ -122,9 +123,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 end else if (ena && strobe && logical_cycle == 6'd0) begin
                     // Capture debug configuration in Cycle 0.
                     debug_en_reg    <= ui_in[6];
-                    probe_sel_reg   <= uio_in[3:0];
-                    // Loopback is sticky once enabled until reset to allow multi-block testing
-                    loopback_en_reg <= loopback_en_reg | ui_in[5];
+                    probe_sel_reg   <= ui_in[3:0];
+                    // Loopback is sticky once enabled until reset.
+                    // Requires debug_en (bit 6) to be active to avoid conflict with float32_mode (bit 5).
+                    loopback_en_reg <= loopback_en_reg | (ui_in[5] && ui_in[6]);
                 end
             end
 
@@ -272,23 +274,23 @@ module tt_um_chatelao_fp8_multiplier #(
         if (ENABLE_SHARED_SCALING) begin : gen_scale_a
             reg [7:0] scale_a;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_a <= 8'd0;
+                if (!rst_n) scale_a <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd1) scale_a <= ui_in;
             end
             assign scale_a_val = scale_a;
         end else begin : gen_no_scale_a
-            assign scale_a_val = 8'd0;
+            assign scale_a_val = 8'd127;
         end
 
         if (ENABLE_SHARED_SCALING) begin : gen_scale_b
             reg [7:0] scale_b;
             always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) scale_b <= 8'd0;
+                if (!rst_n) scale_b <= 8'd127;
                 else if (ena && strobe && logical_cycle == 6'd2) scale_b <= ui_in;
             end
             assign scale_b_val = scale_b;
         end else begin : gen_no_scale_b
-            assign scale_b_val = 8'd0;
+            assign scale_b_val = 8'd127;
         end
 
         if (SUPPORT_MIXED_PRECISION && !FIXED_FORMAT) begin : gen_format_b
@@ -328,6 +330,7 @@ module tt_um_chatelao_fp8_multiplier #(
         round_mode_reg = 2'd0;
         overflow_wrap_reg = 1'b0;
         packed_mode_reg = 1'b0;
+        float32_mode_reg = 1'b0;
         lns_mode_reg = 2'd0;
     end
 
@@ -346,6 +349,7 @@ module tt_um_chatelao_fp8_multiplier #(
             round_mode_reg <= 2'd0;
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
+            float32_mode_reg <= 1'b0;
             lns_mode_reg <= 2'd0;
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
@@ -353,6 +357,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
+                float32_mode_reg  <= ui_in[5];
                 lns_mode_reg      <= ui_in[4:3];
 
                 if (ui_in[7]) begin
@@ -413,7 +418,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
@@ -711,9 +716,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     generate
         if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
+            /* verilator lint_off SELRANGE */
             assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                             acc_abs_val[ALIGNER_WIDTH-1:0] :
                                             mul_prod_lane0_ext;
+            /* verilator lint_on SELRANGE */
         end else begin : gen_aligner_in_narrow
             assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                             { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){1'b0}}, acc_abs_val } :
@@ -788,8 +795,11 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
                                                      $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
+    /* verilator lint_off UNUSEDSIGNAL */
     wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH-1] == lane1_extended[ACTUAL_ACC_WIDTH-1]) &&
                              (combined_full[ACTUAL_ACC_WIDTH-1] != lane0_extended[ACTUAL_ACC_WIDTH-1]);
+    wire combined_full_msb_unused = combined_full[ACTUAL_ACC_WIDTH];
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [ACTUAL_ACC_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
                                                      (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
                                                      combined_full[ACTUAL_ACC_WIDTH-1:0];
@@ -797,16 +807,73 @@ module tt_um_chatelao_fp8_multiplier #(
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
-    wire [31:0] acc_out_ext;
+
+    // Standardize accumulator output to ALIGNER_WIDTH for consistent windowing.
+    wire [ALIGNER_WIDTH-1:0] acc_out_aligned;
     generate
-        if (ACTUAL_ACC_WIDTH >= 40) begin : gen_acc_out_ext_wide
-            // Extract the S23.8 window (bits 39 down to 8)
-            assign acc_out_ext = acc_out[39:8];
-        end else begin : gen_acc_out_ext_narrow
-            // Fallback for narrower accumulators
-            assign acc_out_ext = acc_out[31:0];
+        if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_acc_aligned_trunc
+            assign acc_out_aligned = acc_out[ALIGNER_WIDTH-1:0];
+        end else begin : gen_acc_aligned_ext
+            assign acc_out_aligned = { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){acc_out[ACTUAL_ACC_WIDTH-1]}}, acc_out };
         end
     endgenerate
+
+    wire [31:0] acc_out_ext;
+    // Window extraction must use ALIGNER_WIDTH because that defines the binary point weight (2^-24).
+    // The internal binary point is at bit ALIGNER_WIDTH - 24.
+    // The 32-bit output window starts 8 bits below the binary point: (ALIGNER_WIDTH-24)-8 = ALIGNER_WIDTH-32.
+    generate
+        if (ALIGNER_WIDTH >= 32) begin : gen_acc_out_ext_wide
+            assign acc_out_ext = acc_out_aligned[ALIGNER_WIDTH-1 : ALIGNER_WIDTH-32];
+        end else begin : gen_acc_out_ext_narrow
+            assign acc_out_ext = { acc_out_aligned, {(32-ALIGNER_WIDTH){1'b0}} };
+        end
+    endgenerate
+
+    // --- Fixed-to-Float Engine ---
+    wire [31:0] f2f_result;
+    wire [5:0]  f2f_lzc;
+    wire        f2f_underflow;
+    wire [11:0] f2f_exp_biased;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire        f2f_sign;
+    wire [39:0] f2f_mag;
+    wire [39:0] f2f_norm_mag;
+    wire [22:0] f2f_mantissa;
+    wire        f2f_zero;
+    wire [3:0]  f2f_exp_biased_unused = f2f_exp_biased[11:8];
+    /* verilator lint_on UNUSEDSIGNAL */
+
+    wire [39:0] f2f_acc_in;
+    // required shift to align internal binary point (ALIGNER_WIDTH-24) to f2f binary point (16)
+    // shift = 16 - (ALIGNER_WIDTH - 24) = 40 - ALIGNER_WIDTH
+    localparam F2F_SHIFT = 40 - ALIGNER_WIDTH;
+    generate
+        if (F2F_SHIFT > 0) begin : gen_f2f_pad
+            assign f2f_acc_in = { acc_out_aligned, {F2F_SHIFT{1'b0}} };
+        end else if (F2F_SHIFT < 0) begin : gen_f2f_trunc
+            assign f2f_acc_in = acc_out_aligned[ALIGNER_WIDTH-1 : -F2F_SHIFT];
+        end else begin : gen_f2f_direct
+            assign f2f_acc_in = acc_out_aligned;
+        end
+    endgenerate
+
+    fixed_to_float f2f_inst (
+        .acc(f2f_acc_in),
+        .shared_exp(shared_exp),
+        .nan_sticky(nan_sticky),
+        .inf_pos_sticky(inf_pos_sticky),
+        .inf_neg_sticky(inf_neg_sticky),
+        .result(f2f_result),
+        .sign(f2f_sign),
+        .mag(f2f_mag),
+        .lzc(f2f_lzc),
+        .norm_mag(f2f_norm_mag),
+        .exp_biased(f2f_exp_biased),
+        .mantissa(f2f_mantissa),
+        .zero(f2f_zero),
+        .underflow(f2f_underflow)
+    );
 
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
@@ -821,7 +888,17 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext;
+    wire [31:0] final_scaled_result_sh;
+    generate
+        if (ALIGNER_WIDTH >= 32) begin : gen_final_scaled_wide
+            assign final_scaled_result_sh = aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32];
+        end else begin : gen_final_scaled_narrow
+            assign final_scaled_result_sh = { aligned_lane0_res, {(32-ALIGNER_WIDTH){1'b0}} };
+        end
+    endgenerate
+
+    wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result :
+                                      (ENABLE_SHARED_SCALING ? final_scaled_result_sh : acc_out_ext);
 
     // Accumulator instance.
     accumulator #(
@@ -868,9 +945,9 @@ module tt_um_chatelao_fp8_multiplier #(
                     4'hD: probe_data_reg = {mul_sign_lane1_val, mul_nan_lane1_val, mul_inf_lane1_val, mul_exp_sum_lane1_val[4:0]};
                     // Control/Status Probes
                     4'h9: probe_data_reg = {ena, strobe, acc_en, acc_clear, 4'd0};
-                    // Reserved for Future F2F Engine (Step 11+)
-                    4'hE: probe_data_reg = 8'hEE; // LZC / Normalization probe placeholder
-                    4'hF: probe_data_reg = 8'hFF; // Shifter / Rounding probe placeholder
+                    // Float32 Probes (Step 26)
+                    4'hE: probe_data_reg = {float32_mode_reg, f2f_lzc, f2f_underflow};
+                    4'hF: probe_data_reg = f2f_exp_biased[7:0];
                     default: probe_data_reg = 8'h00;
                 endcase
             end

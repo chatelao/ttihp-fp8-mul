@@ -61,7 +61,9 @@ module fixed_to_float (
     // Unified Barrel Shifter with Sticky Bit capture
     reg [39:0] norm_mag_reg;
     reg        sticky_sh;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire signed [11:0] neg_shift_amt = -shift_amt;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     always @(*) begin
         sticky_sh = 1'b0;

@@ -25,10 +25,10 @@ Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full complianc
 - [x] **Step 21: [F2F] Float32 Overflow Detection**: Detect when the final exponent $\ge 255$ and flag the result for Infinity saturation.
 - [x] **Step 22: [F2F] Sign-Exponent-Mantissa Assembly**: Implement the final stage to pack the sign bit, 8-bit exponent, and 23-bit mantissa into a 32-bit Binary32 pattern.
 - [x] **Step 23: [F2F] Special Value Muxing**: Integrate the existing `nan_sticky` and `inf_sticky` registers to override the F2F output with canonical OCP MX NaN/Inf bit patterns.
-- [ ] **Step 24: [F2F] Fixed-to-Float Wrapper**: Encapsulate the LZC, shifter, and assembly logic into a standalone `src/fixed_to_float.v` module.
-- [ ] **Step 25: [Integration] Protocol Update (Cycle 0)**: Update the FSM to sample a "Float32 Mode" bit from the Cycle 0 Metadata (e.g., `uio_in[4]`) and store it in a configuration register.
-- [ ] **Step 26: [Integration] Output Mux & Hookup**: Integrate the F2F module into `src/project.v` and add a multiplexer to select between raw fixed-point and Float32 results based on the configuration bit.
-- [ ] **Step 27: [Verification] Cocotb Float32 Reference Model**: Update `test/test.py` with a bit-accurate Float32 reference model and implement a `test_float32_basic` regression.
+- [x] **Step 24: [F2F] Fixed-to-Float Wrapper**: Encapsulate the LZC, shifter, and assembly logic into a standalone `src/fixed_to_float.v` module.
+- [x] **Step 25: [Integration] Protocol Update (Cycle 0)**: Update the FSM to sample a "Float32 Mode" bit from the Cycle 0 Metadata (e.g., `uio_in[4]`) and store it in a configuration register.
+- [x] **Step 26: [Integration] Output Mux & Hookup**: Integrate the F2F module into `src/project.v` and add a multiplexer to select between raw fixed-point and Float32 results based on the configuration bit.
+- [x] **Step 27: [Verification] Cocotb Float32 Reference Model**: Update `test/test.py` with a bit-accurate Float32 reference model and implement a `test_float32_basic` regression.
 - [ ] **Step 28: [Verification] Final Compliance Validation**: Develop and run a comprehensive test suite targeting edge cases (subnormals, overflow-to-Inf, NaN propagation) to ensure 100% OCP MX and IEEE 754 compliance.
 
 ## 3. Verification & Benchmarking
