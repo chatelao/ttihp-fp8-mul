@@ -322,7 +322,7 @@ async def reset_dut(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 1)
 
-async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0):
+async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=127, scale_b=127, round_mode=0, overflow_wrap=0, expected_override=None, packed_mode=0, bm_index_a=0, bm_index_b=0, nbm_offset_a=0, nbm_offset_b=0, mx_plus_mode=0, lns_mode=0, float32_mode=0):
     # Enforce parameter constraints in model
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     if not support_mixed:
@@ -359,16 +359,17 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
-    # Cycle 0: Initial Metadata
-    # ui_in[2:0]: NBM Offset A
+    # Cycle 0: Initial Metadata (New Layout)
+    # ui_in[1:0]: NBM Offset A (2 bits)
     # ui_in[4:3]: LNS Mode
-    # uio_in[2:0]: NBM Offset B
-    # uio_in[4:3]: Rounding Mode
+    # uio_in[1:0]: NBM Offset B (2 bits)
+    # uio_in[3:2]: Rounding Mode
+    # uio_in[4]: Float32 Enable
     # uio_in[5]: Overflow Mode
     # uio_in[6]: Packed Mode
     # uio_in[7]: MX+ Enable
-    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3)
-    dut.uio_in.value = (nbm_offset_b & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    dut.ui_in.value = (nbm_offset_a & 0x3) | (lns_mode << 3)
+    dut.uio_in.value = (nbm_offset_b & 0x3) | (round_mode << 2) | (float32_mode << 4) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
 
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
@@ -486,6 +487,20 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         expected_final = 0x7F800000
     elif inf_neg_sticky:
         expected_final = 0xFF800000
+    elif float32_mode:
+        # Bit-accurate Float32 reference model
+        import struct
+        shared_exp = scale_a + scale_b - 254
+        # expected_acc is the fixed-point sum with bit 16 as 2^0.
+        # Float value = expected_acc * 2^-16 * 2^shared_exp
+        val = expected_acc * (2**-16) * (2**shared_exp)
+        # Note: This simple Python float conversion may differ from hardware for extreme edge cases,
+        # but for general functional verification of Step 26, it serves as a baseline.
+        # Bit-accurate subnormal/rounding handling will be refined in Step 28.
+        try:
+            expected_final = struct.unpack('!I', struct.pack('!f', val))[0]
+        except OverflowError:
+            expected_final = 0x7F800000 if val > 0 else 0xFF800000
     elif support_shared:
         shared_exp = scale_a + scale_b - 254
         acc_abs = abs(expected_acc)
@@ -1164,6 +1179,30 @@ async def test_lane_overflow(dut):
     # We only need one cycle of overflow to test it.
     # The model handles this correctly as it saturates at each element addition.
     await run_mac_test(dut, 4, 4, a_elements, b_elements, scale_a=157, scale_b=127, packed_mode=1)
+
+@cocotb.test()
+async def test_float32_mode(dut):
+    """
+    Verify that setting the FLOAT32_EN bit in Cycle 0 produces
+    IEEE 754 Float32 results instead of fixed-point.
+    """
+    dut._log.info("Start Float32 Mode Integration Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # Case: 32 elements of 1.0 (E4M3) -> Sum = 32.0
+    # IEEE 754 for 32.0 is 0x42000000
+    a_elements = [0x38] * 32
+    b_elements = [0x38] * 32
+
+    # Run with float32_mode=1
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, float32_mode=1)
+
+    # Case: 32 elements of 0.5 (E4M3: 0x30) -> Sum = 16.0
+    # IEEE 754 for 16.0 is 0x41800000
+    a_elements = [0x30] * 32
+    b_elements = [0x38] * 32 # 1.0
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, float32_mode=1)
 
 @cocotb.test()
 async def test_mxfp4_full_range(dut):

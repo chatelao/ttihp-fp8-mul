@@ -23,3 +23,5 @@ fp8_mul.v
 fp8_mul_lns.v
 fp8_aligner.v
 accumulator.v
+lzc40.v
+fixed_to_float.v

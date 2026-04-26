@@ -102,6 +102,7 @@ module tt_um_chatelao_fp8_multiplier #(
     reg       overflow_wrap_reg;
     reg       packed_mode_reg;
     reg [1:0] lns_mode_reg;
+    reg       float32_mode_reg;
 
     // --- Debug and Probing Logic ---
     wire       debug_en_val;
@@ -149,8 +150,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
     /* verilator lint_on UNUSED */
-    wire [2:0] nbm_offset_a_val;
-    wire [2:0] nbm_offset_b_val;
+    wire [1:0] nbm_offset_a_val;
+    wire [1:0] nbm_offset_b_val;
     wire       mx_plus_en_val;
     wire [7:0] buffered_a_lane0;
     wire [7:0] buffered_b_lane0;
@@ -167,23 +168,23 @@ module tt_um_chatelao_fp8_multiplier #(
         if (SUPPORT_MX_PLUS) begin : gen_mx_plus
             reg [4:0] bm_index_a;
             reg [4:0] bm_index_b;
-            reg [2:0] nbm_offset_a;
-            reg [2:0] nbm_offset_b;
+            reg [1:0] nbm_offset_a;
+            reg [1:0] nbm_offset_b;
             reg       mx_plus_en;
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     bm_index_a <= 5'd0;
                     bm_index_b <= 5'd0;
-                    nbm_offset_a <= 3'd0;
-                    nbm_offset_b <= 3'd0;
+                    nbm_offset_a <= 2'd0;
+                    nbm_offset_b <= 2'd0;
                     mx_plus_en <= 1'b0;
                 end else if (ena && strobe) begin
                     if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                         // Capture MX+ configuration in Cycle 0.
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
-                            nbm_offset_a <= ui_in[2:0];
-                            nbm_offset_b <= uio_in[2:0];
+                            nbm_offset_a <= ui_in[1:0];
+                            nbm_offset_b <= uio_in[1:0];
                         end
                     end
                     if (logical_cycle == 6'd1) bm_index_a <= uio_in[7:3];
@@ -192,8 +193,8 @@ module tt_um_chatelao_fp8_multiplier #(
             end
             assign bm_index_a_val = bm_index_a;
             assign bm_index_b_val = bm_index_b;
-            assign nbm_offset_a_val = mx_plus_en ? nbm_offset_a : 3'd0;
-            assign nbm_offset_b_val = mx_plus_en ? nbm_offset_b : 3'd0;
+            assign nbm_offset_a_val = mx_plus_en ? nbm_offset_a : 2'd0;
+            assign nbm_offset_b_val = mx_plus_en ? nbm_offset_b : 2'd0;
             assign mx_plus_en_val = mx_plus_en;
 
             // Element Indexing for element-wise metadata.
@@ -213,8 +214,8 @@ module tt_um_chatelao_fp8_multiplier #(
         end else begin : gen_no_mx_plus
             assign bm_index_a_val = 5'd0;
             assign bm_index_b_val = 5'd0;
-            assign nbm_offset_a_val = 3'd0;
-            assign nbm_offset_b_val = 3'd0;
+            assign nbm_offset_a_val = 2'd0;
+            assign nbm_offset_b_val = 2'd0;
             assign mx_plus_en_val = 1'b0;
             assign is_bm_a_lane0_raw = 1'b0;
             assign is_bm_b_lane0_raw = 1'b0;
@@ -329,6 +330,7 @@ module tt_um_chatelao_fp8_multiplier #(
         overflow_wrap_reg = 1'b0;
         packed_mode_reg = 1'b0;
         lns_mode_reg = 2'd0;
+        float32_mode_reg = 1'b0;
     end
 
     // Configure bidirectional pins as inputs for Tiny Tapeout.
@@ -347,10 +349,12 @@ module tt_um_chatelao_fp8_multiplier #(
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
             lns_mode_reg <= 2'd0;
+            float32_mode_reg <= 1'b0;
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                 // Capture Metadata at the start of a block (Cycle 0).
-                round_mode_reg    <= uio_in[4:3];
+                float32_mode_reg  <= uio_in[4];
+                round_mode_reg    <= uio_in[3:2];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
                 lns_mode_reg      <= ui_in[4:3];
@@ -697,13 +701,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // MX++ Exponent Offset (Step 6)
     // Subtract offsets if the element is NOT a BM.
     wire signed [9:0] exp_sum_lane0_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0_val} -
-                                          (is_bm_a_lane0_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
-                                          (is_bm_b_lane0_val ? 10'd0 : {7'd0, nbm_offset_b_val});
+                                          (is_bm_a_lane0_val ? 10'd0 : {8'd0, nbm_offset_a_val}) -
+                                          (is_bm_b_lane0_val ? 10'd0 : {8'd0, nbm_offset_b_val});
 
     /* verilator lint_off UNUSEDSIGNAL */
     wire signed [9:0] exp_sum_lane1_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane1_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane1_val} -
-                                          (is_bm_a_lane1_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
-                                          (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
+                                          (is_bm_a_lane1_val ? 10'd0 : {8'd0, nbm_offset_a_val}) -
+                                          (is_bm_b_lane1_val ? 10'd0 : {8'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
 
     // Multiplier for Aligner Input based on current protocol phase.
@@ -808,6 +812,30 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
+    // --- Fixed-to-Float Conversion ---
+    wire [31:0] f2f_result;
+    wire [5:0]  f2f_lzc;
+    wire signed [11:0] f2f_exp_biased;
+    wire        f2f_underflow;
+
+    fixed_to_float f2f_inst (
+        .acc(acc_out[39:0]),
+        .shared_exp(shared_exp),
+        .nan_sticky(nan_sticky),
+        .inf_pos_sticky(inf_pos_sticky),
+        .inf_neg_sticky(inf_neg_sticky),
+        .result(f2f_result),
+        // Probes
+        .lzc(f2f_lzc),
+        .exp_biased(f2f_exp_biased),
+        .underflow(f2f_underflow),
+        .sign(),
+        .mag(),
+        .norm_mag(),
+        .mantissa(),
+        .zero()
+    );
+
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
     reg [7:0] sticky_byte;
@@ -821,7 +849,8 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext;
+    wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result :
+                                      (ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext);
 
     // Accumulator instance.
     accumulator #(
@@ -869,8 +898,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     // Control/Status Probes
                     4'h9: probe_data_reg = {ena, strobe, acc_en, acc_clear, 4'd0};
                     // Reserved for Future F2F Engine (Step 11+)
-                    4'hE: probe_data_reg = 8'hEE; // LZC / Normalization probe placeholder
-                    4'hF: probe_data_reg = 8'hFF; // Shifter / Rounding probe placeholder
+                    4'hE: probe_data_reg = {float32_mode_reg, f2f_underflow, f2f_lzc};
+                    4'hF: probe_data_reg = f2f_exp_biased[7:0];
                     default: probe_data_reg = 8'h00;
                 endcase
             end

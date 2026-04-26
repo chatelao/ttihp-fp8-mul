@@ -97,7 +97,8 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 | `[6]` | **DEBUG_EN** | 1: Enable internal probing and metadata echo. |
 | `[5]` | **LOOPBACK_EN** | 1: Enable XOR loopback (`uo_out = ui_in ^ uio_in`). |
 | `[4:3]` | **LNS_MODE** | Multiplier mode: `0`: Normal, `1`: LNS, `2`: Hybrid. |
-| `[2:0]` | **NBM_OFF_A** | Exponent offset for Operand A (MX++). |
+| `[1:0]` | **NBM_OFF_A** | Exponent offset for Operand A (MX++). |
+| `[2]` | - | Reserved. |
 
 **Cycle 0: Metadata 1 (`uio_in`)**
 ![Metadata 1 (uio_in)](metadata_c0_uio.svg)
@@ -107,8 +108,9 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 | `[7]` | **MX_PLUS_EN** | 1: Enable OCP MX+ extended mantissa. |
 | `[6]` | **PACKED_EN** | 1: Enable Vector Packing (2 elements/byte). |
 | `[5]` | **OVFL_WRAP** | 0: SAT (Saturate), 1: WRAP. |
-| `[4:3]` | **ROUND_MODE** | `0`: TRN, `1`: CEL, `2`: FLR, `3`: RNE. |
-| `[2:0]` | **NBM_OFF_B** | Exponent offset for Operand B / Format select. |
+| `[4]` | **FLOAT32_EN** | 1: Enable IEEE 754 Float32 output format. |
+| `[3:2]` | **ROUND_MODE** | `0`: TRN, `1`: CEL, `2`: FLR, `3`: RNE. |
+| `[1:0]` | **NBM_OFF_B** | Exponent offset for Operand B / Format select. |
 
 **Cycle 1: Scale A and Config A**
 ![Scale A](scale_a.svg)
@@ -164,6 +166,8 @@ The unit includes integrated logic analyzer probes for real-time silicon monitor
 | `0xA` | **L0 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
 | `0xB-0xC`| **Multiplier L1**| Lane 1 product (MSB/LSB) |
 | `0xD` | **L1 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
+| `0xE` | **F2F Status** | `[7]` float32_mode, `[6]` underflow, `[5:0]` lzc |
+| `0xF` | **F2F Exponent** | `[7:0]` biased_exponent |
 
 #### 6.6 FP4 Fast Mode
 The unit provides a high-throughput **FP4 Fast Lane** mode by combining **Vector Packing** and the **Short Protocol**.
