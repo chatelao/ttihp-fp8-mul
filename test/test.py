@@ -920,7 +920,10 @@ async def test_fast_start_scale_compression(dut):
             expected_acc = sum_masked
 
     if float32_mode:
-        shared_exp = scale_a + scale_b - 254
+        # If hardware doesn't support shared scaling, it uses fixed scale 1.0 (shared_exp=0)
+        eff_scale_a = scale_a if support_shared else 127
+        eff_scale_b = scale_b if support_shared else 127
+        shared_exp = eff_scale_a + eff_scale_b - 254
         expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
         if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
@@ -1311,3 +1314,66 @@ async def test_mxfp4_full_range(dut):
     # Expected: 2 * sum(v*v for v in range(16)) = 2 * 137.0 = 274.0.
     # Fixed point (8 bits): 274.0 * 256 = 70144
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
+
+@cocotb.test()
+async def test_float32_randomized(dut):
+    """
+    Perform randomized tests for the Float32 conversion path.
+    Tests various combinations of shared scales and input formats.
+    """
+    dut._log.info("Start Randomized Float32 Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
+    support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
+    support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
+
+    allowed_formats = [5, 6] # INT8
+    if support_e4m3: allowed_formats.append(0)
+    if support_e5m2: allowed_formats.append(1)
+    if support_mxfp6: allowed_formats.extend([2, 3])
+    if support_mxfp4: allowed_formats.append(4)
+
+    import random
+    for i in range(50):
+        format_a = random.choice(allowed_formats)
+        format_b = random.choice(allowed_formats) if support_mixed else format_a
+        scale_a = random.randint(100, 154) # Range around 1.0 (127) to avoid constant overflow/underflow
+        scale_b = random.randint(100, 154)
+        a_elements = [random.randint(0, 255) for _ in range(32)]
+        b_elements = [random.randint(0, 255) for _ in range(32)]
+
+        await run_mac_test(dut, format_a, format_b, a_elements, b_elements,
+                           scale_a=scale_a, scale_b=scale_b, float32_mode=1)
+
+@cocotb.test()
+async def test_float32_exceptions_integration(dut):
+    """
+    Verify that NaNs and Infinities correctly propagate through the F2F path
+    in top-level integration.
+    """
+    dut._log.info("Start Float32 Exceptions Integration Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    # Case 1: Shared Scale NaN Rule (Scale=0xFF)
+    a_elements = [0x38] * 32
+    b_elements = [0x38] * 32
+    # Should result in 0x7FC00000 (NaN)
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=0xFF, float32_mode=1)
+
+    # Case 2: Element-level NaN
+    a_elements[5] = 0x7F # NaN in E4M3
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, float32_mode=1)
+
+    # Case 3: Overflow to Infinity
+    # 1.0 * 1.0 = 1.0. Sum of 32 = 32.0.
+    # Shared exp = 127 + 127 = 254.
+    # To overflow Binary32 (exp > 127), shared_exp needs to be large.
+    # Scale A = 254 (2^127), Scale B = 127 (2^0) -> shared_exp = 127.
+    # 32.0 * 2^127 will definitely overflow Binary32.
+    a_elements = [0x38] * 32
+    await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=254, scale_b=127, float32_mode=1)
