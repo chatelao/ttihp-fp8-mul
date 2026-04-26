@@ -429,16 +429,16 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Custom reset to handle Cycle 0 sampling
     dut.ena.value = 1
     # Cycle 0: Initial Metadata
-    # ui_in[2:0]: NBM Offset A (3 bits restored)
-    # ui_in[4:3]: LNS Mode
-    # uio_in[1:0]: NBM Offset B (reduced to 2 bits)
-    # uio_in[2]: Float32 Mode
-    # uio_in[4:3]: Rounding Mode
-    # uio_in[5]: Overflow Mode
-    # uio_in[6]: Packed Mode
-    # uio_in[7]: MX+ Enable
-    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3)
-    dut.uio_in.value = (nbm_offset_b & 0x3) | (float32_mode << 2) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    # ui_in[2:0]: NBM Offset A (3 bits)
+    # ui_in[4:3]: LNS Mode (2 bits)
+    # ui_in[5]: Float32 Mode (1 bit)
+    # uio_in[2:0]: NBM Offset B (3 bits)
+    # uio_in[4:3]: Rounding Mode (2 bits)
+    # uio_in[5]: Overflow Mode (1 bit)
+    # uio_in[6]: Packed Mode (1 bit)
+    # uio_in[7]: MX+ Enable (1 bit)
+    dut.ui_in.value = (nbm_offset_a & 0x7) | (lns_mode << 3) | (float32_mode << 5)
+    dut.uio_in.value = (nbm_offset_b & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
 
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
@@ -839,6 +839,9 @@ async def test_fast_start_scale_compression(dut):
     packed_mode = 0
     mx_plus_mode = 0
     lns_mode = 0
+    float32_mode = 0
+    nbm_offset_a = 0
+    nbm_offset_b = 0
     scale_a = 128
     scale_b = 127
     a_elements = [0x38] * 32 # 1.0
@@ -860,10 +863,11 @@ async def test_fast_start_scale_compression(dut):
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
-    # Also need to provide metadata in uio_in
-    # uio_in[1:0]: NBM Offset B, [2]: F32 Mode, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
-    dut.ui_in.value = 0x80
-    dut.uio_in.value = (nbm_offset_b & 0x3) | (float32_mode << 2) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    # Also need to provide metadata in ui_in and uio_in
+    # ui_in[5]: F32 Mode, [2:0]: NBM Offset A, [4:3]: LNS Mode
+    # uio_in[2:0]: NBM Offset B, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
+    dut.ui_in.value = 0x80 | (nbm_offset_a & 0x7) | (lns_mode << 3) | (float32_mode << 5)
+    dut.uio_in.value = (nbm_offset_b & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
     k_factor_eff = k_factor if support_serial_hw else 1
     await ClockCycles(dut.clk, k_factor_eff)
@@ -877,7 +881,30 @@ async def test_fast_start_scale_compression(dut):
     aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
 
     expected_acc = 0
+    format_b = format_a
+    nan_sticky = support_shared and (scale_a == 0xFF or scale_b == 0xFF)
+    inf_pos_sticky = False
+    inf_neg_sticky = False
+
     for a, b in zip(a_elements, b_elements):
+        # Basic NaN/Inf model for sticky registers
+        sa, ea, ma, ba, inta, nana, infa = decode_format(a, format_a, False, False,
+                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+        sb, eb, mb, bb, intb, nanb, infb = decode_format(b, format_b, False, False,
+                                                        support_e4m3, support_e5m2, support_mxfp6, support_mxfp4)
+
+        is_zero_a = (not inta and ea == 0 and (ma & 0x7) == 0) or (inta and a == 0)
+        is_zero_b = (not intb and eb == 0 and (mb & 0x7) == 0) or (intb and b == 0)
+
+        nan_el = nana or nanb or (infa and is_zero_b) or (infb and is_zero_a)
+        inf_el = (infa or infb) and not nan_el
+        sign_el = sa ^ sb
+
+        if nan_el: nan_sticky = True
+        if inf_el:
+            if sign_el: inf_neg_sticky = True
+            else:      inf_pos_sticky = True
+
         prod = align_product_model(a, b, format_a, format_b,
                                    support_e4m3=support_e4m3, support_e5m2=support_e5m2, support_mxfp6=support_mxfp6, support_mxfp4=support_mxfp4, support_int8=support_int8, use_lns=use_lns, use_lns_precise=use_lns_precise, aligner_width=aligner_width, lns_mode=lns_mode)
 
@@ -890,18 +917,28 @@ async def test_fast_start_scale_compression(dut):
         else:
             expected_acc = sum_masked
 
-    if support_shared:
+    if float32_mode:
         shared_exp = scale_a + scale_b - 254
-        acc_abs = abs(expected_acc)
-        acc_sign = 1 if expected_acc < 0 else 0
-        offset = -(aligner_width - 37)
-        expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
-        expected_final = expected_final_full >> (aligner_width - 32)
+        expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
-        if acc_width >= 40:
-            expected_final = expected_acc >> (acc_width - 32)
+        if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
+            expected_final = 0x7FC00000
+        elif inf_pos_sticky:
+            expected_final = 0x7F800000
+        elif inf_neg_sticky:
+            expected_final = 0xFF800000
+        elif support_shared:
+            shared_exp = scale_a + scale_b - 254
+            acc_abs = abs(expected_acc)
+            acc_sign = 1 if expected_acc < 0 else 0
+            offset = -(aligner_width - 37)
+            expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
+            expected_final = expected_final_full >> (aligner_width - 32)
         else:
-            expected_final = expected_acc
+            if acc_width >= 40:
+                expected_final = expected_acc >> (acc_width - 32)
+            else:
+                expected_final = expected_acc
 
     expected_final = expected_final & 0xFFFFFFFF
     if expected_final & 0x80000000:

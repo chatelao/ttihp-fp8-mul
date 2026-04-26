@@ -123,9 +123,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 end else if (ena && strobe && logical_cycle == 6'd0) begin
                     // Capture debug configuration in Cycle 0.
                     debug_en_reg    <= ui_in[6];
-                    probe_sel_reg   <= uio_in[3:0];
-                    // Loopback is sticky once enabled until reset to allow multi-block testing
-                    loopback_en_reg <= loopback_en_reg | ui_in[5];
+                    probe_sel_reg   <= ui_in[3:0];
+                    // Loopback is sticky once enabled until reset.
+                    // Requires debug_en (bit 6) to be active to avoid conflict with float32_mode (bit 5).
+                    loopback_en_reg <= loopback_en_reg | (ui_in[5] && ui_in[6]);
                 end
             end
 
@@ -184,7 +185,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
                             nbm_offset_a <= ui_in[2:0];
-                            nbm_offset_b <= {1'b0, uio_in[1:0]};
+                            nbm_offset_b <= uio_in[2:0];
                         end
                     end
                     if (logical_cycle == 6'd1) bm_index_a <= uio_in[7:3];
@@ -356,7 +357,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
-                float32_mode_reg  <= uio_in[2];
+                float32_mode_reg  <= ui_in[5];
                 lns_mode_reg      <= ui_in[4:3];
 
                 if (ui_in[7]) begin
@@ -417,7 +418,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : ui_in));
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
-                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, ui_in[3:0]} : {4'd0, packed_a_buf}) : uio_in));
+                        (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
