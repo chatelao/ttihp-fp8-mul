@@ -19,12 +19,12 @@ Address the gaps identified in the `docs/FP32_AUDIT.md` to ensure full complianc
 - [x] **Step 15: [F2F] Float32 Underflow Detection**: Add hardware flags to identify when the magnitude is too small for a normal Float32 result ($E_{biased} \le 0$).
 - [x] **Step 16: [F2F] Subnormal Mantissa Alignment**: Implement a bypass path in the normalizer to produce correctly aligned subnormal mantissas when the underflow flag is active.
 - [x] **Step 17: [F2F] Mantissa Extraction**: Extract the 23-bit fractional mantissa from the normalized result, ensuring the implicit '1' is handled correctly for normal values.
-- [ ] **Step 18: [F2F] Rounding - Guard/Sticky Bit Logic**: Implement logic to capture Guard, Round, and Sticky (GRS) bits from the shifter to support bit-accurate IEEE 754 rounding.
-- [ ] **Step 19: [F2F] Rounding - RNE Implementation**: Implement a Round-to-Nearest-Even (RNE) incrementer for the 23-bit mantissa based on GRS bits.
-- [ ] **Step 20: [F2F] Exponent Post-Rounding Correction**: Add logic to increment the exponent if the mantissa rounding results in a carry-out (e.g., rounding `1.11...1` to `10.00...0`).
-- [ ] **Step 21: [F2F] Float32 Overflow Detection**: Detect when the final exponent $\ge 255$ and flag the result for Infinity saturation.
-- [ ] **Step 22: [F2F] Sign-Exponent-Mantissa Assembly**: Implement the final stage to pack the sign bit, 8-bit exponent, and 23-bit mantissa into a 32-bit Binary32 pattern.
-- [ ] **Step 23: [F2F] Special Value Muxing**: Integrate the existing `nan_sticky` and `inf_sticky` registers to override the F2F output with canonical OCP MX NaN/Inf bit patterns.
+- [x] **Step 18: [F2F] Rounding - Guard/Sticky Bit Logic**: Implement logic to capture Guard, Round, and Sticky (GRS) bits from the shifter to support bit-accurate IEEE 754 rounding.
+- [x] **Step 19: [F2F] Rounding - RNE Implementation**: Implement a Round-to-Nearest-Even (RNE) incrementer for the 23-bit mantissa based on GRS bits.
+- [x] **Step 20: [F2F] Exponent Post-Rounding Correction**: Add logic to increment the exponent if the mantissa rounding results in a carry-out (e.g., rounding `1.11...1` to `10.00...0`).
+- [x] **Step 21: [F2F] Float32 Overflow Detection**: Detect when the final exponent $\ge 255$ and flag the result for Infinity saturation.
+- [x] **Step 22: [F2F] Sign-Exponent-Mantissa Assembly**: Implement the final stage to pack the sign bit, 8-bit exponent, and 23-bit mantissa into a 32-bit Binary32 pattern.
+- [x] **Step 23: [F2F] Special Value Muxing**: Integrate the existing `nan_sticky` and `inf_sticky` registers to override the F2F output with canonical OCP MX NaN/Inf bit patterns.
 - [ ] **Step 24: [F2F] Fixed-to-Float Wrapper**: Encapsulate the LZC, shifter, and assembly logic into a standalone `src/fixed_to_float.v` module.
 - [ ] **Step 25: [Integration] Protocol Update (Cycle 0)**: Update the FSM to sample a "Float32 Mode" bit from the Cycle 0 Metadata (e.g., `uio_in[4]`) and store it in a configuration register.
 - [ ] **Step 26: [Integration] Output Mux & Hookup**: Integrate the F2F module into `src/project.v` and add a multiplexer to select between raw fixed-point and Float32 results based on the configuration bit.
