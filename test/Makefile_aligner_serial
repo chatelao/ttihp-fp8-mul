@@ -8,4 +8,7 @@ VERILOG_SOURCES += $(PWD)/tb_aligner_serial.v
 TOPLEVEL = tb_aligner_serial
 MODULE = test_aligner_serial
 
+# Ensure results directory exists
+$(shell mkdir -p results)
+
 include $(shell cocotb-config --makefiles)/Makefile.sim
