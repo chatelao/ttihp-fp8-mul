@@ -1,0 +1,14 @@
+# Makefile for Serial Aligner Unit Test
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+
+VERILOG_SOURCES += $(PWD)/../src/fp8_aligner_serial.v
+VERILOG_SOURCES += $(PWD)/tb_aligner_serial.v
+
+TOPLEVEL = tb_aligner_serial
+MODULE = test_aligner_serial
+
+# Ensure results directory exists
+$(shell mkdir -p results)
+
+include $(shell cocotb-config --makefiles)/Makefile.sim

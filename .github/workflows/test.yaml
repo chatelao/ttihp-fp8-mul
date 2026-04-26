@@ -37,7 +37,7 @@ jobs:
           # Verify compilation of all M3 modes using iverilog
           for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB M3_MODE_AHB_DMA; do
             echo "Verifying $mode..."
-            iverilog -g2012 -Isrc -D$mode src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/accumulator.v src/lzc40.v src/fixed_to_float.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v -o m3_test
+            iverilog -g2012 -Isrc -D$mode src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/fp8_aligner_serial.v src/accumulator.v src/lzc40.v src/fixed_to_float.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v -o m3_test
             rm m3_test
           done
 
@@ -54,6 +54,9 @@ jobs:
             export COMPILE_ARGS="-P tb.ALIGNER_WIDTH=40 -P tb.ACCUMULATOR_WIDTH=40 -P tb.SUPPORT_E5M2=0 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=1 -P tb.SUPPORT_INT8=0 -P tb.SUPPORT_PIPELINING=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0 -P tb.SUPPORT_SERIAL=0 -P tb.SERIAL_K_FACTOR=1"
           elif [ "${{ matrix.config }}" == "Tiny-Serial" ]; then
             export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=8"
+            echo "Running Serial Aligner Unit Test..."
+            # Use a subshell to run the unit test without overriding top-level parameters
+            (unset COMPILE_ARGS && make -f Makefile_aligner_serial)
           fi
           bash run_tests.sh
 
