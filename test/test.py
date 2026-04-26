@@ -784,10 +784,11 @@ async def test_fast_start_scale_compression(dut):
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
 
     # Cycle 0: IDLE. Set Fast Start bit ui_in[7]
-    # Also need to provide metadata in uio_in
-    # uio_in[2:0]: Format A, [4:3]: RM, [5]: Overflow, [6]: Packed, [7]: MX+ En
-    dut.ui_in.value = 0x80
-    dut.uio_in.value = (format_a & 0x7) | (round_mode << 3) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
+    # Also need to provide metadata in ui_in and uio_in
+    # ui_in[2:0]: Format A (Fast Start Only)
+    # uio_in[3:2]: Rounding Mode, [4]: Float32 En, [5]: Overflow, [6]: Packed, [7]: MX+ En
+    dut.ui_in.value = 0x80 | (format_a & 0x7)
+    dut.uio_in.value = (round_mode << 2) | (overflow_wrap << 5) | (packed_mode << 6) | (mx_plus_mode << 7)
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
     k_factor_eff = k_factor if support_serial_hw else 1
     await ClockCycles(dut.clk, k_factor_eff)
@@ -874,6 +875,8 @@ async def run_yaml_file(dut, filename):
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
     use_lns_precise = get_param(dut, "USE_LNS_MUL_PRECISE", 0)
+    aligner_width = get_param(dut, "ALIGNER_WIDTH", 40)
+
     for case in cases:
         if case.get('disabled', False):
             dut._log.info(f"Skipping Case {case.get('test_case', 'unknown')}: Disabled in YAML")
@@ -911,6 +914,9 @@ async def run_yaml_file(dut, filename):
             continue
         if not support_adv and inputs.get('round_mode', 0) in [1, 2]:
             dut._log.info(f"Skipping Case {case['test_case']}: Advanced Rounding not supported")
+            continue
+        if aligner_width < 40 and case['test_case'] == 12:
+            dut._log.info(f"Skipping Case 12: Requires 16-bit fractional precision (ALIGNER_WIDTH=40)")
             continue
 
         dut._log.info(f"Running Case {case['test_case']}: {comment}")

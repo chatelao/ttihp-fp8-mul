@@ -362,7 +362,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 if (ui_in[7]) begin
                     // Fast Start: Skip scale loading and reuse previous values.
                     cycle_count <= 6'd3;
-                    if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
+                    if (!FIXED_FORMAT) format_a_reg <= ui_in[2:0];
                 end else begin
                     cycle_count <= 6'd1;
                 end
@@ -815,7 +815,9 @@ module tt_um_chatelao_fp8_multiplier #(
     // --- Fixed-to-Float Conversion ---
     wire [31:0] f2f_result;
     wire [5:0]  f2f_lzc;
-    wire signed [11:0] f2f_exp_biased /* verilator lint_off UNUSEDSIGNAL */;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire signed [11:0] f2f_exp_biased;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire        f2f_underflow;
 
     // Align the input to F2F such that bit 16 is always 2^0
@@ -829,6 +831,7 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
+    /* verilator lint_off PINCONNECTEMPTY */
     fixed_to_float f2f_inst (
         .acc(f2f_acc_in),
         .shared_exp(shared_exp),
@@ -836,11 +839,17 @@ module tt_um_chatelao_fp8_multiplier #(
         .inf_pos_sticky(inf_pos_sticky),
         .inf_neg_sticky(inf_neg_sticky),
         .result(f2f_result),
-        // Probes
+        // Probes (some are unused in top level but needed for unit tests)
+        .sign(),
+        .mag(),
         .lzc(f2f_lzc),
+        .norm_mag(),
         .exp_biased(f2f_exp_biased),
+        .mantissa(),
+        .zero(),
         .underflow(f2f_underflow)
     );
+    /* verilator lint_on PINCONNECTEMPTY */
 
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.

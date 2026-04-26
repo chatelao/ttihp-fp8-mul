@@ -27,8 +27,8 @@ async def test_short_protocol_metadata(dut):
     # 1. Reset with Short Protocol pins set
     # Sampling Cycle 0 happens at the very first edge where rst_n is high and ena is high
     dut.ena.value = 1
-    dut.ui_in.value = 0x80 # Short Protocol = 1
-    dut.uio_in.value = 4    # Format A/B = 4 (E2M1)
+    dut.ui_in.value = 0x84 # Short Protocol = 1, Format A/B = 4 (E2M1)
+    dut.uio_in.value = 0x00
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
@@ -119,8 +119,8 @@ async def test_short_protocol_nan_scale_reuse(dut):
 
     # Now at start of logical Cycle 0 of next block
     # Sample metadata for second block
-    dut.ui_in.value = 0x80 # Short Protocol = 1
-    dut.uio_in.value = 0    # Format A = E4M3
+    dut.ui_in.value = 0x80 # Short Protocol = 1, Format A = 0 (E4M3)
+    dut.uio_in.value = 0
 
     await ClockCycles(dut.clk, k_factor)
     # Now at start of logical Cycle 3
