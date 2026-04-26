@@ -41,7 +41,7 @@ The goal is to achieve an ultra-minimal footprint (< 500 gates) by processing da
 
 - [x] **Step 5.1: [Datapath] 1-bit Delay-Line Aligner**: Implement the core serial alignment logic using a delay-line approach. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
 - [ ] **Step 5.2: [Integration] Aligner Swap**: Integrate the serial aligner into the `Tiny-Serial` variant and verify functional parity. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
-- [ ] **Step 6.1: [Datapath] Circulating Shift Register Accumulator**: Implement the serial storage and 1-bit adder with carry-out FF. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
+- [x] **Step 6.1: [Datapath] Circulating Shift Register Accumulator**: Implement the serial storage and 1-bit adder with carry-out FF. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
 - [ ] **Step 6.2: [Integration] Accumulator Swap**: Replace the parallel accumulator in the serial path and verify bit-serial accumulation. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-2-bit-serial-module-integration))
 - [ ] **Step 7.1: [Refactor] Serial Config Registers**: Convert format, rounding, and metadata registers to serial shift registers. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
 - [ ] **Step 7.2: [Refactor] Serial Control Logic**: Optimize the FSM and pointers for bit-serial state management. ([details](docs/architecture/OCP_MX_SERIAL.md#phase-3-area-optimization--refinement))
