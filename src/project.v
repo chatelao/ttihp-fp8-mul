@@ -101,6 +101,7 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [1:0] round_mode_reg;
     reg       overflow_wrap_reg;
     reg       packed_mode_reg;
+    reg       float32_mode_reg;
     reg [1:0] lns_mode_reg;
 
     // --- Debug and Probing Logic ---
@@ -182,8 +183,8 @@ module tt_um_chatelao_fp8_multiplier #(
                         // Capture MX+ configuration in Cycle 0.
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
-                            nbm_offset_a <= ui_in[2:0];
-                            nbm_offset_b <= uio_in[2:0];
+                            nbm_offset_a <= {1'b0, ui_in[1:0]};
+                            nbm_offset_b <= {1'b0, uio_in[1:0]};
                         end
                     end
                     if (logical_cycle == 6'd1) bm_index_a <= uio_in[7:3];
@@ -328,6 +329,7 @@ module tt_um_chatelao_fp8_multiplier #(
         round_mode_reg = 2'd0;
         overflow_wrap_reg = 1'b0;
         packed_mode_reg = 1'b0;
+        float32_mode_reg = 1'b0;
         lns_mode_reg = 2'd0;
     end
 
@@ -346,13 +348,15 @@ module tt_um_chatelao_fp8_multiplier #(
             round_mode_reg <= 2'd0;
             overflow_wrap_reg <= 1'b0;
             packed_mode_reg <= 1'b0;
+            float32_mode_reg <= 1'b0;
             lns_mode_reg <= 2'd0;
         end else if (ena && strobe) begin
             if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                 // Capture Metadata at the start of a block (Cycle 0).
-                round_mode_reg    <= uio_in[4:3];
+                round_mode_reg    <= uio_in[3:2];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
+                float32_mode_reg  <= uio_in[4];
                 lns_mode_reg      <= ui_in[4:3];
 
                 if (ui_in[7]) begin
@@ -808,6 +812,23 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
+    // --- Fixed-to-Float Engine ---
+    wire [31:0] f2f_result;
+    wire [5:0]  f2f_lzc;
+    wire        f2f_underflow;
+    wire [11:0] f2f_exp_biased;
+    fixed_to_float f2f_inst (
+        .acc(acc_out[39:0]),
+        .shared_exp(shared_exp),
+        .nan_sticky(nan_sticky),
+        .inf_pos_sticky(inf_pos_sticky),
+        .inf_neg_sticky(inf_neg_sticky),
+        .result(f2f_result),
+        .lzc(f2f_lzc),
+        .underflow(f2f_underflow),
+        .exp_biased(f2f_exp_biased)
+    );
+
     // --- Sticky Override Logic ---
     // Standardizes the representation of Infinities and NaNs in the output.
     reg [7:0] sticky_byte;
@@ -821,7 +842,8 @@ module tt_um_chatelao_fp8_multiplier #(
     end
     wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
 
-    wire [31:0] final_scaled_result = ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext;
+    wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result :
+                                      (ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out_ext);
 
     // Accumulator instance.
     accumulator #(
@@ -868,9 +890,9 @@ module tt_um_chatelao_fp8_multiplier #(
                     4'hD: probe_data_reg = {mul_sign_lane1_val, mul_nan_lane1_val, mul_inf_lane1_val, mul_exp_sum_lane1_val[4:0]};
                     // Control/Status Probes
                     4'h9: probe_data_reg = {ena, strobe, acc_en, acc_clear, 4'd0};
-                    // Reserved for Future F2F Engine (Step 11+)
-                    4'hE: probe_data_reg = 8'hEE; // LZC / Normalization probe placeholder
-                    4'hF: probe_data_reg = 8'hFF; // Shifter / Rounding probe placeholder
+                    // Float32 Probes (Step 26)
+                    4'hE: probe_data_reg = {float32_mode_reg, f2f_lzc, f2f_underflow};
+                    4'hF: probe_data_reg = f2f_exp_biased[7:0];
                     default: probe_data_reg = 8'h00;
                 endcase
             end
