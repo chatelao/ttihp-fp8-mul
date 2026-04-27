@@ -64,18 +64,22 @@ module tt_um_chatelao_fp8_multiplier #(
     wire strobe; // Used to handle bit-serial timing if enabled.
     wire [COUNTER_WIDTH-1:0] logical_cycle;
 
+    wire word_start;
+    reg [COUNTER_WIDTH-1:0] k_counter;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) k_counter <= {COUNTER_WIDTH{1'b0}};
+        else if (ena) k_counter <= (k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1}) ? {COUNTER_WIDTH{1'b0}} : k_counter + {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1};
+    end
+
     // Control logic for serial vs parallel operation.
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_ctrl
-            reg [COUNTER_WIDTH-1:0] k_counter;
-            always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) k_counter <= {COUNTER_WIDTH{1'b0}};
-                else if (ena) k_counter <= (k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1}) ? {COUNTER_WIDTH{1'b0}} : k_counter + {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1};
-            end
-            assign strobe = (k_counter == {COUNTER_WIDTH{1'b0}});
+            assign strobe = ena && (k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1});
+            assign word_start = ena && (k_counter == {COUNTER_WIDTH{1'b0}});
             assign logical_cycle = cycle_count;
         end else begin : gen_no_serial_ctrl
             assign strobe = 1'b1;
+            assign word_start = 1'b1;
             assign logical_cycle = cycle_count;
         end
     endgenerate
@@ -315,8 +319,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [COUNTER_WIDTH-1:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    wire [COUNTER_WIDTH-1:0] capture_cycle     = (SUPPORT_SERIAL ? 6'd2 : 6'd0) + (actual_packed_mode ? 6'd20 : 6'd36);
-    wire [COUNTER_WIDTH-1:0] last_cycle        = (SUPPORT_SERIAL ? 6'd2 : 6'd0) + (actual_packed_mode ? 6'd24 : 6'd40);
+    wire [COUNTER_WIDTH-1:0] capture_cycle     = (SUPPORT_SERIAL ? 6'd3 : 6'd0) + (actual_packed_mode ? 6'd20 : 6'd36);
+    wire [COUNTER_WIDTH-1:0] last_cycle        = (SUPPORT_SERIAL ? 6'd3 : 6'd0) + (actual_packed_mode ? 6'd24 : 6'd40);
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
@@ -388,7 +392,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Control signal to enable the accumulator only when valid products are arriving.
     wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd2) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
 
     // Multiplier results wires.
@@ -714,7 +718,6 @@ module tt_um_chatelao_fp8_multiplier #(
     // --- Product Serializer ---
     /* verilator lint_off UNUSEDSIGNAL */
     wire prod_bit_serial;
-    wire serializer_busy;
     wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_comb_ext;
     wire signed [9:0] exp_sum_lane0_adj_comb;
     /* verilator lint_on UNUSEDSIGNAL */
@@ -733,25 +736,26 @@ module tt_um_chatelao_fp8_multiplier #(
                     prod_sr <= {ALIGNER_WIDTH{1'b0}};
                     bit_count <= 6'd0;
                 end else if (ena) begin
-                    if (strobe && (state == STATE_STREAM || state == STATE_LOAD_SCALE)) begin
-                        prod_sr <= mul_prod_lane0_comb_ext;
-                        bit_count <= ALIGNER_WIDTH[5:0];
+                    if (word_start && (state == STATE_STREAM || state == STATE_LOAD_SCALE)) begin
+                        // Load from combinatorial multiplier to match word_start cycle.
+                        // Bit 0 is output immediately via assign, SR holds bits [WIDTH-1:1]
+                        prod_sr <= {1'b0, mul_prod_lane0_comb_ext[ALIGNER_WIDTH-1:1]};
+                        bit_count <= ALIGNER_WIDTH[5:0] - 6'd1;
                     end else if (bit_count > 0) begin
                         prod_sr <= {1'b0, prod_sr[ALIGNER_WIDTH-1:1]};
                         bit_count <= bit_count - 6'd1;
                     end
                 end
             end
-            assign prod_bit_serial = (bit_count > 0) ? prod_sr[0] : 1'b0;
-            assign serializer_busy = (bit_count > 0);
+            assign prod_bit_serial = (word_start && (state == STATE_STREAM || state == STATE_LOAD_SCALE)) ?
+                                     mul_prod_lane0_comb_ext[0] :
+                                     ((bit_count > 0) ? prod_sr[0] : 1'b0);
         end else begin : gen_no_serializer
             assign prod_bit_serial = 1'b0;
-            assign serializer_busy = 1'b0;
             assign mul_prod_lane0_comb_ext = {ALIGNER_WIDTH{1'b0}};
             assign exp_sum_lane0_adj_comb = 10'sd0;
         end
     endgenerate
-
     // Multiplier for Aligner Input based on current protocol phase.
     wire [ALIGNER_WIDTH-1:0] aligner_lane0_in_prod;
 
@@ -845,7 +849,7 @@ module tt_um_chatelao_fp8_multiplier #(
                                                      (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
                                                      combined_full[ACTUAL_ACC_WIDTH-1:0];
 
-    wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
+    wire acc_clear = ena && (logical_cycle <= 6'd2) && (state != STATE_STREAM);
 
     wire [7:0] acc_shift_out;
 
@@ -949,7 +953,6 @@ module tt_um_chatelao_fp8_multiplier #(
             wire strobe_out_serial;
             wire [ACTUAL_ACC_WIDTH-1:0] acc_out_s;
             wire [7:0] acc_shift_out_s;
-            wire unused_data_out_bit;
 
             fp8_aligner_serial #(
                 .WIDTH(ALIGNER_WIDTH),
@@ -958,7 +961,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clk(clk),
                 .rst_n(rst_n),
                 .ena(ena),
-                .strobe(strobe && (state == STATE_STREAM || state == STATE_LOAD_SCALE)),
+                .strobe(word_start && (state == STATE_STREAM || state == STATE_LOAD_SCALE)),
                 .exp_sum(exp_sum_lane0_adj_comb),
                 .sign(mul_sign_lane0),
                 .prod_bit(prod_bit_serial),
@@ -966,9 +969,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 .strobe_out(strobe_out_serial)
             );
 
-            // In serial mode, we rotate the accumulator during stream or load-scale.
+            // In serial mode, we rotate the accumulator during initialization, streaming, and loading.
             // During output, we only enable it when strobe is high to perform the 8-bit shift.
-            wire acc_en_serial = (state == STATE_STREAM) || (state == STATE_LOAD_SCALE) || (state == STATE_OUTPUT && strobe);
+            // We use word_start and k_counter to ensure continuous shifting during element cycles.
+            // We also enable it during the capture cycle to complete the final circulation.
+            wire acc_en_serial = (state != STATE_OUTPUT) || (logical_cycle == capture_cycle) || (state == STATE_OUTPUT && strobe);
 
             accumulator_serial #(
                 .WIDTH(ACCUMULATOR_WIDTH)
@@ -979,9 +984,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clear(acc_clear),
                 .strobe(strobe_out_serial), // Reset accumulator carry at the start of each aligned word.
                 .data_in_bit(aligned_bit_serial),
-                .load_en((logical_cycle == capture_cycle) && (gen_serial_ctrl.k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1})),
+                .load_en((logical_cycle == capture_cycle) && strobe),
                 .load_data(final_scaled_result),
-                .shift_en(strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
+                .shift_en(strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle),
                 .shift_out(acc_shift_out_s),
                 /* verilator lint_off PINCONNECTEMPTY */
                 .data_out_bit(),

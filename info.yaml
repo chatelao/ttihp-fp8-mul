@@ -24,6 +24,7 @@ project:
     - "fp8_aligner.v"
     - "fp8_aligner_serial.v"
     - "accumulator.v"
+    - "accumulator_serial.v"
     - "lzc40.v"
     - "fixed_to_float.v"
 

@@ -227,7 +227,7 @@ def get_param(dut, name, default=1):
         "SUPPORT_PACKED_SERIAL": 0,
         "SUPPORT_MX_PLUS": 1,
         "SUPPORT_SERIAL": 0,
-        "SERIAL_K_FACTOR": 8,
+        "SERIAL_K_FACTOR": 40,
         "ENABLE_SHARED_SCALING": 1,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 1,

@@ -50,12 +50,14 @@ module accumulator_serial #(
                 shift_reg <= {WIDTH{1'b0}};
                 carry <= 1'b0;
             end else if (load_en) begin
-                // MSB-aligned load. If WIDTH < 32, we take the MSBs.
-                // If WIDTH > 32, we pad with 0s at the LSB side.
+                // MSB-aligned load.
+                // Using guarded replications/slices to satisfy Verilator elaboration.
                 if (WIDTH >= 32) begin
-                    shift_reg <= {load_data, {(WIDTH-32){1'b0}}};
+                    shift_reg <= {load_data, {(WIDTH >= 32 ? WIDTH-32 : 0){1'b0}}};
                 end else begin
-                    shift_reg <= load_data[31:32-WIDTH];
+                    /* verilator lint_off SELRANGE */
+                    shift_reg <= load_data[31 : (WIDTH < 32 ? 32-WIDTH : 0)];
+                    /* verilator lint_on SELRANGE */
                 end
                 carry <= 1'b0;
             end else if (shift_en) begin

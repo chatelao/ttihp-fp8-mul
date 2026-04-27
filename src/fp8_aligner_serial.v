@@ -73,29 +73,30 @@ module fp8_aligner_serial #(
     // LSB starts at prod_bit at cycle T. Delay-line tap 0 is prod_bit at cycle T.
     // full_delay_chain[k0] is prod_bit delayed by k0 cycles.
     // full_strobe_chain[k0] is strobe delayed by k0 cycles.
-    // Since strobe is high at T and LSB is at prod_bit at T, tap k0 aligns them at T+k0.
+    // Since strobe is high at T and LSB is at prod_bit at T (due to immediate serializer output),
+    // we use tap k0 to align them.
     wire [6:0] strobe_idx = k0[6:0];
     assign strobe_out = (k0 >= 0 && $signed({1'b0, k0}) < max_delay_val) ? full_strobe_chain[strobe_idx] : 1'b0;
 
     // 2's Complement Conversion: -Mag = ~Mag + 1
     // We process the stream LSB-first, so we can use a serial adder for the +1.
     reg carry_neg;
-    reg negate_en;
+    reg [6:0] active_count;
 
     // Use the sampled sign for the entire word.
     wire effective_sign = strobe ? sign : sign_reg;
 
-    // negate_en starts at strobe_out and stays high for the duration of the addition.
-    // It ensures we don't start negating (and outputting 1s) before the actual data starts.
+    // active_count starts at strobe_out and stays high for exactly WIDTH cycles.
+    // It ensures we process the full bit-serial word (LSB to MSB).
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) negate_en <= 1'b0;
+        if (!rst_n) active_count <= 7'd0;
         else if (ena) begin
-            if (strobe_out) negate_en <= 1'b1;
-            else if (strobe) negate_en <= 1'b0; // Reset at the start of next cycle's word
+            if (strobe_out) active_count <= WIDTH[6:0] - 7'd1;
+            else if (active_count > 0) active_count <= active_count - 7'd1;
         end
     end
 
-    wire active = negate_en || strobe_out;
+    wire active = (active_count > 0) || strobe_out;
     wire inv_bit = (effective_sign && active) ? ~mag_bit : mag_bit;
 
     // Use the delayed strobe to inject the initial carry (+1) for negation.
