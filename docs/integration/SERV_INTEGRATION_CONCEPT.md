@@ -15,7 +15,7 @@ By aligning these temporal windows, we can create an AI-capable RISC-V system th
 ### Variant A: Extension Interface (Coprocessor)
 This is the most standard and least intrusive method. It uses SERV's built-in **Extension Interface**.
 
-![SERV Variant A: Extension Interface](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERV_VARIANT_A.PUML)
+![SERV Variant A: Extension Interface](https://www.plantuml.com/plantuml/png/ZLHTZvf057tdLqnvqgGiqVPXiqcJPT6sfhfhG6txD1bWn4c76J8VMqtJ_zuxu2BQDLbU72_dd7iuzyAzDaGPMt6KJfCDtaJ9B7fSuSXxnqJERK7HpfXQtuMX8hzlIcPsDhEQgbmAGuMvoMKLrfm89n5eKt2MXV77OEbAwyKyh8WsL449nxAgfN2S6h2UDuz-FgrN-FjizHNFfr-cZvF1qFCCCvmsNj0CEfIA62O52j26A0QQABf3qpsqrgxi86fBSee6iQoLpAdMKe5C3FO84rJX1sb5GTHX0AQViPRvU-Gx-I0ZcXOebR4_H7yy15VdiCNcKj4Z66ufwiEV1sO2kCa8HyaiZOEDAoxRnbIZ4SgO2VD3pgaFBbhH_voGWjJW6sTSvhySdoZ2EUM1aK7QYaSjfBDsRa_H4Yiz0kg7SG0TKPAEK4BBng7TRXtnActSfutVGDCxjZMOov8rsHb5ISL4YUQkuhYVquNxIHrEerkNWKP6egTuYHO_hbifUauc5qRW54C4La6ghGw2e-NcAFVNknYPp6jSxO5sHAy5CqvbnSJX9TN1jq-tmuinBY9O00_a4ihnf3_vKyeIqxrnP__a-6LeGBx27FUOupSopxEMk2eiVYQS5KqWi4fAEbv3J4vxq3syPPW9XxrjMhN3EZPAJWlGmylhX7aNQZSkAx6qvXLyGrXtS-s_GApDeBWUmVfynruXKr8S_7RxPDQyM_TK5EuxyWy0)
 
 - **Mechanism**: SERV detects a custom R-type instruction and presents `rs1` and `rs2` as 32-bit parallel values on `o_ext_rs1` and `o_ext_rs2`.
 - **Parallel-to-Serial Adapter**: A small wrapper module is required to bridge the 32-bit parallel interface to the OCP MX's 8-bit streaming ports.
@@ -31,7 +31,7 @@ This is the most standard and least intrusive method. It uses SERV's built-in **
 ### Variant B: Internal Snooping (Tightly Coupled)
 This variant taps into the 1-bit streams of SERV's register file, aligning with the bit-serial nature of both cores.
 
-![SERV Variant B: Internal Snooping](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERV_VARIANT_B.PUML)
+![SERV Variant B: Internal Snooping](https://www.plantuml.com/plantuml/png/VPDTQzim58Rl_IlESZ4SY9jczA841atSP0jBcf2lRemX55jnn6p9I4TjGzb_tv7o1Litt-ZpVVMSL_ATHMxGLIKi1lCrM_Vcezx3alMZTr9bfSi5x11hssst3N--AYJktCPPOJAjK2YyodJLhakkl4LYCI_bfftU93C_jPgCsnMtA0nDiLHNjLPUKzFUA1htlarNI_OuMdvcuy6dmSDzt8mYb5YAm08ZEg4m7ALMaC2Q6qcUqE-61QCu8IkjQwaAY9Uos66vXrIxkXGv6QK4oAKIXlMrKpat-vYmdrYcZMX18voGKX_YarspqOJN2EWxeyPco-IMjiz58NqXC9I4DnesQ2xOXGr-j134Ly96eaKZU0MrqKyo5wRH_CEJ4iU0u5juxvazmTaohFlHu4LaBfIFXcS_Gw6PmkyttUiV11lzUhDAdTMiUc7FXjUrC6GpJMSm-Ne9w_6myaQr6Q_HXNZIGm_6kf1PA6ydjmWKWmqZNb7C5ZGpEKT-tUx0XbkH0x4IuLyb7vWkB2ibqViifTedn-JYBnzlctvoPdGch2Lx2ZEnXzL9BprKF1Sbkp_TomNuH0AniPrWqqb83WTpalvVr_6w3__M7U_ieZlTGmk42ediLGOBMT0xigGwoixxpm4uoQHgWPEQMY-y3STTdZGQlH77SrVdu4xlq6cc7K8y5zQL67YdjNyY91qAaUFEQ5ViFC6TKBd_qNu3)
 
 - **Mechanism**: Instead of waiting for 32-bit parallel values, the OCP MX unit snoops the `o_rdata0` and `o_rdata1` 1-bit streams directly from the `serv_rf_if` (Register File Interface).
 - **Interface**: The OCP MX unit acts as a 1-bit serial consumer.
@@ -72,7 +72,7 @@ The following table defines the bitfields for the OCP-MX-V extension:
 
 ### 4.2. Register Bit-Mapping
 
-![MX.SETFMT Bitfield](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/MX_SETFMT_BITFIELD.PUML)
+![MX.SETFMT Bitfield](https://www.plantuml.com/plantuml/png/SoWkIImgISeiISjCpKdXCj0rib9myms9T-GorZMnKWZovJArKl0FS-Coir88S7JsvZAtKd2D2E6oq3Ks14gd5gSMbQMcS3cavgN03G40)
 
 - **`MX.SETFMT`**: `rs1[2:0]` = format_a, `rs1[4:3]` = round_mode, `rs1[5]` = overflow_wrap, `rs1[6]` = packed_mode, `rs1[7]` = mx_plus_en.
 - **`MX.MAC`**: `rs1` contains 4x 8-bit elements (A0-A3), `rs2` contains 4x 8-bit elements (B0-B3).
