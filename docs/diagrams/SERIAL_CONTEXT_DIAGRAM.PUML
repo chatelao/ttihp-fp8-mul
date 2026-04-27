@@ -1,0 +1,76 @@
+@startuml SERIAL_CONTEXT_DIAGRAM
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+skinparam rectangle<<boundary>> {
+    FontSize 20
+}
+skinparam rectangle<<container_boundary>> {
+    FontSize 20
+}
+skinparam rectangle<<system_boundary>> {
+    FontSize 20
+}
+UpdateBoundaryStyle("container", $type="container")
+UpdateBoundaryStyle("system", $type="system")
+
+Person(host, "Host System", "FPGA, Microcontroller, or SERV Core")
+
+Container_Boundary(mac_unit, "Bit-Serial OCP MX MAC Unit (Ultra-Minimal Variant)") {
+
+    Container_Boundary(fsm_block, "Stretched FSM & Control") {
+        Component(counter, "Cycle Counter", "6-bit", "Tracks logical protocol cycles.")
+        Component(k_counter, "K-Counter", "SERIAL_K_FACTOR", "Sub-cycle counter for bit-serial stretching.")
+        Component(fsm_logic, "State Machine", "Logic", "Coordinates bit-serial processing over K cycles.")
+        Component(config_regs, "Serial Config Regs", "Shift Registers", "Stores scales and formats as circulating bits.")
+        Component(strobe_gen, "Strobe Logic", "Combinatorial", "Pulse every K cycles.")
+
+        Rel_D(k_counter, strobe_gen, "Pulse")
+        Rel_D(strobe_gen, fsm_logic, "Strobe")
+        Rel_D(counter, fsm_logic, "Logical Count", "6-bit")
+        Rel_D(fsm_logic, config_regs, "Load/Shift", "Enable")
+    }
+
+    Container_Boundary(mul_block, "Bit-Serial Multiplier") {
+        Component(decoders, "Serial Decoders", "Logic", "Extracts S, E, M bits from the input stream.")
+        Component(s_mul, "Serial Multiplier", "1-bit Adder", "Performs mantissa multiplication bit-by-bit (Mitchell LNS).")
+        Component(exp_arith, "Serial Exponent", "1-bit Sub/Add", "Serial bias correction and exponent summation.")
+
+        Rel_D(decoders, s_mul, "Mantissa Bits")
+        Rel_D(decoders, exp_arith, "Exponent Bits")
+    }
+
+    Container_Boundary(align_block, "Serial Aligner Stage") {
+        Component(delay_line, "Delay-Line Aligner", "SR / Tap Mux", "Aligns products by delaying the bit-stream.")
+        Component(ser_round, "Serial Rounding", "Logic", "Bit-serial TRN/RNE rounding logic.")
+
+        Rel_D(delay_line, ser_round, "Aligned Bit-Stream")
+    }
+
+    Container_Boundary(acc_block, "Serial Accumulator") {
+        Component(ser_adder, "1-bit Full Adder", "Logic", "Sums product bit into circulating accumulator.")
+        Component(acc_sr, "Circulating SR", "40-bit Shift Reg", "Stores running sum; circulates once per element.")
+        Component(carry_ff, "Carry DFF", "1 FF", "Preserves carry-out between bits.")
+
+        Rel_D(ser_adder, acc_sr, "Sum Bit")
+        Rel_U(acc_sr, ser_adder, "LSB Feedback")
+        Rel_L(ser_adder, carry_ff, "Cout")
+        Rel_R(carry_ff, ser_adder, "Cin")
+    }
+
+    Container_Boundary(exception_block, "Exception Handling") {
+        Component(sticky, "Serial Sticky", "FFs", "Latches NaN/Inf during the stretched stream.")
+        Rel_D(sticky, host, "uo_out", "Status")
+    }
+}
+
+Rel_D(host, fsm_logic, "Control", "clk, rst_n, ena")
+Rel_D(host, config_regs, "Metadata", "ui_in, uio_in (Stretched)")
+Rel_D(host, decoders, "Serial Data", "ui_in, uio_in")
+
+Rel_R(config_regs, decoders, "Modes", "Serial Config")
+Rel_D(mul_block, delay_line, "Product Bit-Stream")
+Rel_D(ser_round, ser_adder, "Aligned Bit")
+Rel_D(acc_sr, host, "uo_out", "Serialized Result")
+
+@enduml

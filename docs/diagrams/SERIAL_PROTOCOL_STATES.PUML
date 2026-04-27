@@ -1,0 +1,67 @@
+@startuml SERIAL_PROTOCOL_STATES
+title OCP MXFP8 Bit-Serial Stretched Protocol State Machine (K=8)
+
+skinparam state {
+  BackgroundColor<<Stretched>> #F1F8E9
+  BorderColor<<Stretched>> #33691E
+}
+
+[*] --> IDLE
+
+state IDLE {
+    IDLE : **Logical Cycle 0**
+    IDLE : **Physical Cycles 0-7**
+    IDLE : Serial Metadata Capture:
+    IDLE : - Shift-in Debug, Rounding, MX+
+    IDLE : - If Short Protocol: Jump to Stream
+}
+
+IDLE --> LOAD_SCALE : Standard Start\n(ui_in[7]=0)
+IDLE --> STREAM_DATA : Short Protocol <<Stretched>>\n(ui_in[7]=1)
+
+state LOAD_SCALE {
+    LOAD_SCALE : **Logical Cycles 1-2**
+    LOAD_SCALE : **Physical Cycles 8-23**
+    LOAD_SCALE : C1: Shift-in Scale A, Format A
+    LOAD_SCALE : C2: Shift-in Scale B, Format B
+}
+
+LOAD_SCALE --> STREAM_DATA : Logical Cycle 3
+
+state STREAM {
+    state STREAM_DATA {
+        STREAM_DATA : **Logical Cycles 3-34**
+        STREAM_DATA : **Physical Cycles 24-279**
+        STREAM_DATA : Bit-Serial Mul & Accumulate
+        STREAM_DATA : (1 bit processed per physical cycle)
+    }
+
+    state STREAM_FLUSH {
+        STREAM_FLUSH : **Logical Cycle 35**
+        STREAM_FLUSH : **Physical Cycles 280-287**
+        STREAM_FLUSH : Pipeline Flush / Final Carry
+    }
+
+    state STREAM_SCALE {
+        STREAM_SCALE : **Logical Cycle 36**
+        STREAM_SCALE : **Physical Cycles 288-295**
+        STREAM_SCALE : Final Shared Scaling (Serial)
+    }
+
+    STREAM_DATA --> STREAM_FLUSH
+    STREAM_FLUSH -> STREAM_SCALE
+}
+
+STREAM_SCALE --> OUTPUT : Logical Cycle 37
+
+state OUTPUT {
+    OUTPUT : **Logical Cycles 37-40**
+    OUTPUT : **Physical Cycles 296-327**
+    OUTPUT : Serialized Result Shift-out
+    OUTPUT : 1 Byte every 8 Physical Cycles
+}
+
+OUTPUT -> IDLE : Logical Cycle 0
+
+footer Note: Each logical cycle corresponds to SERIAL_K_FACTOR physical clock cycles.
+@enduml
