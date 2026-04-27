@@ -17,7 +17,7 @@ module accumulator_serial #(
 )(
     input  wire clk,
     input  wire rst_n,
-    input  wire ena,         // Shift enable (usually always high during operation)
+    input  wire ena,         // Shift enable
     input  wire clear,       // Synchronous clear of the accumulator
     input  wire strobe,      // Carry reset (should be high for the LSB of a new addition)
     input  wire data_in_bit, // Bit-serial aligned product bit
@@ -46,10 +46,15 @@ module accumulator_serial #(
             shift_reg <= {WIDTH{1'b0}};
             carry <= 1'b0;
         end else if (ena) begin
-            if (load_en) begin
+            if (clear) begin
+                shift_reg <= {WIDTH{1'b0}};
+                carry <= 1'b0;
+            end else if (load_en) begin
                 shift_reg <= {load_data, {(WIDTH-32){1'b0}}};
+                carry <= 1'b0;
             end else if (shift_en) begin
                 shift_reg <= {shift_reg[WIDTH-9:0], 8'd0};
+                carry <= 1'b0;
             end else begin
                 // Shift right: MSB gets the new sum, all others move towards LSB.
                 // After WIDTH cycles, this sum will be at shift_reg[0].

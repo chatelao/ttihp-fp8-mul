@@ -453,7 +453,15 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     # Cycle 2: Load Scale B and BM Index B
     dut.ui_in.value = scale_b
     dut.uio_in.value = (format_b & 0x7) | ((bm_index_b & 0x1F) << 3)
-    await ClockCycles(dut.clk, cycles_per_element)
+
+    # Pre-drive first element in serial mode to ensure combinatorial path is stable for Cycle 3 strobe
+    if cycles_per_element > 1:
+        await ClockCycles(dut.clk, cycles_per_element - 1)
+        dut.ui_in.value = a_elements[0]
+        dut.uio_in.value = b_elements[0]
+        await ClockCycles(dut.clk, 1)
+    else:
+        await ClockCycles(dut.clk, cycles_per_element)
 
     expected_acc = 0
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
