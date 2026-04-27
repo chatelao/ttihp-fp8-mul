@@ -11,7 +11,7 @@ for config in Full Lite Tiny Ultra-Tiny Tiny-Serial; do
   elif [ "$config" == "Ultra-Tiny" ]; then
     export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=0 -P tb.SERIAL_K_FACTOR=1"
   elif [ "$config" == "Tiny-Serial" ]; then
-    export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=8"
+    export COMPILE_ARGS="-P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=40"
   fi
   make
   if [ ! -f results.xml ]; then
