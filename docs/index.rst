@@ -10,6 +10,7 @@ Welcome to OCP MXFP8 Streaming MAC Unit's documentation!
    :caption: Contents:
 
    readme
+   readme_serial
    info
    roadmap
    gemini
