@@ -13,7 +13,7 @@ The fundamental principle of this bit-serial variant is that any N-bit operation
 
 ## System Context
 
-![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML)
+![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML)
 
 *Source: [docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML](docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML)*
 
@@ -37,7 +37,7 @@ This project incorporates logic and concepts from several open-source resources:
 
 ### Internal Datapath
 
-![Internal Datapath Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML)
+![Internal Datapath Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML)
 
 *Source: [docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML](docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML)*
 
@@ -47,7 +47,7 @@ To maintain compatibility with the 8-bit streaming interface while using bit-ser
 
 ### Protocol State Machine
 
-![Protocol State Machine Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERIAL_PROTOCOL_STATES.PUML)
+![Protocol State Machine Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/ihp-sg13cmos5l/docs/diagrams/SERIAL_PROTOCOL_STATES.PUML)
 
 *Source: [docs/diagrams/SERIAL_PROTOCOL_STATES.PUML](docs/diagrams/SERIAL_PROTOCOL_STATES.PUML)*
 
