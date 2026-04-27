@@ -22,7 +22,7 @@ module accumulator_serial #(
     input  wire strobe,      // Carry reset (should be high for the LSB of a new addition)
     input  wire data_in_bit, // Bit-serial aligned product bit
     input  wire load_en,     // Load enable for parallel data
-    input  wire [31:0] load_data, // Parallel data to load
+    input  wire [31:0] load_data, // Parallel data to load (typically MSB-aligned)
     input  wire shift_en,    // Shift enable for 8-bit output
     output wire [7:0] shift_out, // 8-bit serial output
     output wire data_out_bit, // Bit shifted out (current LSB)
@@ -50,9 +50,16 @@ module accumulator_serial #(
                 shift_reg <= {WIDTH{1'b0}};
                 carry <= 1'b0;
             end else if (load_en) begin
-                shift_reg <= {load_data, {(WIDTH-32){1'b0}}};
+                // MSB-aligned load. If WIDTH < 32, we take the MSBs.
+                // If WIDTH > 32, we pad with 0s at the LSB side.
+                if (WIDTH >= 32) begin
+                    shift_reg <= {load_data, {(WIDTH-32){1'b0}}};
+                end else begin
+                    shift_reg <= load_data[31:32-WIDTH];
+                end
                 carry <= 1'b0;
             end else if (shift_en) begin
+                // Shift 8 bits MSB-first for the output protocol
                 shift_reg <= {shift_reg[WIDTH-9:0], 8'd0};
                 carry <= 1'b0;
             end else begin

@@ -712,13 +712,20 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
     // --- Product Serializer ---
-    wire prod_bit_serial;
     /* verilator lint_off UNUSEDSIGNAL */
+    wire prod_bit_serial;
     wire serializer_busy;
+    wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_comb_ext;
+    wire signed [9:0] exp_sum_lane0_adj_comb;
     /* verilator lint_on UNUSEDSIGNAL */
 
     generate
         if (SUPPORT_SERIAL) begin : gen_serializer
+            assign mul_prod_lane0_comb_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0 };
+            assign exp_sum_lane0_adj_comb = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0} -
+                                               (is_bm_a_lane0_raw ? 10'd0 : {7'd0, nbm_offset_a_val}) -
+                                               (is_bm_b_lane0_raw ? 10'd0 : {7'd0, nbm_offset_b_val});
+
             reg [ALIGNER_WIDTH-1:0] prod_sr;
             reg [5:0] bit_count;
             always @(posedge clk or negedge rst_n) begin
@@ -726,8 +733,7 @@ module tt_um_chatelao_fp8_multiplier #(
                     prod_sr <= {ALIGNER_WIDTH{1'b0}};
                     bit_count <= 6'd0;
                 end else if (ena) begin
-                    if (strobe && acc_en) begin
-                        // Load from combinatorial multiplier to match strobe cycle.
+                    if (strobe && (state == STATE_STREAM || state == STATE_LOAD_SCALE)) begin
                         prod_sr <= mul_prod_lane0_comb_ext;
                         bit_count <= ALIGNER_WIDTH[5:0];
                     end else if (bit_count > 0) begin
@@ -741,14 +747,10 @@ module tt_um_chatelao_fp8_multiplier #(
         end else begin : gen_no_serializer
             assign prod_bit_serial = 1'b0;
             assign serializer_busy = 1'b0;
+            assign mul_prod_lane0_comb_ext = {ALIGNER_WIDTH{1'b0}};
+            assign exp_sum_lane0_adj_comb = 10'sd0;
         end
     endgenerate
-
-    // Combinatorial versions of multiplier outputs for serial datapath timing alignment.
-    wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_comb_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0 };
-    wire signed [9:0] exp_sum_lane0_adj_comb = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0} -
-                                               (is_bm_a_lane0_raw ? 10'd0 : {7'd0, nbm_offset_a_val}) -
-                                               (is_bm_b_lane0_raw ? 10'd0 : {7'd0, nbm_offset_b_val});
 
     // Multiplier for Aligner Input based on current protocol phase.
     wire [ALIGNER_WIDTH-1:0] aligner_lane0_in_prod;
@@ -942,10 +944,6 @@ module tt_um_chatelao_fp8_multiplier #(
     // Datapath selection: Serial or Parallel
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_dp
-            wire [COUNTER_WIDTH-1:0] k_counter_val = gen_serial_ctrl.k_counter;
-            /* verilator lint_off UNUSEDSIGNAL */
-            wire [COUNTER_WIDTH-1:0] k_counter_unused = k_counter_val;
-            /* verilator lint_on UNUSEDSIGNAL */
 
             wire aligned_bit_serial;
             wire strobe_out_serial;
@@ -960,7 +958,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clk(clk),
                 .rst_n(rst_n),
                 .ena(ena),
-                .strobe(strobe && acc_en),
+                .strobe(strobe && (state == STATE_STREAM || state == STATE_LOAD_SCALE)),
                 .exp_sum(exp_sum_lane0_adj_comb),
                 .sign(mul_sign_lane0),
                 .prod_bit(prod_bit_serial),
@@ -968,9 +966,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .strobe_out(strobe_out_serial)
             );
 
-            // In serial mode, we rotate the accumulator as long as we are in stream or load-scale (for clear).
-            // During output, we rotate to allow the byte-wise shifting to find the right bits.
-            wire acc_en_serial = (state == STATE_STREAM) || (state == STATE_LOAD_SCALE) || (state == STATE_OUTPUT);
+            // In serial mode, we rotate the accumulator during stream or load-scale.
+            // During output, we only enable it when strobe is high to perform the 8-bit shift.
+            wire acc_en_serial = (state == STATE_STREAM) || (state == STATE_LOAD_SCALE) || (state == STATE_OUTPUT && strobe);
 
             accumulator_serial #(
                 .WIDTH(ACCUMULATOR_WIDTH)
@@ -981,7 +979,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clear(acc_clear),
                 .strobe(strobe_out_serial), // Reset accumulator carry at the start of each aligned word.
                 .data_in_bit(aligned_bit_serial),
-                .load_en(strobe && (logical_cycle == capture_cycle) && (k_counter_val == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1})),
+                .load_en((logical_cycle == capture_cycle) && (gen_serial_ctrl.k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1})),
                 .load_data(final_scaled_result),
                 .shift_en(strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
                 .shift_out(acc_shift_out_s),
