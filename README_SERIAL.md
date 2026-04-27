@@ -11,6 +11,12 @@ The fundamental principle of this bit-serial variant is that any N-bit operation
 - **1-Bit Datapath**: All arithmetic (multiplication, alignment, accumulation) is performed using 1-bit logic.
 - **Latency-Area Tradeoff**: By processing one bit at a time, we significantly reduce gate count and routing congestion at the cost of increased cycle count.
 
+## System Context
+
+![System Context Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML)
+
+*Source: [docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML](docs/diagrams/SERIAL_CONTEXT_DIAGRAM.PUML)*
+
 ## Attributions
 
 This project incorporates logic and concepts from several open-source resources:
@@ -29,9 +35,21 @@ This project incorporates logic and concepts from several open-source resources:
 | **Serial Accumulator** | 1-bit Adder, Circulating Register | Performs summation using a 1-bit full adder and a carry flip-flop. The 40-bit accumulator circulates in a shift register. |
 | **Output Serializer** | Shift Register | Extracts results bit-by-bit or byte-by-byte for transmission over `uo_out`. |
 
+### Internal Datapath
+
+![Internal Datapath Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML)
+
+*Source: [docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML](docs/diagrams/SERIAL_DATAPATH_DIAGRAM.PUML)*
+
 ## Protocol Description (Stretched)
 
 To maintain compatibility with the 8-bit streaming interface while using bit-serial internals, the unit uses a **Stretched Protocol**. 1 element is processed every $K$ clock cycles.
+
+### Protocol State Machine
+
+![Protocol State Machine Diagram](https://www.plantuml.com/plantuml/proxy?cache=no&src=https://raw.githubusercontent.com/chatelao/ttihp-fp8-mul/main/docs/diagrams/SERIAL_PROTOCOL_STATES.PUML)
+
+*Source: [docs/diagrams/SERIAL_PROTOCOL_STATES.PUML](docs/diagrams/SERIAL_PROTOCOL_STATES.PUML)*
 
 ### Operational Sequence (Example K=8)
 

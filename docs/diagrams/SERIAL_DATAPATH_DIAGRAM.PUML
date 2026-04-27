@@ -1,0 +1,81 @@
+@startuml SERIAL_DATAPATH_DIAGRAM
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+' Green Theme Overrides
+skinparam backgroundColor white
+skinparam component {
+    BackgroundColor #90EE90
+    BorderColor #006400
+    FontColor #000000
+}
+skinparam rectangle<<container>> {
+    BackgroundColor #90EE90
+    BorderColor #006400
+    FontColor #000000
+}
+skinparam rectangle<<boundary>> {
+    FontSize 20
+    BorderColor #006400
+    FontColor #000000
+}
+skinparam rectangle<<container_boundary>> {
+    FontSize 20
+    BorderColor #006400
+    FontColor #000000
+}
+skinparam rectangle<<system_boundary>> {
+    FontSize 20
+    BorderColor #006400
+    FontColor #000000
+}
+skinparam Arrow {
+    Color black
+    FontColor black
+}
+
+UpdateBoundaryStyle("container", $type="container")
+
+title OCP MXFP8 Bit-Serial MAC - Internal Datapath (K-cycle Processing)
+
+Container_Boundary(input_pins, "Physical Interface") {
+    Component(ui_in, "ui_in[7:0]", "Input Pins", "8-bit chunks every K cycles")
+    Component(uio_in, "uio_in[7:0]", "Input Pins", "8-bit chunks every K cycles")
+}
+
+Container_Boundary(control_logic, "Stretched Control") {
+    Component(k_cnt, "K-Counter", "Logic", "Sub-cycle timing [0..K-1]")
+    Component(l_cnt, "Logical Counter", "Logic", "Protocol cycles [0..40]")
+}
+
+Container_Boundary(datapath, "Bit-Serial Datapath") {
+    Component(s_mul, "Serial Multiplier", "1-bit Logic", "Mitchell LNS Serial Adder")
+    Component(s_align, "Delay Aligner", "SR + Mux", "Aligns by delaying bit-stream")
+    Component(s_acc, "Serial Accumulator", "SR + 1-bit Adder", "40-bit Circulating Register")
+}
+
+Container_Boundary(config_sr, "Configuration SRs") {
+    Component(fmt_sr, "Format/Scale SRs", "Shift Regs", "Serialized metadata")
+}
+
+Container_Boundary(output_logic, "Serial Output") {
+    Component(ser, "Byte Serializer", "Logic", "Extracts bytes from SR every K cycles")
+}
+
+Component(uo_out, "uo_out[7:0]", "Output Pins", "8-bit Result / Probe Data")
+
+' Dataflow
+Rel_D(ui_in, s_mul, "1 bit/cycle", "Operand A")
+Rel_D(uio_in, s_mul, "1 bit/cycle", "Operand B")
+Rel_D(s_mul, s_align, "Product Stream", "1 bit/cycle")
+Rel_D(s_align, s_acc, "Aligned Stream", "1 bit/cycle")
+Rel_U(s_acc, s_acc, "LSB Feedback", "1 bit/cycle")
+
+Rel_R(l_cnt, config_sr, "Load En")
+Rel_L(config_sr, s_mul, "Config Bits")
+
+Rel_D(s_acc, ser, "40-bit Parallel", "Staged")
+Rel_D(ser, uo_out, "8-bit Chunk")
+
+@enduml
