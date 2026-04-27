@@ -31,31 +31,15 @@ module fp8_aligner_serial #(
     // k0 is the delay we need to apply to the product stream.
     wire signed [10:0] k0 = $signed(exp_sum) + 11'sd3;
 
-    // Delay Line for the magnitude bitstream.
-    // Using a shift register to allow variable delay via tap selection.
-    reg [MAX_DELAY-1:0] delay_line;
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) delay_line <= {MAX_DELAY{1'b0}};
-        else if (ena) delay_line <= {delay_line[MAX_DELAY-2:0], prod_bit};
-    end
-
-    // Selected magnitude bit after delay.
-    // We use a chain that includes the current prod_bit to allow for 0-cycle delay.
-    wire [MAX_DELAY:0] full_delay_chain = {delay_line, prod_bit};
-
-    // If k0 is negative, the bit is below our window and we treat it as 0 (truncate).
-    // If k0 is too large, it's also 0 (above our window).
-    wire signed [11:0] max_delay_val = $signed({1'b0, MAX_DELAY[10:0]});
-    wire mag_bit = (k0 >= 0 && $signed({1'b0, k0}) <= max_delay_val) ? full_delay_chain[k0[6:0]] : 1'b0;
-
-    // 2's Complement Conversion: -Mag = ~Mag + 1
-    // We process the stream LSB-first, so we can use a serial adder for the +1.
+    // 1. 2's Complement Conversion: -Mag = ~Mag + 1
+    // We process the product stream LSB-first. Negating here ensures that sign extension
+    // is correctly handled through the delay line.
     reg carry_neg;
-    wire inv_bit = sign ? ~mag_bit : mag_bit;
+    wire inv_bit = sign ? ~prod_bit : prod_bit;
 
     // Use strobe to inject the initial carry (+1) for negation.
     wire cin = strobe ? sign : carry_neg;
-    wire res_bit = inv_bit ^ cin;
+    wire res_neg_bit = inv_bit ^ cin;
     wire carry_neg_next = inv_bit & cin;
 
     always @(posedge clk or negedge rst_n) begin
@@ -65,7 +49,22 @@ module fp8_aligner_serial #(
         end
     end
 
-    assign aligned_bit = res_bit;
+    // 2. Delay Line for the (potentially negated) bitstream.
+    // Using a shift register to allow variable delay via tap selection.
+    reg [MAX_DELAY-1:0] delay_line;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) delay_line <= {MAX_DELAY{1'b0}};
+        else if (ena) delay_line <= {delay_line[MAX_DELAY-2:0], res_neg_bit};
+    end
+
+    // Selected bit after delay.
+    // We use a chain that includes the current res_neg_bit to allow for 0-cycle delay.
+    wire [MAX_DELAY:0] full_delay_chain = {delay_line, res_neg_bit};
+
+    // If k0 is negative, the bit is below our window and we treat it as 0 (truncate).
+    // If k0 is too large, it's also 0 (above our window).
+    wire signed [11:0] max_delay_val = $signed({1'b0, MAX_DELAY[10:0]});
+    assign aligned_bit = (k0 >= 0 && $signed({1'b0, k0}) <= max_delay_val) ? full_delay_chain[k0[6:0]] : 1'b0;
 
 endmodule
 `endif

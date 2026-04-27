@@ -729,13 +729,13 @@ module tt_um_chatelao_fp8_multiplier #(
             reg signed [9:0] exp_sum_reg;
             reg mul_sign_reg;
 
-            // Use the last cycle of k_counter to capture values for the next logical cycle.
-            wire capture_strobe = gen_serial_ctrl.capture_strobe_val;
-
             // Re-calculate exponent adjustment combinatorially for capture
             wire signed [9:0] exp_sum_lane0_adj_comb = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0} -
                                                        (is_bm_a_lane0_raw ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                                        (is_bm_b_lane0_raw ? 10'd0 : {7'd0, nbm_offset_b_val});
+
+            // Use the last physical cycle of the previous element to capture the next one.
+            wire capture_strobe = gen_serial_ctrl.capture_strobe_val;
 
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
@@ -744,14 +744,18 @@ module tt_um_chatelao_fp8_multiplier #(
                     mul_sign_reg   <= 1'b0;
                 end else if (ena) begin
                     if (capture_strobe) begin
+                        // Capture the multiplier output at the end of the previous logical cycle.
                         mul_serializer <= mul_prod_lane0;
                         exp_sum_reg    <= exp_sum_lane0_adj_comb;
                         mul_sign_reg   <= mul_sign_lane0;
                     end else begin
+                        // Shift LSB out first.
                         mul_serializer <= {1'b0, mul_serializer[15:1]};
                     end
                 end
             end
+            // Cycle 0: mul_serializer was just loaded.
+            // Cycle 1: first shift happened, prod_bit is bit 0.
             wire prod_bit = mul_serializer[0];
 
             // Serial Aligner
