@@ -21,6 +21,8 @@ module accumulator_serial #(
     input  wire clear,       // Synchronous clear of the accumulator
     input  wire strobe,      // Carry reset (should be high for the LSB of a new addition)
     input  wire data_in_bit, // Bit-serial aligned product bit
+    input  wire load_en,     // Parallel load enable
+    input  wire [WIDTH-1:0] load_data, // Parallel load data
     output wire data_out_bit, // Bit shifted out (current LSB)
     output wire [WIDTH-1:0] parallel_out // Full register for debug/output
 );
@@ -44,6 +46,9 @@ module accumulator_serial #(
         end else if (ena) begin
             if (clear) begin
                 shift_reg <= {WIDTH{1'b0}};
+                carry <= 1'b0;
+            end else if (load_en) begin
+                shift_reg <= load_data;
                 carry <= 1'b0;
             end else begin
                 // Shift right: MSB gets the new sum, all others move towards LSB.
