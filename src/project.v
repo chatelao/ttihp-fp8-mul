@@ -356,7 +356,7 @@ module tt_um_chatelao_fp8_multiplier #(
             packed_mode_reg <= 1'b0;
             float32_mode_reg <= 1'b0;
             lns_mode_reg <= 2'd0;
-        } else if (ena) begin
+        end else if (ena) begin
             if (strobe) begin
                 if (logical_cycle == 6'd0) begin
                     round_mode_reg    <= uio_in[4:3];
