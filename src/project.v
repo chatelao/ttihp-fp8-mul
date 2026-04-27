@@ -790,7 +790,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .data_in_bit(serial_acc_en_gated ? aligned_bit : 1'b0),
                 .load_en(ena && strobe && logical_cycle == capture_cycle),
                 .load_data({final_scaled_result, {(ACTUAL_ACC_WIDTH-32){1'b0}}}),
+                /* verilator lint_off PINCONNECTEMPTY */
                 .data_out_bit(),
+                /* verilator lint_on PINCONNECTEMPTY */
                 .parallel_out(acc_parallel)
             );
 
