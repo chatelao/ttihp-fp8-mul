@@ -19,8 +19,13 @@ module tb_accumulator_serial (
         .rst_n(rst_n),
         .ena(ena),
         .clear(clear),
+        .en(1'b1),
         .strobe(strobe),
         .data_in_bit(data_in_bit),
+        .load_en(1'b0),
+        .load_data(32'd0),
+        .shift_en(1'b0),
+        .shift_out(),
         .data_out_bit(data_out_bit),
         .parallel_out(parallel_out)
     );
