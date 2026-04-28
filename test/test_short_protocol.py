@@ -52,14 +52,15 @@ async def test_short_protocol_metadata(dut):
         dut.uio_in.value = 0x02
         await ClockCycles(dut.clk, k_factor)
 
-    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
+    # Pipeline flush + Gaps (Logical 35..40)
+    await ClockCycles(dut.clk, 6 * k_factor)
 
-    # Read Result (Cycle 37-40)
+    # Read Result (Cycle 41-44)
     actual_acc = 0
     for _ in range(4):
+        await ClockCycles(dut.clk, k_factor)
         await Timer(1, "ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, k_factor)
 
     # Scales now default to 127 (1.0) on reset.
     # 32.0 in S23.8 format is 32 * 256 = 8192.
@@ -112,9 +113,10 @@ async def test_short_protocol_nan_scale_reuse(dut):
         dut.uio_in.value = 0x38
         await ClockCycles(dut.clk, k_factor)
 
-    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
+    # Pipeline flush + Gaps (Logical 35..40)
+    await ClockCycles(dut.clk, 6 * k_factor)
 
-    # Output Phase (Cycles 37, 38, 39, 40)
+    # Output Phase (Cycles 41, 42, 43, 44)
     for _ in range(4):
         await ClockCycles(dut.clk, k_factor)
 
@@ -141,14 +143,15 @@ async def test_short_protocol_nan_scale_reuse(dut):
         dut.uio_in.value = 0x38
         await ClockCycles(dut.clk, k_factor)
 
-    await ClockCycles(dut.clk, 2 * k_factor) # Flush + Scale
+    # Pipeline flush + Gaps (Logical 35..40)
+    await ClockCycles(dut.clk, 6 * k_factor)
 
-    # Read Result (Cycle 37-40)
+    # Read Result (Cycle 41-44)
     actual_acc = 0
     for _ in range(4):
+        await ClockCycles(dut.clk, k_factor)
         await Timer(1, "ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, k_factor)
 
     # Result should be NaN (0x7FC00000)
     dut._log.info(f"Actual Result: 0x{actual_acc:08X}, Expected: 0x7FC00000")

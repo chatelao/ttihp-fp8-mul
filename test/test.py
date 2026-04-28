@@ -32,7 +32,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
         bias = 15
         is_int = False
         if is_bm and support_mxplus:
-            exp = 26 # 30 - 4
+            exp = 26 # 37 - 4
             mant = (1 << 7) | (bits & 0x7F)
         else:
             exp_field = (bits >> 2) & 0x1F
@@ -200,12 +200,12 @@ def get_param(dut, name, default=1):
             pass
 
     # 2. Try to get from COMPILE_ARGS environment variable
-    # Parameters can be passed as -Pname=val or -Phierarchy.name=val
+    # Parameters can be passed as -Pname=val or -P hierarchy.name=val
     compile_args = " " + os.environ.get("COMPILE_ARGS", "")
     import re
     # Match -Pname=val, -P hierarchy.name=val, etc.
-    # regex looks for either whitespace or a dot before the name to avoid partial matches
-    pattern = r"[\s\.]" + re.escape(name) + r"=(\d+)"
+    # regex looks for either whitespace, dot, or -P before the name to avoid partial matches
+    pattern = r"(?:[\s\.]|-P\s*)" + re.escape(name) + r"=(\d+)"
     match = re.search(pattern, compile_args)
     if match:
         return int(match.group(1))
@@ -227,7 +227,7 @@ def get_param(dut, name, default=1):
         "SUPPORT_PACKED_SERIAL": 0,
         "SUPPORT_MX_PLUS": 1,
         "SUPPORT_SERIAL": 0,
-        "SERIAL_K_FACTOR": 8,
+        "SERIAL_K_FACTOR": 16,
         "ENABLE_SHARED_SCALING": 1,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 1,
@@ -540,14 +540,11 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             dut.uio_in.value = b_elements[i]
             await ClockCycles(dut.clk, cycles_per_element)
 
-    # Pipeline flush for last element
+    # Pipeline flush for last element + Protocol Gaps
+    # Hardware uses 6 logical cycles of gap between last element (34) and capture (40).
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    await ClockCycles(dut.clk, cycles_per_element)
-
-    # Shared scaling alignment
-    # We need 4 cycles of gap to handle datapath latency (2) and stabilization.
-    await ClockCycles(dut.clk, 3 * cycles_per_element)
+    await ClockCycles(dut.clk, 6 * cycles_per_element)
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
@@ -584,9 +581,10 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     if expected_final & 0x80000000:
         expected_final -= 0x100000000
 
-    # Cycle 37-40 (or 21-24): Output Serialized Result
+    # Cycle 41-44 (Standard) or 25-28 (Packed): Output Serialized Result
     actual_acc = 0
     for i in range(4):
+        await ClockCycles(dut.clk, cycles_per_element)
         await Timer(1, unit="ns")
         # uo_out bit-serial or parallel
         val = dut.uo_out.value
@@ -596,7 +594,6 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             # Handle 'x' or 'z' during simulation if necessary
             val_int = 0
         actual_acc = (actual_acc << 8) | val_int
-        await ClockCycles(dut.clk, cycles_per_element)
 
     if actual_acc & 0x80000000:
         actual_acc -= 0x100000000
@@ -715,7 +712,7 @@ async def test_overflow_saturation(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x78] * 32 # Large finite E5M2 (ea=30)
+    a_elements = [0x78] * 32 # Large finite E5M2 (ea=37)
     b_elements = [0x78] * 32
 
     # Saturation
@@ -733,7 +730,7 @@ async def test_accumulator_saturation(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x78] * 32 # E5M2: ea=30
+    a_elements = [0x78] * 32 # E5M2: ea=37
     b_elements = [0x78] * 32
 
     # Accumulator Saturation
@@ -952,13 +949,13 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, k_factor_eff)
 
-    await ClockCycles(dut.clk, 4 * k_factor_eff) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 6 * k_factor_eff) # Flush + Shared Scale Gaps
 
     actual_acc = 0
     for i in range(4):
+        await ClockCycles(dut.clk, k_factor_eff)
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, k_factor_eff)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == expected_final
@@ -1128,14 +1125,14 @@ async def test_mxfp4_input_buffering(dut):
     dut.uio_in.value = 0x55
     await ClockCycles(dut.clk, 16 * k_factor)
 
-    # 6. Pipeline flush + Result collection
-    await ClockCycles(dut.clk, 4 * k_factor)
+    # 6. Pipeline flush + Result collection (Logical 35..40)
+    await ClockCycles(dut.clk, 6 * k_factor)
 
     actual_acc = 0
     for i in range(4):
+        await ClockCycles(dut.clk, k_factor)
         await Timer(1, unit="ns")
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
-        await ClockCycles(dut.clk, k_factor)
 
     if actual_acc & 0x80000000: actual_acc -= 0x100000000
     assert actual_acc == 8192
@@ -1402,7 +1399,7 @@ async def test_float32_subnormals(dut):
     # Case: Result is a non-zero Binary32 subnormal
     # E4M3: 0x08 is 2^-6.
     # 32 * (2^-6 * 2^-6) = 2^5 * 2^-12 = 2^-7.
-    # We want result around 2^-130.
+    # We want result around 2^-137.
     # Need shared_exp = -123.
     # scale_a = 127 - 123 = 4. scale_b = 127.
     a_elements = [0x08] * 32
@@ -1478,8 +1475,8 @@ async def test_float32_rounding_carry(dut):
     # Let's use 1 element, 31 zeros.
     # E4M3: 0x7E is 448. 448 * 448 = 200704.
     # 200704 * 2^shared_exp = 549755797504.
-    # 2^shared_exp = 2739130.
-    # log2(2739130) approx 21.38.
+    # 2^shared_exp = 2739137.
+    # log2(2739137) approx 21.38.
     # This is getting complicated to hit exactly.
     # However, the unit test test_fixed_to_float.py (test_f2f_rounding)
     # already covers the case (0x7fffffc0, 0x47000000) for 32-bit.
