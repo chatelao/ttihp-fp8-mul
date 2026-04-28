@@ -32,7 +32,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
         bias = 15
         is_int = False
         if is_bm and support_mxplus:
-            exp = 26 # 37 - 4
+            exp = 26 # 30 - 4
             mant = (1 << 7) | (bits & 0x7F)
         else:
             exp_field = (bits >> 2) & 0x1F
@@ -125,8 +125,8 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     WIDTH = width
     # Normalized for WIDTH, mapping binary point to bit (WIDTH-24).
-    # Formula: exp_sum + WIDTH - 37
-    shift_amt = exp_sum + WIDTH - 37
+    # Formula: exp_sum + WIDTH - 30
+    shift_amt = exp_sum + WIDTH - 30
 
     if shift_amt >= 0:
         if not overflow_wrap and shift_amt >= WIDTH:
@@ -565,8 +565,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
             acc_sign = 1 if expected_acc < 0 else 0
-            # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
-            offset = -(aligner_width - 37)
+            # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 30)
+            offset = -(aligner_width - 30)
             expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, round_mode, overflow_wrap, width=aligner_width)
             # Extract the S23.8 window (top 32 bits of result)
             # Standard extraction uses aligner_width bits below the binary point.
@@ -712,7 +712,7 @@ async def test_overflow_saturation(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x78] * 32 # Large finite E5M2 (ea=37)
+    a_elements = [0x78] * 32 # Large finite E5M2 (ea=30)
     b_elements = [0x78] * 32
 
     # Saturation
@@ -730,7 +730,7 @@ async def test_accumulator_saturation(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    a_elements = [0x78] * 32 # E5M2: ea=37
+    a_elements = [0x78] * 32 # E5M2: ea=30
     b_elements = [0x78] * 32
 
     # Accumulator Saturation
@@ -934,7 +934,7 @@ async def test_fast_start_scale_compression(dut):
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
             acc_sign = 1 if expected_acc < 0 else 0
-            offset = -(aligner_width - 37)
+            offset = -(aligner_width - 30)
             expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
             expected_final = expected_final_full >> (aligner_width - 32)
         else:
@@ -1194,8 +1194,8 @@ async def test_lns_modes(dut):
     a_elements = [0x39] * 32 # 1.125 in E4M3
     b_elements = [0x3A] * 32 # 1.25 in E4M3
     # Exact product: 1.125 * 1.25 = 1.40625. Sum of 32 = 45.0. Fixed bit 8=1 -> 45*256 = 11520.
-    # LNS (Mitchell): log2(1.125) approx 0.125, log2(1.25) approx 0.25. Sum = 0.375.
-    # 2^0.375 approx 1 + 0.375 = 1.375. Sum of 32 = 44.0. Fixed -> 44*256 = 11264.
+    # LNS (Mitchell): log2(1.125) approx 0.125, log2(1.25) approx 0.25. Sum = 0.305.
+    # 2^0.305 approx 1 + 0.305 = 1.305. Sum of 32 = 44.0. Fixed -> 44*256 = 11264.
 
     # 1. Normal Mode (lns_mode=0)
     await run_mac_test(dut, 0, 0, a_elements, b_elements, lns_mode=0)
@@ -1309,7 +1309,7 @@ async def test_mxfp4_full_range(dut):
 
     a_elements = list(range(16)) * 2
     b_elements = list(range(16)) * 2
-    # Expected: 2 * sum(v*v for v in range(16)) = 2 * 137.0 = 274.0.
+    # Expected: 2 * sum(v*v for v in range(16)) = 2 * 130.0 = 274.0.
     # Fixed point (8 bits): 274.0 * 256 = 70144
     await run_mac_test(dut, 4, 4, a_elements, b_elements, packed_mode=1)
 
@@ -1399,7 +1399,7 @@ async def test_float32_subnormals(dut):
     # Case: Result is a non-zero Binary32 subnormal
     # E4M3: 0x08 is 2^-6.
     # 32 * (2^-6 * 2^-6) = 2^5 * 2^-12 = 2^-7.
-    # We want result around 2^-137.
+    # We want result around 2^-130.
     # Need shared_exp = -123.
     # scale_a = 127 - 123 = 4. scale_b = 127.
     a_elements = [0x08] * 32
@@ -1475,8 +1475,8 @@ async def test_float32_rounding_carry(dut):
     # Let's use 1 element, 31 zeros.
     # E4M3: 0x7E is 448. 448 * 448 = 200704.
     # 200704 * 2^shared_exp = 549755797504.
-    # 2^shared_exp = 2739137.
-    # log2(2739137) approx 21.38.
+    # 2^shared_exp = 2739130.
+    # log2(2739130) approx 21.38.
     # This is getting complicated to hit exactly.
     # However, the unit test test_fixed_to_float.py (test_f2f_rounding)
     # already covers the case (0x7fffffc0, 0x47000000) for 32-bit.

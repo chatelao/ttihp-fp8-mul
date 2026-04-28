@@ -28,7 +28,9 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SERIAL_K_FACTOR = 16,
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
+    /* verilator lint_off UNUSEDPARAM */
     parameter USE_LNS_MUL_PRECISE = 1,
+    /* verilator lint_on UNUSEDPARAM */
     parameter SUPPORT_DEBUG = 1
 )(
     input  wire [7:0] ui_in,
@@ -125,8 +127,10 @@ module tt_um_chatelao_fp8_multiplier #(
     wire       overflow_wrap = overflow_wrap_reg;
     wire       packed_mode   = CAN_PACK ? packed_mode_reg : 1'b0;
 
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [2:0] nbm_offset_a_val;
     wire [2:0] nbm_offset_b_val;
     wire       mx_plus_en_val;
@@ -174,8 +178,10 @@ module tt_um_chatelao_fp8_multiplier #(
             assign mx_plus_en_val = mx_plus_en;
 
             wire [4:0] logical_cycle_idx = logical_cycle[4:0] - 5'd3;
-            wire [6:0] element_index_lane0_full = actual_packed_mode ? { 1'b0, logical_cycle_idx, 1'b0 } : { 2'b0, 1'b0, logical_cycle_idx };
+            /* verilator lint_off UNUSEDSIGNAL */
+            wire [6:0] element_index_lane0_full = actual_packed_mode ? { 1'b0, logical_cycle_idx, 1'b0 } : { 2'b0, logical_cycle_idx[4:0] };
             wire [6:0] element_index_lane1_full = actual_packed_mode ? { 1'b0, logical_cycle_idx, 1'b1 } : 7'd0;
+            /* verilator lint_on UNUSEDSIGNAL */
             wire [4:0] element_index_lane0_reg = element_index_lane0_full[4:0];
             wire [4:0] element_index_lane1_reg = element_index_lane1_full[4:0];
 
@@ -194,7 +200,9 @@ module tt_um_chatelao_fp8_multiplier #(
             assign is_bm_a_lane1_raw = 1'b0;
             assign is_bm_b_lane1_raw = 1'b0;
         end
+    endgenerate
 
+    generate
         if (SUPPORT_INPUT_BUFFERING) begin : gen_input_buffering
             reg [7:0] fifo_a [0:15];
             reg [7:0] fifo_b [0:15];
@@ -219,7 +227,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 end
             end
 
+            /* verilator lint_off UNUSEDSIGNAL */
             wire [4:0] read_ptr_full = (logical_cycle[4:0] - 5'd3) >> 1;
+            /* verilator lint_on UNUSEDSIGNAL */
             wire [3:0] read_ptr = read_ptr_full[3:0];
             wire [7:0] a_byte = (logical_cycle == 7'd3) ? ui_in : fifo_a[read_ptr];
             wire [7:0] b_byte = (logical_cycle == 7'd3) ? uio_in : fifo_b[read_ptr];
@@ -369,7 +379,9 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_input_buffering ? buffered_b_lane0 :
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
 
+    /* verilator lint_off UNUSEDSIGNAL */
     wire a_bit_serial, b_bit_serial;
+    /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_input_shifters
             reg [7:0] a_shifter, b_shifter;
@@ -726,7 +738,7 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    wire signed [9:0] shared_exp_offset = shared_exp - ($signed({2'b0, ALIGNER_WIDTH[7:0]}) - 10'sd37);
+    wire signed [9:0] shared_exp_offset = shared_exp - ($signed({2'b0, ALIGNER_WIDTH[7:0]}) - 10'sd30);
 
     wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle == (capture_cycle - 7'd1)) ? shared_exp_offset : exp_sum_lane0_adj;
     wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle == (capture_cycle - 7'd1)) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val;
@@ -822,13 +834,32 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire f2f_sign_probe;
+    wire [39:0] f2f_mag_probe;
+    wire [5:0] f2f_lzc_probe;
+    wire [39:0] f2f_norm_mag_probe;
+    wire signed [11:0] f2f_exp_biased_probe;
+    wire [22:0] f2f_mantissa_probe;
+    wire f2f_zero_probe;
+    wire f2f_underflow_probe;
+    /* verilator lint_on UNUSEDSIGNAL */
+
     fixed_to_float f2f_inst (
         .acc(f2f_acc_in),
         .shared_exp(shared_exp),
         .nan_sticky(nan_sticky),
         .inf_pos_sticky(inf_pos_sticky),
         .inf_neg_sticky(inf_neg_sticky),
-        .result(f2f_result)
+        .result(f2f_result),
+        .sign(f2f_sign_probe),
+        .mag(f2f_mag_probe),
+        .lzc(f2f_lzc_probe),
+        .norm_mag(f2f_norm_mag_probe),
+        .exp_biased(f2f_exp_biased_probe),
+        .mantissa(f2f_mantissa_probe),
+        .zero(f2f_zero_probe),
+        .underflow(f2f_underflow_probe)
     );
 
     reg [7:0] sticky_byte;

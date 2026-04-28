@@ -33,8 +33,8 @@ module fp8_aligner #(
 
     // shift_amt: We calculate how many positions to shift based on the bias-adjusted exponent.
     // Normalized for WIDTH, mapping binary point to bit (WIDTH-24).
-    // Formula: exp_sum + WIDTH - 37
-    wire signed [10:0] shift_amt = $signed(exp_sum) + $signed({1'b0, WIDTH[9:0]}) - 11'sd37;
+    // Formula: exp_sum + WIDTH - 30
+    wire signed [10:0] shift_amt = $signed(exp_sum) + $signed({1'b0, WIDTH[9:0]}) - 11'sd30;
 
     generate
     if (OPTIMIZE_FOR_FP4) begin : gen_fp4_optimized
