@@ -125,8 +125,9 @@ module fp8_mul_serial_lns #(
     reg carry_sub;
 
     // Stage 1: Add LogA and LogB bits.
-    wire s1_a = (cnt < 4'd12) ? a_aligned : 1'b0;
-    wire s1_b = (cnt < 4'd12) ? b_aligned : 1'b0;
+    // Exclude sign bits from logarithmic addition to prevent exponent corruption.
+    wire s1_a = (cnt < s_p_a) ? a_aligned : 1'b0;
+    wire s1_b = (cnt < s_p_b) ? b_aligned : 1'b0;
     wire sum_s1 = s1_a ^ s1_b ^ carry_adder;
     wire carry_s1_next = (s1_a & s1_b) | (carry_adder & (s1_a ^ s1_b));
 
