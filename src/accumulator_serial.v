@@ -25,10 +25,11 @@ module accumulator_serial #(
     input  wire load_en,     // Parallel load enable
     input  wire [31:0] load_data, // Parallel data to load
     output wire data_out_bit, // Bit shifted out (current LSB)
-    output wire [WIDTH-1:0] parallel_out // Full register for debug/output
+    output wire [(WIDTH > 32 ? WIDTH : 32)-1:0] parallel_out // Full register for debug/output
 );
 
-    reg [WIDTH-1:0] shift_reg;
+    localparam REG_WIDTH = (WIDTH > 32) ? WIDTH : 32;
+    reg [REG_WIDTH-1:0] shift_reg;
     reg carry;
 
     // 1-bit Full Adder
@@ -44,21 +45,21 @@ module accumulator_serial #(
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            shift_reg <= {WIDTH{1'b0}};
+            shift_reg <= {REG_WIDTH{1'b0}};
             carry <= 1'b0;
         end else if (ena) begin
             if (clear) begin
-                shift_reg <= {WIDTH{1'b0}};
+                shift_reg <= {REG_WIDTH{1'b0}};
                 carry <= 1'b0;
             end else if (load_en) begin
-                // Parallel load: Pad or truncate load_data to match WIDTH.
-                shift_reg <= {load_data, {(WIDTH-32){1'b0}}};
+                // Parallel load: Pad or truncate load_data to match REG_WIDTH.
+                shift_reg <= {load_data, {(REG_WIDTH-32){1'b0}}};
                 carry <= 1'b0;
             end else begin
                 // Always circulate when ena is high.
                 // Shift right: MSB gets the new sum, all others move towards LSB.
-                // After WIDTH cycles, this sum will be at shift_reg[0].
-                shift_reg <= {sum_bit, shift_reg[WIDTH-1:1]};
+                // After REG_WIDTH cycles, this sum will be at shift_reg[0].
+                shift_reg <= {sum_bit, shift_reg[REG_WIDTH-1:1]};
                 carry <= cout;
             end
         end
