@@ -94,7 +94,6 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_off UNUSEDSIGNAL */
     wire last_k_val;
     wire capture_strobe_val;
-    /* verilator lint_on UNUSEDSIGNAL */
 
     // Control logic for serial vs parallel operation.
     if (SUPPORT_SERIAL) begin : gen_serial_ctrl
@@ -108,12 +107,13 @@ module tt_um_chatelao_fp8_multiplier #(
         assign last_k_val = last_k;
         // Capture strobe happens at the end of the logical period (k=K-1)
         // to prepare data for the start of the next logical period (k=0).
-        assign capture_strobe_val = strobe;
+        assign capture_strobe_val = last_k;
     end else begin : gen_no_serial_ctrl
         assign strobe = 1'b1;
         assign last_k_val = 1'b1;
         assign capture_strobe_val = 1'b1;
     end
+    /* verilator lint_on UNUSEDSIGNAL */
     assign logical_cycle = cycle_count;
 
     // Hardware Pruning: Optimization to remove unused logic based on parameters.
@@ -773,8 +773,9 @@ module tt_um_chatelao_fp8_multiplier #(
                     end
                 end
             end
-            // Cycle 0: mul_serializer was just loaded.
-            // Cycle 1: first shift happened, prod_bit is bit 0.
+            // Capture strobe (last_k) happens at k=K-1.
+            // On the next cycle (k=0), mul_serializer contains the full product.
+            // We want to process the product starting from k=0.
             wire prod_bit = mul_serializer[0];
 
             // Serial Aligner

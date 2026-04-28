@@ -26,10 +26,10 @@ module fp8_aligner_serial #(
     output wire aligned_bit      // Bit-serial 2's complement aligned output
 );
 
-    // Calculate alignment shift: k0 = exp_sum + 3
+    // Calculate alignment shift: k0 = exp_sum + 11
     // This maps the product's binary point to the accumulator's binary point (bit 16).
     // k0 is the delay we need to apply to the product stream.
-    wire signed [10:0] k0 = $signed(exp_sum) + 11'sd3;
+    wire signed [10:0] k0 = $signed(exp_sum) + 11'sd11;
 
     // 1. 2's Complement Conversion: -Mag = ~Mag + 1
     // We process the product stream LSB-first. Negating here ensures that sign extension
@@ -54,7 +54,10 @@ module fp8_aligner_serial #(
     reg [MAX_DELAY-1:0] delay_line;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) delay_line <= {MAX_DELAY{1'b0}};
-        else if (ena) delay_line <= {delay_line[MAX_DELAY-2:0], res_neg_bit};
+        else if (ena) begin
+            if (strobe) delay_line <= {MAX_DELAY{1'b0}};
+            else delay_line <= {delay_line[MAX_DELAY-2:0], res_neg_bit};
+        end
     end
 
     // Selected bit after delay.

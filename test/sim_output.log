@@ -1,0 +1,68 @@
+rm -f results.xml
+"make" -f Makefile results.xml
+make[1]: Entering directory '/app/test'
+mkdir -p sim_build/rtl
+/usr/bin/iverilog -o sim_build/rtl/sim.vvp -s tb -g2012 -P tb.SUPPORT_SERIAL=1 -P tb.SERIAL_K_FACTOR=40 -P tb.ALIGNER_WIDTH=40 -P tb.ACCUMULATOR_WIDTH=40 -P tb.SUPPORT_E5M2=0 -P tb.SUPPORT_MXFP6=0 -P tb.SUPPORT_MXFP4=1 -P tb.SUPPORT_INT8=0 -P tb.SUPPORT_PIPELINING=0 -P tb.SUPPORT_ADV_ROUNDING=0 -P tb.SUPPORT_MIXED_PRECISION=0 -P tb.ENABLE_SHARED_SCALING=0 -DRTL_SIM -I../src -f sim_build/rtl/cmds.f -DRTL_SIM -I../src -f sim_build/rtl/cmds.f  ../src/project.v ../src/fp8_mul.v ../src/fp8_mul_lns.v ../src/fp8_mul_serial_lns.v ../src/fp8_aligner.v ../src/fp8_aligner_serial.v ../src/accumulator.v ../src/accumulator_serial.v ../src/lzc40.v ../src/fixed_to_float.v /app/test/tb.v
+Command File: Warning: default timescale is being set multiple times.
+                     : using the last valid +timescale found.
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb_tools/makefiles/simulators/Makefile.icarus:66: Using MODULE is deprecated, please use COCOTB_TEST_MODULES instead.
+/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb_tools/makefiles/simulators/Makefile.icarus:66: Using TESTCASE is deprecated, please use COCOTB_TESTCASE instead.
+rm -f results.xml
+COCOTB_TEST_MODULES=test COCOTB_TESTCASE=test_mxfp8_mac_e4m3 COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=tb TOPLEVEL_LANG=verilog \
+         /usr/bin/vvp -M /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/rtl/sim.vvp
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:93   in _embed_init_python              Using Python 3.12.4 interpreter at /home/jules/.pyenv/versions/3.12.13/bin/python3.12
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 12.0 (stable)
+     0.00ns INFO     cocotb                             Seeding Python random module with 1777366787
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb
+     0.00ns ERROR    cocotb.regression                  Configuring the assertion rewrite hook using pytest 9.0.3 failed. Please file a bug report!
+                                                        Traceback (most recent call last):
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/regression.py", line 278, in setup_pytest_assertion_rewriting
+                                                            pytest_conf = Config.fromdictargs(
+                                                                          ^^^^^^^^^^^^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1249, in fromdictargs
+                                                            config.parse(args, addopts=False)
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/_pytest/config/__init__.py", line 1545, in parse
+                                                            self.pluginmanager.load_setuptools_entrypoints("pytest11")
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/pluggy/_manager.py", line 416, in load_setuptools_entrypoints
+                                                            plugin = ep.load()
+                                                                     ^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/importlib/metadata/__init__.py", line 205, in load
+                                                            module = import_module(match.group('module'))
+                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "/home/jules/.pyenv/versions/3.12.13/lib/python3.12/importlib/__init__.py", line 90, in import_module
+                                                            return _bootstrap._gcd_import(name[level:], package, level)
+                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                                          File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+                                                          File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+                                                          File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+                                                          File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+                                                          File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+                                                          File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+                                                          File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+                                                        ModuleNotFoundError: No module named 'cocotb_tools.pytest'
+     0.00ns WARNING  py.warnings                        /home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb/_init.py:102: DeprecationWarning: COCOTB_TESTCASE is deprecated in favor of COCOTB_TEST_FILTER
+                                                          _setup_regression_manager()
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running test.test_mxfp8_mac_e4m3 (1/1)
+     0.00ns INFO     cocotb.tb                          Start MXFP8 MAC Test (E4M3)
+ 16100.00ns INFO     cocotb.tb                          Format: E4M3xE4M3, RM: 0, Wrap: 0, Scales: 127,127, Expected: 8192, Actual: 3968
+ 16100.00ns WARNING  ..fp8_mac_e4m3.test_mxfp8_mac_e4m3 assert 3968 == 8192
+                                                        Traceback (most recent call last):
+                                                          File "/app/test/test.py", line 657, in test_mxfp8_mac_e4m3
+                                                            await run_mac_test(dut, 0, 0, a_elements, b_elements)
+                                                          File "/app/test/test.py", line 610, in run_mac_test
+                                                            assert actual_acc == expected_final
+                                                        AssertionError: assert 3968 == 8192
+ 16100.00ns WARNING  cocotb.regression                  test.test_mxfp8_mac_e4m3 failed
+ 16100.00ns INFO     cocotb.regression                  **************************************************************************************
+                                                        ** TEST                          STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                        **************************************************************************************
+                                                        ** test.test_mxfp8_mac_e4m3       FAIL       16100.00           0.23      69443.48  **
+                                                        **************************************************************************************
+                                                        ** TESTS=1 PASS=0 FAIL=1 SKIP=0              16100.00           0.25      63245.80  **
+                                                        **************************************************************************************
+VCD info: dumpfile tb.vcd opened for output.
+make[1]: *** [/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb_tools/makefiles/simulators/Makefile.icarus:67: results.xml] Error 1
+make[1]: Leaving directory '/app/test'
+make: *** [/home/jules/.pyenv/versions/3.12.13/lib/python3.12/site-packages/cocotb_tools/makefiles/Makefile.inc:17: sim] Error 2
