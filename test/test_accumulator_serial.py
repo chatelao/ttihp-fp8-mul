@@ -4,12 +4,14 @@ from cocotb.clock import Clock
 import random
 
 async def drive_serial(dut, val, width=40):
+    dut.add_en.value = 1
     for i in range(width):
         dut.strobe.value = 1 if i == 0 else 0
-        dut.data_in_bit.value = (val >> i) & 1
+        dut.add_in_bit.value = (val >> i) & 1
         await RisingEdge(dut.clk)
     dut.strobe.value = 0
-    dut.data_in_bit.value = 0
+    dut.add_in_bit.value = 0
+    dut.add_en.value = 0
 
 @cocotb.test()
 async def test_accumulator_serial_basic(dut):
@@ -22,7 +24,10 @@ async def test_accumulator_serial_basic(dut):
     dut.rst_n.value = 0
     dut.clear.value = 0
     dut.strobe.value = 0
-    dut.data_in_bit.value = 0
+    dut.add_in_bit.value = 0
+    dut.add_en.value = 0
+    dut.load_en.value = 0
+    dut.load_data.value = 0
 
     await RisingEdge(dut.clk)
     await Timer(1, unit="ns")
@@ -57,7 +62,10 @@ async def test_accumulator_serial_random(dut):
     dut.rst_n.value = 0
     dut.clear.value = 0
     dut.strobe.value = 0
-    dut.data_in_bit.value = 0
+    dut.add_in_bit.value = 0
+    dut.add_en.value = 0
+    dut.load_en.value = 0
+    dut.load_data.value = 0
     await RisingEdge(dut.clk)
     dut.rst_n.value = 1
     await RisingEdge(dut.clk)

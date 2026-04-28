@@ -26,10 +26,11 @@ module fp8_aligner_serial #(
     output wire aligned_bit      // Bit-serial 2's complement aligned output
 );
 
-    // Calculate alignment shift: k0 = exp_sum + 3
-    // This maps the product's binary point to the accumulator's binary point (bit 16).
-    // k0 is the delay we need to apply to the product stream.
-    wire signed [10:0] k0 = $signed(exp_sum) + 11'sd3;
+    // Calculate alignment shift: k0 = exp_sum + (WIDTH - 37)
+    // This maps the product's binary point to the accumulator's binary point (bit WIDTH-24).
+    // For WIDTH=40, offset is 3. For WIDTH=32, offset is -5.
+    localparam signed [10:0] OFFSET = $signed({1'b0, WIDTH[7:0]}) - 11'sd37;
+    wire signed [10:0] k0 = $signed(exp_sum) + OFFSET;
 
     // Delay Line for the magnitude bitstream.
     // Using a shift register to allow variable delay via tap selection.

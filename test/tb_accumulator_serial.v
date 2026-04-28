@@ -7,7 +7,10 @@ module tb_accumulator_serial (
     input  wire ena,
     input  wire clear,
     input  wire strobe,
-    input  wire data_in_bit,
+    input  wire add_in_bit,
+    input  wire add_en,
+    input  wire load_en,
+    input  wire [31:0] load_data,
     output wire data_out_bit,
     output wire [39:0] parallel_out
 );
@@ -20,7 +23,10 @@ module tb_accumulator_serial (
         .ena(ena),
         .clear(clear),
         .strobe(strobe),
-        .data_in_bit(data_in_bit),
+        .add_in_bit(add_in_bit),
+        .add_en(add_en),
+        .load_en(load_en),
+        .load_data(load_data),
         .data_out_bit(data_out_bit),
         .parallel_out(parallel_out)
     );

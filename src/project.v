@@ -49,7 +49,7 @@ module tt_um_chatelao_fp8_multiplier #(
 );
 
     // COUNTER_WIDTH determines the size of our cycle tracker.
-    localparam COUNTER_WIDTH = 6;
+    localparam COUNTER_WIDTH = 7;
 
     /**
      * FSM (Finite State Machine) States
@@ -386,10 +386,17 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
-    // Control signal to enable the accumulator only when valid products are arriving.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+    // Logical accumulation window (captures bits arriving from multiplier/pipeline).
+    wire logical_acc_en = (SUPPORT_PIPELINING ?
+                          ((logical_cycle >= 7'd4 && logical_cycle <= last_stream_cycle + 7'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                          ((logical_cycle >= 7'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+
+    // For bit-serial datapath, accumulation can happen anytime logical_acc_en is high.
+    // The aligner handles product alignment within the physical cycles of each logical cycle.
+    wire s_add_en = logical_acc_en;
+
+    // Control signal to enable the parallel accumulator.
+    wire acc_en    = strobe && logical_acc_en;
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
@@ -683,6 +690,70 @@ module tt_um_chatelao_fp8_multiplier #(
     // 2. Shared Scale Calculation: S = XA + XB - 254. UE8M0 has bias 127.
     wire signed [9:0] shared_exp = $signed({2'b0, scale_a_val}) + $signed({2'b0, scale_b_val}) - 10'sd254;
 
+    // --- Bit-Serial Datapath (Phase 2 Integration) ---
+    wire serial_aligned_bit;
+    wire [ACCUMULATOR_WIDTH-1:0] serial_acc_parallel_out;
+    wire mul_prod_bit_val;
+    wire s_strobe;
+
+    generate
+        if (SUPPORT_SERIAL) begin : gen_serial_datapath
+            // 1. Multiplier Output Serializer
+            // Captures parallel multiplier output and shifts it out LSB-first.
+            // Bit 0 is presented during cycle 0 (strobe=1) via combinatorial mux.
+            reg [15:0] prod_shifter;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    prod_shifter <= 16'd0;
+                end else if (ena) begin
+                    if (strobe) prod_shifter <= {1'b0, mul_prod_lane0[15:1]};
+                    else prod_shifter <= {1'b0, prod_shifter[15:1]};
+                end
+            end
+            assign mul_prod_bit_val = strobe ? mul_prod_lane0[0] : prod_shifter[0];
+            assign s_strobe = strobe;
+
+            // 2. Serial Aligner
+            // Aligns the bit-serial product stream to the fixed-point grid.
+            fp8_aligner_serial #(
+                .WIDTH(ALIGNER_WIDTH),
+                .MAX_DELAY(64)
+            ) aligner_serial_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .strobe(s_strobe),
+                .exp_sum(exp_sum_lane0_adj),
+                .sign(mul_sign_lane0), // Use combinatorial sign for cycle 0 alignment
+                .prod_bit(mul_prod_bit_val),
+                .aligned_bit(serial_aligned_bit)
+            );
+
+            // 3. Serial Accumulator
+            // Stores the running sum in a circulating shift register.
+            accumulator_serial #(
+                .WIDTH(ACCUMULATOR_WIDTH)
+            ) acc_serial_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .clear(acc_clear),
+                .strobe(s_strobe),
+                .add_in_bit(serial_aligned_bit),
+                .add_en(s_add_en),
+                .load_en(ena && s_strobe && logical_cycle == capture_cycle),
+                .load_data(final_scaled_result),
+                .data_out_bit(),
+                .parallel_out(serial_acc_parallel_out)
+            );
+        end else begin : gen_no_serial_datapath
+            assign mul_prod_bit_val = 1'b0;
+            assign s_strobe = 1'b0;
+            assign serial_aligned_bit = 1'b0;
+            assign serial_acc_parallel_out = {ACCUMULATOR_WIDTH{1'b0}};
+        end
+    endgenerate
+
     // 3. Aligner Multiplexing
     // We reuse the 'fp8_aligner' for both per-element scaling and final shared scaling to save area.
     localparam ACTUAL_ACC_WIDTH = (ACCUMULATOR_WIDTH > 32) ? ACCUMULATOR_WIDTH : 32;
@@ -900,6 +971,14 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result :
                                       (ENABLE_SHARED_SCALING ? final_scaled_result_sh : acc_out_ext);
 
+    // Select between parallel and serial accumulator outputs.
+    wire [ACTUAL_ACC_WIDTH-1:0] acc_out_p;
+    assign acc_out = (SUPPORT_SERIAL) ? serial_acc_parallel_out[ACTUAL_ACC_WIDTH-1:0] : acc_out_p;
+
+    // Serial-aware load enable for the output shift register.
+    // In serial mode, we sample at the end of the circulation (k_counter == 0).
+    wire load_en_final = ena && strobe && (logical_cycle == capture_cycle);
+
     // Accumulator instance.
     accumulator #(
         .WIDTH(ACCUMULATOR_WIDTH)
@@ -907,14 +986,14 @@ module tt_um_chatelao_fp8_multiplier #(
         .clk(clk),
         .rst_n(rst_n),
         .clear(acc_clear),
-        .en(acc_en),
+        .en(SUPPORT_SERIAL ? 1'b0 : acc_en),
         .overflow_wrap(overflow_wrap),
         .data_in(aligned_combined),
-        .load_en(ena && strobe && logical_cycle == capture_cycle),
+        .load_en(load_en_final),
         .load_data(final_scaled_result),
         .shift_en(ena && strobe && state == STATE_OUTPUT && logical_cycle > capture_cycle && logical_cycle < last_cycle),
         .shift_out(acc_shift_out),
-        .data_out(acc_out)
+        .data_out(acc_out_p)
     );
 
     // --- Probing and Echo Logic ---
