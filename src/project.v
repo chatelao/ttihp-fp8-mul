@@ -317,11 +317,11 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [COUNTER_WIDTH-1:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
     // We need 4 cycles of gap between last element and capture to handle datapath latency.
     // Standard: last element i=31 is fed at Cycle 34.
-    // Bit-serial result complete at Cycle 36.
+    // Datapath Latency: result reaches parallel logic at Cycle 36.
     // Shared scale/F2F sampled from aligner_lane0_res at Cycle 37.
     // parallel capture at Cycle 38.
-    wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd21 : 6'd37;
-    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd25 : 6'd41;
+    wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd22 : 6'd38;
+    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd26 : 6'd42;
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
@@ -392,8 +392,8 @@ module tt_um_chatelao_fp8_multiplier #(
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
     // Control signal to enable the accumulator only when valid products are arriving.
-    // Latency depends on both pipelining and serial deserialization.
-    localparam DATAPATH_LATENCY = (SUPPORT_PIPELINING ? 1 : 0) + (SUPPORT_SERIAL ? 1 : 0);
+    // Latency is 1 cycle for parallel datapath, 2 cycles for bit-serial.
+    localparam DATAPATH_LATENCY = (SUPPORT_SERIAL) ? 2 : (SUPPORT_PIPELINING ? 1 : 0);
     wire acc_en    = strobe &&
                      ((logical_cycle >= 3 + DATAPATH_LATENCY && logical_cycle <= last_stream_cycle + DATAPATH_LATENCY) && (state == STATE_STREAM || state == STATE_OUTPUT));
 
@@ -505,7 +505,7 @@ module tt_um_chatelao_fp8_multiplier #(
             always @(posedge clk) begin
                 if (ena) begin
                     // Mitchell LNS is 11-bit. Bits 0-10 are valid.
-                    // Capture bit 0 during strobe, bits 1-10 in subsequent cycles.
+                    // Capture bits 0-10 as they are produced.
                     if (strobe) begin
                         deserializer[0] <= serial_res_bit;
                     end else if (serial_bit_cnt <= 4'd10) begin
@@ -521,23 +521,22 @@ module tt_um_chatelao_fp8_multiplier #(
                     mul_sign_lane0_reg <= 1'b0;
                     mul_nan_lane0_reg <= 1'b0;
                     mul_inf_lane0_reg <= 1'b0;
-                end else if (ena) begin
-                    // Element i starts at strobe of logical cycle C. Mitchell LNS result
-                    // is complete after 11 bits (serial_bit_cnt == 11).
-                    // Loading it then makes it available for the parallel accumulator at Cycle C+1.
-                    if (serial_bit_cnt == 4'd11) begin
-                        if (serial_zero) begin
-                            mul_prod_lane0_reg <= 16'd0;
-                            mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
-                        end else begin
-                            mul_prod_lane0_reg <= {9'd0, 1'b1, deserializer[2:0], 3'd0};
-                            mul_exp_sum_lane0_reg <= $signed(deserializer[10:3]);
-                        end
-                        mul_sign_lane0_reg <= serial_sign_out;
-                        mul_nan_lane0_reg <= serial_nan;
-                        mul_inf_lane0_reg <= serial_inf;
-                    end else if (strobe && (logical_cycle < 6'd4 || logical_cycle > last_stream_cycle + 2'd2)) begin
-                        // Keep flags clear outside valid window
+                end else if (ena && strobe) begin
+                    // Results from logical cycle i-1 are complete and ready to be used by parallel stages.
+                    // Gate capturing multiplier results to valid STREAM window only.
+                    if (logical_cycle >= 4 && logical_cycle <= last_stream_cycle + 2) begin
+                    if (serial_zero) begin
+                        mul_prod_lane0_reg <= 16'd0;
+                        mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
+                    end else begin
+                        mul_prod_lane0_reg <= {9'd0, 1'b1, deserializer[2:0], 3'd0};
+                        mul_exp_sum_lane0_reg <= $signed(deserializer[10:3]);
+                    end
+                    mul_sign_lane0_reg <= serial_sign_out;
+                    mul_nan_lane0_reg <= serial_nan;
+                    mul_inf_lane0_reg <= serial_inf;
+                    end else begin
+                        // Clear flags in metadata/idle cycles
                         mul_nan_lane0_reg <= 1'b0;
                         mul_inf_lane0_reg <= 1'b0;
                     end
@@ -779,7 +778,8 @@ module tt_um_chatelao_fp8_multiplier #(
     // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // This avoids Cycle 1/2 (Scales) and pre-latency garbage.
+    // Standard elements at 3..last_stream_cycle. Shifted by datapath latency.
+    // This avoids Cycle 1/2 (Scales) and Cycle 3 (pre-pipeline garbage).
     wire sticky_latch_en = (logical_cycle >= 3 + DATAPATH_LATENCY) && (logical_cycle <= last_stream_cycle + DATAPATH_LATENCY);
 
     always @(posedge clk or negedge rst_n) begin
@@ -1128,7 +1128,7 @@ module tt_um_chatelao_fp8_multiplier #(
     // Prove that the cycle counter stays within bounds.
     always @(posedge clk) begin
         if (rst_n) begin
-            assert(logical_cycle <= 6'd40);
+            assert(logical_cycle <= 6'd42);
         end
     end
 

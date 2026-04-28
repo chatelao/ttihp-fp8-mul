@@ -546,7 +546,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     await ClockCycles(dut.clk, cycles_per_element)
 
     # Shared scaling alignment
-    await ClockCycles(dut.clk, cycles_per_element)
+    # We need 4 cycles of gap to handle datapath latency (2) and stabilization.
+    await ClockCycles(dut.clk, 3 * cycles_per_element)
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
@@ -951,7 +952,7 @@ async def test_fast_start_scale_compression(dut):
         dut.uio_in.value = b_elements[i]
         await ClockCycles(dut.clk, k_factor_eff)
 
-    await ClockCycles(dut.clk, 2 * k_factor_eff) # Flush + Shared Scale
+    await ClockCycles(dut.clk, 4 * k_factor_eff) # Flush + Shared Scale
 
     actual_acc = 0
     for i in range(4):
@@ -1128,7 +1129,7 @@ async def test_mxfp4_input_buffering(dut):
     await ClockCycles(dut.clk, 16 * k_factor)
 
     # 6. Pipeline flush + Result collection
-    await ClockCycles(dut.clk, 2 * k_factor)
+    await ClockCycles(dut.clk, 4 * k_factor)
 
     actual_acc = 0
     for i in range(4):
