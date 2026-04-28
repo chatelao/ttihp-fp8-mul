@@ -32,7 +32,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_INPUT_BUFFERING = 1,
     parameter SUPPORT_MX_PLUS = 1,
     parameter SUPPORT_SERIAL = 0,
-    parameter SERIAL_K_FACTOR = 8,
+    parameter SERIAL_K_FACTOR = 16,
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 1,
@@ -387,7 +387,8 @@ module tt_um_chatelao_fp8_multiplier #(
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
     // Control signal to enable the accumulator only when valid products are arriving.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+    // Bit-serial mode adds an implicit logical cycle of delay due to deserialization.
+    wire acc_en    = strobe && ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ?
                      ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
 
@@ -455,9 +456,101 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
 
-    // Instantiate Multipliers (either standard or LNS based on parameters).
+    // Instantiate Multipliers (either standard, LNS or Serial based on parameters).
     generate
-        if (USE_LNS_MUL) begin : lns_gen
+        if (SUPPORT_SERIAL) begin : gen_serial_mul
+            wire serial_res_bit;
+            wire serial_sign_out;
+            wire serial_zero, serial_nan, serial_inf;
+
+            fp8_mul_serial_lns #(
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+            ) serial_mul_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .strobe(strobe),
+                .a_bit(a_bit_serial),
+                .b_bit(b_bit_serial),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .res_bit(serial_res_bit),
+                .sign_out(serial_sign_out),
+                .special_zero(serial_zero),
+                .special_nan(serial_nan),
+                .special_inf(serial_inf)
+            );
+
+            // Deserialization: Mitchell LNS stream is 11 bits (3 M, 8 E)
+            reg [10:0] deserializer;
+            reg [15:0] mul_prod_lane0_reg;
+            reg signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_reg;
+            reg mul_sign_lane0_reg, mul_nan_lane0_reg, mul_inf_lane0_reg;
+
+            // Track bits produced by the serial multiplier
+            reg [3:0] serial_bit_cnt;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) serial_bit_cnt <= 4'd15;
+                else if (ena) begin
+                    if (strobe) serial_bit_cnt <= 4'd0;
+                    else if (serial_bit_cnt < 4'd15) serial_bit_cnt <= serial_bit_cnt + 4'd1;
+                end
+            end
+
+            always @(posedge clk) begin
+                if (ena) begin
+                    // Mitchell LNS is 11-bit. Bits 0-10 are valid.
+                    // Capture bit 0 during strobe, bits 1-10 in subsequent cycles.
+                    if (strobe) begin
+                        deserializer[0] <= serial_res_bit;
+                    end else if (serial_bit_cnt <= 4'd10) begin
+                        deserializer[serial_bit_cnt] <= serial_res_bit;
+                    end
+                end
+            end
+
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    mul_prod_lane0_reg <= 16'd0;
+                    mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
+                    mul_sign_lane0_reg <= 1'b0;
+                    mul_nan_lane0_reg <= 1'b0;
+                    mul_inf_lane0_reg <= 1'b0;
+                end else if (ena && strobe) begin
+                    // Capture multiplier results only during the element processing window.
+                    // Element 0 results arrive at strobe of Cycle 4.
+                    if (logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) begin
+                        if (serial_zero) begin
+                            mul_prod_lane0_reg <= 16'd0;
+                            mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
+                        end else begin
+                            mul_prod_lane0_reg <= {9'd0, 1'b1, deserializer[2:0], 3'd0};
+                            mul_exp_sum_lane0_reg <= $signed(deserializer[10:3]);
+                        end
+                        mul_sign_lane0_reg <= serial_sign_out;
+                        mul_nan_lane0_reg <= serial_nan;
+                        mul_inf_lane0_reg <= serial_inf;
+                    end else begin
+                        // Keep flags clear to avoid spurious triggers from metadata cycles
+                        mul_nan_lane0_reg <= 1'b0;
+                        mul_inf_lane0_reg <= 1'b0;
+                    end
+                end
+            end
+
+            assign mul_prod_lane0 = mul_prod_lane0_reg;
+            assign mul_exp_sum_lane0 = mul_exp_sum_lane0_reg;
+            assign mul_sign_lane0 = mul_sign_lane0_reg;
+            assign mul_nan_lane0 = mul_nan_lane0_reg;
+            assign mul_inf_lane0 = mul_inf_lane0_reg;
+
+            assign mul_prod_lane1 = 16'd0;
+            assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_lane1 = 1'b0;
+            assign mul_nan_lane1 = 1'b0;
+            assign mul_inf_lane1 = 1'b0;
+
+        end else if (USE_LNS_MUL) begin : lns_gen
             fp8_mul_lns #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -680,9 +773,9 @@ module tt_um_chatelao_fp8_multiplier #(
     // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
+    // Standard elements at 3..last_stream_cycle. Pipelined/Serial products at 4..last_stream_cycle+1.
     // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
+    wire sticky_latch_en = (logical_cycle >= ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ? 6'd1 : 6'd0));
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
