@@ -419,6 +419,36 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [7:0] b_lane0 = actual_packed_mode ? {4'd0, uio_in[3:0]} :
                         (actual_input_buffering ? buffered_b_lane0 :
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
+
+    // --- Bit-Serial Input Shifters ---
+    /* verilator lint_off UNUSED */
+    wire a_bit_serial, b_bit_serial;
+    /* verilator lint_on UNUSED */
+    generate
+        if (SUPPORT_SERIAL) begin : gen_serial_input_shifters
+            reg [7:0] a_shifter, b_shifter;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    a_shifter <= 8'd0;
+                    b_shifter <= 8'd0;
+                end else if (ena) begin
+                    if (strobe) begin
+                        a_shifter <= a_lane0;
+                        b_shifter <= b_lane0;
+                    end else begin
+                        a_shifter <= {1'b0, a_shifter[7:1]};
+                        b_shifter <= {1'b0, b_shifter[7:1]};
+                    end
+                end
+            end
+            assign a_bit_serial = a_shifter[0];
+            assign b_bit_serial = b_shifter[0];
+        end else begin : gen_no_serial_input_shifters
+            assign a_bit_serial = 1'b0;
+            assign b_bit_serial = 1'b0;
+        end
+    endgenerate
+
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
