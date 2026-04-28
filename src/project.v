@@ -315,8 +315,13 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [COUNTER_WIDTH-1:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
-    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
+    // We need 4 cycles of gap between last element and capture to handle datapath latency.
+    // Standard: last element i=31 is fed at Cycle 34.
+    // Bit-serial result complete at Cycle 36.
+    // Shared scale/F2F sampled from aligner_lane0_res at Cycle 37.
+    // parallel capture at Cycle 38.
+    wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd21 : 6'd37;
+    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd25 : 6'd41;
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
@@ -387,10 +392,10 @@ module tt_um_chatelao_fp8_multiplier #(
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
     // Control signal to enable the accumulator only when valid products are arriving.
-    // Bit-serial mode adds an implicit logical cycle of delay due to deserialization.
-    wire acc_en    = strobe && ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ?
-                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+    // Latency depends on both pipelining and serial deserialization.
+    localparam DATAPATH_LATENCY = (SUPPORT_PIPELINING ? 1 : 0) + (SUPPORT_SERIAL ? 1 : 0);
+    wire acc_en    = strobe &&
+                     ((logical_cycle >= 3 + DATAPATH_LATENCY && logical_cycle <= last_stream_cycle + DATAPATH_LATENCY) && (state == STATE_STREAM || state == STATE_OUTPUT));
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
@@ -516,10 +521,11 @@ module tt_um_chatelao_fp8_multiplier #(
                     mul_sign_lane0_reg <= 1'b0;
                     mul_nan_lane0_reg <= 1'b0;
                     mul_inf_lane0_reg <= 1'b0;
-                end else if (ena && strobe) begin
-                    // Capture multiplier results only during the element processing window.
-                    // Element 0 results arrive at strobe of Cycle 4.
-                    if (logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) begin
+                end else if (ena) begin
+                    // Element i starts at strobe of logical cycle C. Mitchell LNS result
+                    // is complete after 11 bits (serial_bit_cnt == 11).
+                    // Loading it then makes it available for the parallel accumulator at Cycle C+1.
+                    if (serial_bit_cnt == 4'd11) begin
                         if (serial_zero) begin
                             mul_prod_lane0_reg <= 16'd0;
                             mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
@@ -530,8 +536,8 @@ module tt_um_chatelao_fp8_multiplier #(
                         mul_sign_lane0_reg <= serial_sign_out;
                         mul_nan_lane0_reg <= serial_nan;
                         mul_inf_lane0_reg <= serial_inf;
-                    end else begin
-                        // Keep flags clear to avoid spurious triggers from metadata cycles
+                    end else if (strobe && (logical_cycle < 6'd4 || logical_cycle > last_stream_cycle + 2'd2)) begin
+                        // Keep flags clear outside valid window
                         mul_nan_lane0_reg <= 1'b0;
                         mul_inf_lane0_reg <= 1'b0;
                     end
@@ -773,9 +779,8 @@ module tt_um_chatelao_fp8_multiplier #(
     // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Standard elements at 3..last_stream_cycle. Pipelined/Serial products at 4..last_stream_cycle+1.
-    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + ((SUPPORT_PIPELINING || SUPPORT_SERIAL) ? 6'd1 : 6'd0));
+    // This avoids Cycle 1/2 (Scales) and pre-latency garbage.
+    wire sticky_latch_en = (logical_cycle >= 3 + DATAPATH_LATENCY) && (logical_cycle <= last_stream_cycle + DATAPATH_LATENCY);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -840,12 +845,12 @@ module tt_um_chatelao_fp8_multiplier #(
     generate
         if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
             /* verilator lint_off SELRANGE */
-            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle - 6'd1) ?
                                             acc_abs_val[ALIGNER_WIDTH-1:0] :
                                             mul_prod_lane0_ext;
             /* verilator lint_on SELRANGE */
         end else begin : gen_aligner_in_narrow
-            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
+            assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle - 6'd1) ?
                                             { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){1'b0}}, acc_abs_val } :
                                             mul_prod_lane0_ext;
         end
@@ -858,8 +863,8 @@ module tt_um_chatelao_fp8_multiplier #(
     // For 40-bit: shared_exp - (40 - 37) = shared_exp - 3.
     wire signed [9:0] shared_exp_offset = shared_exp - ($signed({2'b0, ALIGNER_WIDTH[7:0]}) - 10'sd37);
 
-    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? shared_exp_offset : exp_sum_lane0_adj;
-    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val;
+    wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle - 6'd1) ? shared_exp_offset : exp_sum_lane0_adj;
+    wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle == capture_cycle - 6'd1) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val;
 
     wire [ALIGNER_WIDTH-1:0] aligned_lane0_res;
     fp8_aligner #(
