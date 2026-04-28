@@ -57,13 +57,18 @@ The "Tiny-Serial" variant is implemented as a gradual evolution from the "Ultra-
 - [x] **Step 3: Testbench Adaptation**: Update `test/test.py` to handle the variable timing based on `SERIAL_K_FACTOR`.
 
 ### Phase 2: Bit-Serial Module Integration
-- [x] **Step 4: Bit-Serial Multiplier**: Replace the parallel `fp8_mul` with a bit-serial multiplier. It will use the $K$ cycles available per element to compute the product.
-- [ ] **Step 5: Bit-Serial Aligner**: Replace the parallel `fp8_aligner` with a serial shifter/delay-line based aligner.
-- [ ] **Step 6: Bit-Serial Accumulator**: Replace the 32-bit parallel accumulator with a circulating shift register and a 1-bit adder.
+- [x] **Step 4.1: [Datapath] Serial Aligner & Accumulator**: Implement individual modules.
+- [x] **Step 4.2: [Datapath] Serial LNS Multiplier**: Implement bit-serial multiplier.
+- [ ] **Step 4.3: [Integration] Serial Input Buffering**: Implement 8-bit shift registers to feed the serial datapath.
+- [ ] **Step 4.4: [Integration] Multiplier Swap**: Connect serial multiplier in the top-level serial path.
+- [ ] **Step 4.5: [Integration] Aligner Swap**: Connect serial aligner and align timing.
+- [ ] **Step 4.6: [Integration] Accumulator Swap**: Replace parallel accumulator in the serial path.
+- [ ] **Step 4.7: [Integration] Serial-to-Parallel Handoff**: Connect serial accumulator to result capture.
+- [ ] **Step 4.8: [Verification] Serial Parity**: Verify functional parity between parallel and serial variants.
 
 ### Phase 3: Area Optimization & Refinement
-- [ ] **Step 7: Register Pruning**: Convert internal state registers to bit-serial shift registers.
-- [ ] **Step 8: Final Area Benchmarking**: Target < 500 gates for the complete bit-serial implementation.
+- [ ] **Phase C: Serial Integration (Advanced)**: Convert internal state registers to bit-serial shift registers.
+- [ ] **Final Area Benchmarking**: Target < 500 gates for the complete bit-serial implementation.
 
 ## 6. Target Metrics
 - **Area Goal**: < 500 gates (excluding shift registers).
