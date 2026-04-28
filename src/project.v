@@ -393,12 +393,17 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
-    // Extended product wires for aligner compatibility
-    wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val };
     wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
     wire mul_sign_lane0, mul_sign_lane1;
     wire mul_nan_lane0, mul_nan_lane1;
     wire mul_inf_lane0, mul_inf_lane1;
+
+    wire [15:0] mul_prod_serial;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_serial;
+    wire mul_sign_serial, mul_nan_serial, mul_inf_serial;
+
+    // Extended product wires for aligner compatibility
+    wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val };
 
     // Buffer for packed elements in bit-serial modes.
     reg [3:0] packed_a_buf, packed_b_buf;
@@ -443,9 +448,71 @@ module tt_um_chatelao_fp8_multiplier #(
             end
             assign a_bit_serial = a_shifter[0];
             assign b_bit_serial = b_shifter[0];
+
+            // --- Bit-Serial Multiplier Integration (Step 4.4) ---
+            wire mul_serial_res_bit;
+            wire mul_serial_sign;
+            wire mul_serial_zero, mul_serial_nan, mul_serial_inf;
+
+            fp8_mul_serial_lns #(
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+            ) mul_serial_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .strobe(strobe),
+                .a_bit(a_bit_serial),
+                .b_bit(b_bit_serial),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .res_bit(mul_serial_res_bit),
+                .sign_out(mul_serial_sign),
+                .special_zero(mul_serial_zero),
+                .special_nan(mul_serial_nan),
+                .special_inf(mul_serial_inf)
+            );
+
+            // Deserialization of the LNS result (Mitchell fractional + biased exponent).
+            // Mitchell fraction: 3 bits (bits 0-2). Biased exponent: 8 bits (bits 3-10).
+            reg [10:0] mul_serial_res_reg;
+            reg [3:0] mul_serial_cnt;
+
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    mul_serial_res_reg <= 11'd0;
+                    mul_serial_cnt <= 4'd15;
+                end else if (ena) begin
+                    if (strobe) begin
+                        mul_serial_cnt <= 4'd0;
+                    end else if (mul_serial_cnt < 4'd11) begin
+                        mul_serial_res_reg[mul_serial_cnt] <= mul_serial_res_bit;
+                        mul_serial_cnt <= mul_serial_cnt + 4'd1;
+                    end
+                end
+            end
+
+            // Map serial results to parallel wires for datapath integration.
+            wire [2:0] m_res_serial = mul_serial_res_reg[2:0];
+            wire [7:0] e_res_serial = mul_serial_res_reg[10:3];
+
+            // Use combinatorial flags from multiplier during strobe to avoid extra cycle delay.
+            // Result bits are already available in mul_serial_res_reg from the previous element cycle.
+            // Guard flags/results to only be valid for element-processing cycles (4..35 capture window).
+            wire mul_serial_valid = (logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1);
+            assign mul_prod_serial = (mul_serial_valid && !mul_serial_zero) ? {9'd0, 1'b1, m_res_serial, 3'd0} : 16'd0;
+            assign mul_exp_sum_serial = mul_serial_valid ? e_res_serial[EXP_SUM_WIDTH-1:0] : {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_serial = mul_serial_valid ? mul_serial_sign : 1'b0;
+            assign mul_nan_serial = mul_serial_valid ? mul_serial_nan : 1'b0;
+            assign mul_inf_serial = mul_serial_valid ? mul_serial_inf : 1'b0;
+
         end else begin : gen_no_serial_input_shifters
             assign a_bit_serial = 1'b0;
             assign b_bit_serial = 1'b0;
+            assign mul_prod_serial = 16'd0;
+            assign mul_exp_sum_serial = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_serial = 1'b0;
+            assign mul_nan_serial = 1'b0;
+            assign mul_inf_serial = 1'b0;
         end
     endgenerate
 
@@ -599,11 +666,11 @@ module tt_um_chatelao_fp8_multiplier #(
                     is_bm_a_lane0_reg <= 1'b0;
                     is_bm_b_lane0_reg <= 1'b0;
                 end else if (ena && strobe) begin
-                    mul_prod_lane0_reg <= mul_prod_lane0;
-                    mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
-                    mul_sign_lane0_reg <= mul_sign_lane0;
-                    mul_nan_lane0_reg <= mul_nan_lane0;
-                    mul_inf_lane0_reg <= mul_inf_lane0;
+                    mul_prod_lane0_reg <= (SUPPORT_SERIAL) ? mul_prod_serial : mul_prod_lane0;
+                    mul_exp_sum_lane0_reg <= (SUPPORT_SERIAL) ? mul_exp_sum_serial : mul_exp_sum_lane0;
+                    mul_sign_lane0_reg <= (SUPPORT_SERIAL) ? mul_sign_serial : mul_sign_lane0;
+                    mul_nan_lane0_reg <= (SUPPORT_SERIAL) ? mul_nan_serial : mul_nan_lane0;
+                    mul_inf_lane0_reg <= (SUPPORT_SERIAL) ? mul_inf_serial : mul_inf_lane0;
                     is_bm_a_lane0_reg <= is_bm_a_lane0_raw;
                     is_bm_b_lane0_reg <= is_bm_b_lane0_raw;
                 end
@@ -659,11 +726,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign is_bm_b_lane1_val = 1'b0;
             end
         end else begin : gen_no_pipeline
-            assign mul_prod_lane0_val = mul_prod_lane0;
-            assign mul_exp_sum_lane0_val = mul_exp_sum_lane0;
-            assign mul_sign_lane0_val = mul_sign_lane0;
-            assign mul_nan_lane0_val = mul_nan_lane0;
-            assign mul_inf_lane0_val = mul_inf_lane0;
+            assign mul_prod_lane0_val = (SUPPORT_SERIAL) ? mul_prod_serial : mul_prod_lane0;
+            assign mul_exp_sum_lane0_val = (SUPPORT_SERIAL) ? mul_exp_sum_serial : mul_exp_sum_lane0;
+            assign mul_sign_lane0_val = (SUPPORT_SERIAL) ? mul_sign_serial : mul_sign_lane0;
+            assign mul_nan_lane0_val = (SUPPORT_SERIAL) ? mul_nan_serial : mul_nan_lane0;
+            assign mul_inf_lane0_val = (SUPPORT_SERIAL) ? mul_inf_serial : mul_inf_lane0;
             assign is_bm_a_lane0_val = is_bm_a_lane0_raw;
             assign is_bm_b_lane0_val = is_bm_b_lane0_raw;
             assign mul_prod_lane1_val = mul_prod_lane1;
