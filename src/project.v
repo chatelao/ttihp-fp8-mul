@@ -60,26 +60,59 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam STATE_STREAM     = 2'b10; // Processing 32 element pairs (Cycles 3-34).
     localparam STATE_OUTPUT     = 2'b11; // Sending the 32-bit result out byte-by-byte.
 
+    // Calculate common widths.
+    localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
+                               (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
+    localparam ACTUAL_ACC_WIDTH_PARAM = (ACCUMULATOR_WIDTH > 32) ? ACCUMULATOR_WIDTH : 32;
+
+    // --- MAC Datapath Wires ---
+    // Declared upfront to prevent implicit 1-bit wire truncation in Verilog.
+    wire [15:0] mul_prod_lane0, mul_prod_lane1;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
+    wire mul_sign_lane0, mul_sign_lane1;
+    wire mul_nan_lane0, mul_nan_lane1;
+    wire mul_inf_lane0, mul_inf_lane1;
+
+    wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
+    wire mul_sign_lane0_val, mul_sign_lane1_val;
+    wire mul_nan_lane0_val, mul_nan_lane1_val;
+    wire mul_inf_lane0_val, mul_inf_lane1_val;
+
+    wire [ACTUAL_ACC_WIDTH_PARAM-1:0] acc_out;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane0_res;
+    wire [ALIGNER_WIDTH-1:0] aligned_lane1_res;
+    wire [ALIGNER_WIDTH-1:0] acc_out_aligned;
+    wire [31:0] acc_out_ext;
+    wire [31:0] f2f_result;
+    wire [31:0] final_scaled_result_sh;
+    wire [31:0] final_scaled_result;
+
     reg [COUNTER_WIDTH-1:0] cycle_count;
-    wire strobe; // Used to handle bit-serial timing if enabled.
+    wire strobe; // Used to handle bit-serial timing if enabled. Reset carry.
     wire [COUNTER_WIDTH-1:0] logical_cycle;
+    wire last_k_val;
+    wire capture_strobe_val;
 
     // Control logic for serial vs parallel operation.
-    generate
-        if (SUPPORT_SERIAL) begin : gen_serial_ctrl
-            reg [COUNTER_WIDTH-1:0] k_counter;
-            wire capture_strobe_val = (k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1});
-            always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) k_counter <= {COUNTER_WIDTH{1'b0}};
-                else if (ena) k_counter <= capture_strobe_val ? {COUNTER_WIDTH{1'b0}} : k_counter + {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1};
-            end
-            assign strobe = (k_counter == {COUNTER_WIDTH{1'b0}});
-            assign logical_cycle = cycle_count;
-        end else begin : gen_no_serial_ctrl
-            assign strobe = 1'b1;
-            assign logical_cycle = cycle_count;
+    if (SUPPORT_SERIAL) begin : gen_serial_ctrl
+        reg [COUNTER_WIDTH-1:0] k_counter;
+        wire last_k = (k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - 6'd1);
+        always @(posedge clk or negedge rst_n) begin
+            if (!rst_n) k_counter <= {COUNTER_WIDTH{1'b0}};
+            else if (ena) k_counter <= last_k ? {COUNTER_WIDTH{1'b0}} : k_counter + 6'd1;
         end
-    endgenerate
+        assign strobe = (k_counter == {COUNTER_WIDTH{1'b0}});
+        assign last_k_val = last_k;
+        // Capture strobe happens at the end of the logical period (k=K-1)
+        // to prepare data for the start of the next logical period (k=0).
+        assign capture_strobe_val = last_k;
+    end else begin : gen_no_serial_ctrl
+        assign strobe = 1'b1;
+        assign last_k_val = 1'b1;
+        assign capture_strobe_val = 1'b1;
+    end
+    assign logical_cycle = cycle_count;
 
     // Hardware Pruning: Optimization to remove unused logic based on parameters.
     localparam TOTAL_FORMATS = (SUPPORT_E4M3 ? 1 : 0) +
@@ -343,6 +376,8 @@ module tt_um_chatelao_fp8_multiplier #(
      * Cycle Counter and Main FSM Controller
      * Captures configuration metadata and advances the protocol state.
      */
+    wire advance_logical = ena && last_k_val;
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             cycle_count <= {COUNTER_WIDTH{1'b0}};
@@ -352,29 +387,35 @@ module tt_um_chatelao_fp8_multiplier #(
             packed_mode_reg <= 1'b0;
             float32_mode_reg <= 1'b0;
             lns_mode_reg <= 2'd0;
-        end else if (ena && strobe) begin
-            if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
-                // Capture Metadata at the start of a block (Cycle 0).
+        end else begin
+            // 1. Capture Metadata at the start of a block (Cycle 0).
+            // In serial mode, metadata is captured at k=0 of logical cycle 0.
+            if (ena && strobe && logical_cycle == 6'd0) begin
                 round_mode_reg    <= uio_in[4:3];
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
                 float32_mode_reg  <= ui_in[5];
                 lns_mode_reg      <= ui_in[4:3];
+            end
 
-                if (ui_in[7]) begin
-                    // Fast Start: Skip scale loading and reuse previous values.
-                    cycle_count <= 6'd3;
-                    if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
+            // 2. Advance logical cycle at the end of the period (k=K-1).
+            if (advance_logical) begin
+                if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
+                    if (ui_in[7]) begin
+                        // Fast Start: Skip scale loading and reuse previous values.
+                        cycle_count <= 6'd3;
+                        if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
+                    end else begin
+                        cycle_count <= 6'd1;
+                    end
                 end else begin
-                    cycle_count <= 6'd1;
-                end
-            end else begin
-                // Standard progression.
-                cycle_count <= (logical_cycle == last_cycle) ? {COUNTER_WIDTH{1'b0}} : logical_cycle + {{ (COUNTER_WIDTH-1){1'b0} }, 1'b1};
+                    // Standard progression.
+                    cycle_count <= (logical_cycle == last_cycle) ? {COUNTER_WIDTH{1'b0}} : logical_cycle + 6'd1;
 
-                if (logical_cycle == 6'd1) begin
-                    // Capture Format A in Cycle 1.
-                    if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
+                    if (logical_cycle == 6'd1) begin
+                        // Capture Format A in Cycle 1.
+                        if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
+                    end
                 end
             end
         end
@@ -384,42 +425,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // MAC Datapath Integration
     // ------------------------------------------------------------------------
 
-    localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
-                               (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
-
-    localparam ACTUAL_ACC_WIDTH = (ACCUMULATOR_WIDTH > 32) ? ACCUMULATOR_WIDTH : 32;
-
-    // Multiplier results wires.
-    wire [15:0] mul_prod_lane0, mul_prod_lane1;
-    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
-    wire mul_sign_lane0, mul_sign_lane1;
-    wire mul_nan_lane0, mul_nan_lane1;
-    wire mul_inf_lane0, mul_inf_lane1;
-
-    // Pipeline wires.
-    wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
-    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
-    wire mul_sign_lane0_val, mul_sign_lane1_val;
-    wire mul_nan_lane0_val, mul_nan_lane1_val;
-    wire mul_inf_lane0_val, mul_inf_lane1_val;
-
-    // MAC Datapath Wires (LSB/windowing related)
-    wire [ACTUAL_ACC_WIDTH-1:0] acc_out;
-    wire [ALIGNER_WIDTH-1:0] aligned_lane0_res;
-    wire [ALIGNER_WIDTH-1:0] aligned_lane1_res;
-    wire [ALIGNER_WIDTH-1:0] acc_out_aligned;
-    wire [31:0] acc_out_ext;
-    wire [31:0] f2f_result;
-    wire [31:0] final_scaled_result_sh;
-    wire [31:0] final_scaled_result;
-
     // Extended product wires for aligner compatibility
     wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_ext = (SUPPORT_SERIAL) ? {ALIGNER_WIDTH{1'b0}} : { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val };
 
     // Control signal to enable the accumulator only when valid products are arriving.
     // For bit-serial mode, we enable it continuously during the streaming phase
-    // to allow internal circulation.
-    wire acc_en    = (SUPPORT_SERIAL) ? (logical_cycle >= 6'd4 && logical_cycle <= 6'd36) :
+    // to allow internal circulation. Serial uses 3..34 because there's no pipeline reg.
+    wire acc_en    = (SUPPORT_SERIAL) ? (logical_cycle >= 6'd3 && logical_cycle <= 6'd34) :
                      strobe && (SUPPORT_PIPELINING ?
                      ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
@@ -703,13 +715,13 @@ module tt_um_chatelao_fp8_multiplier #(
     // We reuse the 'fp8_aligner' for both per-element scaling and final shared scaling to save area.
 
     /* verilator lint_off UNUSEDSIGNAL */
-    wire [ACTUAL_ACC_WIDTH-1:0] acc_abs_val;
+    wire [ACTUAL_ACC_WIDTH_PARAM-1:0] acc_abs_val;
     /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (ENABLE_SHARED_SCALING) begin : gen_acc_abs
-            assign acc_abs_val = acc_out[ACTUAL_ACC_WIDTH-1] ? -acc_out : acc_out;
+            assign acc_abs_val = acc_out[ACTUAL_ACC_WIDTH_PARAM-1] ? -acc_out : acc_out;
         end else begin : gen_no_acc_abs
-            assign acc_abs_val = {ACTUAL_ACC_WIDTH{1'b0}};
+            assign acc_abs_val = {ACTUAL_ACC_WIDTH_PARAM{1'b0}};
         end
     endgenerate
 
@@ -725,8 +737,8 @@ module tt_um_chatelao_fp8_multiplier #(
                                           (is_bm_b_lane1_val ? 10'd0 : {7'd0, nbm_offset_b_val});
     /* verilator lint_on UNUSEDSIGNAL */
 
-    wire [ACTUAL_ACC_WIDTH-1:0] aligned_combined;
-    wire acc_clear = ena && (SUPPORT_SERIAL ? 1'b1 : strobe) && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
+    wire [ACTUAL_ACC_WIDTH_PARAM-1:0] aligned_combined;
+    wire acc_clear = ena && (SUPPORT_SERIAL ? 1'b1 : strobe) && (logical_cycle <= 6'd2) && (state != STATE_STREAM);
     wire [7:0] acc_shift_out;
 
     generate
@@ -742,16 +754,13 @@ module tt_um_chatelao_fp8_multiplier #(
                                                        (is_bm_a_lane0_raw ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                                        (is_bm_b_lane0_raw ? 10'd0 : {7'd0, nbm_offset_b_val});
 
-            // Use the last physical cycle of the previous element to capture the next one.
-            wire capture_strobe = gen_serial_ctrl.capture_strobe_val;
-
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     mul_serializer <= 16'd0;
                     exp_sum_reg    <= 10'd0;
                     mul_sign_reg   <= 1'b0;
                 end else if (ena) begin
-                    if (capture_strobe) begin
+                    if (capture_strobe_val) begin
                         // Capture the multiplier output at the end of the previous logical cycle.
                         mul_serializer <= mul_prod_lane0;
                         exp_sum_reg    <= exp_sum_lane0_adj_comb;
@@ -782,13 +791,13 @@ module tt_um_chatelao_fp8_multiplier #(
             );
 
             // Serial Accumulator
-            wire [ACTUAL_ACC_WIDTH-1:0] acc_parallel;
-            // Addition is active from Cycle 4 (first product)
-            // until Cycle 35 (last product). Cycle 36 is shared scale.
-            wire serial_acc_en_gated = (logical_cycle >= 6'd4 && logical_cycle <= 6'd35);
+            wire [ACTUAL_ACC_WIDTH_PARAM-1:0] acc_parallel;
+            // Addition is active from logical Cycle 3 (first product)
+            // until logical Cycle 34 (last product).
+            wire serial_acc_en_gated = (logical_cycle >= 6'd3 && logical_cycle <= 6'd34);
 
             accumulator_serial #(
-                .WIDTH(ACTUAL_ACC_WIDTH)
+                .WIDTH(ACTUAL_ACC_WIDTH_PARAM)
             ) acc_serial_inst (
                 .clk(clk),
                 .rst_n(rst_n),
@@ -796,8 +805,9 @@ module tt_um_chatelao_fp8_multiplier #(
                 .clear(acc_clear),
                 .strobe(strobe),
                 .data_in_bit(serial_acc_en_gated ? aligned_bit : 1'b0),
-                .load_en(ena && strobe && logical_cycle == capture_cycle),
-                .load_data({final_scaled_result, {(ACTUAL_ACC_WIDTH-32){1'b0}}}),
+                // Gated load to prevent accidental truncation when shared scaling is off.
+                .load_en(ena && strobe && logical_cycle == capture_cycle && (ENABLE_SHARED_SCALING || float32_mode_reg)),
+                .load_data({final_scaled_result, {(ACTUAL_ACC_WIDTH_PARAM-32){1'b0}}}),
                 /* verilator lint_off PINCONNECTEMPTY */
                 .data_out_bit(),
                 /* verilator lint_on PINCONNECTEMPTY */
@@ -805,25 +815,25 @@ module tt_um_chatelao_fp8_multiplier #(
             );
 
             assign acc_out = acc_parallel;
-            assign aligned_lane0_res = acc_parallel[ALIGNER_WIDTH-1:0]; // Dummy, not used in serial
+            assign aligned_lane0_res = {ALIGNER_WIDTH{1'b0}};
             assign aligned_lane1_res = {ALIGNER_WIDTH{1'b0}};
-            assign aligned_combined = {ACTUAL_ACC_WIDTH{1'b0}};
+            assign aligned_combined = {ACTUAL_ACC_WIDTH_PARAM{1'b0}};
 
             // Serial Output Mux (Combinatorial to avoid 1-logical-cycle lag)
             // Note: Since the test samples uo_out at k=0 (logical cycle start),
             // and the circulating accumulator is correct at k=0, this mux
             // provides the accurate byte for the current protocol phase.
             wire [7:0] serial_out_comb = (state != STATE_OUTPUT) ? 8'd0 :
-                                         (logical_cycle - capture_cycle == 6'd1) ? acc_parallel[ACTUAL_ACC_WIDTH-1:ACTUAL_ACC_WIDTH-8] :
-                                         (logical_cycle - capture_cycle == 6'd2) ? acc_parallel[ACTUAL_ACC_WIDTH-9:ACTUAL_ACC_WIDTH-16] :
-                                         (logical_cycle - capture_cycle == 6'd3) ? acc_parallel[ACTUAL_ACC_WIDTH-17:ACTUAL_ACC_WIDTH-24] :
-                                         (logical_cycle - capture_cycle == 6'd4) ? acc_parallel[ACTUAL_ACC_WIDTH-25:ACTUAL_ACC_WIDTH-32] : 8'd0;
+                                         (logical_cycle - capture_cycle == 6'd1) ? acc_parallel[ACTUAL_ACC_WIDTH_PARAM-1:ACTUAL_ACC_WIDTH_PARAM-8] :
+                                         (logical_cycle - capture_cycle == 6'd2) ? acc_parallel[ACTUAL_ACC_WIDTH_PARAM-9:ACTUAL_ACC_WIDTH_PARAM-16] :
+                                         (logical_cycle - capture_cycle == 6'd3) ? acc_parallel[ACTUAL_ACC_WIDTH_PARAM-17:ACTUAL_ACC_WIDTH_PARAM-24] :
+                                         (logical_cycle - capture_cycle == 6'd4) ? acc_parallel[ACTUAL_ACC_WIDTH_PARAM-25:ACTUAL_ACC_WIDTH_PARAM-32] : 8'd0;
             assign acc_shift_out = serial_out_comb;
 
         end else begin : gen_parallel_datapath
             // Multiplier for Aligner Input based on current protocol phase.
             wire [ALIGNER_WIDTH-1:0] aligner_lane0_in_prod;
-            if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
+        if (ACTUAL_ACC_WIDTH_PARAM >= ALIGNER_WIDTH) begin : gen_aligner_in_wide
                 /* verilator lint_off SELRANGE */
                 assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
                                                 acc_abs_val[ALIGNER_WIDTH-1:0] :
@@ -831,7 +841,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 /* verilator lint_on SELRANGE */
             end else begin : gen_aligner_in_narrow
                 assign aligner_lane0_in_prod = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ?
-                                                { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){1'b0}}, acc_abs_val } :
+                                            { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH_PARAM){1'b0}}, acc_abs_val } :
                                                 mul_prod_lane0_ext;
             end
 
@@ -843,7 +853,7 @@ module tt_um_chatelao_fp8_multiplier #(
             wire signed [9:0] shared_exp_offset = shared_exp - ($signed({2'b0, ALIGNER_WIDTH[7:0]}) - 10'sd37);
 
             wire signed [9:0] aligner_lane0_in_exp  = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? shared_exp_offset : exp_sum_lane0_adj;
-            wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val;
+            wire aligner_lane0_in_sign = (ENABLE_SHARED_SCALING && logical_cycle >= capture_cycle) ? acc_out[ACTUAL_ACC_WIDTH_PARAM-1] : mul_sign_lane0_val;
 
             fp8_aligner #(
                 .WIDTH(ALIGNER_WIDTH),
@@ -878,29 +888,29 @@ module tt_um_chatelao_fp8_multiplier #(
             // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
             // Sign-extend lane results to match the internal accumulator width.
             // Using guarded concatenation to avoid negative replication factors during elaboration.
-            wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended;
-            wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended;
+            wire [ACTUAL_ACC_WIDTH_PARAM-1:0] lane0_extended;
+            wire [ACTUAL_ACC_WIDTH_PARAM-1:0] lane1_extended;
 
-            if (ACTUAL_ACC_WIDTH > ALIGNER_WIDTH) begin : gen_lane_ext_wide
-                assign lane0_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res };
-                assign lane1_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res };
-            end else if (ACTUAL_ACC_WIDTH < ALIGNER_WIDTH) begin : gen_lane_ext_narrow
-                assign lane0_extended = aligned_lane0_res[ACTUAL_ACC_WIDTH-1:0];
-                assign lane1_extended = aligned_lane1_res[ACTUAL_ACC_WIDTH-1:0];
+            if (ACTUAL_ACC_WIDTH_PARAM > ALIGNER_WIDTH) begin : gen_lane_ext_wide
+                assign lane0_extended = { {(ACTUAL_ACC_WIDTH_PARAM-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res };
+                assign lane1_extended = { {(ACTUAL_ACC_WIDTH_PARAM-ALIGNER_WIDTH){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res };
+            end else if (ACTUAL_ACC_WIDTH_PARAM < ALIGNER_WIDTH) begin : gen_lane_ext_narrow
+                assign lane0_extended = aligned_lane0_res[ACTUAL_ACC_WIDTH_PARAM-1:0];
+                assign lane1_extended = aligned_lane1_res[ACTUAL_ACC_WIDTH_PARAM-1:0];
             end else begin : gen_lane_ext_equal
                 assign lane0_extended = aligned_lane0_res;
                 assign lane1_extended = aligned_lane1_res;
             end
 
-            wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
-                                                             $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
+            wire signed [ACTUAL_ACC_WIDTH_PARAM:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH_PARAM-1], lane0_extended}) +
+                                                             $signed({lane1_extended[ACTUAL_ACC_WIDTH_PARAM-1], lane1_extended});
             /* verilator lint_off UNUSEDSIGNAL */
-            wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH-1] == lane1_extended[ACTUAL_ACC_WIDTH-1]) &&
-                                     (combined_full[ACTUAL_ACC_WIDTH-1] != lane0_extended[ACTUAL_ACC_WIDTH-1]);
+            wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH_PARAM-1] == lane1_extended[ACTUAL_ACC_WIDTH_PARAM-1]) &&
+                                     (combined_full[ACTUAL_ACC_WIDTH_PARAM-1] != lane0_extended[ACTUAL_ACC_WIDTH_PARAM-1]);
             /* verilator lint_on UNUSEDSIGNAL */
             assign aligned_combined = (!overflow_wrap && combined_overflow) ?
-                                             (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
-                                             combined_full[ACTUAL_ACC_WIDTH-1:0];
+                                             (lane0_extended[ACTUAL_ACC_WIDTH_PARAM-1] ? {1'b1, {(ACTUAL_ACC_WIDTH_PARAM-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH_PARAM-1){1'b1}}}) :
+                                             combined_full[ACTUAL_ACC_WIDTH_PARAM-1:0];
 
             // Accumulator instance.
             accumulator #(
@@ -923,10 +933,10 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Standardize accumulator output to ALIGNER_WIDTH for consistent windowing.
     generate
-        if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_acc_aligned_trunc
+        if (ACTUAL_ACC_WIDTH_PARAM >= ALIGNER_WIDTH) begin : gen_acc_aligned_trunc
             assign acc_out_aligned = acc_out[ALIGNER_WIDTH-1:0];
         end else begin : gen_acc_aligned_ext
-            assign acc_out_aligned = { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH){acc_out[ACTUAL_ACC_WIDTH-1]}}, acc_out };
+            assign acc_out_aligned = { {(ALIGNER_WIDTH-ACTUAL_ACC_WIDTH_PARAM){acc_out[ACTUAL_ACC_WIDTH_PARAM-1]}}, acc_out };
         end
     endgenerate
 

@@ -222,7 +222,7 @@ module fp8_mul #(
                 sign_res = sign_a ^ sign_b;
                 nan_res = 1'b0;
                 inf_res = 1'b0;
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-4){1'b0}}, 4'sd7}));
             end
         end else begin : gen_multi_format
             // Standard path for multiple formats.
@@ -252,7 +252,7 @@ module fp8_mul #(
                 inf_res = (inf_a | inf_b) & ~nan_res;
 
                 // Exponent calculation: Exp_A + Exp_B - (Bias_A + Bias_B - Global_Bias)
-                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7}));
+                exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-4){1'b0}}, 4'sd7}));
             end
         end
     endgenerate
