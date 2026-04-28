@@ -8,7 +8,7 @@ The goal is to achieve an ultra-minimal footprint (< 500 gates) by processing da
 - [x] **Step 4.1: [Datapath] Serial Aligner & Accumulator**: Implement individual modules (`fp8_aligner_serial`, `accumulator_serial`).
 - [x] **Step 4.2: [Datapath] Serial LNS Multiplier**: Implement `fp8_mul_serial_lns`.
 - [x] **Step 4.3: [Integration] Serial Input Buffering**: Implement 8-bit shift registers to feed the serial datapath.
-- [ ] **Step 4.4: [Integration] Multiplier Swap**: Connect `fp8_mul_serial_lns` in the top-level serial path.
+- [x] **Step 4.4: [Integration] Multiplier Swap**: Connect `fp8_mul_serial_lns` in the top-level serial path.
 - [ ] **Step 4.5: [Integration] Aligner Swap**: Connect `fp8_aligner_serial` and align timing.
 - [ ] **Step 4.6: [Integration] Accumulator Swap**: Replace the parallel accumulator in the serial path.
 - [ ] **Step 4.7: [Integration] Serial-to-Parallel Handoff**: Connect the serial accumulator's parallel output to the top-level result capture.

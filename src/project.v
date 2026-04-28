@@ -475,26 +475,15 @@ module tt_um_chatelao_fp8_multiplier #(
             // Deserialization of the LNS result (Mitchell fractional + biased exponent).
             // Mitchell fraction: 3 bits (bits 0-2). Biased exponent: 8 bits (bits 3-10).
             reg [10:0] mul_serial_res_reg;
-            reg mul_serial_sign_reg;
-            reg mul_serial_zero_reg, mul_serial_nan_reg, mul_serial_inf_reg;
             reg [3:0] mul_serial_cnt;
 
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
                     mul_serial_res_reg <= 11'd0;
                     mul_serial_cnt <= 4'd15;
-                    mul_serial_sign_reg <= 1'b0;
-                    mul_serial_zero_reg <= 1'b0;
-                    mul_serial_nan_reg <= 1'b0;
-                    mul_serial_inf_reg <= 1'b0;
                 end else if (ena) begin
                     if (strobe) begin
                         mul_serial_cnt <= 4'd0;
-                        // Capture flags from the previous element.
-                        mul_serial_sign_reg <= mul_serial_sign;
-                        mul_serial_zero_reg <= mul_serial_zero;
-                        mul_serial_nan_reg  <= mul_serial_nan;
-                        mul_serial_inf_reg  <= mul_serial_inf;
                     end else if (mul_serial_cnt < 4'd11) begin
                         mul_serial_res_reg[mul_serial_cnt] <= mul_serial_res_bit;
                         mul_serial_cnt <= mul_serial_cnt + 4'd1;
@@ -506,11 +495,15 @@ module tt_um_chatelao_fp8_multiplier #(
             wire [2:0] m_res_serial = mul_serial_res_reg[2:0];
             wire [7:0] e_res_serial = mul_serial_res_reg[10:3];
 
-            assign mul_prod_serial = mul_serial_zero_reg ? 16'd0 : {9'd0, 1'b1, m_res_serial, 3'd0};
-            assign mul_exp_sum_serial = e_res_serial[EXP_SUM_WIDTH-1:0];
-            assign mul_sign_serial = mul_serial_sign_reg;
-            assign mul_nan_serial = mul_serial_nan_reg;
-            assign mul_inf_serial = mul_serial_inf_reg;
+            // Use combinatorial flags from multiplier during strobe to avoid extra cycle delay.
+            // Result bits are already available in mul_serial_res_reg from the previous element cycle.
+            // Guard flags/results to only be valid for element-processing cycles (4..35 capture window).
+            wire mul_serial_valid = (logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1);
+            assign mul_prod_serial = (mul_serial_valid && !mul_serial_zero) ? {9'd0, 1'b1, m_res_serial, 3'd0} : 16'd0;
+            assign mul_exp_sum_serial = mul_serial_valid ? e_res_serial[EXP_SUM_WIDTH-1:0] : {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_serial = mul_serial_valid ? mul_serial_sign : 1'b0;
+            assign mul_nan_serial = mul_serial_valid ? mul_serial_nan : 1'b0;
+            assign mul_inf_serial = mul_serial_valid ? mul_serial_inf : 1'b0;
 
         end else begin : gen_no_serial_input_shifters
             assign a_bit_serial = 1'b0;
