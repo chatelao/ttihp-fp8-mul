@@ -553,6 +553,8 @@ module tt_um_chatelao_fp8_multiplier #(
             end
         end else if (SUPPORT_SERIAL) begin : gen_serial_multiplier
             // Counter for serial process
+            // Note: SERIAL_K_FACTOR must be at least 12 to allow the Mitchell multiplier
+            // (which takes 11 cycles) to complete and have its result sampled at ser_cnt=11.
             reg [3:0] ser_cnt;
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) ser_cnt <= 4'd15;
@@ -620,10 +622,10 @@ module tt_um_chatelao_fp8_multiplier #(
                     captured_zero <= 1'b1;
                     captured_nan  <= 1'b0;
                     captured_inf  <= 1'b0;
-                end else if (ena && ser_cnt == 4'd15) begin
+                end else if (ena && ser_cnt == 4'd11) begin
                     // Elements are processed during logical_cycles 3 to 34.
-                    // At the end of each logical_cycle (ser_cnt == 15), we capture the result.
-                    // It will then be latched by the pipeline registers on the next strobe.
+                    // Multiplier finishes at ser_cnt=11. We capture the flags here.
+                    // They remain stable until the next strobe, when they are latched by pipeline registers.
                     if (logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) begin
                         captured_sign <= mul_sign_serial;
                         captured_zero <= mul_zero_serial;
