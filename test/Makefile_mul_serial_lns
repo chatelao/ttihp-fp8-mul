@@ -1,0 +1,14 @@
+# test/Makefile_mul_serial_lns
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+SRC_DIR = ../src
+
+VERILOG_SOURCES += $(SRC_DIR)/fp8_mul_serial_lns.v
+
+TOPLEVEL = fp8_mul_serial_lns
+MODULE = test_fp8_mul_serial_lns
+
+# Add a simple wrapper if needed, but here we can test the module directly
+# since test_fp8_mul_serial_lns.py expects the module's ports.
+
+include $(shell cocotb-config --makefiles)/Makefile.sim

@@ -420,30 +420,12 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_input_buffering ? buffered_b_lane0 :
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
 
-    // --- Bit-Serial Input Shifters ---
+    // --- Bit-Serial Input Wires ---
     /* verilator lint_off UNUSED */
     wire a_bit_serial, b_bit_serial;
     /* verilator lint_on UNUSED */
     generate
-        if (SUPPORT_SERIAL) begin : gen_serial_input_shifters
-            reg [7:0] a_shifter, b_shifter;
-            always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    a_shifter <= 8'd0;
-                    b_shifter <= 8'd0;
-                end else if (ena) begin
-                    if (strobe) begin
-                        a_shifter <= a_lane0;
-                        b_shifter <= b_lane0;
-                    end else begin
-                        a_shifter <= {1'b0, a_shifter[7:1]};
-                        b_shifter <= {1'b0, b_shifter[7:1]};
-                    end
-                end
-            end
-            assign a_bit_serial = a_shifter[0];
-            assign b_bit_serial = b_shifter[0];
-        end else begin : gen_no_serial_input_shifters
+        if (!SUPPORT_SERIAL) begin : gen_no_serial_input
             assign a_bit_serial = 1'b0;
             assign b_bit_serial = 1'b0;
         end
@@ -457,7 +439,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Instantiate Multipliers (either standard or LNS based on parameters).
     generate
-        if (USE_LNS_MUL) begin : lns_gen
+        if (USE_LNS_MUL && !SUPPORT_SERIAL) begin : lns_gen
             fp8_mul_lns #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -514,7 +496,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_nan_lane1 = 1'b0;
                 assign mul_inf_lane1 = 1'b0;
             end
-        end else begin : std_gen
+        end else if (!SUPPORT_SERIAL) begin : std_gen
             fp8_mul #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -569,6 +551,107 @@ module tt_um_chatelao_fp8_multiplier #(
                 assign mul_nan_lane1 = 1'b0;
                 assign mul_inf_lane1 = 1'b0;
             end
+        end else if (SUPPORT_SERIAL) begin : gen_serial_multiplier
+            // Counter for serial process
+            // Note: SERIAL_K_FACTOR must be at least 12 to allow the Mitchell multiplier
+            // (which takes 11 cycles) to complete and have its result sampled at ser_cnt=11.
+            reg [3:0] ser_cnt;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) ser_cnt <= 4'd15;
+                else if (ena) begin
+                    if (strobe) ser_cnt <= 4'd0;
+                    else if (ser_cnt < 4'd15) ser_cnt <= ser_cnt + 4'd1;
+                end
+            end
+
+            // Input shifters aligned with ser_cnt
+            reg [7:0] a_shifter, b_shifter;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    a_shifter <= 8'd0;
+                    b_shifter <= 8'd0;
+                end else if (ena) begin
+                    if (strobe) begin
+                        a_shifter <= a_lane0;
+                        b_shifter <= b_lane0;
+                    end else if (ser_cnt < 4'd7) begin
+                        // Shift LSB-first, bit 0 is available during ser_cnt=15(strobe) and ser_cnt=0
+                        a_shifter <= {1'b0, a_shifter[7:1]};
+                        b_shifter <= {1'b0, b_shifter[7:1]};
+                    end
+                end
+            end
+            assign a_bit_serial = a_shifter[0];
+            assign b_bit_serial = b_shifter[0];
+
+            wire res_bit_serial;
+            wire mul_sign_serial, mul_zero_serial, mul_nan_serial, mul_inf_serial;
+
+            fp8_mul_serial_lns #(
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+            ) multiplier_lane0_serial (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .strobe(strobe),
+                .a_bit(a_bit_serial),
+                .b_bit(b_bit_serial),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .res_bit(res_bit_serial),
+                .sign_out(mul_sign_serial),
+                .special_zero(mul_zero_serial),
+                .special_nan(mul_nan_serial),
+                .special_inf(mul_inf_serial)
+            );
+
+            // Deserialization shift register
+            reg [10:0] serial_res_shifter;
+            always @(posedge clk) begin
+                if (ena) begin
+                    if (ser_cnt < 4'd11)
+                        serial_res_shifter <= {res_bit_serial, serial_res_shifter[10:1]};
+                end
+            end
+
+            // Capture flags
+            reg captured_sign, captured_zero, captured_nan, captured_inf;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    captured_sign <= 1'b0;
+                    captured_zero <= 1'b1;
+                    captured_nan  <= 1'b0;
+                    captured_inf  <= 1'b0;
+                end else if (ena && ser_cnt == 4'd11) begin
+                    // Elements are processed during logical_cycles 3 to 34.
+                    // Multiplier finishes at ser_cnt=11. We capture the flags here.
+                    // They remain stable until the next strobe, when they are latched by pipeline registers.
+                    if (logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) begin
+                        captured_sign <= mul_sign_serial;
+                        captured_zero <= mul_zero_serial;
+                        captured_nan  <= mul_nan_serial;
+                        captured_inf  <= mul_inf_serial;
+                    end else begin
+                        captured_sign <= 1'b0;
+                        captured_zero <= 1'b1;
+                        captured_nan  <= 1'b0;
+                        captured_inf  <= 1'b0;
+                    end
+                end
+            end
+
+            // Map to parallel wires
+            assign mul_prod_lane0 = captured_zero ? 16'd0 : {9'd0, 1'b1, serial_res_shifter[2:0], 3'd0};
+            assign mul_exp_sum_lane0 = captured_zero ? {EXP_SUM_WIDTH{1'b0}} : serial_res_shifter[3 +: EXP_SUM_WIDTH];
+            assign mul_sign_lane0 = captured_sign;
+            assign mul_nan_lane0 = captured_nan;
+            assign mul_inf_lane0 = captured_inf;
+
+            assign mul_prod_lane1 = 16'd0;
+            assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_lane1 = 1'b0;
+            assign mul_nan_lane1 = 1'b0;
+            assign mul_inf_lane1 = 1'b0;
         end
     endgenerate
 
