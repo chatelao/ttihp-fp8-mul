@@ -125,8 +125,8 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
 def align_model(prod, exp_sum, sign, round_mode=0, overflow_wrap=0, width=40):
     WIDTH = width
     # Normalized for WIDTH, mapping binary point to bit (WIDTH-24).
-    # Formula: exp_sum + WIDTH - 37
-    shift_amt = exp_sum + WIDTH - 37
+    # Formula: exp_sum + WIDTH - 30
+    shift_amt = exp_sum + WIDTH - 30
 
     if shift_amt >= 0:
         if not overflow_wrap and shift_amt >= WIDTH:
@@ -567,8 +567,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
             acc_sign = 1 if expected_acc < 0 else 0
-            # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 37)
-            offset = -(aligner_width - 37)
+            # Formula for shared scaling: shared_exp - (ALIGNER_WIDTH - 30)
+            offset = -(aligner_width - 30)
             expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, round_mode, overflow_wrap, width=aligner_width)
             # Extract the S23.8 window (top 32 bits of result)
             # Standard extraction uses aligner_width bits below the binary point.
@@ -936,7 +936,7 @@ async def test_fast_start_scale_compression(dut):
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
             acc_sign = 1 if expected_acc < 0 else 0
-            offset = -(aligner_width - 37)
+            offset = -(aligner_width - 30)
             expected_final_full = align_model(acc_abs, shared_exp + offset, acc_sign, width=aligner_width)
             expected_final = expected_final_full >> (aligner_width - 32)
         else:
