@@ -44,6 +44,9 @@ module fp8_mul_serial_lns #(
         end
     end
 
+    // Override cnt during strobe to process bit 0 in the same cycle.
+    wire [3:0] effective_cnt = strobe ? 4'd0 : cnt;
+
     // --- Helper functions to retrieve format-specific properties ---
     function automatic [3:0] get_m_width(input [2:0] fmt);
         begin
@@ -113,7 +116,7 @@ module fp8_mul_serial_lns #(
                      (m_w_b == 4'd1) ? b_m_delay[1] : b_bit;
 
     // bit_bias: The specific bit of the 'bias_offset' we are subtracting in this cycle.
-    wire bit_bias = (cnt >= 4'd3 && cnt < 4'd11) ? bias_offset[cnt - 4'd3] : 1'b0;
+    wire bit_bias = (effective_cnt >= 4'd3 && effective_cnt < 4'd11) ? bias_offset[effective_cnt - 4'd3] : 1'b0;
 
     /**
      * --- Bit-Serial Arithmetic ---
@@ -126,8 +129,8 @@ module fp8_mul_serial_lns #(
 
     // Stage 1: Add LogA and LogB bits.
     // Exclude sign bits from logarithmic addition to prevent exponent corruption.
-    wire s1_a = (cnt < s_p_a) ? a_aligned : 1'b0;
-    wire s1_b = (cnt < s_p_b) ? b_aligned : 1'b0;
+    wire s1_a = (effective_cnt < s_p_a) ? a_aligned : 1'b0;
+    wire s1_b = (effective_cnt < s_p_b) ? b_aligned : 1'b0;
     wire sum_s1 = s1_a ^ s1_b ^ carry_adder;
     wire carry_s1_next = (s1_a & s1_b) | (carry_adder & (s1_a ^ s1_b));
 
@@ -142,8 +145,9 @@ module fp8_mul_serial_lns #(
             carry_sub <= 1'b1; // Initial carry for subtraction (2's complement style).
         end else if (ena) begin
             if (strobe) begin
-                carry_adder <= 1'b0;
-                carry_sub <= 1'b1;
+                // Carry logic for bit 0.
+                carry_adder <= carry_s1_next;
+                carry_sub   <= carry_s2_next;
             end else if (cnt < 4'd15) begin
                 carry_adder <= carry_s1_next;
                 carry_sub <= carry_s2_next;
@@ -175,6 +179,10 @@ module fp8_mul_serial_lns #(
                 a_any_nonzero <= a_bit; // Sample bit 0 immediately
                 b_any_nonzero <= b_bit;
                 a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
+                // Exponent all ones? Check if bit 0 is in exponent range.
+                if (m_w_a == 0 && s_p_a > 0) a_e_all_ones <= a_bit;
+                if (m_w_b == 0 && s_p_b > 0) b_e_all_ones <= b_bit;
+
                 a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
                 // Mantissa bit 0 handling
                 if (m_w_a > 0) a_m_any_nonzero <= a_bit;

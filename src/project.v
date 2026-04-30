@@ -43,6 +43,11 @@ module tt_um_chatelao_fp8_multiplier #(
     (* keep *) input  wire       rst_n
 );
 
+    /* verilator lint_off UNUSEDPARAM */
+    localparam UNUSED_PARAM_1 = SUPPORT_ADV_ROUNDING;
+    localparam UNUSED_PARAM_2 = USE_LNS_MUL;
+    /* verilator lint_on UNUSEDPARAM */
+
     localparam COUNTER_WIDTH = 7;
 
     localparam STATE_IDLE       = 2'b00;
@@ -80,6 +85,7 @@ module tt_um_chatelao_fp8_multiplier #(
                                     SUPPORT_MXFP6 ? 3'd2 :
                                     SUPPORT_MXFP4 ? 3'd4 :
                                     SUPPORT_INT8  ? 3'd5 : 3'd0;
+    localparam IS_FP4_ONLY = (SUPPORT_MXFP4 && !SUPPORT_E4M3 && !SUPPORT_E5M2 && !SUPPORT_MXFP6 && !SUPPORT_INT8);
     localparam CAN_PACK = SUPPORT_VECTOR_PACKING || SUPPORT_INPUT_BUFFERING || SUPPORT_PACKED_SERIAL;
 
     reg [2:0] format_a_reg;
@@ -89,9 +95,11 @@ module tt_um_chatelao_fp8_multiplier #(
     reg       float32_mode_reg;
     reg [1:0] lns_mode_reg;
 
+    /* verilator lint_off UNUSEDSIGNAL */
     wire       debug_en_val;
     wire [3:0] probe_sel_val;
     wire       loopback_en_val;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     generate
         if (SUPPORT_DEBUG) begin : gen_debug
@@ -129,10 +137,10 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_off UNUSEDSIGNAL */
     wire [4:0] bm_index_a_val;
     wire [4:0] bm_index_b_val;
-    /* verilator lint_on UNUSEDSIGNAL */
     wire [2:0] nbm_offset_a_val;
     wire [2:0] nbm_offset_b_val;
     wire       mx_plus_en_val;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [7:0] buffered_a_lane0;
     wire [7:0] buffered_b_lane0;
     wire is_bm_a_lane0_raw;
@@ -199,7 +207,9 @@ module tt_um_chatelao_fp8_multiplier #(
 
     generate
         if (SUPPORT_INPUT_BUFFERING) begin : gen_input_buffering
+            /* synthesis syn_ramstyle = "registers" */
             reg [7:0] fifo_a [0:15];
+            /* synthesis syn_ramstyle = "registers" */
             reg [7:0] fifo_b [0:15];
             reg [3:0] write_ptr;
             always @(posedge clk or negedge rst_n) begin
@@ -366,16 +376,16 @@ module tt_um_chatelao_fp8_multiplier #(
             always @(posedge clk) begin
                 if (ena) begin
                     if (strobe) begin
-                        a_shifter <= a_lane0;
-                        b_shifter <= b_lane0;
+                        a_shifter <= {1'b0, a_lane0[7:1]};
+                        b_shifter <= {1'b0, b_lane0[7:1]};
                     end else begin
                         a_shifter <= {1'b0, a_shifter[7:1]};
                         b_shifter <= {1'b0, b_shifter[7:1]};
                     end
                 end
             end
-            assign a_bit_serial = a_shifter[0];
-            assign b_bit_serial = b_shifter[0];
+            assign a_bit_serial = strobe ? a_lane0[0] : a_shifter[0];
+            assign b_bit_serial = strobe ? b_lane0[0] : b_shifter[0];
         end else begin : gen_no_serial_input_shifters
             assign a_bit_serial = 1'b0;
             assign b_bit_serial = 1'b0;
@@ -437,19 +447,19 @@ module tt_um_chatelao_fp8_multiplier #(
                     mul_sign_lane0_reg <= 1'b0;
                     mul_nan_lane0_reg <= 1'b0;
                     mul_inf_lane0_reg <= 1'b0;
-                end else if (ena && strobe) begin
-                    if (logical_cycle >= 7'd4 && logical_cycle <= capture_cycle) begin
+                end else if (ena) begin
+                    if (serial_bit_cnt == 7'd11) begin
                         if (serial_zero) begin
                             mul_prod_lane0_reg <= 16'd0;
                             mul_exp_sum_lane0_reg <= {EXP_SUM_WIDTH{1'b0}};
                         end else begin
                             mul_prod_lane0_reg <= {9'd0, 1'b1, deserializer[2:0], 3'd0};
-                            mul_exp_sum_lane0_reg <= $signed(deserializer[10:3]);
+                            mul_exp_sum_lane0_reg <= $signed({ { (10-EXP_SUM_WIDTH > 0 ? (10-EXP_SUM_WIDTH) : 0 ){deserializer[10]} }, deserializer[10:3] });
                         end
                         mul_sign_lane0_reg <= serial_sign_out;
                         mul_nan_lane0_reg <= serial_nan;
                         mul_inf_lane0_reg <= serial_inf;
-                    end else begin
+                    end else if (strobe && (state != STATE_STREAM)) begin
                         mul_nan_lane0_reg <= 1'b0;
                         mul_inf_lane0_reg <= 1'b0;
                     end
@@ -584,13 +594,13 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [ALIGNER_WIDTH-1:0] aligned_lane0_res, aligned_lane1_res;
     fp8_aligner #(.WIDTH(ALIGNER_WIDTH)) aligner_lane0 (
         .prod((ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ? (acc_out[ACTUAL_ACC_WIDTH-1] ? -acc_out : acc_out) : { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val }),
-        .exp_sum((ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ? shared_exp - ($signed(ALIGNER_WIDTH[7:0]) - 10'sd30) : $signed(mul_exp_sum_lane0_val)),
+        .exp_sum((ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ? (shared_exp - ($signed({2'b0, ALIGNER_WIDTH[7:0]}) - 10'sd30)) : { {(10-EXP_SUM_WIDTH){mul_exp_sum_lane0_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0_val }),
         .sign((ENABLE_SHARED_SCALING && logical_cycle == capture_cycle) ? acc_out[ACTUAL_ACC_WIDTH-1] : mul_sign_lane0_val),
         .round_mode(round_mode), .overflow_wrap(overflow_wrap), .aligned(aligned_lane0_res)
     );
     fp8_aligner #(.WIDTH(ALIGNER_WIDTH)) aligner_lane1 (
         .prod({ {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane1_val }),
-        .exp_sum($signed(mul_exp_sum_lane1_val)), .sign(mul_sign_lane1_val),
+        .exp_sum({ {(10-EXP_SUM_WIDTH){mul_exp_sum_lane1_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane1_val }), .sign(mul_sign_lane1_val),
         .round_mode(round_mode), .overflow_wrap(overflow_wrap), .aligned(aligned_lane1_res)
     );
 
@@ -598,12 +608,27 @@ module tt_um_chatelao_fp8_multiplier #(
 
     wire [39:0] f2f_acc_in;
     generate
-        if (ACTUAL_ACC_WIDTH >= 40) assign f2f_acc_in = acc_out[39:0];
-        else assign f2f_acc_in = {acc_out, {(40-ACTUAL_ACC_WIDTH){1'b0}}};
+        if (ACTUAL_ACC_WIDTH >= 40) begin : gen_f2f_acc_in_ext
+            assign f2f_acc_in = acc_out[39:0];
+        end else begin : gen_f2f_acc_in_pad
+            assign f2f_acc_in = {acc_out, {(40-ACTUAL_ACC_WIDTH){1'b0}}};
+        end
     endgenerate
 
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire f2f_sign, f2f_zero, f2f_underflow;
+    wire [39:0] f2f_mag, f2f_norm_mag;
+    wire [5:0] f2f_lzc;
+    wire signed [11:0] f2f_exp_biased;
+    wire [22:0] f2f_mantissa;
+    /* verilator lint_on UNUSEDSIGNAL */
+
     wire [31:0] f2f_result;
-    fixed_to_float f2f_inst (.acc(f2f_acc_in), .shared_exp(shared_exp), .nan_sticky(nan_sticky), .inf_pos_sticky(inf_pos_sticky), .inf_neg_sticky(inf_neg_sticky), .result(f2f_result));
+    fixed_to_float f2f_inst (
+        .acc(f2f_acc_in), .shared_exp(shared_exp), .nan_sticky(nan_sticky), .inf_pos_sticky(inf_pos_sticky), .inf_neg_sticky(inf_neg_sticky),
+        .result(f2f_result),
+        .sign(f2f_sign), .mag(f2f_mag), .lzc(f2f_lzc), .norm_mag(f2f_norm_mag), .exp_biased(f2f_exp_biased), .mantissa(f2f_mantissa), .zero(f2f_zero), .underflow(f2f_underflow)
+    );
 
     wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result : (ENABLE_SHARED_SCALING ? aligned_lane0_res[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32] : acc_out[ALIGNER_WIDTH-1:ALIGNER_WIDTH-32]);
 
