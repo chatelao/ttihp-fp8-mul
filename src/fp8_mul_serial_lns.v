@@ -172,9 +172,13 @@ module fp8_mul_serial_lns #(
         end else if (ena) begin
             if (strobe) begin
                 sign_a <= 1'b0; sign_b <= 1'b0;
-                a_any_nonzero <= 1'b0; b_any_nonzero <= 1'b0;
+                a_any_nonzero <= a_bit; // Sample bit 0 immediately
+                b_any_nonzero <= b_bit;
                 a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
                 a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
+                // Mantissa bit 0 handling
+                if (m_w_a > 0) a_m_any_nonzero <= a_bit;
+                if (m_w_b > 0) b_m_any_nonzero <= b_bit;
             end else if (cnt < 4'd15) begin
                 // Capture sign bits at their format-specific positions.
                 if (cnt == s_p_a) sign_a <= a_bit;
