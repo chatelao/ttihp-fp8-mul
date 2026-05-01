@@ -100,6 +100,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
         exp = 0
         bias = 3
         is_int = True
+        return sign, exp, mant, bias, is_int, False, False
     elif format_val == 6: # INT8_SYM
         sign = (bits >> 7) & 1
         val = bits if bits < 128 else bits - 256
@@ -108,6 +109,7 @@ def decode_format(bits, format_val, is_bm=False, support_mxplus=False,
         exp = 0
         bias = 3
         is_int = True
+        return sign, exp, mant, bias, is_int, False, False
     else: # Default/Unsupported E4M3 fallthrough in HW
         sign = (bits >> 7) & 1
         exp_field = (bits >> 3) & 0xF
@@ -306,7 +308,7 @@ def float32_model(acc, shared_exp, nan_sticky=False, inf_pos=False, inf_neg=Fals
 
 def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overflow_wrap=0,
                         support_e4m3=1, support_e5m2=1, support_mxfp6=1, support_mxfp4=1, support_int8=1, use_lns=0, use_lns_precise=0, aligner_width=40,
-                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0):
+                        is_bm_a=False, is_bm_b=False, support_mxplus=False, offset_a=0, offset_b=0, lns_mode=0, use_serial=0):
     # Fallback for unsupported formats in hardware
     if not support_e4m3 and format_a == 0: return 0
     if not support_e4m3 and format_b == 0: return 0
@@ -338,9 +340,9 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
     adj_a = 0 if is_bm_a else offset_a
     adj_b = 0 if is_bm_b else offset_b
 
-    if use_lns:
+    if use_lns or use_serial:
         # lns_mode: 0=Normal, 1=LNS, 2=Hybrid/Both
-        if lns_mode == 0:
+        if lns_mode == 0 and not use_serial:
             prod = ma * mb
             exp_sum = ea + eb - (ba + bb - 7) - adj_a - adj_b
         elif lns_mode == 2 and support_mxplus and (is_bm_a or is_bm_b):
@@ -350,25 +352,31 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         elif inta or intb:
             return 0 # No INT8 support in LNS/Hybrid mode for non-BM
         else:
-            if use_lns_precise:
-                # Precise LNS LUT logic
-                lut = [
-                    0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7,
-                    0x1, 0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x8,
-                    0x2, 0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0x9,
-                    0x3, 0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa,
-                    0x4, 0x6, 0x7, 0x8, 0x9, 0xa, 0xa, 0xb,
-                    0x5, 0x7, 0x8, 0x9, 0xa, 0xb, 0xb, 0xc,
-                    0x6, 0x8, 0x9, 0xa, 0xa, 0xb, 0xc, 0xd,
-                    0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe
-                ]
-                m_sum = lut[(ma & 0x7) * 8 + (mb & 0x7)]
-            else:
-                m_sum = (ma & 0x7) + (mb & 0x7)
-            carry = m_sum >> 3
-            m_res = m_sum & 0x7
-            prod = (8 + m_res) << 3
-            exp_sum = ea + eb - (ba + bb - 7) + carry - adj_a - adj_b
+            # Mitchell Approximation Model
+            # mw: mantissa bits (3 for E4M3, 2 for E5M2, 1 for E2M1)
+            mw_a = 3 if format_a == 0 else (2 if format_a == 1 else 1)
+            mw_b = 3 if format_b == 0 else (2 if format_b == 1 else 1)
+
+            # log \approx exp - bias + mantissa_fraction
+            log_a = ea - ba + (ma & ((1 << mw_a) - 1)) / (2.0 ** mw_a)
+            log_b = eb - bb + (mb & ((1 << mw_b) - 1)) / (2.0 ** mw_b)
+            log_sum = log_a + log_b
+
+            # Reconstruct Log result (standardized to Bias 7, MW 3)
+            # res_log = I.F
+            res_log = log_sum + 7
+            res_e = int(res_log) if res_log >= 0 else int(res_log) - 1
+            res_f = res_log - res_e
+
+            # res_mant = 1 + fraction (quantized to 3 bits)
+            res_m = int(res_f * 8.0 + 0.00001) # Small epsilon to avoid floor errors
+            if res_m >= 8:
+                res_e += 1
+                res_m = 0
+
+            # Final parallel representation for aligner
+            prod = (8 + res_m) << 3
+            exp_sum = res_e - adj_a - adj_b
     else:
         real_ma = ma if not inta else ma
         real_mb = mb if not intb else mb
@@ -408,6 +416,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Tiny-Serial timing parameters
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    support_pipe_hw = get_param(dut, "SUPPORT_PIPELINING", 0)
+    DATAPATH_DELAY = (1 if support_serial_hw else 0) + (1 if support_pipe_hw else 0)
+
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
     cycles_per_element = k_factor
 
@@ -489,7 +500,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
                                    is_bm_a=is_bm_a_cur, is_bm_b=is_bm_b_cur, support_mxplus=support_mxplus,
                                    offset_a=nbm_offset_a if mx_plus_mode else 0,
                                    offset_b=nbm_offset_b if mx_plus_mode else 0,
-                                   lns_mode=lns_mode)
+                                   lns_mode=lns_mode,
+                                   use_serial=support_serial_hw)
 
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
@@ -545,8 +557,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, cycles_per_element)
 
-    # Shared scaling alignment
-    await ClockCycles(dut.clk, cycles_per_element)
+    # Extra cycles to account for deserializer delay and pipeline
+    # datapath_delay = (serial?1:0) + (pipe?1:0)
+    # capture happens at 'capture_cycle' which is 36 (logical).
+    # Total logical cycles from 3 to 34 (stream) is 32.
+    # Logical cycle 35 is flush. 36 is capture.
+    # Total delay = 1 (deserializer) + 1 (pipeline) = 2.
+    # Wait for the hardware to reach 'capture_cycle' logic.
+    await ClockCycles(dut.clk, DATAPATH_DELAY * cycles_per_element)
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)

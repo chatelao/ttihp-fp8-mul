@@ -44,6 +44,9 @@ module fp8_mul_serial_lns #(
         end
     end
 
+    // bit_cnt: 0 on strobe cycle, 1..15 on subsequent cycles.
+    wire [3:0] bit_cnt = strobe ? 4'd0 : (cnt < 4'd15 ? cnt + 4'd1 : 4'd15);
+
     // --- Helper functions to retrieve format-specific properties ---
     function automatic [3:0] get_m_width(input [2:0] fmt);
         begin
@@ -96,11 +99,22 @@ module fp8_mul_serial_lns #(
     // --- Operand Alignment ---
     // Since different formats have different mantissa widths, we delay bits
     // to align their binary points before serial addition.
+    // MW=3 (E4M3) -> No delay. MW=2 (E5M2) -> 1 cycle delay. MW=1 (E2M1) -> 2 cycles delay.
     reg [1:0] a_m_delay, b_m_delay;
-    always @(posedge clk) begin
-        if (ena) begin
-            a_m_delay <= {a_m_delay[0], a_bit};
-            b_m_delay <= {b_m_delay[0], b_bit};
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            a_m_delay <= 2'b00;
+            b_m_delay <= 2'b00;
+        end else if (ena) begin
+            if (strobe) begin
+                // On strobe, capture the first bit but clear higher delay stages
+                // to ensure previous element bits don't leak into current calculation.
+                a_m_delay <= {1'b0, a_bit};
+                b_m_delay <= {1'b0, b_bit};
+            end else begin
+                a_m_delay <= {a_m_delay[0], a_bit};
+                b_m_delay <= {b_m_delay[0], b_bit};
+            end
         end
     end
 
@@ -113,37 +127,37 @@ module fp8_mul_serial_lns #(
                      (m_w_b == 4'd1) ? b_m_delay[1] : b_bit;
 
     // bit_bias: The specific bit of the 'bias_offset' we are subtracting in this cycle.
-    wire bit_bias = (cnt >= 4'd3 && cnt < 4'd11) ? bias_offset[cnt - 4'd3] : 1'b0;
+    wire bit_bias = (bit_cnt >= 4'd3 && bit_cnt < 4'd11) ? bias_offset[bit_cnt - 4'd3] : 1'b0;
 
     /**
      * --- Bit-Serial Arithmetic ---
-     * This section implements the serial equivalent of (LogA + LogB - Bias).
-     * Stage 1: Serial Adder for (LogA + LogB).
-     * Stage 2: Serial Subtractor for the Bias offset.
      */
     reg carry_adder;
     reg carry_sub;
 
+    // Carries must be bypassed on strobe cycle to process bit 0 immediately.
+    wire c_add_in = strobe ? 1'b0 : carry_adder;
+    wire c_sub_in = strobe ? 1'b1 : carry_sub;
+
     // Stage 1: Add LogA and LogB bits.
-    wire s1_a = (cnt < 4'd12) ? a_aligned : 1'b0;
-    wire s1_b = (cnt < 4'd12) ? b_aligned : 1'b0;
-    wire sum_s1 = s1_a ^ s1_b ^ carry_adder;
-    wire carry_s1_next = (s1_a & s1_b) | (carry_adder & (s1_a ^ s1_b));
+    wire s1_a = (bit_cnt < 4'd12) ? a_aligned : 1'b0;
+    wire s1_b = (bit_cnt < 4'd12) ? b_aligned : 1'b0;
+    wire sum_s1 = s1_a ^ s1_b ^ c_add_in;
+    wire carry_s1_next = (s1_a & s1_b) | (c_add_in & (s1_a ^ s1_b));
 
     // Stage 2: Subtract the bias bit.
-    wire res_s2 = sum_s1 ^ (~bit_bias) ^ carry_sub;
-    wire carry_s2_next = (sum_s1 & (~bit_bias)) | (carry_sub & (sum_s1 ^ (~bit_bias)));
+    wire res_s2 = sum_s1 ^ (~bit_bias) ^ c_sub_in;
+    wire carry_s2_next = (sum_s1 & (~bit_bias)) | (c_sub_in & (sum_s1 ^ (~bit_bias)));
 
     // Sequential update of carry bits.
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             carry_adder <= 1'b0;
-            carry_sub <= 1'b1; // Initial carry for subtraction (2's complement style).
+            carry_sub <= 1'b1;
         end else if (ena) begin
-            if (strobe) begin
-                carry_adder <= 1'b0;
-                carry_sub <= 1'b1;
-            end else if (cnt < 4'd15) begin
+            // Carry is updated every cycle, including strobe.
+            // On strobe, it captures the carry from bit 0 to be used for bit 1.
+            if (bit_cnt < 4'd15) begin
                 carry_adder <= carry_s1_next;
                 carry_sub <= carry_s2_next;
             end
@@ -171,29 +185,26 @@ module fp8_mul_serial_lns #(
         end else if (ena) begin
             if (strobe) begin
                 sign_a <= 1'b0; sign_b <= 1'b0;
-                a_any_nonzero <= 1'b0; b_any_nonzero <= 1'b0;
+                a_any_nonzero <= a_bit; b_any_nonzero <= b_bit;
                 a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
-                a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
-            end else if (cnt < 4'd15) begin
-                // Capture sign bits at their format-specific positions.
-                if (cnt == s_p_a) sign_a <= a_bit;
-                if (cnt == s_p_b) sign_b <= b_bit;
+                a_m_any_nonzero <= (m_w_a > 0) ? a_bit : 1'b0;
+                b_m_any_nonzero <= (m_w_b > 0) ? b_bit : 1'b0;
+            end else if (bit_cnt < 4'd15) begin
+                if (bit_cnt == s_p_a) sign_a <= a_bit;
+                if (bit_cnt == s_p_b) sign_b <= b_bit;
 
-                // Track if any bit is non-zero (to detect actual zero values).
-                if (cnt < s_p_a) a_any_nonzero <= a_any_nonzero | a_bit;
-                if (cnt < s_p_b) b_any_nonzero <= b_any_nonzero | b_bit;
+                if (bit_cnt < s_p_a) a_any_nonzero <= a_any_nonzero | a_bit;
+                if (bit_cnt < s_p_b) b_any_nonzero <= b_any_nonzero | b_bit;
 
-                // Monitor exponent bits for NaN/Inf detection.
-                if (cnt >= m_w_a && cnt < s_p_a) begin
+                if (bit_cnt >= m_w_a && bit_cnt < s_p_a) begin
                     if (!a_bit) a_e_all_ones <= 1'b0;
                 end
-                if (cnt >= m_w_b && cnt < s_p_b) begin
+                if (bit_cnt >= m_w_b && bit_cnt < s_p_b) begin
                     if (!b_bit) b_e_all_ones <= 1'b0;
                 end
 
-                // Monitor mantissa bits for NaN/Inf detection.
-                if (cnt < m_w_a) a_m_any_nonzero <= a_m_any_nonzero | a_bit;
-                if (cnt < m_w_b) b_m_any_nonzero <= b_m_any_nonzero | b_bit;
+                if (bit_cnt < m_w_a) a_m_any_nonzero <= a_m_any_nonzero | a_bit;
+                if (bit_cnt < m_w_b) b_m_any_nonzero <= b_m_any_nonzero | b_bit;
             end
         end
     end
