@@ -99,11 +99,22 @@ module fp8_mul_serial_lns #(
     // --- Operand Alignment ---
     // Since different formats have different mantissa widths, we delay bits
     // to align their binary points before serial addition.
+    // MW=3 (E4M3) -> No delay. MW=2 (E5M2) -> 1 cycle delay. MW=1 (E2M1) -> 2 cycles delay.
     reg [1:0] a_m_delay, b_m_delay;
-    always @(posedge clk) begin
-        if (ena) begin
-            a_m_delay <= {a_m_delay[0], a_bit};
-            b_m_delay <= {b_m_delay[0], b_bit};
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            a_m_delay <= 2'b00;
+            b_m_delay <= 2'b00;
+        end else if (ena) begin
+            if (strobe) begin
+                // On strobe, capture the first bit but clear higher delay stages
+                // to ensure previous element bits don't leak into current calculation.
+                a_m_delay <= {1'b0, a_bit};
+                b_m_delay <= {1'b0, b_bit};
+            end else begin
+                a_m_delay <= {a_m_delay[0], a_bit};
+                b_m_delay <= {b_m_delay[0], b_bit};
+            end
         end
     end
 
@@ -144,6 +155,8 @@ module fp8_mul_serial_lns #(
             carry_adder <= 1'b0;
             carry_sub <= 1'b1;
         end else if (ena) begin
+            // Carry is updated every cycle, including strobe.
+            // On strobe, it captures the carry from bit 0 to be used for bit 1.
             if (bit_cnt < 4'd15) begin
                 carry_adder <= carry_s1_next;
                 carry_sub <= carry_s2_next;

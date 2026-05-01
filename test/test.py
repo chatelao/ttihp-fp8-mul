@@ -416,6 +416,9 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Tiny-Serial timing parameters
     support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    support_pipe_hw = get_param(dut, "SUPPORT_PIPELINING", 0)
+    DATAPATH_DELAY = (1 if support_serial_hw else 0) + (1 if support_pipe_hw else 0)
+
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
     cycles_per_element = k_factor
 
@@ -554,8 +557,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     dut.uio_in.value = 0
     await ClockCycles(dut.clk, cycles_per_element)
 
-    # Shared scaling alignment
-    await ClockCycles(dut.clk, cycles_per_element)
+    # Extra cycles to account for deserializer delay and pipeline
+    # datapath_delay = (serial?1:0) + (pipe?1:0)
+    # capture happens at 'capture_cycle' which is 36 (logical).
+    # Total logical cycles from 3 to 34 (stream) is 32.
+    # Logical cycle 35 is flush. 36 is capture.
+    # Total delay = 1 (deserializer) + 1 (pipeline) = 2.
+    # Wait for the hardware to reach 'capture_cycle' logic.
+    await ClockCycles(dut.clk, DATAPATH_DELAY * cycles_per_element)
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)

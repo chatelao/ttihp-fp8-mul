@@ -425,9 +425,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [COUNTER_WIDTH-1:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    // capture_cycle and last_cycle are shifted based on the total datapath delay to ensure all elements are accumulated.
-    wire [COUNTER_WIDTH-1:0] capture_cycle     = (actual_packed_mode ? 6'd20 : 6'd36) + (SUPPORT_SERIAL ? 6'd1 : 6'd0);
-    wire [COUNTER_WIDTH-1:0] last_cycle        = (actual_packed_mode ? 6'd24 : 6'd40) + (SUPPORT_SERIAL ? 6'd1 : 6'd0);
+    wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
+    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
@@ -829,9 +828,8 @@ module tt_um_chatelao_fp8_multiplier #(
     // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
-    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
+    // Window is shifted by the total datapath delay.
+    wire sticky_latch_en = (logical_cycle >= (6'd3 + DATAPATH_DELAY)) && (logical_cycle <= (last_stream_cycle + DATAPATH_DELAY));
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
