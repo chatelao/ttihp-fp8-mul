@@ -65,6 +65,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [COUNTER_WIDTH-1:0] logical_cycle;
 
     // --- Bit-Serial Control and Status Wires (for Hierarchical Access) ---
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [COUNTER_WIDTH-1:0] serial_k_counter;
     wire serial_mul_nan_lane0;
     wire serial_mul_inf_lane0;
@@ -72,6 +73,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire serial_mul_zero_lane0;
     wire [15:0] serial_mul_res_lane0;
     wire signed [7:0] serial_mul_exp_lane0;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     // Control logic for serial vs parallel operation.
     generate
@@ -124,8 +126,9 @@ module tt_um_chatelao_fp8_multiplier #(
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) mul_res_shift_reg <= 11'd0;
                 else if (ena) begin
-                    if (strobe) mul_res_shift_reg <= 11'd0;
-                    else if (serial_k_counter >= 1 && serial_k_counter <= 11)
+                    if (strobe)
+                        mul_res_shift_reg <= {mul_res_bit_lane0_serial, 10'd0};
+                    else if (serial_k_counter >= 1 && serial_k_counter <= 10)
                         mul_res_shift_reg <= {mul_res_bit_lane0_serial, mul_res_shift_reg[10:1]};
                 end
             end
@@ -178,10 +181,10 @@ module tt_um_chatelao_fp8_multiplier #(
             assign serial_mul_sign_lane0  = sign_captured;
             assign serial_mul_zero_lane0  = zero_captured;
         end else begin : no_serial_mul
-            assign serial_mul_sign_lane0 = 1'b0;
-            assign serial_mul_zero_lane0 = 1'b0;
             assign serial_mul_nan_lane0  = 1'b0;
             assign serial_mul_inf_lane0  = 1'b0;
+            assign serial_mul_sign_lane0 = 1'b0;
+            assign serial_mul_zero_lane0 = 1'b0;
             assign serial_mul_res_lane0  = 16'd0;
             assign serial_mul_exp_lane0  = 8'd0;
         end
@@ -422,8 +425,9 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [COUNTER_WIDTH-1:0] last_stream_cycle = actual_packed_mode ? 6'd18 : 6'd34;
-    wire [COUNTER_WIDTH-1:0] capture_cycle     = actual_packed_mode ? 6'd20 : 6'd36;
-    wire [COUNTER_WIDTH-1:0] last_cycle        = actual_packed_mode ? 6'd24 : 6'd40;
+    // capture_cycle and last_cycle are shifted based on the total datapath delay to ensure all elements are accumulated.
+    wire [COUNTER_WIDTH-1:0] capture_cycle     = (actual_packed_mode ? 6'd20 : 6'd36) + (SUPPORT_SERIAL ? 6'd1 : 6'd0);
+    wire [COUNTER_WIDTH-1:0] last_cycle        = (actual_packed_mode ? 6'd24 : 6'd40) + (SUPPORT_SERIAL ? 6'd1 : 6'd0);
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 6'd0) ? STATE_IDLE :
@@ -586,16 +590,16 @@ module tt_um_chatelao_fp8_multiplier #(
                     b_shifter <= 8'd0;
                 end else if (ena) begin
                     if (strobe) begin
-                        a_shifter <= a_lane0;
-                        b_shifter <= b_lane0;
+                        a_shifter <= {1'b0, a_lane0[7:1]};
+                        b_shifter <= {1'b0, b_lane0[7:1]};
                     end else begin
                         a_shifter <= {1'b0, a_shifter[7:1]};
                         b_shifter <= {1'b0, b_shifter[7:1]};
                     end
                 end
             end
-            assign a_bit_serial = a_shifter[0];
-            assign b_bit_serial = b_shifter[0];
+            assign a_bit_serial = strobe ? a_lane0[0] : a_shifter[0];
+            assign b_bit_serial = strobe ? b_lane0[0] : b_shifter[0];
         end else begin : gen_no_serial_input_shifters
             assign a_bit_serial = 1'b0;
             assign b_bit_serial = 1'b0;
@@ -825,8 +829,9 @@ module tt_um_chatelao_fp8_multiplier #(
     // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Window is shifted by the total datapath delay.
-    wire sticky_latch_en = (logical_cycle >= (6'd3 + DATAPATH_DELAY)) && (logical_cycle <= (last_stream_cycle + DATAPATH_DELAY));
+    // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
+    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
+    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

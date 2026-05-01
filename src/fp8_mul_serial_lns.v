@@ -37,15 +37,15 @@ module fp8_mul_serial_lns #(
      */
     reg [3:0] cnt;
     always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) cnt <= 4'd0;
+        if (!rst_n) cnt <= 4'd15;
         else if (ena) begin
-            if (strobe) cnt <= 4'd0;
+            if (strobe) cnt <= 4'd0; // Reset counter on strobe.
             else if (cnt < 4'd15) cnt <= cnt + 4'd1;
         end
     end
 
-    // Use a wire for the current cycle to process strobe-cycle bits immediately.
-    wire [3:0] bit_cnt = cnt;
+    // bit_cnt: 0 on strobe cycle, 1..15 on subsequent cycles.
+    wire [3:0] bit_cnt = strobe ? 4'd0 : (cnt < 4'd15 ? cnt + 4'd1 : 4'd15);
 
     // --- Helper functions to retrieve format-specific properties ---
     function automatic [3:0] get_m_width(input [2:0] fmt);
@@ -120,9 +120,6 @@ module fp8_mul_serial_lns #(
 
     /**
      * --- Bit-Serial Arithmetic ---
-     * This section implements the serial equivalent of (LogA + LogB - Bias).
-     * Stage 1: Serial Adder for (LogA + LogB).
-     * Stage 2: Serial Subtractor for the Bias offset.
      */
     reg carry_adder;
     reg carry_sub;
@@ -145,12 +142,9 @@ module fp8_mul_serial_lns #(
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             carry_adder <= 1'b0;
-            carry_sub <= 1'b1; // Initial carry for subtraction (2's complement style).
+            carry_sub <= 1'b1;
         end else if (ena) begin
-            if (strobe) begin
-                carry_adder <= 1'b0;
-                carry_sub <= 1'b1;
-            end else if (cnt < 4'd15) begin
+            if (bit_cnt < 4'd15) begin
                 carry_adder <= carry_s1_next;
                 carry_sub <= carry_s2_next;
             end
@@ -177,30 +171,27 @@ module fp8_mul_serial_lns #(
             a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
         end else if (ena) begin
             if (strobe) begin
-                // Initial bit processing on strobe (bit 0)
                 sign_a <= 1'b0; sign_b <= 1'b0;
                 a_any_nonzero <= a_bit; b_any_nonzero <= b_bit;
                 a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
                 a_m_any_nonzero <= (m_w_a > 0) ? a_bit : 1'b0;
                 b_m_any_nonzero <= (m_w_b > 0) ? b_bit : 1'b0;
-            end else if (cnt < 4'd15) begin
-                // Sequential bit processing (bits 1-14)
-                // Use cnt + 1 because this posedge samples the bit corresponding to cnt+1
-                if (cnt + 4'd1 == s_p_a) sign_a <= a_bit;
-                if (cnt + 4'd1 == s_p_b) sign_b <= b_bit;
+            end else if (bit_cnt < 4'd15) begin
+                if (bit_cnt == s_p_a) sign_a <= a_bit;
+                if (bit_cnt == s_p_b) sign_b <= b_bit;
 
-                if (cnt + 4'd1 < s_p_a) a_any_nonzero <= a_any_nonzero | a_bit;
-                if (cnt + 4'd1 < s_p_b) b_any_nonzero <= b_any_nonzero | b_bit;
+                if (bit_cnt < s_p_a) a_any_nonzero <= a_any_nonzero | a_bit;
+                if (bit_cnt < s_p_b) b_any_nonzero <= b_any_nonzero | b_bit;
 
-                if (cnt + 4'd1 >= m_w_a && cnt + 4'd1 < s_p_a) begin
+                if (bit_cnt >= m_w_a && bit_cnt < s_p_a) begin
                     if (!a_bit) a_e_all_ones <= 1'b0;
                 end
-                if (cnt + 4'd1 >= m_w_b && cnt + 4'd1 < s_p_b) begin
+                if (bit_cnt >= m_w_b && bit_cnt < s_p_b) begin
                     if (!b_bit) b_e_all_ones <= 1'b0;
                 end
 
-                if (cnt + 4'd1 < m_w_a) a_m_any_nonzero <= a_m_any_nonzero | a_bit;
-                if (cnt + 4'd1 < m_w_b) b_m_any_nonzero <= b_m_any_nonzero | b_bit;
+                if (bit_cnt < m_w_a) a_m_any_nonzero <= a_m_any_nonzero | a_bit;
+                if (bit_cnt < m_w_b) b_m_any_nonzero <= b_m_any_nonzero | b_bit;
             end
         end
     end
@@ -215,8 +206,6 @@ module fp8_mul_serial_lns #(
     wire a_is_nan_inf = ( (format_a == 3'b001 && a_e_all_ones) || (format_a == 3'b000 && a_e_all_ones && a_m_any_nonzero) );
     wire b_is_nan_inf = ( (format_b == 3'b001 && b_e_all_ones) || (format_b == 3'b000 && b_e_all_ones && b_m_any_nonzero) );
 
-    // Robust special value logic: Only valid during stream.
-    // Note: E4M3 (fmt 0) NaN is exactly 0x7F or 0xFF. For simplicity we check exp=15 and m != 0.
     assign special_nan = (a_is_nan_inf && (format_a != 3'b001 || a_m_any_nonzero)) ||
                          (b_is_nan_inf && (format_b != 3'b001 || b_m_any_nonzero));
     assign special_inf = (a_is_nan_inf && format_a == 3'b001 && !a_m_any_nonzero) ||
