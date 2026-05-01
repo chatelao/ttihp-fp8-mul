@@ -32,7 +32,7 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_INPUT_BUFFERING = 1,
     parameter SUPPORT_MX_PLUS = 1,
     parameter SUPPORT_SERIAL = 0,
-    parameter SERIAL_K_FACTOR = 16,
+    parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 1,
@@ -64,6 +64,15 @@ module tt_um_chatelao_fp8_multiplier #(
     wire strobe; // Used to handle bit-serial timing if enabled.
     wire [COUNTER_WIDTH-1:0] logical_cycle;
 
+    // --- Bit-Serial Control and Status Wires (for Hierarchical Access) ---
+    wire [COUNTER_WIDTH-1:0] serial_k_counter;
+    wire serial_mul_nan_lane0;
+    wire serial_mul_inf_lane0;
+    wire serial_mul_sign_lane0;
+    wire serial_mul_zero_lane0;
+    wire [15:0] serial_mul_res_lane0;
+    wire signed [7:0] serial_mul_exp_lane0;
+
     // Control logic for serial vs parallel operation.
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_ctrl
@@ -74,9 +83,107 @@ module tt_um_chatelao_fp8_multiplier #(
             end
             assign strobe = (k_counter == {COUNTER_WIDTH{1'b0}});
             assign logical_cycle = cycle_count;
+            assign serial_k_counter = k_counter;
         end else begin : gen_no_serial_ctrl
             assign strobe = 1'b1;
             assign logical_cycle = cycle_count;
+            assign serial_k_counter = {COUNTER_WIDTH{1'b0}};
+        end
+    endgenerate
+
+    // --- Bit-Serial Multiplier and Deserializer ---
+    generate
+        if (SUPPORT_SERIAL) begin : serial_mul_gen
+            wire mul_res_bit_lane0_serial;
+            wire mul_nan_lane0_wire;
+            wire mul_inf_lane0_wire;
+            wire mul_sign_lane0_wire;
+            wire mul_zero_lane0_wire;
+
+            fp8_mul_serial_lns #(
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+            ) multiplier_lane0_serial (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .strobe(strobe),
+                .a_bit(a_bit_serial),
+                .b_bit(b_bit_serial),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .res_bit(mul_res_bit_lane0_serial),
+                .sign_out(mul_sign_lane0_wire),
+                .special_zero(mul_zero_lane0_wire),
+                .special_nan(mul_nan_lane0_wire),
+                .special_inf(mul_inf_lane0_wire)
+            );
+
+            // Mitchell LNS Serial result is captured bit-by-bit.
+            // Result bits are valid during the serial window (11 bits total).
+            reg [10:0] mul_res_shift_reg;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) mul_res_shift_reg <= 11'd0;
+                else if (ena) begin
+                    if (strobe) mul_res_shift_reg <= 11'd0;
+                    else if (serial_k_counter >= 1 && serial_k_counter <= 11)
+                        mul_res_shift_reg <= {mul_res_bit_lane0_serial, mul_res_shift_reg[10:1]};
+                end
+            end
+
+            // Reconstruct Mitchell result for the parallel aligner.
+            // Log2(Res) = I.F => Res \approx 2^I * (1 + F).
+            // mul_res_shift_reg[2:0] = F, mul_res_shift_reg[10:3] = I.
+            // Alignment: Shift by 3 to place binary point at bit 6, matching parallel multiplier convention.
+            wire [15:0] mitchell_prod = { 9'd0, 1'b1, mul_res_shift_reg[2:0], 3'd0 };
+            wire signed [7:0] mitchell_exp  = $signed(mul_res_shift_reg[10:3]);
+
+            // Capture stable results into registers to hold them through the 'strobe' cycle.
+            reg [15:0] res_captured;
+            reg signed [7:0] exp_captured;
+            reg nan_captured, inf_captured, sign_captured, zero_captured;
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    res_captured <= 16'd0;
+                    exp_captured <= 8'd0;
+                    nan_captured <= 1'b0;
+                    inf_captured <= 1'b0;
+                    sign_captured <= 1'b0;
+                    zero_captured <= 1'b1;
+                end else if (ena) begin
+                    // Capture after bit-serial processing is finished (Last cycle of the factor)
+                    // Gate with STATE_STREAM to avoid false triggers from metadata/scales.
+                    if (serial_k_counter == (SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - 1) && state == STATE_STREAM) begin
+                        res_captured <= mitchell_prod;
+                        exp_captured <= mitchell_exp;
+                        nan_captured  <= mul_nan_lane0_wire;
+                        inf_captured  <= mul_inf_lane0_wire;
+                        sign_captured <= mul_sign_lane0_wire;
+                        zero_captured <= mul_zero_lane0_wire;
+                    end else if (strobe && logical_cycle == 6'd0) begin
+                        // Reset captured flags for a new block
+                        res_captured <= 16'd0;
+                        exp_captured <= 8'd0;
+                        nan_captured <= 1'b0;
+                        inf_captured <= 1'b0;
+                        sign_captured <= 1'b0;
+                        zero_captured <= 1'b1;
+                    end
+                end
+            end
+
+            assign serial_mul_res_lane0  = res_captured;
+            assign serial_mul_exp_lane0  = exp_captured;
+            assign serial_mul_nan_lane0   = nan_captured;
+            assign serial_mul_inf_lane0   = inf_captured;
+            assign serial_mul_sign_lane0  = sign_captured;
+            assign serial_mul_zero_lane0  = zero_captured;
+        end else begin : no_serial_mul
+            assign serial_mul_sign_lane0 = 1'b0;
+            assign serial_mul_zero_lane0 = 1'b0;
+            assign serial_mul_nan_lane0  = 1'b0;
+            assign serial_mul_inf_lane0  = 1'b0;
+            assign serial_mul_res_lane0  = 16'd0;
+            assign serial_mul_exp_lane0  = 8'd0;
         end
     endgenerate
 
@@ -386,19 +493,65 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
+    // Total datapath delay: 1 cycle for serial deserialization (if enabled) + 1 cycle for optional pipelining.
+    localparam DATAPATH_DELAY = (SUPPORT_SERIAL ? 6'd1 : 6'd0) + (SUPPORT_PIPELINING ? 6'd1 : 6'd0);
+
     // Control signal to enable the accumulator only when valid products are arriving.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+    wire acc_en    = strobe && (logical_cycle >= (6'd3 + DATAPATH_DELAY)) && (logical_cycle <= (last_stream_cycle + DATAPATH_DELAY)) && (state != STATE_IDLE && state != STATE_LOAD_SCALE);
 
     // Multiplier results wires.
-    wire [15:0] mul_prod_lane0, mul_prod_lane1;
+    wire [15:0] mul_prod_lane0_par, mul_prod_lane1_par;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_par, mul_exp_sum_lane1_par;
+    wire mul_sign_lane0_par, mul_sign_lane1_par;
+    wire mul_nan_lane0_par, mul_nan_lane1_par;
+    wire mul_inf_lane0_par, mul_inf_lane1_par;
+
+    wire [15:0] mul_prod_lane0;
+    wire [15:0] mul_prod_lane1;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane1;
+    wire mul_sign_lane0;
+    wire mul_sign_lane1;
+    wire mul_nan_lane0;
+    wire mul_nan_lane1;
+    wire mul_inf_lane0;
+    wire mul_inf_lane1;
+
+    generate
+        if (SUPPORT_SERIAL) begin : gen_serial_mux
+            assign mul_prod_lane0 = serial_mul_zero_lane0 ? 16'd0 : serial_mul_res_lane0;
+            assign mul_prod_lane1 = 16'd0;
+            // Robust sign extension for exp_sum:
+            assign mul_exp_sum_lane0 = (EXP_SUM_WIDTH >= 8) ? $signed(serial_mul_exp_lane0) : serial_mul_exp_lane0[EXP_SUM_WIDTH-1:0];
+            assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_lane0 = serial_mul_sign_lane0;
+            assign mul_sign_lane1 = 1'b0;
+            assign mul_nan_lane0  = serial_mul_nan_lane0;
+            assign mul_nan_lane1  = 1'b0;
+            assign mul_inf_lane0  = serial_mul_inf_lane0;
+            assign mul_inf_lane1  = 1'b0;
+        end else begin : gen_par_mux
+            assign mul_prod_lane0 = mul_prod_lane0_par;
+            assign mul_prod_lane1 = mul_prod_lane1_par;
+            assign mul_exp_sum_lane0 = mul_exp_sum_lane0_par;
+            assign mul_exp_sum_lane1 = mul_exp_sum_lane1_par;
+            assign mul_sign_lane0 = mul_sign_lane0_par;
+            assign mul_sign_lane1 = mul_sign_lane1_par;
+            assign mul_nan_lane0  = mul_nan_lane0_par;
+            assign mul_nan_lane1  = mul_nan_lane1_par;
+            assign mul_inf_lane0  = mul_inf_lane0_par;
+            assign mul_inf_lane1  = mul_inf_lane1_par;
+        end
+    endgenerate
+
+    wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
+    wire mul_sign_lane0_val, mul_sign_lane1_val;
+    wire mul_nan_lane0_val, mul_nan_lane1_val;
+    wire mul_inf_lane0_val, mul_inf_lane1_val;
+
     // Extended product wires for aligner compatibility
     wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val };
-    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
-    wire mul_sign_lane0, mul_sign_lane1;
-    wire mul_nan_lane0, mul_nan_lane1;
-    wire mul_inf_lane0, mul_inf_lane1;
 
     // Buffer for packed elements in bit-serial modes.
     reg [3:0] packed_a_buf, packed_b_buf;
@@ -455,91 +608,9 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSEDSIGNAL */
 
 
-    // Instantiate Multipliers (either standard, LNS parallel, or LNS serial).
+    // Instantiate Multipliers (either standard or LNS based on parameters).
     generate
-        if (SUPPORT_SERIAL) begin : serial_mul_gen
-            wire mul_res_bit_lane0;
-            wire mul_sign_lane0_serial;
-            wire mul_zero_lane0_serial;
-            wire mul_nan_lane0_serial;
-            wire mul_inf_lane0_serial;
-
-            fp8_mul_serial_lns #(
-                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
-            ) multiplier_lane0 (
-                .clk(clk),
-                .rst_n(rst_n),
-                .ena(ena),
-                .strobe(strobe),
-                .a_bit(a_bit_serial),
-                .b_bit(b_bit_serial),
-                .format_a(format_a),
-                .format_b(format_b_val),
-                .res_bit(mul_res_bit_lane0),
-                .sign_out(mul_sign_lane0_serial),
-                .special_zero(mul_zero_lane0_serial),
-                .special_nan(mul_nan_lane0_serial),
-                .special_inf(mul_inf_lane0_serial)
-            );
-
-            // Deserializer for Mitchell LNS result (11 bits: 3-bit Mantissa, 8-bit Exponent)
-            reg [10:0] mul_res_shift_reg;
-            always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) mul_res_shift_reg <= 11'd0;
-                else if (ena) begin
-                    if (gen_serial_ctrl.k_counter >= 6'd1 && gen_serial_ctrl.k_counter <= 6'd11)
-                        mul_res_shift_reg <= {mul_res_bit_lane0, mul_res_shift_reg[10:1]};
-                end
-            end
-
-            // Capture product and flags at strobe (end of logical cycle)
-            reg [15:0] mul_prod_lane0_reg_serial;
-            reg signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_reg_serial;
-            reg mul_sign_lane0_reg_serial;
-            reg mul_nan_lane0_reg_serial;
-            reg mul_inf_lane0_reg_serial;
-            reg mul_zero_lane0_reg_serial;
-
-            always @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    mul_prod_lane0_reg_serial <= 16'd0;
-                    mul_exp_sum_lane0_reg_serial <= {EXP_SUM_WIDTH{1'b0}};
-                    mul_sign_lane0_reg_serial <= 1'b0;
-                    mul_nan_lane0_reg_serial <= 1'b0;
-                    mul_inf_lane0_reg_serial <= 1'b0;
-                    mul_zero_lane0_reg_serial <= 1'b1;
-                end else if (ena && strobe) begin
-                    if (logical_cycle == 6'd0) begin
-                        mul_prod_lane0_reg_serial <= 16'd0;
-                        mul_exp_sum_lane0_reg_serial <= {EXP_SUM_WIDTH{1'b0}};
-                        mul_sign_lane0_reg_serial <= 1'b0;
-                        mul_nan_lane0_reg_serial <= 1'b0;
-                        mul_inf_lane0_reg_serial <= 1'b0;
-                        mul_zero_lane0_reg_serial <= 1'b1;
-                    end else if (logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) begin
-                        mul_sign_lane0_reg_serial <= mul_sign_lane0_serial;
-                        mul_zero_lane0_reg_serial <= mul_zero_lane0_serial;
-                        mul_nan_lane0_reg_serial <= mul_nan_lane0_serial;
-                        mul_inf_lane0_reg_serial <= mul_inf_lane0_serial;
-                    mul_prod_lane0_reg_serial <= mul_zero_lane0_serial ? 16'd0 : {9'd0, 1'b1, mul_res_shift_reg[10:8], 3'd0};
-                    mul_exp_sum_lane0_reg_serial <= mul_zero_lane0_serial ? {EXP_SUM_WIDTH{1'b0}} : $signed(mul_res_shift_reg[7:0]);
-                    end
-                end
-            end
-
-            assign mul_prod_lane0 = mul_prod_lane0_reg_serial;
-            assign mul_exp_sum_lane0 = mul_exp_sum_lane0_reg_serial;
-            assign mul_sign_lane0 = mul_sign_lane0_reg_serial;
-            assign mul_nan_lane0 = mul_nan_lane0_reg_serial | (mul_inf_lane0_reg_serial && mul_zero_lane0_reg_serial);
-            assign mul_inf_lane0 = mul_inf_lane0_reg_serial && !mul_zero_lane0_reg_serial;
-
-            assign mul_prod_lane1 = 16'd0;
-            assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-            assign mul_sign_lane1 = 1'b0;
-            assign mul_nan_lane1 = 1'b0;
-            assign mul_inf_lane1 = 1'b0;
-
-        end else if (USE_LNS_MUL) begin : lns_gen
+        if (USE_LNS_MUL) begin : lns_gen
             fp8_mul_lns #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -558,11 +629,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_a(is_bm_a_lane0_raw),
                 .is_bm_b(is_bm_b_lane0_raw),
                 .lns_mode(lns_mode_reg),
-                .prod(mul_prod_lane0),
-                .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .nan(mul_nan_lane0),
-                .inf(mul_inf_lane0)
+                .prod(mul_prod_lane0_par),
+                .exp_sum(mul_exp_sum_lane0_par),
+                .sign(mul_sign_lane0_par),
+                .nan(mul_nan_lane0_par),
+                .inf(mul_inf_lane0_par)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul_lns #(
@@ -583,18 +654,18 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_a(is_bm_a_lane1_raw),
                     .is_bm_b(is_bm_b_lane1_raw),
                     .lns_mode(lns_mode_reg),
-                    .prod(mul_prod_lane1),
-                    .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .nan(mul_nan_lane1),
-                    .inf(mul_inf_lane1)
+                .prod(mul_prod_lane1_par),
+                .exp_sum(mul_exp_sum_lane1_par),
+                .sign(mul_sign_lane1_par),
+                .nan(mul_nan_lane1_par),
+                .inf(mul_inf_lane1_par)
                 );
             end else begin : no_lane1
-                assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1 = 1'b0;
-                assign mul_nan_lane1 = 1'b0;
-                assign mul_inf_lane1 = 1'b0;
+                assign mul_prod_lane1_par = 16'd0;
+                assign mul_exp_sum_lane1_par = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1_par = 1'b0;
+                assign mul_nan_lane1_par = 1'b0;
+                assign mul_inf_lane1_par = 1'b0;
             end
         end else begin : std_gen
             fp8_mul #(
@@ -614,11 +685,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_a(is_bm_a_lane0_raw),
                 .is_bm_b(is_bm_b_lane0_raw),
                 .lns_mode(lns_mode_reg),
-                .prod(mul_prod_lane0),
-                .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .nan(mul_nan_lane0),
-                .inf(mul_inf_lane0)
+                .prod(mul_prod_lane0_par),
+                .exp_sum(mul_exp_sum_lane0_par),
+                .sign(mul_sign_lane0_par),
+                .nan(mul_nan_lane0_par),
+                .inf(mul_inf_lane0_par)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul #(
@@ -638,31 +709,23 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_a(is_bm_a_lane1_raw),
                     .is_bm_b(is_bm_b_lane1_raw),
                     .lns_mode(lns_mode_reg),
-                    .prod(mul_prod_lane1),
-                    .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .nan(mul_nan_lane1),
-                    .inf(mul_inf_lane1)
+                .prod(mul_prod_lane1_par),
+                .exp_sum(mul_exp_sum_lane1_par),
+                .sign(mul_sign_lane1_par),
+                .nan(mul_nan_lane1_par),
+                .inf(mul_inf_lane1_par)
                 );
             end else begin : no_lane1
-                assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1 = 1'b0;
-                assign mul_nan_lane1 = 1'b0;
-                assign mul_inf_lane1 = 1'b0;
+                assign mul_prod_lane1_par = 16'd0;
+                assign mul_exp_sum_lane1_par = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1_par = 1'b0;
+                assign mul_nan_lane1_par = 1'b0;
+                assign mul_inf_lane1_par = 1'b0;
             end
         end
     endgenerate
 
     // Pipeline registers: Improve timing by breaking long paths after the multipliers.
-    /* verilator lint_off UNUSEDSIGNAL */
-    wire [15:0] mul_prod_lane0_val, mul_prod_lane1_val;
-    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_val, mul_exp_sum_lane1_val;
-    wire mul_sign_lane0_val, mul_sign_lane1_val;
-    wire mul_nan_lane0_val, mul_nan_lane1_val;
-    wire mul_inf_lane0_val, mul_inf_lane1_val;
-    /* verilator lint_on UNUSEDSIGNAL */
-
     generate
         if (SUPPORT_PIPELINING) begin : gen_pipeline
             reg [15:0] mul_prod_lane0_reg;
@@ -690,11 +753,11 @@ module tt_um_chatelao_fp8_multiplier #(
                     is_bm_b_lane0_reg <= is_bm_b_lane0_raw;
                 end
             end
-            assign mul_prod_lane0_val = SUPPORT_SERIAL ? mul_prod_lane0 : mul_prod_lane0_reg;
-            assign mul_exp_sum_lane0_val = SUPPORT_SERIAL ? mul_exp_sum_lane0 : mul_exp_sum_lane0_reg;
-            assign mul_sign_lane0_val = SUPPORT_SERIAL ? mul_sign_lane0 : mul_sign_lane0_reg;
-            assign mul_nan_lane0_val = SUPPORT_SERIAL ? mul_nan_lane0 : mul_nan_lane0_reg;
-            assign mul_inf_lane0_val = SUPPORT_SERIAL ? mul_inf_lane0 : mul_inf_lane0_reg;
+            assign mul_prod_lane0_val = mul_prod_lane0_reg;
+            assign mul_exp_sum_lane0_val = mul_exp_sum_lane0_reg;
+            assign mul_sign_lane0_val = mul_sign_lane0_reg;
+            assign mul_nan_lane0_val = mul_nan_lane0_reg;
+            assign mul_inf_lane0_val = mul_inf_lane0_reg;
             assign is_bm_a_lane0_val = is_bm_a_lane0_reg;
             assign is_bm_b_lane0_val = is_bm_b_lane0_reg;
 
@@ -762,31 +825,21 @@ module tt_um_chatelao_fp8_multiplier #(
     // These capture any NaNs or Infinities that occur anywhere in the block.
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
-    // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
-    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 6'd4 : 6'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 6'd1 : 6'd0));
+    // Window is shifted by the total datapath delay.
+    wire sticky_latch_en = (logical_cycle >= (6'd3 + DATAPATH_DELAY)) && (logical_cycle <= (last_stream_cycle + DATAPATH_DELAY));
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             nan_sticky <= 1'b0;
             inf_pos_sticky <= 1'b0;
             inf_neg_sticky <= 1'b0;
-        end else if (ena) begin
-            if (strobe && logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
+        end else if (ena && strobe) begin
+            if (logical_cycle == {COUNTER_WIDTH{1'b0}}) begin
                 // Check if we are starting a Short Protocol block with NaN scales already loaded
                 nan_sticky <= ENABLE_SHARED_SCALING && ui_in[7] && (scale_a_val == 8'hFF || scale_b_val == 8'hFF);
                 inf_pos_sticky <= 1'b0;
                 inf_neg_sticky <= 1'b0;
-            end else if (SUPPORT_SERIAL) begin
-                // In serial mode, sample flags only during valid element window
-                if (logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) begin
-                    if (gen_serial_ctrl.k_counter == SERIAL_K_FACTOR[COUNTER_WIDTH-1:0] - 6'd1) begin
-                        nan_sticky <= nan_sticky | serial_mul_gen.mul_nan_lane0_serial;
-                        inf_pos_sticky <= inf_pos_sticky | (serial_mul_gen.mul_inf_lane0_serial & ~serial_mul_gen.mul_sign_lane0_serial);
-                        inf_neg_sticky <= inf_neg_sticky | (serial_mul_gen.mul_inf_lane0_serial & serial_mul_gen.mul_sign_lane0_serial);
-                    end
-                end
-            end else if (strobe) begin
+            end else begin
                 // Latch element-level special values
                 if (sticky_latch_en) begin
                     nan_sticky <= nan_sticky | mul_nan_lane0_val | mul_nan_lane1_val;
