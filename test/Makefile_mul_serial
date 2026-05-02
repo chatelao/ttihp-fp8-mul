@@ -1,0 +1,6 @@
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+VERILOG_SOURCES += /../src/fp8_mul_serial_lns.v
+TOPLEVEL = fp8_mul_serial_lns
+MODULE = test_fp8_mul_serial_lns
+include /Makefile.sim
