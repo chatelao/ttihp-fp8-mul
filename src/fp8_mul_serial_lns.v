@@ -44,6 +44,8 @@ module fp8_mul_serial_lns #(
         end
     end
 
+    wire [3:0] bit_cnt = strobe ? 4'd0 : cnt;
+
     // --- Helper functions to retrieve format-specific properties ---
     function automatic [3:0] get_m_width(input [2:0] fmt);
         begin
@@ -105,15 +107,15 @@ module fp8_mul_serial_lns #(
     end
 
     wire a_aligned = (m_w_a == 4'd3) ? a_bit :
-                     (m_w_a == 4'd2) ? a_m_delay[0] :
-                     (m_w_a == 4'd1) ? a_m_delay[1] : a_bit;
+                     (m_w_a == 4'd2) ? (bit_cnt >= 4'd1 ? a_m_delay[0] : 1'b0) :
+                     (m_w_a == 4'd1) ? (bit_cnt >= 4'd2 ? a_m_delay[1] : 1'b0) : a_bit;
 
     wire b_aligned = (m_w_b == 4'd3) ? b_bit :
-                     (m_w_b == 4'd2) ? b_m_delay[0] :
-                     (m_w_b == 4'd1) ? b_m_delay[1] : b_bit;
+                     (m_w_b == 4'd2) ? (bit_cnt >= 4'd1 ? b_m_delay[0] : 1'b0) :
+                     (m_w_b == 4'd1) ? (bit_cnt >= 4'd2 ? b_m_delay[1] : 1'b0) : b_bit;
 
     // bit_bias: The specific bit of the 'bias_offset' we are subtracting in this cycle.
-    wire bit_bias = (cnt >= 4'd3 && cnt < 4'd11) ? bias_offset[cnt - 4'd3] : 1'b0;
+    wire bit_bias = (bit_cnt >= 4'd3 && bit_cnt < 4'd11) ? bias_offset[bit_cnt - 4'd3] : 1'b0;
 
     /**
      * --- Bit-Serial Arithmetic ---
@@ -124,15 +126,18 @@ module fp8_mul_serial_lns #(
     reg carry_adder;
     reg carry_sub;
 
+    wire c_add_in = strobe ? 1'b0 : carry_adder;
+    wire c_sub_in = strobe ? 1'b1 : carry_sub;
+
     // Stage 1: Add LogA and LogB bits.
-    wire s1_a = (cnt < 4'd12) ? a_aligned : 1'b0;
-    wire s1_b = (cnt < 4'd12) ? b_aligned : 1'b0;
-    wire sum_s1 = s1_a ^ s1_b ^ carry_adder;
-    wire carry_s1_next = (s1_a & s1_b) | (carry_adder & (s1_a ^ s1_b));
+    wire s1_a = (bit_cnt < 4'd12) ? a_aligned : 1'b0;
+    wire s1_b = (bit_cnt < 4'd12) ? b_aligned : 1'b0;
+    wire sum_s1 = s1_a ^ s1_b ^ c_add_in;
+    wire carry_s1_next = (s1_a & s1_b) | (c_add_in & (s1_a ^ s1_b));
 
     // Stage 2: Subtract the bias bit.
-    wire res_s2 = sum_s1 ^ (~bit_bias) ^ carry_sub;
-    wire carry_s2_next = (sum_s1 & (~bit_bias)) | (carry_sub & (sum_s1 ^ (~bit_bias)));
+    wire res_s2 = sum_s1 ^ (~bit_bias) ^ c_sub_in;
+    wire carry_s2_next = (sum_s1 & (~bit_bias)) | (c_sub_in & (sum_s1 ^ (~bit_bias)));
 
     // Sequential update of carry bits.
     always @(posedge clk or negedge rst_n) begin
@@ -171,9 +176,10 @@ module fp8_mul_serial_lns #(
         end else if (ena) begin
             if (strobe) begin
                 sign_a <= 1'b0; sign_b <= 1'b0;
-                a_any_nonzero <= 1'b0; b_any_nonzero <= 1'b0;
+                a_any_nonzero <= a_bit; b_any_nonzero <= b_bit;
                 a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
-                a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
+                a_m_any_nonzero <= (bit_cnt < m_w_a) ? a_bit : 1'b0;
+                b_m_any_nonzero <= (bit_cnt < m_w_b) ? b_bit : 1'b0;
             end else if (cnt < 4'd15) begin
                 // Capture sign bits at their format-specific positions.
                 if (cnt == s_p_a) sign_a <= a_bit;
