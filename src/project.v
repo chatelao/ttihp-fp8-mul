@@ -464,7 +464,9 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
 
     // --- Bit-Serial Input Shifters ---
+    /* verilator lint_off UNUSEDSIGNAL */
     wire a_bit_serial, b_bit_serial;
+    /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_input_shifters
             reg [7:0] a_shifter, b_shifter;
@@ -474,8 +476,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     b_shifter <= 8'd0;
                 end else if (ena) begin
                     if (strobe) begin
-                        a_shifter <= a_lane0;
-                        b_shifter <= b_lane0;
+                        a_shifter <= {1'b0, a_lane0[7:1]};
+                        b_shifter <= {1'b0, b_lane0[7:1]};
                     end else begin
                         a_shifter <= {1'b0, a_shifter[7:1]};
                         b_shifter <= {1'b0, b_shifter[7:1]};
@@ -669,7 +671,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 end
             end
 
-            assign mul_prod_lane0_ser = mul_ser_zero_reg ? 16'd0 : {9'd0, 1'b1, mul_ser_shift_reg[2:0], 3'd0};
+            assign mul_prod_lane0_ser = mul_ser_zero_reg ? 16'd0 : {12'd0, 1'b1, mul_ser_shift_reg[2:0]};
             assign mul_exp_sum_lane0_ser = $signed(mul_ser_shift_reg[10:3]);
             assign mul_sign_lane0_ser = mul_ser_sign_reg;
             assign mul_nan_lane0_ser = mul_ser_nan_reg;
