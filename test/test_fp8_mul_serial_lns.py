@@ -23,14 +23,14 @@ def mitchell_model(val_a, val_b, fmt_a, fmt_b):
     s1, e1, m1, b1, mw1 = decode(val_a, fmt_a)
     s2, e2, m2, b2, mw2 = decode(val_b, fmt_b)
 
-    # Internal representation Log = E + M/(2^mw)
+    # Internal representation Log = E - Bias + M/(2^mw)
     log1 = e1 - b1 + m1 / (2.0**mw1)
     log2 = e2 - b2 + m2 / (2.0**mw2)
     log_sum = log1 + log2
 
     # Result Log in E4M3 (Bias 7, mw=3)
     res_log = log_sum + 7
-    res_e = int(res_log)
+    res_e = int(res_log) if res_log >= 0 else int(res_log) - (1 if res_log % 1 != 0 else 0)
     res_m = int((res_log - res_e) * 8.0 + 0.5) # Round for model consistency
     if res_m == 8: # Carry to E
         res_e += 1
@@ -46,6 +46,8 @@ async def test_fp8_mul_serial_lns_comprehensive(dut):
     dut.rst_n.value = 0
     dut.ena.value = 1
     dut.strobe.value = 0
+    dut.a_bit.value = 0
+    dut.b_bit.value = 0
     await RisingEdge(dut.clk)
     dut.rst_n.value = 1
     await RisingEdge(dut.clk)
@@ -68,22 +70,28 @@ async def test_fp8_mul_serial_lns_comprehensive(dut):
 
         dut.format_a.value = fa
         dut.format_b.value = fb
+
+        # Drive bit 0 DURING strobe
+        dut.a_bit.value = bits_a[0]
+        dut.b_bit.value = bits_b[0]
         dut.strobe.value = 1
+        await Timer(1, unit="ns") # Allow combinatorial res_bit to settle
+        res_bits = [int(dut.res_bit.value)]
+
         await RisingEdge(dut.clk)
         dut.strobe.value = 0
 
-        res_bits = []
-        for i in range(15):
+        for i in range(1, 15):
             dut.a_bit.value = bits_a[i] if i < 8 else 0
             dut.b_bit.value = bits_b[i] if i < 8 else 0
-            await Timer(1, unit="ns")
-            v = dut.res_bit.value
-            res_bits.append(int(v) if str(v) in ['0', '1'] else 0)
+            await Timer(1, unit="ns") # res_bit is combinatorial
+            res_bits.append(int(dut.res_bit.value))
             await RisingEdge(dut.clk)
 
-        exp_s, exp_e, exp_m = mitchell_model(va, vb, fa, fb)
+        exp_s, exp_e_val, exp_m = mitchell_model(va, vb, fa, fb)
+        exp_e = exp_e_val & 0xFF
 
-        # Reconstruct result Log from bits 0-7 (M:0-2, E:3-10)
+        # Reconstruct result Log from bits 0-10 (M:0-2, E:3-10)
         m_res = res_bits[0] | (res_bits[1] << 1) | (res_bits[2] << 2)
         e_res = 0
         for i in range(8):
@@ -93,7 +101,6 @@ async def test_fp8_mul_serial_lns_comprehensive(dut):
 
         assert dut.sign_out.value == exp_s, f"Sign mismatch: expected {exp_s}, got {dut.sign_out.value} for {va}*{vb}"
         assert e_res == exp_e, f"Exponent mismatch: expected {exp_e}, got {e_res} for {va}*{vb} (fmt {fa}x{fb})"
-        # Mitchell mantissa might have +/- 1 LSB diff due to rounding/truncation in HW
         assert abs(m_res - exp_m) <= 1, f"Mantissa mismatch: expected {exp_m}, got {m_res} for {va}*{vb} (fmt {fa}x{fb})"
 
 @cocotb.test()
@@ -108,24 +115,46 @@ async def test_fp8_mul_serial_lns_special_all(dut):
     dut.rst_n.value = 1
     await RisingEdge(dut.clk)
 
-    # Zero
+    # Zero (0x0 * 0x0)
+    dut.a_bit.value = 0
+    dut.b_bit.value = 0
     dut.strobe.value = 1
     await RisingEdge(dut.clk)
     dut.strobe.value = 0
-    dut.a_bit.value = 0
-    dut.b_bit.value = 0
     for _ in range(12): await RisingEdge(dut.clk)
     assert dut.special_zero.value == 1
 
-    # E5M2 Inf
+    # E5M2 Inf (0x7C * 1.0)
     bits_inf = to_bit_stream(0x7C, 1)
+    bits_one = to_bit_stream(0x3C, 1) # 1.0 in E5M2 is 0x3C
     dut.format_a.value = 1
-    dut.format_b.value = 0
+    dut.format_b.value = 1
+
+    dut.a_bit.value = bits_inf[0]
+    dut.b_bit.value = bits_one[0]
     dut.strobe.value = 1
     await RisingEdge(dut.clk)
     dut.strobe.value = 0
-    for i in range(12):
+    for i in range(1, 12):
         dut.a_bit.value = bits_inf[i] if i < 8 else 0
-        dut.b_bit.value = (0x38 >> i) & 1 if i < 8 else 0
+        dut.b_bit.value = bits_one[i] if i < 8 else 0
         await RisingEdge(dut.clk)
     assert dut.special_inf.value == 1
+    assert dut.special_nan.value == 0
+
+    # E4M3 NaN (0x7F * 1.0)
+    bits_nan = to_bit_stream(0x7F, 0)
+    bits_one = to_bit_stream(0x38, 0) # 1.0 in E4M3 is 0x38
+    dut.format_a.value = 0
+    dut.format_b.value = 0
+
+    dut.a_bit.value = bits_nan[0]
+    dut.b_bit.value = bits_one[0]
+    dut.strobe.value = 1
+    await RisingEdge(dut.clk)
+    dut.strobe.value = 0
+    for i in range(1, 12):
+        dut.a_bit.value = bits_nan[i] if i < 8 else 0
+        dut.b_bit.value = bits_one[i] if i < 8 else 0
+        await RisingEdge(dut.clk)
+    assert dut.special_nan.value == 1

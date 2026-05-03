@@ -65,7 +65,6 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [COUNTER_WIDTH-1:0] logical_cycle;
     /* verilator lint_off UNUSEDSIGNAL */
     wire [COUNTER_WIDTH-1:0] serial_k_counter;
-    /* verilator lint_on UNUSEDSIGNAL */
 
     // Control logic for serial vs parallel operation.
     generate
@@ -392,9 +391,11 @@ module tt_um_chatelao_fp8_multiplier #(
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
     // Control signal to enable the accumulator only when valid products are arriving.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+    wire acc_en    = strobe && (SUPPORT_SERIAL ?
                      ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+                     (SUPPORT_PIPELINING ?
+                     ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
+                     ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM))));
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
@@ -463,9 +464,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         (actual_packed_serial ? (logical_cycle[0] ? {4'd0, uio_in[3:0]} : {4'd0, packed_b_buf}) : uio_in));
 
     // --- Bit-Serial Input Shifters ---
-    /* verilator lint_off UNUSED */
     wire a_bit_serial, b_bit_serial;
-    /* verilator lint_on UNUSED */
     generate
         if (SUPPORT_SERIAL) begin : gen_serial_input_shifters
             reg [7:0] a_shifter, b_shifter;
@@ -483,8 +482,8 @@ module tt_um_chatelao_fp8_multiplier #(
                     end
                 end
             end
-            assign a_bit_serial = a_shifter[0];
-            assign b_bit_serial = b_shifter[0];
+            assign a_bit_serial = strobe ? a_lane0[0] : a_shifter[0];
+            assign b_bit_serial = strobe ? b_lane0[0] : b_shifter[0];
         end else begin : gen_no_serial_input_shifters
             assign a_bit_serial = 1'b0;
             assign b_bit_serial = 1'b0;
@@ -648,17 +647,20 @@ module tt_um_chatelao_fp8_multiplier #(
                 if (!rst_n) begin
                     mul_ser_shift_reg <= 11'd0;
                     mul_ser_sign_reg <= 1'b0;
-                    mul_ser_zero_reg <= 1'b0;
+                    mul_ser_zero_reg <= 1'b1; // Default to zero until first element
                     mul_ser_nan_reg <= 1'b0;
                     mul_ser_inf_reg <= 1'b0;
                 end else if (ena) begin
                     // Capture bits 0 to 10 (Mantissa 3 bits + Exponent 8 bits)
-                    // res_bit is valid for cnt=0 when k_counter=1, so we capture at edges k=1..11.
-                    if (serial_k_counter >= 6'd1 && serial_k_counter <= 6'd11) begin
+                    // bit_cnt=0 happens at k=0.
+                    // We capture at posedges k=0..10.
+                    if (serial_k_counter <= 6'd10) begin
                         mul_ser_shift_reg <= {mul_ser_res_bit, mul_ser_shift_reg[10:1]};
                     end
-                    // Capture flags after they are stable (at edge k=12, cnt has seen all operand bits)
-                    if (serial_k_counter == 6'd12) begin
+
+                    // Capture flags after they are stable (at edge k=14)
+                    // Gate capture to valid element cycles (3..34) to avoid metadata pollution.
+                    if (serial_k_counter == 6'd14 && logical_cycle >= 6'd3 && logical_cycle <= 6'd35) begin
                         mul_ser_sign_reg <= mul_ser_sign;
                         mul_ser_zero_reg <= mul_ser_zero;
                         mul_ser_nan_reg <= mul_ser_nan;
@@ -1251,5 +1253,6 @@ module tt_um_chatelao_fp8_multiplier #(
     end
 `endif
 
+    /* verilator lint_on UNUSEDSIGNAL */
 endmodule
 `endif
