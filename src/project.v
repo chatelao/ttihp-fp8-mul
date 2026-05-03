@@ -63,7 +63,9 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [COUNTER_WIDTH-1:0] cycle_count;
     wire strobe; // Used to handle bit-serial timing if enabled.
     wire [COUNTER_WIDTH-1:0] logical_cycle;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [COUNTER_WIDTH-1:0] serial_k_counter;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     // Control logic for serial vs parallel operation.
     generate
