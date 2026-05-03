@@ -59,8 +59,8 @@ The "Tiny-Serial" variant is implemented as a gradual evolution from the "Ultra-
 ### Phase 2: Bit-Serial Module Integration
 - [x] **Step 4.1: [Datapath] Serial Aligner & Accumulator**: Implement individual modules.
 - [x] **Step 4.2: [Datapath] Serial LNS Multiplier**: Implement bit-serial multiplier.
-- [ ] **Step 4.3: [Integration] Serial Input Buffering**: Implement 8-bit shift registers to feed the serial datapath.
-- [ ] **Step 4.4: [Integration] Multiplier Swap**: Connect serial multiplier in the top-level serial path.
+- [x] **Step 4.3: [Integration] Serial Input Buffering**: Implement 8-bit shift registers to feed the serial datapath.
+- [x] **Step 4.4: [Integration] Multiplier Swap**: Connect serial multiplier in the top-level serial path.
 - [ ] **Step 4.5: [Integration] Aligner Swap**: Connect serial aligner and align timing.
 - [ ] **Step 4.6: [Integration] Accumulator Swap**: Replace parallel accumulator in the serial path.
 - [ ] **Step 4.7: [Integration] Serial-to-Parallel Handoff**: Connect serial accumulator to result capture.

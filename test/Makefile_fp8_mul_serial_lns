@@ -1,0 +1,9 @@
+# Makefile for fp8_mul_serial_lns unit test
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+SRC_DIR = ../src
+VERILOG_SOURCES += $(SRC_DIR)/fp8_mul_serial_lns.v
+VERILOG_SOURCES += ./tb_fp8_mul_serial_lns.v
+TOPLEVEL = tb_fp8_mul_serial_lns
+MODULE = test_fp8_mul_serial_lns
+include $(shell cocotb-config --makefiles)/Makefile.sim
