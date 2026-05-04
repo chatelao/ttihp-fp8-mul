@@ -316,8 +316,8 @@ module tt_um_chatelao_fp8_multiplier #(
     wire actual_input_buffering = (SUPPORT_INPUT_BUFFERING && !SUPPORT_VECTOR_PACKING && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire actual_packed_serial = (SUPPORT_PACKED_SERIAL && !SUPPORT_VECTOR_PACKING && !actual_input_buffering && packed_mode && (format_a == 3'b100) && (format_b_val == 3'b100));
     wire [6:0] last_stream_cycle = actual_packed_mode ? 7'd18 : 7'd34;
-    wire [6:0] capture_cycle     = actual_packed_mode ? 7'd20 : 7'd36;
-    wire [6:0] last_cycle        = actual_packed_mode ? 7'd24 : 7'd40;
+    wire [6:0] capture_cycle     = last_stream_cycle + DATAPATH_DELAY[6:0] + 7'd1;
+    wire [6:0] last_cycle        = capture_cycle + 7'd4;
 
     // FSM State derivation based on the current logical cycle.
     wire [1:0] state = (logical_cycle == 7'd0) ? STATE_IDLE :
@@ -419,7 +419,6 @@ module tt_um_chatelao_fp8_multiplier #(
                              (DATAPATH_DELAY == 2'd1) ? is_bm_a_lane1_delay[0] : is_bm_a_lane1_raw;
     wire is_bm_b_lane1_val = (DATAPATH_DELAY == 2'd2) ? is_bm_b_lane1_delay[1] :
                              (DATAPATH_DELAY == 2'd1) ? is_bm_b_lane1_delay[0] : is_bm_b_lane1_raw;
-
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     wire [15:0] mul_prod_lane0_par, mul_prod_lane0_ser;
@@ -474,20 +473,18 @@ module tt_um_chatelao_fp8_multiplier #(
             reg [7:0] a_shifter, b_shifter;
             always @(posedge clk or negedge rst_n) begin
                 if (!rst_n) begin
-                    a_shifter <= 8'd0;
-                    b_shifter <= 8'd0;
                 end else if (ena) begin
                     if (strobe) begin
-                        a_shifter <= a_lane0;
-                        b_shifter <= b_lane0;
+                        a_shifter <= {1'b0, a_lane0[7:1]};
+                        b_shifter <= {1'b0, b_lane0[7:1]};
                     end else begin
                         a_shifter <= {1'b0, a_shifter[7:1]};
                         b_shifter <= {1'b0, b_shifter[7:1]};
                     end
                 end
             end
-            assign a_bit_serial = a_shifter[0];
-            assign b_bit_serial = b_shifter[0];
+            assign a_bit_serial = strobe ? a_lane0[0] : a_shifter[0];
+            assign b_bit_serial = strobe ? b_lane0[0] : b_shifter[0];
         end else begin : gen_no_serial_input_shifters
             assign a_bit_serial = 1'b0;
             assign b_bit_serial = 1'b0;
@@ -517,6 +514,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 .special_inf(special_inf_lane0)
             );
 
+
             reg [10:0] lns_res_reg_lane0;
             reg sign_reg_lane0, zero_reg_lane0, nan_reg_lane0, inf_reg_lane0;
 
@@ -545,7 +543,6 @@ module tt_um_chatelao_fp8_multiplier #(
                     end
                 end
             end
-
             wire [7:0] lns_exp_lane0 = lns_res_reg_lane0[10:3];
             assign mul_prod_lane0_ser = zero_reg_lane0 ? 16'd0 : {9'd0, 1'b1, lns_res_reg_lane0[2:0], 3'd0};
             assign mul_exp_sum_lane0_ser = zero_reg_lane0 ? {EXP_SUM_WIDTH{1'b0}} : lns_exp_lane0[EXP_SUM_WIDTH-1:0];
