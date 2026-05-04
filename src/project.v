@@ -49,7 +49,7 @@ module tt_um_chatelao_fp8_multiplier #(
 );
 
     // COUNTER_WIDTH determines the size of our cycle tracker.
-    localparam COUNTER_WIDTH = 6;
+    localparam COUNTER_WIDTH = 7;
 
     /**
      * FSM (Finite State Machine) States
@@ -63,6 +63,9 @@ module tt_um_chatelao_fp8_multiplier #(
     reg [COUNTER_WIDTH-1:0] cycle_count;
     wire strobe; // Used to handle bit-serial timing if enabled.
     wire [COUNTER_WIDTH-1:0] logical_cycle;
+    /* verilator lint_off UNUSEDSIGNAL */
+    wire [COUNTER_WIDTH-1:0] serial_k_counter;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     // Control logic for serial vs parallel operation.
     generate
@@ -74,9 +77,11 @@ module tt_um_chatelao_fp8_multiplier #(
             end
             assign strobe = (k_counter == {COUNTER_WIDTH{1'b0}});
             assign logical_cycle = cycle_count;
+            assign serial_k_counter = k_counter;
         end else begin : gen_no_serial_ctrl
             assign strobe = 1'b1;
             assign logical_cycle = cycle_count;
+            assign serial_k_counter = {COUNTER_WIDTH{1'b0}};
         end
     endgenerate
 
@@ -393,12 +398,29 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
+    wire [15:0] mul_prod_lane0_par, mul_prod_lane0_ser;
+    wire [15:0] mul_prod_lane1_par, mul_prod_lane1_ser;
+
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0_par, mul_exp_sum_lane0_ser;
+    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane1_par, mul_exp_sum_lane1_ser;
+
+    wire mul_sign_lane0, mul_sign_lane1;
+    wire mul_sign_lane0_par, mul_sign_lane0_ser;
+    wire mul_sign_lane1_par, mul_sign_lane1_ser;
+
+    wire mul_nan_lane0, mul_nan_lane1;
+    wire mul_nan_lane0_par, mul_nan_lane0_ser;
+    wire mul_nan_lane1_par, mul_nan_lane1_ser;
+
+    wire mul_inf_lane0, mul_inf_lane1;
+    wire mul_inf_lane0_par, mul_inf_lane0_ser;
+    wire mul_inf_lane1_par, mul_inf_lane1_ser;
+
+    wire mul_zero_lane0_ser, mul_zero_lane1_ser;
+
     // Extended product wires for aligner compatibility
     wire [ALIGNER_WIDTH-1:0] mul_prod_lane0_ext = { {(ALIGNER_WIDTH-16){1'b0}}, mul_prod_lane0_val };
-    wire signed [EXP_SUM_WIDTH-1:0] mul_exp_sum_lane0, mul_exp_sum_lane1;
-    wire mul_sign_lane0, mul_sign_lane1;
-    wire mul_nan_lane0, mul_nan_lane1;
-    wire mul_inf_lane0, mul_inf_lane1;
 
     // Buffer for packed elements in bit-serial modes.
     reg [3:0] packed_a_buf, packed_b_buf;
@@ -449,6 +471,83 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
+    generate
+        if (SUPPORT_SERIAL) begin : gen_serial_mul
+            wire res_bit_lane0;
+            wire sign_out_lane0, special_zero_lane0, special_nan_lane0, special_inf_lane0;
+
+            fp8_mul_serial_lns #(
+                .EXP_SUM_WIDTH(EXP_SUM_WIDTH)
+            ) mul_ser_lane0 (
+                .clk(clk),
+                .rst_n(rst_n),
+                .ena(ena),
+                .strobe(strobe),
+                .a_bit(a_bit_serial),
+                .b_bit(b_bit_serial),
+                .format_a(format_a),
+                .format_b(format_b_val),
+                .res_bit(res_bit_lane0),
+                .sign_out(sign_out_lane0),
+                .special_zero(special_zero_lane0),
+                .special_nan(special_nan_lane0),
+                .special_inf(special_inf_lane0)
+            );
+
+            reg [10:0] lns_res_reg_lane0;
+            reg sign_reg_lane0, zero_reg_lane0, nan_reg_lane0, inf_reg_lane0;
+
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    lns_res_reg_lane0 <= 11'd0;
+                    sign_reg_lane0 <= 1'b0;
+                    zero_reg_lane0 <= 1'b0;
+                    nan_reg_lane0  <= 1'b0;
+                    inf_reg_lane0  <= 1'b0;
+                end else if (ena) begin
+                    if (serial_k_counter >= 7'd1 && serial_k_counter <= 7'd11) begin
+                        lns_res_reg_lane0 <= {res_bit_lane0, lns_res_reg_lane0[10:1]};
+                    end
+                    if (serial_k_counter == 7'd12) begin
+                        sign_reg_lane0 <= sign_out_lane0;
+                        zero_reg_lane0 <= special_zero_lane0;
+                        nan_reg_lane0  <= special_nan_lane0;
+                        inf_reg_lane0  <= special_inf_lane0;
+                    end
+                end
+            end
+
+            wire [7:0] lns_exp_lane0 = lns_res_reg_lane0[10:3];
+            assign mul_prod_lane0_ser = zero_reg_lane0 ? 16'd0 : {9'd0, 1'b1, lns_res_reg_lane0[2:0], 3'd0};
+            assign mul_exp_sum_lane0_ser = zero_reg_lane0 ? {EXP_SUM_WIDTH{1'b0}} : lns_exp_lane0[EXP_SUM_WIDTH-1:0];
+            assign mul_sign_lane0_ser = sign_reg_lane0;
+            assign mul_nan_lane0_ser  = nan_reg_lane0;
+            assign mul_inf_lane0_ser  = inf_reg_lane0;
+            assign mul_zero_lane0_ser = zero_reg_lane0;
+
+            assign mul_prod_lane1_ser = 16'd0;
+            assign mul_exp_sum_lane1_ser = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_lane1_ser = 1'b0;
+            assign mul_nan_lane1_ser  = 1'b0;
+            assign mul_inf_lane1_ser  = 1'b0;
+            assign mul_zero_lane1_ser = 1'b1;
+        end else begin : gen_no_serial_mul
+            assign mul_prod_lane0_ser = 16'd0;
+            assign mul_exp_sum_lane0_ser = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_lane0_ser = 1'b0;
+            assign mul_nan_lane0_ser  = 1'b0;
+            assign mul_inf_lane0_ser  = 1'b0;
+            assign mul_zero_lane0_ser = 1'b1;
+
+            assign mul_prod_lane1_ser = 16'd0;
+            assign mul_exp_sum_lane1_ser = {EXP_SUM_WIDTH{1'b0}};
+            assign mul_sign_lane1_ser = 1'b0;
+            assign mul_nan_lane1_ser  = 1'b0;
+            assign mul_inf_lane1_ser  = 1'b0;
+            assign mul_zero_lane1_ser = 1'b1;
+        end
+    endgenerate
+
     /* verilator lint_off UNUSEDSIGNAL */
     wire [7:0] a_lane1 = actual_packed_mode ? {4'd0, ui_in[7:4]}  : 8'd0;
     wire [7:0] b_lane1 = actual_packed_mode ? {4'd0, uio_in[7:4]} : 8'd0;
@@ -476,11 +575,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_a(is_bm_a_lane0_raw),
                 .is_bm_b(is_bm_b_lane0_raw),
                 .lns_mode(lns_mode_reg),
-                .prod(mul_prod_lane0),
-                .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .nan(mul_nan_lane0),
-                .inf(mul_inf_lane0)
+                .prod(mul_prod_lane0_par),
+                .exp_sum(mul_exp_sum_lane0_par),
+                .sign(mul_sign_lane0_par),
+                .nan(mul_nan_lane0_par),
+                .inf(mul_inf_lane0_par)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul_lns #(
@@ -501,18 +600,18 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_a(is_bm_a_lane1_raw),
                     .is_bm_b(is_bm_b_lane1_raw),
                     .lns_mode(lns_mode_reg),
-                    .prod(mul_prod_lane1),
-                    .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .nan(mul_nan_lane1),
-                    .inf(mul_inf_lane1)
+                    .prod(mul_prod_lane1_par),
+                    .exp_sum(mul_exp_sum_lane1_par),
+                    .sign(mul_sign_lane1_par),
+                    .nan(mul_nan_lane1_par),
+                    .inf(mul_inf_lane1_par)
                 );
             end else begin : no_lane1
-                assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1 = 1'b0;
-                assign mul_nan_lane1 = 1'b0;
-                assign mul_inf_lane1 = 1'b0;
+                assign mul_prod_lane1_par = 16'd0;
+                assign mul_exp_sum_lane1_par = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1_par = 1'b0;
+                assign mul_nan_lane1_par = 1'b0;
+                assign mul_inf_lane1_par = 1'b0;
             end
         end else begin : std_gen
             fp8_mul #(
@@ -532,11 +631,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 .is_bm_a(is_bm_a_lane0_raw),
                 .is_bm_b(is_bm_b_lane0_raw),
                 .lns_mode(lns_mode_reg),
-                .prod(mul_prod_lane0),
-                .exp_sum(mul_exp_sum_lane0),
-                .sign(mul_sign_lane0),
-                .nan(mul_nan_lane0),
-                .inf(mul_inf_lane0)
+                .prod(mul_prod_lane0_par),
+                .exp_sum(mul_exp_sum_lane0_par),
+                .sign(mul_sign_lane0_par),
+                .nan(mul_nan_lane0_par),
+                .inf(mul_inf_lane0_par)
             );
             if (SUPPORT_VECTOR_PACKING) begin : gen_lane1
                 fp8_mul #(
@@ -556,21 +655,34 @@ module tt_um_chatelao_fp8_multiplier #(
                     .is_bm_a(is_bm_a_lane1_raw),
                     .is_bm_b(is_bm_b_lane1_raw),
                     .lns_mode(lns_mode_reg),
-                    .prod(mul_prod_lane1),
-                    .exp_sum(mul_exp_sum_lane1),
-                    .sign(mul_sign_lane1),
-                    .nan(mul_nan_lane1),
-                    .inf(mul_inf_lane1)
+                    .prod(mul_prod_lane1_par),
+                    .exp_sum(mul_exp_sum_lane1_par),
+                    .sign(mul_sign_lane1_par),
+                    .nan(mul_nan_lane1_par),
+                    .inf(mul_inf_lane1_par)
                 );
             end else begin : no_lane1
-                assign mul_prod_lane1 = 16'd0;
-                assign mul_exp_sum_lane1 = {EXP_SUM_WIDTH{1'b0}};
-                assign mul_sign_lane1 = 1'b0;
-                assign mul_nan_lane1 = 1'b0;
-                assign mul_inf_lane1 = 1'b0;
+                assign mul_prod_lane1_par = 16'd0;
+                assign mul_exp_sum_lane1_par = {EXP_SUM_WIDTH{1'b0}};
+                assign mul_sign_lane1_par = 1'b0;
+                assign mul_nan_lane1_par = 1'b0;
+                assign mul_inf_lane1_par = 1'b0;
             end
         end
     endgenerate
+
+    // Multiplier result multiplexing: select between parallel and serial variants.
+    assign mul_prod_lane0    = SUPPORT_SERIAL ? mul_prod_lane0_ser    : mul_prod_lane0_par;
+    assign mul_exp_sum_lane0 = SUPPORT_SERIAL ? mul_exp_sum_lane0_ser : mul_exp_sum_lane0_par;
+    assign mul_sign_lane0    = SUPPORT_SERIAL ? mul_sign_lane0_ser    : mul_sign_lane0_par;
+    assign mul_nan_lane0     = SUPPORT_SERIAL ? mul_nan_lane0_ser     : mul_nan_lane0_par;
+    assign mul_inf_lane0     = SUPPORT_SERIAL ? mul_inf_lane0_ser     : mul_inf_lane0_par;
+
+    assign mul_prod_lane1    = SUPPORT_SERIAL ? mul_prod_lane1_ser    : mul_prod_lane1_par;
+    assign mul_exp_sum_lane1 = SUPPORT_SERIAL ? mul_exp_sum_lane1_ser : mul_exp_sum_lane1_par;
+    assign mul_sign_lane1    = SUPPORT_SERIAL ? mul_sign_lane1_ser    : mul_sign_lane1_par;
+    assign mul_nan_lane1     = SUPPORT_SERIAL ? mul_nan_lane1_ser     : mul_nan_lane1_par;
+    assign mul_inf_lane1     = SUPPORT_SERIAL ? mul_inf_lane1_ser     : mul_inf_lane1_par;
 
     // Pipeline registers: Improve timing by breaking long paths after the multipliers.
     /* verilator lint_off UNUSEDSIGNAL */
