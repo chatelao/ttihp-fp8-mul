@@ -125,14 +125,18 @@ module fp8_mul_serial_lns #(
     reg carry_sub;
 
     // Stage 1: Add LogA and LogB bits.
-    wire s1_a = (cnt < 4'd12) ? a_aligned : 1'b0;
-    wire s1_b = (cnt < 4'd12) ? b_aligned : 1'b0;
-    wire sum_s1 = s1_a ^ s1_b ^ carry_adder;
-    wire carry_s1_next = (s1_a & s1_b) | (carry_adder & (s1_a ^ s1_b));
+    // Use combinatorial logic to process bit 0 immediately during strobe.
+    wire [3:0] bit_cnt = strobe ? 4'd0 : cnt;
+    wire s1_a = (bit_cnt < 4'd12) ? a_aligned : 1'b0;
+    wire s1_b = (bit_cnt < 4'd12) ? b_aligned : 1'b0;
+    wire c_add_in = strobe ? 1'b0 : carry_adder;
+    wire sum_s1 = s1_a ^ s1_b ^ c_add_in;
+    wire carry_s1_next = (s1_a & s1_b) | (c_add_in & (s1_a ^ s1_b));
 
     // Stage 2: Subtract the bias bit.
-    wire res_s2 = sum_s1 ^ (~bit_bias) ^ carry_sub;
-    wire carry_s2_next = (sum_s1 & (~bit_bias)) | (carry_sub & (sum_s1 ^ (~bit_bias)));
+    wire c_sub_in = strobe ? 1'b1 : carry_sub;
+    wire res_s2 = sum_s1 ^ (~bit_bias) ^ c_sub_in;
+    wire carry_s2_next = (sum_s1 & (~bit_bias)) | (c_sub_in & (sum_s1 ^ (~bit_bias)));
 
     // Sequential update of carry bits.
     always @(posedge clk or negedge rst_n) begin

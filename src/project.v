@@ -60,7 +60,7 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam STATE_STREAM     = 2'b10; // Processing 32 element pairs (Cycles 3-34).
     localparam STATE_OUTPUT     = 2'b11; // Sending the 32-bit result out byte-by-byte.
 
-    reg [7:0] logical_cycle_reg;
+    reg [6:0] logical_cycle_reg;
     wire strobe; // Used to handle bit-serial timing if enabled.
     wire [6:0] logical_cycle;
     /* verilator lint_off UNUSEDSIGNAL */
@@ -76,11 +76,11 @@ module tt_um_chatelao_fp8_multiplier #(
                 else if (ena) k_counter <= (k_counter == SERIAL_K_FACTOR[6:0] - 7'd1) ? 7'd0 : k_counter + 7'd1;
             end
             assign strobe = (k_counter == 7'd0);
-            assign logical_cycle = logical_cycle_reg[6:0];
+            assign logical_cycle = logical_cycle_reg;
             assign serial_k_counter = k_counter;
         end else begin : gen_no_serial_ctrl
             assign strobe = 1'b1;
-            assign logical_cycle = logical_cycle_reg[6:0];
+            assign logical_cycle = logical_cycle_reg;
             assign serial_k_counter = 7'd0;
         end
     endgenerate
@@ -202,8 +202,8 @@ module tt_um_chatelao_fp8_multiplier #(
             // Element Indexing for element-wise metadata.
             wire [4:0] logical_cycle_idx = logical_cycle[4:0] - 5'd3;
             /* verilator lint_off UNUSEDSIGNAL */
-            wire [6:0] element_index_lane0_full = actual_packed_mode ? { logical_cycle_idx, 1'b0 } : { 2'b0, logical_cycle_idx };
-            wire [6:0] element_index_lane1_full = actual_packed_mode ? { logical_cycle_idx, 1'b1 } : 7'd0;
+            wire [6:0] element_index_lane0_full = actual_packed_mode ? { 1'b0, logical_cycle_idx, 1'b0 } : { 2'b0, logical_cycle_idx };
+            wire [6:0] element_index_lane1_full = actual_packed_mode ? { 1'b0, logical_cycle_idx, 1'b1 } : 7'd0;
             /* verilator lint_on UNUSEDSIGNAL */
             wire [4:0] element_index_lane0_reg = element_index_lane0_full[4:0];
             wire [4:0] element_index_lane1_reg = element_index_lane1_full[4:0];
@@ -326,7 +326,7 @@ module tt_um_chatelao_fp8_multiplier #(
                        STATE_OUTPUT;
 
     initial begin
-        logical_cycle_reg = 8'd0;
+        logical_cycle_reg = 7'd0;
         format_a_reg = 3'd0;
         round_mode_reg = 2'd0;
         overflow_wrap_reg = 1'b0;
@@ -345,7 +345,7 @@ module tt_um_chatelao_fp8_multiplier #(
      */
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            logical_cycle_reg <= 8'd0;
+            logical_cycle_reg <= 7'd0;
             format_a_reg <= 3'd0;
             round_mode_reg <= 2'd0;
             overflow_wrap_reg <= 1'b0;
@@ -363,14 +363,14 @@ module tt_um_chatelao_fp8_multiplier #(
 
                 if (ui_in[7]) begin
                     // Fast Start: Skip scale loading and reuse previous values.
-                    logical_cycle_reg <= 8'd3;
+                    logical_cycle_reg <= 7'd3;
                     if (!FIXED_FORMAT) format_a_reg <= uio_in[2:0];
                 end else begin
-                    logical_cycle_reg <= 8'd1;
+                    logical_cycle_reg <= 7'd1;
                 end
             end else begin
                 // Standard progression.
-                logical_cycle_reg <= (logical_cycle == last_cycle) ? 8'd0 : {1'b0, logical_cycle} + 8'd1;
+                logical_cycle_reg <= (logical_cycle == last_cycle) ? 7'd0 : logical_cycle + 7'd1;
 
                 if (logical_cycle == 7'd1) begin
                     // Capture Format A in Cycle 1.
@@ -387,10 +387,38 @@ module tt_um_chatelao_fp8_multiplier #(
     localparam EXP_SUM_WIDTH = (SUPPORT_E5M2) ? 7 :
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
+    // DATAPATH_DELAY: Total latency from Cycle 3 input to product arrival at the accumulator.
+    // Parallel: 0 cycles. Pipelined: 1 cycle. Serial: 1 logical cycle (for deserialization).
+    localparam DATAPATH_DELAY = (SUPPORT_SERIAL ? 1 : 0) + (SUPPORT_PIPELINING ? 1 : 0);
+
     // Control signal to enable the accumulator only when valid products are arriving.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
-                     ((logical_cycle >= 7'd4 && logical_cycle <= last_stream_cycle + 7'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
-                     ((logical_cycle >= 7'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
+    wire acc_en    = strobe && (logical_cycle >= (7'd3 + DATAPATH_DELAY[6:0])) && (logical_cycle <= last_stream_cycle + DATAPATH_DELAY[6:0]) &&
+                     (state == STATE_STREAM || state == STATE_OUTPUT);
+
+    // Standardized detection for Block Max elements, accounting for pipeline and/or serial delays.
+    reg [1:0] is_bm_a_lane0_delay, is_bm_b_lane0_delay;
+    reg [1:0] is_bm_a_lane1_delay, is_bm_b_lane1_delay;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            is_bm_a_lane0_delay <= 2'd0; is_bm_b_lane0_delay <= 2'd0;
+            is_bm_a_lane1_delay <= 2'd0; is_bm_b_lane1_delay <= 2'd0;
+        end else if (ena && strobe) begin
+            is_bm_a_lane0_delay <= {is_bm_a_lane0_delay[0], is_bm_a_lane0_raw};
+            is_bm_b_lane0_delay <= {is_bm_b_lane0_delay[0], is_bm_b_lane0_raw};
+            is_bm_a_lane1_delay <= {is_bm_a_lane1_delay[0], is_bm_a_lane1_raw};
+            is_bm_b_lane1_delay <= {is_bm_b_lane1_delay[0], is_bm_b_lane1_raw};
+        end
+    end
+
+    wire is_bm_a_lane0_val = (DATAPATH_DELAY == 2'd2) ? is_bm_a_lane0_delay[1] :
+                             (DATAPATH_DELAY == 2'd1) ? is_bm_a_lane0_delay[0] : is_bm_a_lane0_raw;
+    wire is_bm_b_lane0_val = (DATAPATH_DELAY == 2'd2) ? is_bm_b_lane0_delay[1] :
+                             (DATAPATH_DELAY == 2'd1) ? is_bm_b_lane0_delay[0] : is_bm_b_lane0_raw;
+    wire is_bm_a_lane1_val = (DATAPATH_DELAY == 2'd2) ? is_bm_a_lane1_delay[1] :
+                             (DATAPATH_DELAY == 2'd1) ? is_bm_a_lane1_delay[0] : is_bm_a_lane1_raw;
+    wire is_bm_b_lane1_val = (DATAPATH_DELAY == 2'd2) ? is_bm_b_lane1_delay[1] :
+                             (DATAPATH_DELAY == 2'd1) ? is_bm_b_lane1_delay[0] : is_bm_b_lane1_raw;
 
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
@@ -502,6 +530,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 end else if (ena) begin
                     if (strobe) begin
                         lns_res_reg_lane0 <= {res_bit_lane0, 10'b0};
+                        sign_reg_lane0 <= 1'b0;
+                        zero_reg_lane0 <= 1'b0;
+                        nan_reg_lane0  <= 1'b0;
+                        inf_reg_lane0  <= 1'b0;
                     end else if (serial_k_counter >= 7'd1 && serial_k_counter <= 7'd10) begin
                         lns_res_reg_lane0 <= {res_bit_lane0, lns_res_reg_lane0[10:1]};
                     end
@@ -688,8 +720,6 @@ module tt_um_chatelao_fp8_multiplier #(
     wire mul_sign_lane0_val, mul_sign_lane1_val;
     wire mul_nan_lane0_val, mul_nan_lane1_val;
     wire mul_inf_lane0_val, mul_inf_lane1_val;
-    reg is_bm_a_lane0_reg_p, is_bm_b_lane0_reg_p;
-    reg is_bm_a_lane1_reg_p, is_bm_b_lane1_reg_p;
     /* verilator lint_on UNUSEDSIGNAL */
 
     generate
@@ -706,16 +736,12 @@ module tt_um_chatelao_fp8_multiplier #(
                     mul_sign_lane0_reg <= 1'b0;
                     mul_nan_lane0_reg <= 1'b0;
                     mul_inf_lane0_reg <= 1'b0;
-                    is_bm_a_lane0_reg_p <= 1'b0;
-                    is_bm_b_lane0_reg_p <= 1'b0;
                 end else if (ena && strobe) begin
                     mul_prod_lane0_reg <= mul_prod_lane0;
                     mul_exp_sum_lane0_reg <= mul_exp_sum_lane0;
                     mul_sign_lane0_reg <= mul_sign_lane0;
                     mul_nan_lane0_reg <= mul_nan_lane0;
                     mul_inf_lane0_reg <= mul_inf_lane0;
-                    is_bm_a_lane0_reg_p <= is_bm_a_lane0_raw;
-                    is_bm_b_lane0_reg_p <= is_bm_b_lane0_raw;
                 end
             end
             assign mul_prod_lane0_val = mul_prod_lane0_reg;
@@ -737,16 +763,12 @@ module tt_um_chatelao_fp8_multiplier #(
                         mul_sign_lane1_reg <= 1'b0;
                         mul_nan_lane1_reg <= 1'b0;
                         mul_inf_lane1_reg <= 1'b0;
-                        is_bm_a_lane1_reg_p <= 1'b0;
-                        is_bm_b_lane1_reg_p <= 1'b0;
                     end else if (ena && strobe) begin
                         mul_prod_lane1_reg <= mul_prod_lane1;
                         mul_exp_sum_lane1_reg <= mul_exp_sum_lane1;
                         mul_sign_lane1_reg <= mul_sign_lane1;
                         mul_nan_lane1_reg <= mul_nan_lane1;
                         mul_inf_lane1_reg <= mul_inf_lane1;
-                        is_bm_a_lane1_reg_p <= is_bm_a_lane1_raw;
-                        is_bm_b_lane1_reg_p <= is_bm_b_lane1_raw;
                     end
                 end
                 assign mul_prod_lane1_val = mul_prod_lane1_reg;
@@ -780,8 +802,8 @@ module tt_um_chatelao_fp8_multiplier #(
     reg nan_sticky, inf_pos_sticky, inf_neg_sticky;
     // Optimization: Use a constant cycle window for element sticky latching to fix timing and avoid metadata latching.
     // Standard elements at 3..last_stream_cycle. Pipelined products at 4..last_stream_cycle+1.
-    // This avoids Cycle 1/2 (Scales) and Cycle 3 (Pipelined garbage).
-    wire sticky_latch_en = (logical_cycle >= (SUPPORT_PIPELINING ? 7'd4 : 7'd3)) && (logical_cycle <= last_stream_cycle + (SUPPORT_PIPELINING ? 7'd1 : 7'd0));
+    // This avoids Cycle 1/2 (Scales) and pre-datapath garbage.
+    wire sticky_latch_en = (logical_cycle >= (7'd3 + DATAPATH_DELAY[6:0])) && (logical_cycle <= last_stream_cycle + DATAPATH_DELAY[6:0]);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -830,11 +852,6 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // MX++ Exponent Offset (Step 6)
     // Subtract offsets if the element is NOT a BM.
-    wire is_bm_a_lane0_val = SUPPORT_PIPELINING ? is_bm_a_lane0_reg_p : is_bm_a_lane0_raw;
-    wire is_bm_b_lane0_val = SUPPORT_PIPELINING ? is_bm_b_lane0_reg_p : is_bm_b_lane0_raw;
-    wire is_bm_a_lane1_val = SUPPORT_PIPELINING ? is_bm_a_lane1_reg_p : is_bm_a_lane1_raw;
-    wire is_bm_b_lane1_val = SUPPORT_PIPELINING ? is_bm_b_lane1_reg_p : is_bm_b_lane1_raw;
-
     wire signed [9:0] exp_sum_lane0_adj = {{(10-EXP_SUM_WIDTH){mul_exp_sum_lane0_val[EXP_SUM_WIDTH-1]}}, mul_exp_sum_lane0_val} -
                                           (is_bm_a_lane0_val ? 10'd0 : {7'd0, nbm_offset_a_val}) -
                                           (is_bm_b_lane0_val ? 10'd0 : {7'd0, nbm_offset_b_val});
