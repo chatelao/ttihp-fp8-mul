@@ -49,9 +49,11 @@ module ahb2_mac_bridge #(
     localparam CYCLE_SCALE_B       = 6'd2;
     localparam CYCLE_STREAM_START  = 6'd3;
     localparam CYCLE_STREAM_END    = 6'd34;
+    /* verilator lint_off UNUSEDPARAM */
     localparam CYCLE_FLUSH_START   = 6'd35;
     localparam CYCLE_FLUSH_END     = 6'd36;
     localparam CYCLE_READ_START    = 6'd37;
+    /* verilator lint_on UNUSEDPARAM */
     localparam CYCLE_READ_END      = 6'd40;
 
     // Register Definitions
@@ -271,7 +273,7 @@ module ahb2_mac_bridge #(
                 end
 
                 STATE_WAIT_READ: begin
-                    result_accumulator <= (result_accumulator << 8) | mac_uo_out;
+                    result_accumulator <= {result_accumulator[23:0], mac_uo_out};
                     state <= STATE_MAC_STEP;
                 end
 

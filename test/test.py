@@ -1527,6 +1527,9 @@ async def test_ena_stall_gating(dut):
 
     support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
     k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial else 1
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    fmt = 0 if support_e4m3 else 4
+    el_one = 0x38 if support_e4m3 else 0x02
 
     dut.ena.value = 1
     dut.rst_n.value = 0
@@ -1538,22 +1541,22 @@ async def test_ena_stall_gating(dut):
     # Cycle 0: Metadata (standard, TRN, SAT)
     dut.ui_in.value = 0x00
     dut.uio_in.value = 0x00
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 1: Scale A = 127, Format A
+    dut.ui_in.value = 127
+    dut.uio_in.value = fmt
     await ClockCycles(dut.clk, k_factor)
 
-    # Cycle 1: Scale A = 127, Format A = 0 (E4M3)
+    # Cycle 2: Scale B = 127, Format B
     dut.ui_in.value = 127
-    dut.uio_in.value = 0
-    await ClockCycles(dut.clk, k_factor)
-
-    # Cycle 2: Scale B = 127, Format B = 0 (E4M3)
-    dut.ui_in.value = 127
-    dut.uio_in.value = 0
+    dut.uio_in.value = fmt
     await ClockCycles(dut.clk, k_factor)
 
     # Stream 32 elements (1.0 * 1.0 = 1.0), stalling ena=0 for 4 cycles mid-stream
     for i in range(32):
-        dut.ui_in.value = 0x38
-        dut.uio_in.value = 0x38
+        dut.ui_in.value = el_one
+        dut.uio_in.value = el_one
         await ClockCycles(dut.clk, k_factor)
         if i == 10:
             dut.ena.value = 0
