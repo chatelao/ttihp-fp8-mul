@@ -351,6 +351,25 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         elif inta or intb:
             return 0 # No INT8 support in LNS/Hybrid mode for non-BM
         else:
+            def norm_lns(m, fmt, is_bm):
+                if is_bm and support_mxplus:
+                    if fmt in [0, 1]:
+                        return (m >> 4) & 0x7, 4
+                    elif fmt in [2, 3]:
+                        return (m >> 2) & 0x7, 2
+                    else:
+                        return m & 0x7, 0
+                elif m & 0x8:
+                    return m & 0x7, 0
+                elif m & 0x4:
+                    return (m & 0x3) << 1, -1
+                elif m & 0x2:
+                    return (m & 0x1) << 2, -2
+                else:
+                    return 0, -3
+
+            frac_a, norm_adj_a = norm_lns(ma, format_a, is_bm_a)
+            frac_b, norm_adj_b = norm_lns(mb, format_b, is_bm_b)
             if use_lns_precise:
                 # Precise LNS LUT logic
                 lut = [
@@ -363,13 +382,13 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
                     0x6, 0x8, 0x9, 0xa, 0xa, 0xb, 0xc, 0xd,
                     0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe
                 ]
-                m_sum = lut[(ma & 0x7) * 8 + (mb & 0x7)]
+                m_sum = lut[frac_a * 8 + frac_b]
             else:
-                m_sum = (ma & 0x7) + (mb & 0x7)
+                m_sum = frac_a + frac_b
             carry = m_sum >> 3
             m_res = m_sum & 0x7
             prod = (8 + m_res) << 3
-            exp_sum = ea + eb - (ba + bb - 7) + carry - adj_a - adj_b
+            exp_sum = ea + eb - (ba + bb - 7) + norm_adj_a + norm_adj_b + carry - adj_a - adj_b
     else:
         real_ma = ma if not inta else ma
         real_mb = mb if not intb else mb
@@ -608,6 +627,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
     dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
+    if actual_acc != expected_final:
+        dut._log.error(f"MISMATCH DETAILS: packed={packed_mode}, lns={lns_mode}, mx+={mx_plus_mode}, bm=({bm_index_a},{bm_index_b}), expected_acc={expected_acc}, a={a_elements}, b={b_elements}")
     assert actual_acc == expected_final
 
 @cocotb.test()
