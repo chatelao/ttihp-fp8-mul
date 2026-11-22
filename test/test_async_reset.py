@@ -41,8 +41,8 @@ async def test_asynchronous_reset(dut):
 
     # Let's restart with debug enabled.
     dut.rst_n.value = 1
-    dut.ui_in.value = 0x40 # debug_en (ui_in[6])
-    dut.uio_in.value = 0x01 # probe_sel = 1 (uio_in[3:0])
+    dut.ui_in.value = 0x41 # debug_en (ui_in[6]) | probe_sel = 1 (ui_in[3:0])
+    dut.uio_in.value = 0x00
     await RisingEdge(dut.clk) # Samples Cycle 0
 
     # Cycle 1

@@ -97,10 +97,18 @@ module fp8_mul_serial_lns #(
     // Since different formats have different mantissa widths, we delay bits
     // to align their binary points before serial addition.
     reg [1:0] a_m_delay, b_m_delay;
-    always @(posedge clk) begin
-        if (ena) begin
-            a_m_delay <= {a_m_delay[0], a_bit};
-            b_m_delay <= {b_m_delay[0], b_bit};
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            a_m_delay <= 2'b00;
+            b_m_delay <= 2'b00;
+        end else if (ena) begin
+            if (strobe) begin
+                a_m_delay <= 2'b00;
+                b_m_delay <= 2'b00;
+            end else begin
+                a_m_delay <= {a_m_delay[0], a_bit};
+                b_m_delay <= {b_m_delay[0], b_bit};
+            end
         end
     end
 
@@ -112,8 +120,9 @@ module fp8_mul_serial_lns #(
                      (m_w_b == 4'd2) ? b_m_delay[0] :
                      (m_w_b == 4'd1) ? b_m_delay[1] : b_bit;
 
-    // bit_bias: The specific bit of the 'bias_offset' we are subtracting in this cycle.
-    wire bit_bias = (cnt >= 4'd3 && cnt < 4'd11) ? bias_offset[cnt - 4'd3] : 1'b0;
+    // bit_bias: The specific bit of the 'bias_offset' we are subtracting in this cycle (sign-extended).
+    wire bit_bias = (cnt >= 4'd3 && cnt < 4'd11) ? bias_offset[cnt - 4'd3] :
+                    (cnt >= 4'd11) ? bias_offset[7] : 1'b0;
 
     /**
      * --- Bit-Serial Arithmetic ---
@@ -124,9 +133,13 @@ module fp8_mul_serial_lns #(
     reg carry_adder;
     reg carry_sub;
 
+    // Mask out the sign bit (and beyond) from the aligned operand stream.
+    wire [3:0] a_stop_cnt = s_p_a + (4'd3 - m_w_a);
+    wire [3:0] b_stop_cnt = s_p_b + (4'd3 - m_w_b);
+
     // Stage 1: Add LogA and LogB bits.
-    wire s1_a = (cnt < 4'd12) ? a_aligned : 1'b0;
-    wire s1_b = (cnt < 4'd12) ? b_aligned : 1'b0;
+    wire s1_a = (cnt < a_stop_cnt) ? a_aligned : 1'b0;
+    wire s1_b = (cnt < b_stop_cnt) ? b_aligned : 1'b0;
     wire sum_s1 = s1_a ^ s1_b ^ carry_adder;
     wire carry_s1_next = (s1_a & s1_b) | (carry_adder & (s1_a ^ s1_b));
 
@@ -161,6 +174,7 @@ module fp8_mul_serial_lns #(
     reg a_any_nonzero, b_any_nonzero;
     reg a_e_all_ones, b_e_all_ones;
     reg a_m_any_nonzero, b_m_any_nonzero;
+    reg a_m_all_ones, b_m_all_ones;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -168,12 +182,14 @@ module fp8_mul_serial_lns #(
             a_any_nonzero <= 1'b0; b_any_nonzero <= 1'b0;
             a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
             a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
+            a_m_all_ones <= 1'b1; b_m_all_ones <= 1'b1;
         end else if (ena) begin
             if (strobe) begin
                 sign_a <= 1'b0; sign_b <= 1'b0;
                 a_any_nonzero <= 1'b0; b_any_nonzero <= 1'b0;
                 a_e_all_ones <= 1'b1; b_e_all_ones <= 1'b1;
                 a_m_any_nonzero <= 1'b0; b_m_any_nonzero <= 1'b0;
+                a_m_all_ones <= 1'b1; b_m_all_ones <= 1'b1;
             end else if (cnt < 4'd15) begin
                 // Capture sign bits at their format-specific positions.
                 if (cnt == s_p_a) sign_a <= a_bit;
@@ -192,8 +208,14 @@ module fp8_mul_serial_lns #(
                 end
 
                 // Monitor mantissa bits for NaN/Inf detection.
-                if (cnt < m_w_a) a_m_any_nonzero <= a_m_any_nonzero | a_bit;
-                if (cnt < m_w_b) b_m_any_nonzero <= b_m_any_nonzero | b_bit;
+                if (cnt < m_w_a) begin
+                    a_m_any_nonzero <= a_m_any_nonzero | a_bit;
+                    if (!a_bit) a_m_all_ones <= 1'b0;
+                end
+                if (cnt < m_w_b) begin
+                    b_m_any_nonzero <= b_m_any_nonzero | b_bit;
+                    if (!b_bit) b_m_all_ones <= 1'b0;
+                end
             end
         end
     end
@@ -205,12 +227,14 @@ module fp8_mul_serial_lns #(
     assign special_zero = !a_any_nonzero || !b_any_nonzero;
 
     // Detect if operands are special values (NaN or Infinity).
-    wire a_is_nan_inf = ( (format_a == 3'b001 && a_e_all_ones) || (format_a == 3'b000 && a_e_all_ones && a_m_any_nonzero) );
-    wire b_is_nan_inf = ( (format_b == 3'b001 && b_e_all_ones) || (format_b == 3'b000 && b_e_all_ones && b_m_any_nonzero) );
+    wire a_is_nan = (format_a == 3'b001 && a_e_all_ones && a_m_any_nonzero) ||
+                    (format_a == 3'b000 && a_e_all_ones && a_m_all_ones);
+    wire b_is_nan = (format_b == 3'b001 && b_e_all_ones && b_m_any_nonzero) ||
+                    (format_b == 3'b000 && b_e_all_ones && b_m_all_ones);
+    wire a_is_inf = (format_a == 3'b001 && a_e_all_ones && !a_m_any_nonzero);
+    wire b_is_inf = (format_b == 3'b001 && b_e_all_ones && !b_m_any_nonzero);
 
-    assign special_nan = (a_is_nan_inf && (format_a != 3'b001 || a_m_any_nonzero)) ||
-                         (b_is_nan_inf && (format_b != 3'b001 || b_m_any_nonzero));
-    assign special_inf = (a_is_nan_inf && format_a == 3'b001 && !a_m_any_nonzero) ||
-                         (b_is_nan_inf && format_b == 3'b001 && !b_m_any_nonzero);
+    assign special_nan = a_is_nan || b_is_nan || (a_is_inf && !b_any_nonzero) || (b_is_inf && !a_any_nonzero);
+    assign special_inf = (a_is_inf || b_is_inf) && !special_nan;
 
 endmodule

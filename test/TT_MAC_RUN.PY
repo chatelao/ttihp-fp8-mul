@@ -65,7 +65,9 @@ def run_mac():
     RST_N.value(1)
     time.sleep_ms(10)
 
-    # Cycle 0 -> 1
+    # Cycle 0 -> 1 (Initialize Metadata 0/1 to 0x00 before clocking)
+    set_ui_in(0x00)
+    set_uio_in(0x00)
     clock_step()
 
     # Cycle 1: Scale A and Config

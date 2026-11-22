@@ -14,7 +14,7 @@ make clean
 
 # Modules to test - if not set from outside, use default
 if [ -z "$COCOTB_TEST_MODULES" ]; then
-    COCOTB_MODULES="test test_coverage test_performance test_short_protocol test_exhaustive"
+    COCOTB_MODULES="test test_coverage test_performance test_short_protocol test_exhaustive test_debug test_ofp8_compliance test_async_reset"
 else
     # Convert comma-separated list to space-separated
     COCOTB_MODULES=$(echo $COCOTB_TEST_MODULES | tr ',' ' ')

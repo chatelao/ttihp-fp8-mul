@@ -19,7 +19,8 @@ To make the design modular and scalable, Verilog parameters were introduced. Thi
 | `SUPPORT_PIPELINING` | `1` | Inserts register stage in datapath. | -68 |
 | `SUPPORT_ADV_ROUNDING` | `1` | Enables CEIL/FLOOR modes. | -27 |
 | `SUPPORT_MIXED_PRECISION`| `1` | Allows independent A/B formats. | -115 |
-| `SUPPORT_INPUT_BUFFERING`| `1` | Enables 16-entry input FIFO. | -3 |
+| `SUPPORT_INPUT_BUFFERING`| `0` | Enables 16-entry input FIFO (requires `SUPPORT_VECTOR_PACKING=0`). | -3 |
+| `SUPPORT_FLOAT32` | `1` | Enables IEEE-754 Float32 output conversion (`fixed_to_float`). | ~350 |
 | `SUPPORT_MX_PLUS` | `1` | Enables MX+ outlier extensions. | -593 |
 | `ENABLE_SHARED_SCALING` | `1` | Enables HW shared scaling. | -296 |
 | `USE_LNS_MUL` | `0` | Toggles Mitchell LNS multiplier. | +326 |

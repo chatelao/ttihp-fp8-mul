@@ -223,7 +223,7 @@ def get_param(dut, name, default=1):
         "SUPPORT_ADV_ROUNDING": 1,
         "SUPPORT_MIXED_PRECISION": 1,
         "SUPPORT_VECTOR_PACKING": 1,
-        "SUPPORT_INPUT_BUFFERING": 1,
+        "SUPPORT_INPUT_BUFFERING": 0,
         "SUPPORT_PACKED_SERIAL": 0,
         "SUPPORT_MX_PLUS": 1,
         "SUPPORT_SERIAL": 0,
@@ -231,7 +231,8 @@ def get_param(dut, name, default=1):
         "ENABLE_SHARED_SCALING": 1,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 1,
-        "SUPPORT_DEBUG": 1
+        "SUPPORT_DEBUG": 1,
+        "SUPPORT_FLOAT32": 1
     }
     return defaults.get(name, default)
 
@@ -558,11 +559,11 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
         if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-            expected_final = 0x7FC00000
+            expected_final = 0x80000000
         elif inf_pos_sticky:
-            expected_final = 0x7F800000
+            expected_final = 0x7FFFFFFF
         elif inf_neg_sticky:
-            expected_final = 0xFF800000
+            expected_final = 0x80000000
         elif support_shared:
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
@@ -927,11 +928,11 @@ async def test_fast_start_scale_compression(dut):
         expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
         if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-            expected_final = 0x7FC00000
+            expected_final = 0x80000000
         elif inf_pos_sticky:
-            expected_final = 0x7F800000
+            expected_final = 0x7FFFFFFF
         elif inf_neg_sticky:
-            expected_final = 0xFF800000
+            expected_final = 0x80000000
         elif support_shared:
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
@@ -1495,3 +1496,60 @@ async def test_float32_rounding_carry(dut):
     # 6422528 / 65536 = 98.
     # This will be a large normal float.
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=150, scale_b=127, float32_mode=1)
+
+@cocotb.test()
+async def test_ena_stall_gating(dut):
+    """Verify that deasserting ena=0 mid-stream freezes FSM and accumulator cleanly."""
+    dut._log.info("Start ENA Stall Gating Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial else 1
+
+    dut.ena.value = 1
+    dut.rst_n.value = 0
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+
+    # Cycle 0: Metadata (standard, TRN, SAT)
+    dut.ui_in.value = 0x00
+    dut.uio_in.value = 0x00
+    await ClockCycles(dut.clk, k_factor)
+
+    # Cycle 1: Scale A = 127, Format A = 0 (E4M3)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, k_factor)
+
+    # Cycle 2: Scale B = 127, Format B = 0 (E4M3)
+    dut.ui_in.value = 127
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, k_factor)
+
+    # Stream 32 elements (1.0 * 1.0 = 1.0), stalling ena=0 for 4 cycles mid-stream
+    for i in range(32):
+        dut.ui_in.value = 0x38
+        dut.uio_in.value = 0x38
+        await ClockCycles(dut.clk, k_factor)
+        if i == 10:
+            dut.ena.value = 0
+            await ClockCycles(dut.clk, 4 * k_factor)
+            dut.ena.value = 1
+
+    # Flush + Shared Scaling
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 2 * k_factor)
+
+    actual_acc = 0
+    for _ in range(4):
+        await Timer(1, unit="ns")
+        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        await ClockCycles(dut.clk, k_factor)
+
+    # Expected: 32 * 1.0 = 32.0 -> 32 << 8 = 8192 in S23.8 (or 32 << (ALIGNER_WIDTH-24) >> (ALIGNER_WIDTH-32))
+    assert actual_acc == 8192, f"ENA stall corrupted accumulator: expected 8192, got {actual_acc}"
+

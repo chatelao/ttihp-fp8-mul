@@ -68,21 +68,31 @@ module fp8_mul_lns #(
 
     /**
      * Precise LNS Look-Up Table (LUT)
-     * This table improves the accuracy of the Mitchell approximation by mapping
+     * This combinational function improves the accuracy of the Mitchell approximation by mapping
      * the sum of fractional parts to a more precise result.
      * Mapping: {ma[2:0], mb[2:0]} -> {carry, m_res[2:0]}
      */
-    reg [3:0] lns_lut [0:63];
-    initial begin
-        lns_lut[0] = 4'h0; lns_lut[1] = 4'h1; lns_lut[2] = 4'h2; lns_lut[3] = 4'h3; lns_lut[4] = 4'h4; lns_lut[5] = 4'h5; lns_lut[6] = 4'h6; lns_lut[7] = 4'h7;
-        lns_lut[8] = 4'h1; lns_lut[9] = 4'h2; lns_lut[10] = 4'h3; lns_lut[11] = 4'h4; lns_lut[12] = 4'h6; lns_lut[13] = 4'h7; lns_lut[14] = 4'h8; lns_lut[15] = 4'h8;
-        lns_lut[16] = 4'h2; lns_lut[17] = 4'h3; lns_lut[18] = 4'h4; lns_lut[19] = 4'h6; lns_lut[20] = 4'h7; lns_lut[21] = 4'h8; lns_lut[22] = 4'h9; lns_lut[23] = 4'h9;
-        lns_lut[24] = 4'h3; lns_lut[25] = 4'h4; lns_lut[26] = 4'h6; lns_lut[27] = 4'h7; lns_lut[28] = 4'h8; lns_lut[29] = 4'h9; lns_lut[30] = 4'ha; lns_lut[31] = 4'ha;
-        lns_lut[32] = 4'h4; lns_lut[33] = 4'h6; lns_lut[34] = 4'h7; lns_lut[35] = 4'h8; lns_lut[36] = 4'h9; lns_lut[37] = 4'ha; lns_lut[38] = 4'ha; lns_lut[39] = 4'hb;
-        lns_lut[40] = 4'h5; lns_lut[41] = 4'h7; lns_lut[42] = 4'h8; lns_lut[43] = 4'h9; lns_lut[44] = 4'ha; lns_lut[45] = 4'hb; lns_lut[46] = 4'hb; lns_lut[47] = 4'hc;
-        lns_lut[48] = 4'h6; lns_lut[49] = 4'h8; lns_lut[50] = 4'h9; lns_lut[51] = 4'ha; lns_lut[52] = 4'ha; lns_lut[53] = 4'hb; lns_lut[54] = 4'hc; lns_lut[55] = 4'hd;
-        lns_lut[56] = 4'h7; lns_lut[57] = 4'h8; lns_lut[58] = 4'h9; lns_lut[59] = 4'ha; lns_lut[60] = 4'hb; lns_lut[61] = 4'hc; lns_lut[62] = 4'hd; lns_lut[63] = 4'he;
-    end
+    function automatic [3:0] get_lns_lut(input [5:0] idx);
+        case (idx)
+            6'd0:  get_lns_lut = 4'h0; 6'd1:  get_lns_lut = 4'h1; 6'd2:  get_lns_lut = 4'h2; 6'd3:  get_lns_lut = 4'h3;
+            6'd4:  get_lns_lut = 4'h4; 6'd5:  get_lns_lut = 4'h5; 6'd6:  get_lns_lut = 4'h6; 6'd7:  get_lns_lut = 4'h7;
+            6'd8:  get_lns_lut = 4'h1; 6'd9:  get_lns_lut = 4'h2; 6'd10: get_lns_lut = 4'h3; 6'd11: get_lns_lut = 4'h4;
+            6'd12: get_lns_lut = 4'h6; 6'd13: get_lns_lut = 4'h7; 6'd14: get_lns_lut = 4'h8; 6'd15: get_lns_lut = 4'h8;
+            6'd16: get_lns_lut = 4'h2; 6'd17: get_lns_lut = 4'h3; 6'd18: get_lns_lut = 4'h4; 6'd19: get_lns_lut = 4'h6;
+            6'd20: get_lns_lut = 4'h7; 6'd21: get_lns_lut = 4'h8; 6'd22: get_lns_lut = 4'h9; 6'd23: get_lns_lut = 4'h9;
+            6'd24: get_lns_lut = 4'h3; 6'd25: get_lns_lut = 4'h4; 6'd26: get_lns_lut = 4'h6; 6'd27: get_lns_lut = 4'h7;
+            6'd28: get_lns_lut = 4'h8; 6'd29: get_lns_lut = 4'h9; 6'd30: get_lns_lut = 4'ha; 6'd31: get_lns_lut = 4'ha;
+            6'd32: get_lns_lut = 4'h4; 6'd33: get_lns_lut = 4'h6; 6'd34: get_lns_lut = 4'h7; 6'd35: get_lns_lut = 4'h8;
+            6'd36: get_lns_lut = 4'h9; 6'd37: get_lns_lut = 4'ha; 6'd38: get_lns_lut = 4'ha; 6'd39: get_lns_lut = 4'hb;
+            6'd40: get_lns_lut = 4'h5; 6'd41: get_lns_lut = 4'h7; 6'd42: get_lns_lut = 4'h8; 6'd43: get_lns_lut = 4'h9;
+            6'd44: get_lns_lut = 4'ha; 6'd45: get_lns_lut = 4'hb; 6'd46: get_lns_lut = 4'hb; 6'd47: get_lns_lut = 4'hc;
+            6'd48: get_lns_lut = 4'h6; 6'd49: get_lns_lut = 4'h8; 6'd50: get_lns_lut = 4'h9; 6'd51: get_lns_lut = 4'ha;
+            6'd52: get_lns_lut = 4'ha; 6'd53: get_lns_lut = 4'hb; 6'd54: get_lns_lut = 4'hc; 6'd55: get_lns_lut = 4'hd;
+            6'd56: get_lns_lut = 4'h7; 6'd57: get_lns_lut = 4'h8; 6'd58: get_lns_lut = 4'h9; 6'd59: get_lns_lut = 4'ha;
+            6'd60: get_lns_lut = 4'hb; 6'd61: get_lns_lut = 4'hc; 6'd62: get_lns_lut = 4'hd; 6'd63: get_lns_lut = 4'he;
+            default: get_lns_lut = 4'h0;
+        endcase
+    endfunction
 
     /**
      * Decoding Task
@@ -220,6 +230,9 @@ module fp8_mul_lns #(
         end
     endtask
 
+    reg [2:0] frac_a, frac_b;
+    reg signed [3:0] norm_adj_a, norm_adj_b;
+
     always @(*) begin
         // Initialize to avoid hardware latches.
         p_res = 16'd0;
@@ -228,6 +241,10 @@ module fp8_mul_lns #(
         nan_res = 1'b0;
         inf_res = 1'b0;
         m_sum = 4'd0;
+        frac_a = 3'd0;
+        frac_b = 3'd0;
+        norm_adj_a = 4'sd0;
+        norm_adj_b = 4'sd0;
 
         // Decode operands.
         decode_operand(a, format_a, is_bm_a, sign_a, ea, ma, bias_a, zero_a, nan_a, inf_a, is_inta);
@@ -260,18 +277,72 @@ module fp8_mul_lns #(
             exp_sum_res = {EXP_SUM_WIDTH{1'b0}};
         end else begin
             // LNS Mode: Transform multiplication into logarithmic addition.
+
+            if (is_bm_a && SUPPORT_MX_PLUS) begin
+                if (format_a == FMT_E4M3 || format_a == FMT_E5M2) begin
+                    frac_a = ma[6:4];
+                    norm_adj_a = 4'sd4;
+                end else if (format_a == FMT_E3M2 || format_a == FMT_E2M3) begin
+                    frac_a = ma[4:2];
+                    norm_adj_a = 4'sd2;
+                end else begin
+                    frac_a = ma[2:0];
+                    norm_adj_a = 4'sd0;
+                end
+            end else if (ma[3]) begin
+                frac_a = ma[2:0];
+                norm_adj_a = 4'sd0;
+            end else if (ma[2]) begin
+                frac_a = {ma[1:0], 1'b0};
+                norm_adj_a = -4'sd1;
+            end else if (ma[1]) begin
+                frac_a = {ma[0], 2'b00};
+                norm_adj_a = -4'sd2;
+            end else begin
+                frac_a = 3'b000;
+                norm_adj_a = -4'sd3;
+            end
+
+            if (is_bm_b && SUPPORT_MX_PLUS) begin
+                if (format_b == FMT_E4M3 || format_b == FMT_E5M2) begin
+                    frac_b = mb[6:4];
+                    norm_adj_b = 4'sd4;
+                end else if (format_b == FMT_E3M2 || format_b == FMT_E2M3) begin
+                    frac_b = mb[4:2];
+                    norm_adj_b = 4'sd2;
+                end else begin
+                    frac_b = mb[2:0];
+                    norm_adj_b = 4'sd0;
+                end
+            end else if (mb[3]) begin
+                frac_b = mb[2:0];
+                norm_adj_b = 4'sd0;
+            end else if (mb[2]) begin
+                frac_b = {mb[1:0], 1'b0};
+                norm_adj_b = -4'sd1;
+            end else if (mb[1]) begin
+                frac_b = {mb[0], 2'b00};
+                norm_adj_b = -4'sd2;
+            end else begin
+                frac_b = 3'b000;
+                norm_adj_b = -4'sd3;
+            end
+
             if (USE_LNS_MUL_PRECISE) begin
-                // Use the LUT for accuracy.
-                m_sum = lns_lut[{ma[2:0], mb[2:0]}];
+                // Use the combinational LUT for accuracy.
+                m_sum = get_lns_lut({frac_a, frac_b});
             end else begin
                 // Mitchell Approximation: Log(1+m) \approx m.
-                // ma[2:0] are the fractional bits (M).
-                m_sum = ma[2:0] + mb[2:0];
+                m_sum = {1'b0, frac_a} + {1'b0, frac_b};
             end
 
             // Reconstruct the product from the summed logarithms.
             p_res = {9'd0, 1'b1, m_sum[2:0], 3'd0}; // (1.m_res) << 6
-            exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) - ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7})) + $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
+            exp_sum_res = $signed({2'b0, ea}) + $signed({2'b0, eb}) -
+                          ($signed(bias_a) + $signed(bias_b) - $signed({{(EXP_SUM_WIDTH-3){1'b0}}, 3'sd7})) +
+                          $signed({{(EXP_SUM_WIDTH-4){norm_adj_a[3]}}, norm_adj_a}) +
+                          $signed({{(EXP_SUM_WIDTH-4){norm_adj_b[3]}}, norm_adj_b}) +
+                          $signed({{(EXP_SUM_WIDTH-1){1'b0}}, m_sum[3]});
         end
 
         // Finalize result.

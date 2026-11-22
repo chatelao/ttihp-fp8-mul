@@ -36,7 +36,10 @@ module fp8_aligner_serial #(
     reg [MAX_DELAY-1:0] delay_line;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) delay_line <= {MAX_DELAY{1'b0}};
-        else if (ena) delay_line <= {delay_line[MAX_DELAY-2:0], prod_bit};
+        else if (ena) begin
+            if (strobe) delay_line <= {MAX_DELAY{1'b0}};
+            else delay_line <= {delay_line[MAX_DELAY-2:0], prod_bit};
+        end
     end
 
     // Selected magnitude bit after delay.

@@ -91,24 +91,29 @@ module tt_gowin_top_m3 #(
             // GPIO Mapping from M3 to MAC (16-bit Multiplexed Interface)
             reg [7:0] ui_in_reg;
             reg [7:0] uio_in_reg;
+            reg       gpio_clk_d;
 
             always @(posedge ext_clk or negedge ext_rst_n) begin
                 if (!ext_rst_n) begin
                     ui_in_reg  <= 8'b0;
                     uio_in_reg <= 8'b0;
-                end else if (m3_gpio_o[14]) begin // write_strobe
-                    case (m3_gpio_o[10:8])
-                        3'd0: ui_in_reg  <= m3_gpio_o[7:0];
-                        3'd1: uio_in_reg <= m3_gpio_o[7:0];
-                    endcase
+                    gpio_clk_d <= 1'b0;
+                end else begin
+                    gpio_clk_d <= m3_gpio_o[11];
+                    if (m3_gpio_o[14]) begin // write_strobe
+                        case (m3_gpio_o[10:8])
+                            3'd0: ui_in_reg  <= m3_gpio_o[7:0];
+                            3'd1: uio_in_reg <= m3_gpio_o[7:0];
+                        endcase
+                    end
                 end
             end
 
             assign ui_in     = ui_in_reg;
             assign uio_in    = uio_in_reg;
-            assign mac_clk   = m3_gpio_o[11];
+            assign mac_clk   = ext_clk;
             assign mac_rst_n = m3_gpio_o[12];
-            assign mac_ena   = m3_gpio_o[13];
+            assign mac_ena   = m3_gpio_o[13] && m3_gpio_o[11] && !gpio_clk_d;
 
             // M3 Input GPIO[7:0]: Read data from MAC
             reg [7:0] m3_gpio_i_data;
@@ -140,27 +145,28 @@ module tt_gowin_top_m3 #(
             reg [7:0] uio_in_reg;
             reg       mac_ena_reg;
             reg       mac_rst_n_reg;
-            reg       apb_mac_clk_reg;
+            reg       apb_mac_ena_pulse;
+            wire      apb_addr_hit = (m3_addr[15:8] == APB_BASE_ADDR[15:8]);
 
             always @(posedge ext_clk or negedge ext_rst_n) begin
                 if (!ext_rst_n) begin
-                    ui_in_reg       <= 8'b0;
-                    uio_in_reg      <= 8'b0;
-                    mac_ena_reg     <= 1'b0;
-                    mac_rst_n_reg   <= 1'b0;
-                    apb_mac_clk_reg <= 1'b0;
+                    ui_in_reg         <= 8'b0;
+                    uio_in_reg        <= 8'b0;
+                    mac_ena_reg       <= 1'b0;
+                    mac_rst_n_reg     <= 1'b0;
+                    apb_mac_ena_pulse <= 1'b0;
                 end else begin
-                    apb_mac_clk_reg <= 1'b0; // Default to 0, single pulse on write to DATA_IN
-                    if (m3_write) begin
+                    apb_mac_ena_pulse <= 1'b0; // Default to 0, single-cycle synchronous enable pulse
+                    if (m3_write && apb_addr_hit) begin
                         case (m3_addr[7:0])
                             8'h00: begin
-                                ui_in_reg       <= m3_data_out[7:0];
-                                uio_in_reg      <= m3_data_out[15:8];
-                                apb_mac_clk_reg <= 1'b1;
+                                ui_in_reg         <= m3_data_out[7:0];
+                                uio_in_reg        <= m3_data_out[15:8];
+                                apb_mac_ena_pulse <= 1'b1;
                             end
                             8'h08: begin
-                                mac_ena_reg     <= m3_data_out[0];
-                                mac_rst_n_reg   <= m3_data_out[1];
+                                mac_ena_reg   <= m3_data_out[0];
+                                mac_rst_n_reg <= m3_data_out[1];
                             end
                         endcase
                     end
@@ -169,18 +175,22 @@ module tt_gowin_top_m3 #(
 
             assign ui_in     = ui_in_reg;
             assign uio_in    = uio_in_reg;
-            assign mac_clk   = apb_mac_clk_reg;
+            assign mac_clk   = ext_clk;
             assign mac_rst_n = mac_rst_n_reg;
-            assign mac_ena   = mac_ena_reg;
+            assign mac_ena   = apb_mac_ena_pulse && mac_ena_reg;
 
             reg [31:0] prdata_reg;
             always @(*) begin
-                case (m3_addr[7:0])
-                    8'h00:   prdata_reg = {16'h0, uio_in_reg, ui_in_reg};
-                    8'h04:   prdata_reg = {16'h0, uio_out, uo_out_mac};
-                    8'h08:   prdata_reg = {30'h0, mac_rst_n_reg, mac_ena_reg};
-                    default: prdata_reg = 32'h0;
-                endcase
+                if (m3_read && apb_addr_hit) begin
+                    case (m3_addr[7:0])
+                        8'h00:   prdata_reg = {16'h0, uio_in_reg, ui_in_reg};
+                        8'h04:   prdata_reg = {16'h0, uio_out, uo_out_mac};
+                        8'h08:   prdata_reg = {30'h0, mac_rst_n_reg, mac_ena_reg};
+                        default: prdata_reg = 32'h0;
+                    endcase
+                end else begin
+                    prdata_reg = 32'h0;
+                end
             end
             assign m3_data_in = prdata_reg;
 
@@ -207,10 +217,10 @@ module tt_gowin_top_m3 #(
                     ahb_addr_reg  <= 8'h0;
                     ahb_write_reg <= 1'b0;
                     ahb_sel_reg   <= 1'b0;
-                end else if (m3_hreadyout) begin
+                end else if (m3_hready) begin
                     ahb_addr_reg  <= m3_haddr[7:0];
                     ahb_write_reg <= m3_hwrite;
-                    ahb_sel_reg   <= (m3_haddr[31:8] == AHB_BASE_ADDR[31:8]) && m3_htrans[1];
+                    ahb_sel_reg   <= m3_hsel && (m3_haddr[31:8] == AHB_BASE_ADDR[31:8]) && m3_htrans[1];
                 end
             end
 
@@ -218,27 +228,27 @@ module tt_gowin_top_m3 #(
             reg [7:0] uio_in_reg;
             reg       mac_ena_reg;
             reg       mac_rst_n_reg;
-            reg       ahb_mac_clk_reg;
+            reg       ahb_mac_ena_pulse;
 
             always @(posedge ext_clk or negedge ext_rst_n) begin
                 if (!ext_rst_n) begin
-                    ui_in_reg       <= 8'b0;
-                    uio_in_reg      <= 8'b0;
-                    mac_ena_reg     <= 1'b0;
-                    mac_rst_n_reg   <= 1'b0;
-                    ahb_mac_clk_reg <= 1'b0;
+                    ui_in_reg         <= 8'b0;
+                    uio_in_reg        <= 8'b0;
+                    mac_ena_reg       <= 1'b0;
+                    mac_rst_n_reg     <= 1'b0;
+                    ahb_mac_ena_pulse <= 1'b0;
                 end else begin
-                    ahb_mac_clk_reg <= 1'b0;
+                    ahb_mac_ena_pulse <= 1'b0;
                     if (ahb_sel_reg && ahb_write_reg) begin
                         case (ahb_addr_reg[7:0])
                             8'h00: begin
-                                ui_in_reg       <= m3_hwdata[7:0];
-                                uio_in_reg      <= m3_hwdata[15:8];
-                                ahb_mac_clk_reg <= 1'b1;
+                                ui_in_reg         <= m3_hwdata[7:0];
+                                uio_in_reg        <= m3_hwdata[15:8];
+                                ahb_mac_ena_pulse <= 1'b1;
                             end
                             8'h08: begin
-                                mac_ena_reg     <= m3_hwdata[0];
-                                mac_rst_n_reg   <= m3_hwdata[1];
+                                mac_ena_reg   <= m3_hwdata[0];
+                                mac_rst_n_reg <= m3_hwdata[1];
                             end
                         endcase
                     end
@@ -247,9 +257,9 @@ module tt_gowin_top_m3 #(
 
             assign ui_in     = ui_in_reg;
             assign uio_in    = uio_in_reg;
-            assign mac_clk   = ahb_mac_clk_reg;
+            assign mac_clk   = ext_clk;
             assign mac_rst_n = mac_rst_n_reg;
-            assign mac_ena   = mac_ena_reg;
+            assign mac_ena   = ahb_mac_ena_pulse && mac_ena_reg;
 
             reg [31:0] hrdata_mux;
             always @(*) begin
@@ -293,7 +303,7 @@ module tt_gowin_top_m3 #(
                 .s_hsize(m3_hsize),
                 .s_hwdata(m3_hwdata),
                 .s_hsel(m3_hsel),
-                .s_hready(m3_hreadyout),
+                .s_hready(m3_hready),
                 .s_hrdata(m3_hrdata),
                 .s_hreadyout(m3_hreadyout), // Bridge drives system ready
                 .s_hresp(m3_hresp),

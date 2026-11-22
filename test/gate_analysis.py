@@ -58,7 +58,7 @@ def main():
     baseline_gates = get_yosys_stats(baseline_params)
     if baseline_gates is None:
         print("Error: Baseline synthesis failed.")
-        return
+        raise SystemExit(1)
 
     print(f"{'Configuration':<30} | {'Gates':<10} | {'Delta':<10}")
     print("-" * 55)

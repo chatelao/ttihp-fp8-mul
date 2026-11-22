@@ -116,15 +116,16 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
     uint8_t cycle0_ui = meta_ui_base | (nbm_offset_a & 0x07);
     uint8_t cycle0_uio = meta_uio_base | (nbm_offset_b & 0x07);
 
-    // Reset Sequence
-    GPIO0_DATA &= ~(1 << BIT_RST);
-    clock_tick();
-    clock_tick();
-    GPIO0_DATA |= (1 << BIT_RST);
+    // Reset Sequence (skip reset when Short Protocol reuses loaded scales)
+    if (!(cycle0_ui & 0x80)) {
+        GPIO0_DATA &= ~(1 << BIT_RST);
+        clock_tick();
+        clock_tick();
+        GPIO0_DATA |= (1 << BIT_RST);
+    }
     GPIO0_DATA |= (1 << BIT_ENA);
-    clock_tick();
 
-    // Cycle 0: IDLE / Metadata
+    // Cycle 0: IDLE / Metadata (write BEFORE clocking Cycle 0!)
     write_ui_in(cycle0_ui);
     write_uio_in(cycle0_uio);
     clock_tick();
@@ -143,9 +144,10 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
         clock_tick();
     }
 
-    // Cycles 3-34: Stream elements
-    // In Packed mode, we only stream 16 cycles, but the driver can send 32 without harm (FSM handles it)
-    for (int i = 0; i < 32; i++) {
+    // Cycles 3-34 (Standard) or 3-18 (Packed FP4): Stream elements
+    int is_packed = (cycle0_uio & 0x40) && ((format_a & 0x07) == 4) && ((format_b & 0x07) == 4);
+    int stream_cycles = is_packed ? 16 : 32;
+    for (int i = 0; i < stream_cycles; i++) {
         write_ui_in(element_a);
         write_uio_in(element_b);
         clock_tick();
@@ -204,8 +206,8 @@ int main() {
                 uart_puts("Result: "); uart_puthex(res); uart_puts("\r\n");
                 break;
             case 'p':
-                uart_puts("Packed E4M3 (Dual Lane)...\r\n");
-                res = run_mac_test_ext(lns_bits, 0x40, 0, 0, 127, 0, 0, 127, 0, 0, 0x38, 0x38);
+                uart_puts("Packed FP4 (Dual Lane)...\r\n");
+                res = run_mac_test_ext(lns_bits, 0x40, 0, 0, 127, 4, 0, 127, 4, 0, 0x22, 0x22);
                 uart_puts("Result: "); uart_puthex(res); uart_puts("\r\n");
                 break;
             case 'm':

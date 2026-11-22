@@ -59,8 +59,8 @@ function decode_int8(bits) {
 }
 
 function decode_int8_sym(bits) {
-    // Symmetric INT8: -127 to 127, 0x80 is NaN or saturated
-    if (bits === 0x80) return NaN;
+    // Symmetric INT8: -127 to 127, 0x80 clamped to -127
+    if (bits === 0x80) return -127 / 64.0;
     let val = bits >= 128 ? bits - 256 : bits;
     return val / 64.0;
 }
@@ -160,12 +160,6 @@ async function runSimulation() {
     if (!twin) return;
     log("Starting simulation cycle...");
 
-    // Reset
-    twin.set_rst_n(false);
-    twin.step();
-    twin.set_rst_n(true);
-    twin.set_ena(true);
-
     const getVal = (id) => parseInt(document.getElementById(id).value);
     const getHex = (id) => parseInt(document.getElementById(id).value, 16) || 0;
     const isChecked = (id) => {
@@ -173,13 +167,26 @@ async function runSimulation() {
         return el ? (el.type === 'checkbox' ? el.checked : el.value === '1') : false;
     };
 
-    const isPacked = getVal('packed-mode') === 1;
     const isShort = isChecked('short-protocol');
+    const isFloat32 = !document.getElementById('output-format') || getVal('output-format') === 1;
+    const fmtA = getVal('format-a');
+    const fmtB = getVal('format-b');
+    const isPacked = (getVal('packed-mode') === 1) && (fmtA === 4) && (fmtB === 4);
+
+    // Reset unless Short Protocol is reusing previously loaded scales
+    if (!isShort) {
+        twin.set_rst_n(false);
+        twin.step();
+        twin.set_rst_n(true);
+    }
+    twin.set_ena(true);
 
     // Cycle 0: Metadata
     let ui0 = (getVal('lns-mode') << 3) | (getVal('nbm-offset-a'));
+    if (isFloat32) ui0 |= 0x20;
     if (isShort) ui0 |= 0x80;
-    const uio0 = (getVal('mx-plus-en') << 7) | (getVal('packed-mode') << 6) | (getVal('overflow-mode') << 5) | (getVal('rounding-mode') << 3) | (getVal('nbm-offset-b'));
+    const uioLow = isShort ? (fmtA & 0x07) : (getVal('nbm-offset-b') & 0x07);
+    const uio0 = (getVal('mx-plus-en') << 7) | (getVal('packed-mode') << 6) | (getVal('overflow-mode') << 5) | (getVal('rounding-mode') << 3) | uioLow;
 
     twin.set_ui_in(ui0);
     twin.set_uio_in(uio0);
@@ -189,7 +196,7 @@ async function runSimulation() {
     if (!isShort) {
         // Cycle 1: Scale A / Config A
         const ui1 = getHex('scale-a');
-        const uio1 = (getVal('bm-index-a') << 3) | getVal('format-a');
+        const uio1 = (getVal('bm-index-a') << 3) | fmtA;
         twin.set_ui_in(ui1);
         twin.set_uio_in(uio1);
         twin.step();
@@ -197,7 +204,7 @@ async function runSimulation() {
 
         // Cycle 2: Scale B / Config B
         const ui2 = getHex('scale-b');
-        const uio2 = (getVal('bm-index-b') << 3) | getVal('format-b');
+        const uio2 = (getVal('bm-index-b') << 3) | fmtB;
         twin.set_ui_in(ui2);
         twin.set_uio_in(uio2);
         twin.step();
@@ -225,40 +232,48 @@ async function runSimulation() {
     twin.step();
     log("Flush and scaling completed.");
 
-    // Read Result: 4 bytes
+    // Read Result: 4 bytes (read uo_out BEFORE stepping to the next cycle)
     let result = 0n;
     const captureCycle = streamLimit + (isShort ? 2 : 4);
     for (let i = 0; i < 4; i++) {
-        twin.step();
         const byte = BigInt(twin.get_uo_out());
         result = (result << 8n) | byte;
         log(`Cycle ${captureCycle + 1 + i}: Output byte = 0x${byte.toString(16).padStart(2, '0')}`);
+        twin.step();
     }
 
-    // Process 32-bit result as IEEE 754 Float32
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setUint32(0, Number(result & 0xFFFFFFFFn), false);
-    const floatRes = view.getFloat32(0, false);
-
-    // Binary representation
     const bits = result & 0xFFFFFFFFn;
-    const sign = (bits >> 31n) & 1n;
-    const exp = (bits >> 23n) & 0xFFn;
-    const mant = bits & 0x7FFFFFn;
-    const binStr = `${sign} | ${exp.toString(2).padStart(8, '0')} | ${mant.toString(2).padStart(23, '0')}`;
+    document.getElementById('acc-hex').textContent = `0x${bits.toString(16).padStart(8, '0').toUpperCase()}`;
 
-    document.getElementById('acc-hex').textContent = `0x${result.toString(16).padStart(8, '0').toUpperCase()}`;
-    document.getElementById('acc-dec').textContent = floatRes.toExponential(4);
-    document.getElementById('acc-bin').textContent = binStr;
+    if (isFloat32) {
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+        view.setUint32(0, Number(bits), false);
+        const floatRes = view.getFloat32(0, false);
 
-    if (isNaN(floatRes)) {
-        document.getElementById('status-flags').textContent = "NaN (Not a Number)";
-    } else if (!isFinite(floatRes)) {
-        document.getElementById('status-flags').textContent = "Infinity";
+        const sign = (bits >> 31n) & 1n;
+        const exp = (bits >> 23n) & 0xFFn;
+        const mant = bits & 0x7FFFFFn;
+        const binStr = `${sign} | ${exp.toString(2).padStart(8, '0')} | ${mant.toString(2).padStart(23, '0')}`;
+
+        document.getElementById('acc-dec').textContent = floatRes.toExponential(4);
+        document.getElementById('acc-bin').textContent = binStr;
+
+        if (isNaN(floatRes)) {
+            document.getElementById('status-flags').textContent = "NaN (Not a Number)";
+        } else if (!isFinite(floatRes)) {
+            document.getElementById('status-flags').textContent = "Infinity";
+        } else {
+            document.getElementById('status-flags').textContent = "Normal (Float32)";
+        }
+        log(`Final Result (Float32): ${floatRes} (Bits: ${binStr})`);
     } else {
-        document.getElementById('status-flags').textContent = "Normal";
+        const signedInt = Number(bits >= 0x80000000n ? bits - 0x100000000n : bits);
+        const fixedVal = signedInt / 256.0;
+        const binStr = bits.toString(2).padStart(32, '0');
+        document.getElementById('acc-dec').textContent = fixedVal.toFixed(6);
+        document.getElementById('acc-bin').textContent = binStr;
+        document.getElementById('status-flags').textContent = "Fixed-Point S23.8";
+        log(`Final Result (S23.8): ${fixedVal} (Raw: ${signedInt})`);
     }
-
-    log(`Final Result: ${floatRes} (Bits: ${binStr})`);
 }
