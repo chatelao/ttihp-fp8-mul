@@ -5,6 +5,10 @@ from cocotb.triggers import FallingEdge, RisingEdge, Timer
 @cocotb.test()
 async def test_asynchronous_reset(dut):
     """Verify that rst_n acts as an asynchronous reset."""
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping test_asynchronous_reset: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 

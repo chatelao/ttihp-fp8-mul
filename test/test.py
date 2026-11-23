@@ -511,6 +511,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
                                    offset_b=nbm_offset_b if mx_plus_mode else 0,
                                    lns_mode=lns_mode)
 
+        acc_min = -(1 << (acc_width - 1))
+        acc_max = (1 << (acc_width - 1)) - 1
+        if not overflow_wrap:
+            if prod > acc_max:
+                prod = acc_max
+            elif prod < acc_min:
+                prod = acc_min
+
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
         prod_masked = prod & mask
@@ -684,6 +692,9 @@ async def test_mxfp8_mac_e4m3(dut):
 
 @cocotb.test()
 async def test_mxfp8_mac_e5m2(dut):
+    if not get_param(dut, "SUPPORT_E5M2", 1):
+        dut._log.info("Skipping test_mxfp8_mac_e5m2: SUPPORT_E5M2=0")
+        return
     dut._log.info("Start MXFP8 MAC Test (E5M2)")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -830,23 +841,25 @@ async def test_mxfp_mac_randomized(dut):
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
     support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
 
-    dut._log.info(f"Start Randomized MXFP MAC Test (E4M3={support_e4m3}, E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
+    dut._log.info(f"Start Randomized MXFP MAC Test (E4M3={support_e4m3}, E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, INT8={support_int8}, ADV={support_adv}, MIX={support_mixed})")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    allowed_formats = [5, 6]
+    allowed_formats = []
     if support_e4m3: allowed_formats.append(0)
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
+    if support_int8: allowed_formats.extend([5, 6])
 
     for i in range(50):
         format_a = random.choice(allowed_formats)
         format_b = random.choice(allowed_formats) if support_mixed else format_a
-        round_mode = random.randint(0, 3) if support_adv else random.choice([0, 3]) # Only TRN and RNE if no ADV
+        round_mode = random.randint(0, 3) if support_adv else 0 # Only TRN if SUPPORT_ADV_ROUNDING=0
         overflow_wrap = random.randint(0, 1)
         scale_a = random.randint(110, 140) # Keep range reasonable for test
         scale_b = random.randint(110, 140)
@@ -1050,7 +1063,7 @@ async def run_yaml_file(dut, filename):
         if not support_shared and (inputs.get('scale_a', 127) != 127 or inputs.get('scale_b', 127) != 127):
             dut._log.info(f"Skipping Case {case['test_case']}: Shared Scaling not supported")
             continue
-        if not support_adv and inputs.get('round_mode', 0) in [1, 2]:
+        if not support_adv and inputs.get('round_mode', 0) in [1, 2, 3]:
             dut._log.info(f"Skipping Case {case['test_case']}: Advanced Rounding not supported")
             continue
 

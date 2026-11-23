@@ -21,6 +21,10 @@ async def reset_with_debug(dut, debug_en=0, probe_sel=0, loopback_en=0, rm=0, ov
 @cocotb.test()
 async def test_debug_loopback(dut):
     dut._log.info("Start Debug Loopback Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -40,6 +44,10 @@ async def test_debug_loopback(dut):
 @cocotb.test()
 async def test_debug_probes(dut):
     dut._log.info("Start Debug Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -83,6 +91,10 @@ async def test_debug_probes(dut):
 @cocotb.test()
 async def test_debug_metadata_echo(dut):
     dut._log.info("Start Debug Metadata Echo Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -146,6 +158,10 @@ async def test_debug_metadata_echo(dut):
 @cocotb.test()
 async def test_uio_loopback(dut):
     dut._log.info("Start UIO Loopback Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -169,6 +185,10 @@ async def test_uio_loopback(dut):
 @cocotb.test()
 async def test_loopback_persistence(dut):
     dut._log.info("Start Loopback Persistence Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -190,6 +210,10 @@ async def test_loopback_persistence(dut):
 @cocotb.test()
 async def test_debug_no_packed_interference(dut):
     dut._log.info("Start Debug No Packed Interference Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -222,6 +246,10 @@ async def test_debug_no_packed_interference(dut):
 @cocotb.test()
 async def test_debug_exceptions(dut):
     dut._log.info("Start Debug Exceptions Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -287,6 +315,10 @@ async def test_debug_exceptions(dut):
 @cocotb.test()
 async def test_debug_multiplier_probes(dut):
     dut._log.info("Start Debug Multiplier Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -380,6 +412,10 @@ async def test_debug_multiplier_probes(dut):
 @cocotb.test()
 async def test_debug_accumulator_probes(dut):
     dut._log.info("Start Debug Accumulator Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -458,6 +494,10 @@ async def test_debug_accumulator_probes(dut):
 @cocotb.test()
 async def test_debug_lane1_probes(dut):
     dut._log.info("Start Debug Lane 1 Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -498,6 +538,10 @@ async def test_debug_lane1_probes(dut):
 @cocotb.test()
 async def test_debug_float32_probes(dut):
     """Verify Float32 mode (ui_in[5]=1) can be probed with 0xE without triggering loopback (Decision 1)."""
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
