@@ -570,7 +570,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    if float32_mode:
+    support_float32 = get_param(dut, "SUPPORT_FLOAT32", 1)
+    if float32_mode and support_float32:
         # If hardware doesn't support shared scaling, it uses fixed scale 1.0 (shared_exp=0)
         eff_scale_a = scale_a if support_shared else 127
         eff_scale_b = scale_b if support_shared else 127
@@ -652,6 +653,9 @@ async def test_mxfp8_mac_shared_scale(dut):
 
 @cocotb.test()
 async def test_float32_basic(dut):
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_basic: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Basic Integration Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1343,6 +1347,9 @@ async def test_float32_randomized(dut):
     Perform randomized tests for the Float32 conversion path.
     Tests various combinations of shared scales and input formats.
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_randomized: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Randomized Float32 Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1351,13 +1358,15 @@ async def test_float32_randomized(dut):
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
 
-    allowed_formats = [5, 6] # INT8
+    allowed_formats = []
     if support_e4m3: allowed_formats.append(0)
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
+    if support_int8: allowed_formats.extend([5, 6])
 
     import random
     for i in range(50):
@@ -1377,6 +1386,9 @@ async def test_float32_exceptions_integration(dut):
     Verify that NaNs and Infinities correctly propagate through the F2F path
     in top-level integration.
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_exceptions_integration: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Exceptions Integration Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1406,6 +1418,9 @@ async def test_float32_subnormals(dut):
     Verify subnormal handling at the top level for Float32 mode.
     Subnormals in Binary32 start below 2^-126.
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_subnormals: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Subnormals Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1436,6 +1451,9 @@ async def test_float32_rounding_carry(dut):
     Verify that mantissa rounding carry-out correctly increments the exponent.
     Example: 1.11...1 rounded up to 10.00...0
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_rounding_carry: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Rounding Carry Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
