@@ -74,6 +74,9 @@ async def test_ofp8_e5m2_compliance(dut):
 @cocotb.test()
 async def test_ofp8_rounding_compliance(dut):
     """Verify roundTiesToEven requirement"""
+    if not get_param(dut, "SUPPORT_E4M3", 1) or not get_param(dut, "SUPPORT_ADV_ROUNDING", 1):
+        dut._log.info("Skipping E4M3 rounding compliance test")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -94,6 +97,9 @@ async def test_ofp8_rounding_compliance(dut):
 @cocotb.test()
 async def test_ofp8_signed_zeros(dut):
     """Compliance test for OCP-OFP8 signed zeros"""
+    if not get_param(dut, "SUPPORT_E4M3", 1):
+        dut._log.info("Skipping E4M3 signed zeros test")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 

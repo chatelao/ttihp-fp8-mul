@@ -140,12 +140,14 @@ async def test_edge_cases(dut):
     cocotb.start_soon(clock.start())
 
     from test import get_param
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     support_int8 = get_param(dut, "SUPPORT_INT8", 0)
 
     for fmt in range(7):
+        if fmt == 0 and not support_e4m3: continue
         if fmt == 1 and not support_e5m2: continue
         if fmt in [2, 3] and not support_mxfp6: continue
         if fmt == 4 and not support_mxfp4: continue
@@ -167,12 +169,17 @@ async def test_shared_scale_coverage(dut):
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
+    from test import get_param
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    fmt = 0 if support_e4m3 else 4
+    el_one = 0x38 if support_e4m3 else 0x02
+
     scales = [0, 127, 128, 255]
     for sa in scales:
         for sb in scales:
-            a_els = [0x38] * 32
-            b_els = [0x38] * 32
-            await run_mac_test_covered(dut, 0, 0, a_els, b_els, scale_a=sa, scale_b=sb)
+            a_els = [el_one] * 32
+            b_els = [el_one] * 32
+            await run_mac_test_covered(dut, fmt, fmt, a_els, b_els, scale_a=sa, scale_b=sb)
 
 @cocotb.test()
 async def test_lns_coverage(dut):
@@ -216,15 +223,18 @@ async def test_randomized_coverage(dut):
     cocotb.start_soon(clock.start())
 
     from test import get_param
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
     support_int8 = get_param(dut, "SUPPORT_INT8", 0)
+    support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 0)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 0)
     support_mxplus = get_param(dut, "SUPPORT_MX_PLUS", 0)
     use_lns = get_param(dut, "USE_LNS_MUL", 0)
 
-    allowed_formats = [0]
+    allowed_formats = []
+    if support_e4m3: allowed_formats.append(0)
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
@@ -235,7 +245,7 @@ async def test_randomized_coverage(dut):
     for _ in range(num_iters):
         fa = random.choice(allowed_formats)
         fb = random.choice(allowed_formats) if support_mixed else fa
-        rm = random.randint(0, 3)
+        rm = random.randint(0, 3) if support_adv else 0
         ov = random.randint(0, 1)
         pm = random.choice([0, 1]) if (fa == 4 and fb == 4) else 0
         sa = random.randint(0, 255)
