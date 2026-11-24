@@ -43,6 +43,7 @@ module tb ();
   parameter USE_LNS_MUL = 0;
   parameter USE_LNS_MUL_PRECISE = 1;
   parameter SUPPORT_DEBUG = 1;
+  parameter SUPPORT_FLOAT32 = 1;
 
 `ifdef GL_TEST
   // Gate-level simulation instantiation (no parameters)
@@ -78,7 +79,8 @@ module tb ();
       .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
       .USE_LNS_MUL(USE_LNS_MUL),
       .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
-      .SUPPORT_DEBUG(SUPPORT_DEBUG)
+      .SUPPORT_DEBUG(SUPPORT_DEBUG),
+      .SUPPORT_FLOAT32(SUPPORT_FLOAT32)
   ) user_project (
       .ui_in  (ui_in),    // Dedicated inputs
       .uo_out (uo_out),   // Dedicated outputs

@@ -5,7 +5,7 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = ../src
-PROJECT_SOURCES = project.v fp8_mul.v fp8_mul_lns.v fp8_mul_serial_lns.v fp8_aligner.v fp8_aligner_serial.v accumulator.v lzc40.v fixed_to_float.v
+PROJECT_SOURCES = project.v fp8_mul.v fp8_mul_lns.v fp8_mul_serial_lns.v fp8_aligner.v fp8_aligner_serial.v accumulator.v accumulator_serial.v lzc40.v fixed_to_float.v
 
 ifeq ($(GATES),yes)
 
@@ -15,6 +15,7 @@ COMPILE_ARGS    += -DGL_TEST
 COMPILE_ARGS    += -DFUNCTIONAL
 COMPILE_ARGS    += -DSIM
 VERILOG_SOURCES += $(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_io/verilog/sg13cmos5l_io.v
+VERILOG_SOURCES += $(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog/sg13cmos5l_udp.v
 VERILOG_SOURCES += $(PDK_ROOT)/ihp-sg13cmos5l/libs.ref/sg13cmos5l_stdcell/verilog/sg13cmos5l_stdcell.v
 
 # this gets copied in by the GDS action workflow

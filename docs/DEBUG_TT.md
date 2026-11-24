@@ -7,9 +7,10 @@ This document proposes "best practices" debug capabilities for the OCP MXFP8 Str
 Since the OCP protocol leaves `uo_out` unused (driven to `0x00`) during the `IDLE`, `LOAD_SCALE`, and `STREAM` phases (Cycles 0–36), we can repurpose these pins for real-time internal signal probing.
 
 ### Configuration
-A "Debug Instruction" is sampled in **Cycle 0** (STATE_IDLE):
+A "Debug Instruction" is sampled in **Cycle 0** (`STATE_IDLE`):
 - `ui_in[6]`: **Enable Debug Mode** (1 = Active, 0 = Normal)
-- `uio_in[3:0]`: **Probe Selector** (Determines what signal is muxed to `uo_out`)
+- `ui_in[5]`: **Float32 Output Mode** (Dedicated; does not trigger loopback)
+- `ui_in[3:0]`: **Probe Selector** (Determines what signal is muxed to `uo_out`; `lns_mode` and `nbm_offset_a` hold their values when `ui_in[6]=1`)
 
 ![Metadata 1 (uio_in) Debug Mode](metadata_c0_uio_debug.svg)
 
@@ -31,12 +32,14 @@ A "Debug Instruction" is sampled in **Cycle 0** (STATE_IDLE):
 | `0xB` | **Multiplier Lane 1 MSB** | `mul_prod_lane1[15:8]` |
 | `0xC` | **Multiplier Lane 1 LSB** | `mul_prod_lane1[7:0]` |
 | `0xD` | **Multiplier Lane 1 Meta** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum[4:0] |
+| `0xE` | **Float32 Status** | `[7]` float32_mode, `[6:1]` LZC, `[0]` underflow |
+| `0xF` | **Float32 Exponent** | `f2f_exp_biased[7:0]` |
 
 ## 2. Connectivity Loopback
 
 To verify the PCB/Socket connectivity and the TT infrastructure before running complex arithmetic, a transparent loopback mode is provided.
 
-- **Trigger**: `ui_in[5]` is set to `1` in **Cycle 0**.
+- **Trigger**: `ui_in[6] = 1` **AND** `ui_in[4] = 1` in **Cycle 0**.
 - **Behavior**: The unit enters a persistent "Loopback Mode" until reset. It is **sticky** across block boundaries once enabled.
   - `uo_out = ui_in ^ uio_in`
   - `uio_oe = 8'h00` (All pins remain inputs to avoid combinational loops)

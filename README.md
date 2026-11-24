@@ -49,7 +49,6 @@ We gratefully acknowledge these contributions to the open-source hardware and AI
 - [Tang Nano 4K Deployment & Testing Guide](src_gowin/TANG_NANO_4K_GUIDE.md)
 - [Cortex-M3 Testbench Roadmap](src_m3/TANG_M3_ROADMAP.md)
 - [Cortex-M3 Testbench Guide](src_m3/TANG_NANO_M3_TESTBENCH.md)
-- [Local Setup Guide (WSL2)](docs/hardware/LOCAL_SETUP.md)
 
 ## Protocol Description (MCU to TT/FPGA)
 
@@ -87,11 +86,14 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 
 - **Short Protocol (`ui_in[7]=1`)**:
   - Immediately jumps to Cycle 3, reusing previous Scales.
-- **Standard Start (`ui_in[7]=0`)**:
+- **Standard Start (`ui_in[7]=0`, `ui_in[6]=0`)**:
   - `ui_in[2:0]`: **NBM Offset A** (MX++)
-- **Common Metadata** (captured in both Standard and Short protocols):
   - `ui_in[4:3]`: **LNS Mode** (0: Normal, 1: LNS, 2: Hybrid)
-  - `ui_in[5]`: **Loopback Enable** (Bypasses unit; `uo_out = ui_in ^ uio_in`)
+- **Debug Mode (`ui_in[6]=1`)**:
+  - `ui_in[3:0]`: **Probe Selection** (0x0–0xF; `lns_mode` and `nbm_offset_a` hold their previous values)
+  - `ui_in[4]`: **Loopback Enable** (Sticky when `ui_in[6]=1 && ui_in[4]=1`; `uo_out = ui_in ^ uio_in`)
+- **Common Metadata** (captured in both Standard and Short protocols):
+  - `ui_in[5]`: **Float32 Output Mode** (1: IEEE-754 Binary32, 0: Fixed-Point S23.8)
   - `ui_in[6]`: **Debug Enable** (Enables probing and metadata echo)
 
 ##### UIO_IN
@@ -128,7 +130,7 @@ The MAC unit follows a **41-cycle streaming protocol** (Cycles 0–40) to proces
 When enabled via `ui_in[6]` in Cycle 0, the `uo_out[7:0]` port provides real-time observability into the unit's internal state during the phases that are normally silent (Cycles 0-35).
 
 - **Enable**: Set `ui_in[6] = 1` during Cycle 0.
-- **Probe Selection**: Set `uio_in[3:0]` during Cycle 0 to select the internal signal to monitor.
+- **Probe Selection**: Set `ui_in[3:0]` during Cycle 0 to select the internal signal to monitor (0x0–0xF, including Float32 probes `0xE` and `0xF`).
 - **Cycles 0-34 (Standard)** or **0-18 (Packed)**: `uo_out` outputs the selected **Probe Data** (e.g., Accumulator MSB, Multiplier outputs, FSM state).
 - **Cycle 35 (Standard)** or **19 (Packed)**: `uo_out` outputs a **Metadata Echo**, confirming the captured configuration.
 
@@ -228,25 +230,27 @@ The MAC unit is highly configurable through Verilog parameters. These can be adj
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `ALIGNER_WIDTH` | 32 | Bit-width of the internal alignment datapath. |
-| `ACCUMULATOR_WIDTH` | 24 | Bit-width of the fixed-point accumulator. |
+| `ALIGNER_WIDTH` | 40 | Bit-width of the internal alignment datapath. |
+| `ACCUMULATOR_WIDTH` | 40 | Bit-width of the fixed-point accumulator. |
 | `SUPPORT_E4M3` | 1 | Enable support for E4M3 (MXFP8) format. |
-| `SUPPORT_E5M2` | 0 | Enable support for E5M2 (MXFP8) format. |
-| `SUPPORT_MXFP6` | 0 | Enable support for E3M2 and E2M3 (MXFP6) formats. |
+| `SUPPORT_E5M2` | 1 | Enable support for E5M2 (MXFP8) format. |
+| `SUPPORT_MXFP6` | 1 | Enable support for E3M2 and E2M3 (MXFP6) formats. |
 | `SUPPORT_MXFP4` | 1 | Enable support for E2M1 (MXFP4) format. |
-| `SUPPORT_INT8` | 0 | Enable support for INT8 and INT8_SYM formats. |
-| `SUPPORT_PIPELINING` | 0 | Enable multiplier pipelining for higher clock frequencies. |
-| `SUPPORT_ADV_ROUNDING` | 0 | Enable advanced rounding modes (RNE, CEL, FLR). |
-| `SUPPORT_MIXED_PRECISION`| 0 | Allow different formats for Operand A and B. |
-| `SUPPORT_VECTOR_PACKING` | 0 | Enable 2x throughput for FP4 using vector packing. |
+| `SUPPORT_INT8` | 1 | Enable support for INT8 and INT8_SYM formats. |
+| `SUPPORT_PIPELINING` | 1 | Enable multiplier pipelining for higher clock frequencies. |
+| `SUPPORT_ADV_ROUNDING` | 1 | Enable advanced rounding modes (CEL, FLR). |
+| `SUPPORT_MIXED_PRECISION`| 1 | Allow different formats for Operand A and B. |
+| `SUPPORT_VECTOR_PACKING` | 1 | Enable 2x throughput for FP4 using vector packing. |
 | `SUPPORT_PACKED_SERIAL` | 0 | Enable bit-serial throughput for packed FP4 formats. |
 | `SUPPORT_INPUT_BUFFERING` | 0 | Enable input buffering for FP4 formats. |
-| `SUPPORT_MX_PLUS` | 0 | Enable MX+ extensions (Repurposed Exponents). |
-| `SUPPORT_SERIAL` | 1 | Enable bit-serial multiplier core (reduces area). |
+| `SUPPORT_MX_PLUS` | 1 | Enable MX+ extensions (Repurposed Exponents). |
+| `SUPPORT_SERIAL` | 0 | Enable bit-serial multiplier core (reduces area). |
 | `SERIAL_K_FACTOR` | 8 | Bit-serial period (typically 8 for FP8). |
-| `ENABLE_SHARED_SCALING` | 0 | Enable OCP MX Shared Scaling logic. |
+| `ENABLE_SHARED_SCALING` | 1 | Enable OCP MX Shared Scaling logic. |
 | `USE_LNS_MUL` | 0 | Use Logarithmic Number System (LNS) multiplier core. |
-| `USE_LNS_MUL_PRECISE` | 0 | Use precise LUT-based LNS (higher area). |
+| `USE_LNS_MUL_PRECISE` | 1 | Use precise LUT-based LNS (higher area). |
+| `SUPPORT_DEBUG` | 1 | Enable real-time debug probes and metadata echo. |
+| `SUPPORT_FLOAT32` | 1 | Enable hardware Fixed-to-Float32 converter (`fixed_to_float`). |
 
 ### Pre-defined Variants
 

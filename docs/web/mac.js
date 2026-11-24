@@ -252,25 +252,28 @@ function stepSimulation() {
     const getVal = (id) => parseInt(document.getElementById(id).value);
     const getHex = (id) => parseInt(document.getElementById(id).value, 16) || 0;
 
-    const isPacked = getVal('packed-mode') === 1;
+    const isFloat32 = !document.getElementById('output-format') || getVal('output-format') === 1;
+    const fmtA = getVal('format-a');
+    const fmtB = getVal('format-b');
+    const isPacked = (getVal('packed-mode') === 1) && (fmtA === 4) && (fmtB === 4);
     const streamLimit = isPacked ? 16 : 32;
     const captureCycle = streamLimit + 4;
     const lastCycle = captureCycle + 4;
 
     if (currentCycle === 0) {
         // Metadata
-        ui_in = (getVal('lns-mode') << 3) | (getVal('nbm-offset-a'));
+        ui_in = (isFloat32 ? 0x20 : 0x00) | (getVal('lns-mode') << 3) | (getVal('nbm-offset-a'));
         uio_in = (getVal('mx-plus-en') << 7) | (getVal('packed-mode') << 6) | (getVal('overflow-mode') << 5) | (getVal('rounding-mode') << 3) | (getVal('nbm-offset-b'));
         log(`Cycle 0: Metadata ui=0x${ui_in.toString(16)}, uio=0x${uio_in.toString(16)}`);
     } else if (currentCycle === 1) {
         // Config A
         ui_in = getHex('scale-a');
-        uio_in = (getVal('bm-index-a') << 3) | getVal('format-a');
+        uio_in = (getVal('bm-index-a') << 3) | fmtA;
         log(`Cycle 1: Config A ui=0x${ui_in.toString(16)}, uio=0x${uio_in.toString(16)}`);
     } else if (currentCycle === 2) {
         // Config B
         ui_in = getHex('scale-b');
-        uio_in = (getVal('bm-index-b') << 3) | getVal('format-b');
+        uio_in = (getVal('bm-index-b') << 3) | fmtB;
         log(`Cycle 2: Config B ui=0x${ui_in.toString(16)}, uio=0x${uio_in.toString(16)}`);
     } else if (currentCycle >= 3 && currentCycle < 3 + streamLimit) {
         // Streaming
@@ -314,37 +317,48 @@ function stepSimulation() {
 }
 
 function finalizeResult() {
-    const result = outputResult;
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setUint32(0, Number(result & 0xFFFFFFFFn), false);
-    const floatRes = view.getFloat32(0, false);
+    const bits = outputResult & 0xFFFFFFFFn;
+    const isFloat32 = !document.getElementById('output-format') || parseInt(document.getElementById('output-format').value) === 1;
+    document.getElementById('acc-hex').textContent = `0x${bits.toString(16).padStart(8, '0').toUpperCase()}`;
 
-    // Binary representation
-    const bits = result & 0xFFFFFFFFn;
-    const sign = (bits >> 31n) & 1n;
-    const exp = (bits >> 23n) & 0xFFn;
-    const mant = bits & 0x7FFFFFn;
+    if (isFloat32) {
+        const buffer = new ArrayBuffer(4);
+        const view = new DataView(buffer);
+        view.setUint32(0, Number(bits), false);
+        const floatRes = view.getFloat32(0, false);
 
-    const binStr = `${sign} | ${exp.toString(2).padStart(8, '0')} | ${mant.toString(2).padStart(23, '0')}`;
+        const sign = (bits >> 31n) & 1n;
+        const exp = (bits >> 23n) & 0xFFn;
+        const mant = bits & 0x7FFFFFn;
+        const binStr = `${sign} | ${exp.toString(2).padStart(8, '0')} | ${mant.toString(2).padStart(23, '0')}`;
 
-    document.getElementById('acc-hex').textContent = `0x${result.toString(16).padStart(8, '0').toUpperCase()}`;
-    document.getElementById('acc-dec').textContent = floatRes.toExponential(4);
-    document.getElementById('acc-bin').textContent = binStr;
+        document.getElementById('acc-dec').textContent = floatRes.toExponential(4);
+        document.getElementById('acc-bin').textContent = binStr;
 
-    if (isNaN(floatRes)) {
-        document.getElementById('status-flags').textContent = "NaN (Not a Number)";
-    } else if (!isFinite(floatRes)) {
-        document.getElementById('status-flags').textContent = "Infinity";
+        if (isNaN(floatRes)) {
+            document.getElementById('status-flags').textContent = "NaN (Not a Number)";
+        } else if (!isFinite(floatRes)) {
+            document.getElementById('status-flags').textContent = "Infinity";
+        } else {
+            document.getElementById('status-flags').textContent = "Normal (Float32)";
+        }
+        log(`Final Result (Float32): ${floatRes} (Bits: ${binStr})`);
     } else {
-        document.getElementById('status-flags').textContent = "Normal";
+        const signedInt = Number(bits >= 0x80000000n ? bits - 0x100000000n : bits);
+        const fixedVal = signedInt / 256.0;
+        const binStr = bits.toString(2).padStart(32, '0');
+        document.getElementById('acc-dec').textContent = fixedVal.toFixed(6);
+        document.getElementById('acc-bin').textContent = binStr;
+        document.getElementById('status-flags').textContent = "Fixed-Point S23.8";
+        log(`Final Result (S23.8): ${fixedVal} (Raw: ${signedInt})`);
     }
-    log(`Final Result: ${floatRes} (Bits: ${binStr})`);
 }
 
 function runAll() {
     if (simulationState === "COMPLETED") resetSimulation();
-    const isPacked = (parseInt(document.getElementById('packed-mode').value) === 1);
+    const isPacked = (parseInt(document.getElementById('packed-mode').value) === 1) &&
+                     (parseInt(document.getElementById('format-a').value) === 4) &&
+                     (parseInt(document.getElementById('format-b').value) === 4);
     const lastCycle = isPacked ? 24 : 40;
     while (simulationState !== "COMPLETED" && currentCycle <= lastCycle) {
         stepSimulation();

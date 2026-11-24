@@ -4,16 +4,22 @@
 # 'prove' that your Verilog design is correct under all possible inputs.
 # This is different from simulation, which only tests specific cases.
 
+[tasks]
+prove
+bmc
+
 [options]
-mode prove      # Try to mathematically prove that all assertions hold true.
-depth 10        # How many clock cycles to look ahead during the proof.
+prove: mode prove
+prove: depth 10
+bmc: mode bmc
+bmc: depth 45
 
 [engines]
 smtbmc z3       # Use the 'Z3' solver engine (a common SMT solver).
 
 [script]
 # These commands tell Yosys (the synthesis tool) how to prepare the design.
-read -formal project.v
+read -formal -I. project.v fp8_mul.v fp8_mul_lns.v fp8_mul_serial_lns.v fp8_aligner.v fp8_aligner_serial.v accumulator.v accumulator_serial.v lzc40.v fixed_to_float.v
 prep -top tt_um_chatelao_fp8_multiplier
 
 [files]

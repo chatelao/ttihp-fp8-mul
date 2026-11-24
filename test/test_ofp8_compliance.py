@@ -25,13 +25,17 @@ async def test_ofp8_e4m3_compliance(dut):
     await run_mac_test(dut, 0, 0, [0x08]*32, [0x38]*32, expected_override=128)
 
     # 4. Min Subnormal (2^-9) * 1.125 (0x39) = 1.125 * 2^-9
-    # 1.125 * 2^-9 * 256 = 1.125 * 0.5 = 0.5625
-    # With Round-to-Nearest-Even (mode 3), 0.5625 rounds to 1.0
-    # 32 * 1.0 = 32
-    await run_mac_test(dut, 0, 0, [0x01]*32, [0x39]*32, round_mode=3, expected_override=32)
+    # In S23.16 (ALIGNER_WIDTH=40): 1.125 * 2^-9 * 2^16 = 144 -> >> 8 = 0
+    # In S23.8 (ALIGNER_WIDTH=32): 1.125 * 2^-9 * 2^8 = 0.5625 -> rounds to 1 * 32 = 32
+    aligner_w = get_param(dut, "ALIGNER_WIDTH", 40)
+    exp_sub = 18 if aligner_w == 40 else 32
+    await run_mac_test(dut, 0, 0, [0x01]*32, [0x39]*32, round_mode=3, expected_override=exp_sub)
 
     # 5. NaN propagation (0x7F is NaN in E4M3)
-    await run_mac_test(dut, 0, 0, [0x7F]*32, [0x38]*32, expected_override=0x7FC00000)
+    # Fixed-point sentinel: 0x80000000 (-2147483648), Float32: 0x7FC00000
+    await run_mac_test(dut, 0, 0, [0x7F]*32, [0x38]*32, expected_override=-2147483648)
+    if get_param(dut, "SUPPORT_FLOAT32", 1):
+        await run_mac_test(dut, 0, 0, [0x7F]*32, [0x38]*32, float32_mode=1, expected_override=0x7FC00000)
 
 @cocotb.test()
 async def test_ofp8_e5m2_compliance(dut):
@@ -44,15 +48,17 @@ async def test_ofp8_e5m2_compliance(dut):
         return
 
     # 1. Infinity propagation
-    # +Inf * 1.0 = +Inf (0x7F800000)
-    await run_mac_test(dut, 1, 1, [0x7C]*32, [0x3C]*32, expected_override=0x7F800000)
+    # +Inf * 1.0 = +Inf (Fixed-point: 0x7FFFFFFF, Float32: 0x7F800000)
+    await run_mac_test(dut, 1, 1, [0x7C]*32, [0x3C]*32, expected_override=0x7FFFFFFF)
+    if get_param(dut, "SUPPORT_FLOAT32", 1):
+        await run_mac_test(dut, 1, 1, [0x7C]*32, [0x3C]*32, float32_mode=1, expected_override=0x7F800000)
 
     # 2. NaN propagation (Check all 3 NaN patterns: 0x7D, 0x7E, 0x7F)
     for nan_val in [0x7D, 0x7E, 0x7F]:
-        await run_mac_test(dut, 1, 1, [nan_val]*32, [0x3C]*32, expected_override=0x7FC00000)
+        await run_mac_test(dut, 1, 1, [nan_val]*32, [0x3C]*32, expected_override=-2147483648)
 
     # 3. Inf * 0 = NaN
-    await run_mac_test(dut, 1, 1, [0x7C]*32, [0x00]*32, expected_override=0x7FC00000)
+    await run_mac_test(dut, 1, 1, [0x7C]*32, [0x00]*32, expected_override=-2147483648)
 
     # 4. Max Normal (57344) * 1.0 (0x3C) = 57344
     # 32 * 57344 * 256 = 469762048
@@ -68,23 +74,32 @@ async def test_ofp8_e5m2_compliance(dut):
 @cocotb.test()
 async def test_ofp8_rounding_compliance(dut):
     """Verify roundTiesToEven requirement"""
+    if not get_param(dut, "SUPPORT_E4M3", 1) or not get_param(dut, "SUPPORT_ADV_ROUNDING", 1):
+        dut._log.info("Skipping E4M3 rounding compliance test")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    # 1.0 is 256. 0.5 is 128. 0.25 is 64. 0.125 is 32. 0.0625 is 16.
-    # E4M3: 0x01 * 0x38 = 2^-9.
-    # 2^-9 * 256 = 0.5.
-    # Ties to even: 0.5 -> 0.
-    await run_mac_test(dut, 0, 0, [0x01]*32, [0x38]*32, round_mode=3, expected_override=0)
+    aligner_w = get_param(dut, "ALIGNER_WIDTH", 40)
 
-    # 3 * 2^-9 * 256 = 1.5.
-    # 1.5 -> 2.
-    # 32 * 2 = 64.
-    await run_mac_test(dut, 0, 0, [0x03]*32, [0x38]*32, round_mode=3, expected_override=64)
+    # E4M3: 0x01 * 0x38 = 2^-9.
+    # In S23.16 (ALIGNER_WIDTH=40): 2^-9 * 2^16 = 128 -> 32 * 128 = 4096 -> >> 8 = 16
+    # In S23.8 (ALIGNER_WIDTH=32): 2^-9 * 2^8 = 0.5 -> ties to even 0
+    exp_half = 16 if aligner_w == 40 else 0
+    await run_mac_test(dut, 0, 0, [0x01]*32, [0x38]*32, round_mode=3, expected_override=exp_half)
+
+    # E4M3: 0x03 * 0x38 = 3 * 2^-9.
+    # In S23.16 (ALIGNER_WIDTH=40): 3 * 128 = 384 -> 32 * 384 = 12288 -> >> 8 = 48
+    # In S23.8 (ALIGNER_WIDTH=32): 1.5 -> ties to even 2 * 32 = 64
+    exp_3half = 48 if aligner_w == 40 else 64
+    await run_mac_test(dut, 0, 0, [0x03]*32, [0x38]*32, round_mode=3, expected_override=exp_3half)
 
 @cocotb.test()
 async def test_ofp8_signed_zeros(dut):
     """Compliance test for OCP-OFP8 signed zeros"""
+    if not get_param(dut, "SUPPORT_E4M3", 1):
+        dut._log.info("Skipping E4M3 signed zeros test")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 

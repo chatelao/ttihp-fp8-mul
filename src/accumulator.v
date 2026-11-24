@@ -55,6 +55,15 @@ module accumulator #(
     // Overflow check: If the signs of the inputs are the same but the sign of the result is different.
     wire overflow = (acc_reg[WIDTH-1] == data_in[WIDTH-1]) && (sum[WIDTH-1] != acc_reg[WIDTH-1]);
 
+    wire [REG_WIDTH-1:0] load_data_ext;
+    generate
+        if (REG_WIDTH > 32) begin : gen_load_wide
+            assign load_data_ext = {load_data, {(REG_WIDTH-32){1'b0}}};
+        end else begin : gen_load_exact
+            assign load_data_ext = load_data;
+        end
+    endgenerate
+
     // This 'always' block describes sequential logic that updates on the rising edge of the clock
     // or the falling edge of the asynchronous reset.
     always @(posedge clk or negedge rst_n) begin
@@ -66,7 +75,7 @@ module accumulator #(
             acc_reg <= {REG_WIDTH{1'b0}};
         end else if (load_en) begin
             // Load: Direct assignment from load_data.
-            acc_reg <= {load_data, {(REG_WIDTH-32){1'b0}}};
+            acc_reg <= load_data_ext;
         end else if (shift_en) begin
             // Shift: Move bits 8 positions to the left, filling with zeros from the right.
             acc_reg <= {acc_reg[REG_WIDTH-9:0], 8'd0};

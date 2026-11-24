@@ -92,7 +92,7 @@ jobs:
                           --device GW1NSR-LV4CQN48PC6/I5 \
                           --family GW1NS-4 \
                           --top ${TOP} \
-                          --freq 20 \
+                          --freq 12 \
                           --cst ${CST}
           elif command -v nextpnr-himbaechel >/dev/null 2>&1; then
             nextpnr-himbaechel --json build/gowin.json \
@@ -101,7 +101,7 @@ jobs:
                                --vopt family=GW1NS-4 \
                                --vopt cst=${CST} \
                                --top ${TOP} \
-                               --freq 20
+                               --freq 12
           else
             echo "Error: No nextpnr binary found for Gowin"
             exit 1

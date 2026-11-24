@@ -60,6 +60,9 @@ async def test_fp8_mul_serial_lns_comprehensive(dut):
         (0x02, 0x02, 4, 4), # 1.0 * 1.0 (E2M1)
         (0x02, 0x38, 4, 0), # 1.0 (E2M1) * 1.0 (E4M3)
         (0x03, 0x3c, 4, 0), # 1.5 (E2M1) * 1.5 (E4M3)
+        (0xB8, 0x38, 0, 0), # -1.0 * 1.0 (E4M3, negative sign bit must not corrupt exponent)
+        (0xBC, 0xBC, 1, 1), # -1.0 * -1.0 (E5M2)
+        (0x0A, 0x38, 4, 0), # -1.0 (E2M1) * 1.0 (E4M3)
     ]
 
     for va, vb, fa, fb in test_cases:
@@ -129,3 +132,30 @@ async def test_fp8_mul_serial_lns_special_all(dut):
         dut.b_bit.value = (0x38 >> i) & 1 if i < 8 else 0
         await RisingEdge(dut.clk)
     assert dut.special_inf.value == 1
+    assert dut.special_nan.value == 0
+
+    # E5M2 Inf * 0 = NaN
+    dut.format_a.value = 1
+    dut.format_b.value = 0
+    dut.strobe.value = 1
+    await RisingEdge(dut.clk)
+    dut.strobe.value = 0
+    for i in range(12):
+        dut.a_bit.value = bits_inf[i] if i < 8 else 0
+        dut.b_bit.value = 0
+        await RisingEdge(dut.clk)
+    assert dut.special_nan.value == 1
+    assert dut.special_inf.value == 0
+
+    # E4M3 Max Finite (0x7E = 448) must NOT be NaN
+    bits_max = to_bit_stream(0x7E, 0)
+    dut.format_a.value = 0
+    dut.format_b.value = 0
+    dut.strobe.value = 1
+    await RisingEdge(dut.clk)
+    dut.strobe.value = 0
+    for i in range(12):
+        dut.a_bit.value = bits_max[i] if i < 8 else 0
+        dut.b_bit.value = (0x38 >> i) & 1 if i < 8 else 0
+        await RisingEdge(dut.clk)
+    assert dut.special_nan.value == 0

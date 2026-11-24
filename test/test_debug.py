@@ -3,15 +3,12 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles, Timer
 from test import get_param
 
-async def reset_with_debug(dut, debug_en=0, probe_sel=0, loopback_en=0, rm=0, overflow=0, packed=0, mx_plus=0):
+async def reset_with_debug(dut, debug_en=0, probe_sel=0, loopback_en=0, rm=0, overflow=0, packed=0, mx_plus=0, float32_mode=0):
     dut.ena.value = 1
-    # ui_in[6]=Debug En, [5]=Loopback En
-    dut.ui_in.value = (debug_en << 6) | (loopback_en << 5)
-    # uio_in[3:0]=Probe Sel, [4]=RM[1], [5]=Overflow, [6]=Packed, [7]=MX+ En
-    # Note: uio_in[3] is also RM[0]. So Probe Sel bits 3 and RM[0] are same.
-    uio_val = (probe_sel & 0xF) | ((rm & 2) << 3) | (overflow << 5) | (packed << 6) | (mx_plus << 7)
-    # Ensure RM[0] is consistent with probe_sel[3] if we want to be pedantic
-    # but here we just follow the requested bit mapping.
+    # Decision 1: ui_in[6]=Debug En, [5]=Float32 Mode, [4]=Loopback En (when debug_en=1), [3:0]=Probe Sel
+    dut.ui_in.value = (debug_en << 6) | (float32_mode << 5) | (loopback_en << 4) | (probe_sel & 0xF)
+    # uio_in[4:3]=RM, [5]=Overflow, [6]=Packed, [7]=MX+ En
+    uio_val = ((rm & 0x3) << 3) | (overflow << 5) | (packed << 6) | (mx_plus << 7)
     dut.uio_in.value = uio_val
     dut.rst_n.value = 0
     await ClockCycles(dut.clk, 10)
@@ -24,13 +21,17 @@ async def reset_with_debug(dut, debug_en=0, probe_sel=0, loopback_en=0, rm=0, ov
 @cocotb.test()
 async def test_debug_loopback(dut):
     dut._log.info("Start Debug Loopback Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    # Enable Loopback in Cycle 0 (loopback_en=1)
+    # Enable Loopback in Cycle 0 (debug_en=1, loopback_en=1 -> ui_in[6] && ui_in[4])
     # Ensure uio_in is 0
     dut.uio_in.value = 0
-    await reset_with_debug(dut, loopback_en=1)
+    await reset_with_debug(dut, debug_en=1, loopback_en=1)
 
     # In Loopback mode, uo_out should follow ui_in immediately (as ui_in ^ 0)
     for val in [0x55, 0xAA, 0x00, 0xFF]:
@@ -43,6 +44,10 @@ async def test_debug_loopback(dut):
 @cocotb.test()
 async def test_debug_probes(dut):
     dut._log.info("Start Debug Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -86,6 +91,10 @@ async def test_debug_probes(dut):
 @cocotb.test()
 async def test_debug_metadata_echo(dut):
     dut._log.info("Start Debug Metadata Echo Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -97,11 +106,7 @@ async def test_debug_metadata_echo(dut):
 
     # Enable debug and load metadata in Cycle 0
     # format_a=4 (FP4), RM=3 (RNE), Wrap=1, Packed=1
-    # Note: reset_with_debug sets uio_in.
-    # We want RM=3, so rm=3. Probe sel 0.
-    # uio_in[3:0]=0, [4]=RM[1]=1. RM[0] is uio_in[3], which is 0.
-    # So if we want RM=3, we need probe_sel[3]=1.
-    await reset_with_debug(dut, debug_en=1, probe_sel=8, rm=3, overflow=1, packed=1, mx_plus=0)
+    await reset_with_debug(dut, debug_en=1, probe_sel=0, rm=3, overflow=1, packed=1, mx_plus=0)
 
     # Cycle 1: Load Scale A and Format A
     # BM Index A = 0
@@ -153,11 +158,15 @@ async def test_debug_metadata_echo(dut):
 @cocotb.test()
 async def test_uio_loopback(dut):
     dut._log.info("Start UIO Loopback Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
     # Enable Loopback in Cycle 0
-    await reset_with_debug(dut, loopback_en=1)
+    await reset_with_debug(dut, debug_en=1, loopback_en=1)
     # Set ui_in to 0 after loopback is enabled
     dut.ui_in.value = 0
 
@@ -176,6 +185,10 @@ async def test_uio_loopback(dut):
 @cocotb.test()
 async def test_loopback_persistence(dut):
     dut._log.info("Start Loopback Persistence Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -183,7 +196,7 @@ async def test_loopback_persistence(dut):
     k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
 
     # Enable Loopback in Cycle 0
-    await reset_with_debug(dut, loopback_en=1)
+    await reset_with_debug(dut, debug_en=1, loopback_en=1)
 
     # Release loopback_en in Cycle 1
     dut.ui_in.value = 0
@@ -197,6 +210,10 @@ async def test_loopback_persistence(dut):
 @cocotb.test()
 async def test_debug_no_packed_interference(dut):
     dut._log.info("Start Debug No Packed Interference Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -229,6 +246,10 @@ async def test_debug_no_packed_interference(dut):
 @cocotb.test()
 async def test_debug_exceptions(dut):
     dut._log.info("Start Debug Exceptions Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -294,6 +315,10 @@ async def test_debug_exceptions(dut):
 @cocotb.test()
 async def test_debug_multiplier_probes(dut):
     dut._log.info("Start Debug Multiplier Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -387,6 +412,10 @@ async def test_debug_multiplier_probes(dut):
 @cocotb.test()
 async def test_debug_accumulator_probes(dut):
     dut._log.info("Start Debug Accumulator Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -465,6 +494,10 @@ async def test_debug_accumulator_probes(dut):
 @cocotb.test()
 async def test_debug_lane1_probes(dut):
     dut._log.info("Start Debug Lane 1 Probes Test")
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -501,3 +534,30 @@ async def test_debug_lane1_probes(dut):
     dut._log.info(f"Probe 0xC, Cycle {target_cycle}: out={actual:02x}")
     # ma=2 (1.0 in FP4), mb=2 -> p_res = 4. Aligned with << 4 -> 0x40
     assert actual == 0x40
+
+@cocotb.test()
+async def test_debug_float32_probes(dut):
+    """Verify Float32 mode (ui_in[5]=1) can be probed with 0xE without triggering loopback (Decision 1)."""
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping debug test: SUPPORT_DEBUG=0")
+        return
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial_hw = get_param(dut, "SUPPORT_SERIAL", 0)
+    k = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial_hw else 1
+
+    # Enable Debug (ui_in[6]=1), Float32 (ui_in[5]=1), Probe 0xE -> ui_in = 0x6E
+    await reset_with_debug(dut, debug_en=1, probe_sel=0xE, float32_mode=1)
+
+    # Verify loopback was NOT triggered: uo_out should not mirror ui_in ^ uio_in
+    dut.ui_in.value = 0x55
+    dut.uio_in.value = 0x00
+    await Timer(1, unit="ns")
+    val = int(dut.uo_out.value)
+    assert val != 0x55, "Loopback should not trigger when float32_mode=1 and ui_in[4]=0"
+    # Probe 0xE bit 7 is float32_mode_reg (should be 1)
+    assert (val >> 7) & 1 == 1, f"Probe 0xE bit 7 (float32_mode_reg) should be 1, got {val:02x}"
+    await ClockCycles(dut.clk, k)
+

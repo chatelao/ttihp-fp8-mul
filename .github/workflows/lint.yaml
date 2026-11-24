@@ -11,6 +11,36 @@ jobs:
         shell: bash
         run: sudo apt-get update && sudo apt-get install -y verilator
 
-      - name: Run Verilator Lint
+      - name: Run Verilator Lint (Variants)
         shell: bash
-        run: verilator --lint-only -Wall -Isrc/ --top-module tt_um_chatelao_fp8_multiplier src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/fp8_aligner_serial.v src/accumulator.v src/lzc40.v src/fixed_to_float.v
+        run: |
+          SOURCES="src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/fp8_aligner_serial.v src/accumulator.v src/accumulator_serial.v src/lzc40.v src/fixed_to_float.v"
+          for variant in Full Lite Tiny Ultra-Tiny LNS; do
+            echo "Linting $variant..."
+            PARAMS=$(python3 scripts/configure_variant.py "$variant" --format=verilator)
+            verilator --lint-only -Wall -Wno-WIDTHTRUNC -Isrc/ $PARAMS --top-module tt_um_chatelao_fp8_multiplier $SOURCES
+          done
+
+      - name: Run Verilator Lint (Gowin M3 Bridge)
+        shell: bash
+        run: |
+          SOURCES="src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/fp8_aligner_serial.v src/accumulator.v src/accumulator_serial.v src/lzc40.v src/fixed_to_float.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v"
+          for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB M3_MODE_AHB_DMA; do
+            echo "Linting Gowin $mode..."
+            verilator --lint-only -Wall -Isrc/ -D$mode -Wno-PINCONNECTEMPTY -Wno-PINMISSING -Wno-DECLFILENAME -Wno-UNUSEDSIGNAL -Wno-UNDRIVEN -Wno-CASEINCOMPLETE --top-module tt_gowin_top_m3 $SOURCES
+          done
+
+  formal:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install oss-cad-suite
+        uses: YosysHQ/setup-oss-cad-suite@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run SymbiYosys Formal Verification
+        working-directory: src
+        run: sby -f project.sby bmc

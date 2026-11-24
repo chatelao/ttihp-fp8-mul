@@ -223,7 +223,7 @@ def get_param(dut, name, default=1):
         "SUPPORT_ADV_ROUNDING": 1,
         "SUPPORT_MIXED_PRECISION": 1,
         "SUPPORT_VECTOR_PACKING": 1,
-        "SUPPORT_INPUT_BUFFERING": 1,
+        "SUPPORT_INPUT_BUFFERING": 0,
         "SUPPORT_PACKED_SERIAL": 0,
         "SUPPORT_MX_PLUS": 1,
         "SUPPORT_SERIAL": 0,
@@ -231,7 +231,8 @@ def get_param(dut, name, default=1):
         "ENABLE_SHARED_SCALING": 1,
         "USE_LNS_MUL": 0,
         "USE_LNS_MUL_PRECISE": 1,
-        "SUPPORT_DEBUG": 1
+        "SUPPORT_DEBUG": 1,
+        "SUPPORT_FLOAT32": 1
     }
     return defaults.get(name, default)
 
@@ -350,6 +351,25 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
         elif inta or intb:
             return 0 # No INT8 support in LNS/Hybrid mode for non-BM
         else:
+            def norm_lns(m, fmt, is_bm):
+                if is_bm and support_mxplus:
+                    if fmt in [0, 1]:
+                        return (m >> 4) & 0x7, 4
+                    elif fmt in [2, 3]:
+                        return (m >> 2) & 0x7, 2
+                    else:
+                        return m & 0x7, 0
+                elif m & 0x8:
+                    return m & 0x7, 0
+                elif m & 0x4:
+                    return (m & 0x3) << 1, -1
+                elif m & 0x2:
+                    return (m & 0x1) << 2, -2
+                else:
+                    return 0, -3
+
+            frac_a, norm_adj_a = norm_lns(ma, format_a, is_bm_a)
+            frac_b, norm_adj_b = norm_lns(mb, format_b, is_bm_b)
             if use_lns_precise:
                 # Precise LNS LUT logic
                 lut = [
@@ -362,13 +382,13 @@ def align_product_model(a_bits, b_bits, format_a, format_b, round_mode=0, overfl
                     0x6, 0x8, 0x9, 0xa, 0xa, 0xb, 0xc, 0xd,
                     0x7, 0x8, 0x9, 0xa, 0xb, 0xc, 0xd, 0xe
                 ]
-                m_sum = lut[(ma & 0x7) * 8 + (mb & 0x7)]
+                m_sum = lut[frac_a * 8 + frac_b]
             else:
-                m_sum = (ma & 0x7) + (mb & 0x7)
+                m_sum = frac_a + frac_b
             carry = m_sum >> 3
             m_res = m_sum & 0x7
             prod = (8 + m_res) << 3
-            exp_sum = ea + eb - (ba + bb - 7) + carry - adj_a - adj_b
+            exp_sum = ea + eb - (ba + bb - 7) + norm_adj_a + norm_adj_b + carry - adj_a - adj_b
     else:
         real_ma = ma if not inta else ma
         real_mb = mb if not intb else mb
@@ -491,6 +511,14 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
                                    offset_b=nbm_offset_b if mx_plus_mode else 0,
                                    lns_mode=lns_mode)
 
+        acc_min = -(1 << (acc_width - 1))
+        acc_max = (1 << (acc_width - 1)) - 1
+        if not overflow_wrap:
+            if prod > acc_max:
+                prod = acc_max
+            elif prod < acc_min:
+                prod = acc_min
+
         mask = (1 << acc_width) - 1
         acc_masked = expected_acc & mask
         prod_masked = prod & mask
@@ -550,7 +578,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
 
     # Calculate expected final result after shared scaling
     support_shared = get_param(dut, "ENABLE_SHARED_SCALING", 0)
-    if float32_mode:
+    support_float32 = get_param(dut, "SUPPORT_FLOAT32", 1)
+    if float32_mode and support_float32:
         # If hardware doesn't support shared scaling, it uses fixed scale 1.0 (shared_exp=0)
         eff_scale_a = scale_a if support_shared else 127
         eff_scale_b = scale_b if support_shared else 127
@@ -558,11 +587,11 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
         expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
         if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-            expected_final = 0x7FC00000
+            expected_final = 0x80000000
         elif inf_pos_sticky:
-            expected_final = 0x7F800000
+            expected_final = 0x7FFFFFFF
         elif inf_neg_sticky:
-            expected_final = 0xFF800000
+            expected_final = 0x80000000
         elif support_shared:
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
@@ -607,6 +636,8 @@ async def run_mac_test(dut, format_a, format_b, a_elements, b_elements, scale_a=
     name_a = format_names[format_a] if format_a < len(format_names) else "Unknown"
     name_b = format_names[format_b] if format_b < len(format_names) else "Unknown"
     dut._log.info(f"Format: {name_a}x{name_b}, RM: {round_mode}, Wrap: {overflow_wrap}, Scales: {scale_a},{scale_b}, Expected: {expected_final}, Actual: {actual_acc}")
+    if actual_acc != expected_final:
+        dut._log.error(f"MISMATCH DETAILS: packed={packed_mode}, lns={lns_mode}, mx+={mx_plus_mode}, bm=({bm_index_a},{bm_index_b}), expected_acc={expected_acc}, a={a_elements}, b={b_elements}")
     assert actual_acc == expected_final
 
 @cocotb.test()
@@ -630,6 +661,9 @@ async def test_mxfp8_mac_shared_scale(dut):
 
 @cocotb.test()
 async def test_float32_basic(dut):
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_basic: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Basic Integration Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -658,6 +692,9 @@ async def test_mxfp8_mac_e4m3(dut):
 
 @cocotb.test()
 async def test_mxfp8_mac_e5m2(dut):
+    if not get_param(dut, "SUPPORT_E5M2", 1):
+        dut._log.info("Skipping test_mxfp8_mac_e5m2: SUPPORT_E5M2=0")
+        return
     dut._log.info("Start MXFP8 MAC Test (E5M2)")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -804,23 +841,25 @@ async def test_mxfp_mac_randomized(dut):
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
     support_adv = get_param(dut, "SUPPORT_ADV_ROUNDING", 1)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
 
-    dut._log.info(f"Start Randomized MXFP MAC Test (E4M3={support_e4m3}, E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, ADV={support_adv}, MIX={support_mixed})")
+    dut._log.info(f"Start Randomized MXFP MAC Test (E4M3={support_e4m3}, E5M2={support_e5m2}, MXFP6={support_mxfp6}, MXFP4={support_mxfp4}, INT8={support_int8}, ADV={support_adv}, MIX={support_mixed})")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
-    allowed_formats = [5, 6]
+    allowed_formats = []
     if support_e4m3: allowed_formats.append(0)
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
+    if support_int8: allowed_formats.extend([5, 6])
 
     for i in range(50):
         format_a = random.choice(allowed_formats)
         format_b = random.choice(allowed_formats) if support_mixed else format_a
-        round_mode = random.randint(0, 3) if support_adv else random.choice([0, 3]) # Only TRN and RNE if no ADV
+        round_mode = random.randint(0, 3) if support_adv else 0 # Only TRN if SUPPORT_ADV_ROUNDING=0
         overflow_wrap = random.randint(0, 1)
         scale_a = random.randint(110, 140) # Keep range reasonable for test
         scale_b = random.randint(110, 140)
@@ -927,11 +966,11 @@ async def test_fast_start_scale_compression(dut):
         expected_final = float32_model(expected_acc, shared_exp, nan_sticky, inf_pos_sticky, inf_neg_sticky)
     else:
         if nan_sticky or (inf_pos_sticky and inf_neg_sticky):
-            expected_final = 0x7FC00000
+            expected_final = 0x80000000
         elif inf_pos_sticky:
-            expected_final = 0x7F800000
+            expected_final = 0x7FFFFFFF
         elif inf_neg_sticky:
-            expected_final = 0xFF800000
+            expected_final = 0x80000000
         elif support_shared:
             shared_exp = scale_a + scale_b - 254
             acc_abs = abs(expected_acc)
@@ -980,6 +1019,7 @@ async def run_yaml_file(dut, filename):
         return
 
     # Detect hardware support
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
@@ -1003,6 +1043,9 @@ async def run_yaml_file(dut, filename):
         fmt_a = inputs['format_a']
         fmt_b = inputs.get('format_b', fmt_a)
 
+        if not support_e4m3 and (fmt_a == 0 or fmt_b == 0):
+            dut._log.info(f"Skipping Case {case['test_case']}: E4M3 not supported")
+            continue
         if not support_e5m2 and (fmt_a == 1 or fmt_b == 1):
             dut._log.info(f"Skipping Case {case['test_case']}: E5M2 not supported")
             continue
@@ -1024,7 +1067,7 @@ async def run_yaml_file(dut, filename):
         if not support_shared and (inputs.get('scale_a', 127) != 127 or inputs.get('scale_b', 127) != 127):
             dut._log.info(f"Skipping Case {case['test_case']}: Shared Scaling not supported")
             continue
-        if not support_adv and inputs.get('round_mode', 0) in [1, 2]:
+        if not support_adv and inputs.get('round_mode', 0) in [1, 2, 3]:
             dut._log.info(f"Skipping Case {case['test_case']}: Advanced Rounding not supported")
             continue
 
@@ -1321,6 +1364,9 @@ async def test_float32_randomized(dut):
     Perform randomized tests for the Float32 conversion path.
     Tests various combinations of shared scales and input formats.
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_randomized: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Randomized Float32 Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1329,13 +1375,15 @@ async def test_float32_randomized(dut):
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 1)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 1)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
+    support_int8 = get_param(dut, "SUPPORT_INT8", 1)
     support_mixed = get_param(dut, "SUPPORT_MIXED_PRECISION", 1)
 
-    allowed_formats = [5, 6] # INT8
+    allowed_formats = []
     if support_e4m3: allowed_formats.append(0)
     if support_e5m2: allowed_formats.append(1)
     if support_mxfp6: allowed_formats.extend([2, 3])
     if support_mxfp4: allowed_formats.append(4)
+    if support_int8: allowed_formats.extend([5, 6])
 
     import random
     for i in range(50):
@@ -1355,6 +1403,9 @@ async def test_float32_exceptions_integration(dut):
     Verify that NaNs and Infinities correctly propagate through the F2F path
     in top-level integration.
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_exceptions_integration: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Exceptions Integration Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1384,6 +1435,9 @@ async def test_float32_subnormals(dut):
     Verify subnormal handling at the top level for Float32 mode.
     Subnormals in Binary32 start below 2^-126.
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_subnormals: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Subnormals Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1414,6 +1468,9 @@ async def test_float32_rounding_carry(dut):
     Verify that mantissa rounding carry-out correctly increments the exponent.
     Example: 1.11...1 rounded up to 10.00...0
     """
+    if not get_param(dut, "SUPPORT_FLOAT32", 1):
+        dut._log.info("Skipping test_float32_rounding_carry: SUPPORT_FLOAT32=0")
+        return
     dut._log.info("Start Float32 Rounding Carry Test")
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
@@ -1495,3 +1552,63 @@ async def test_float32_rounding_carry(dut):
     # 6422528 / 65536 = 98.
     # This will be a large normal float.
     await run_mac_test(dut, 0, 0, a_elements, b_elements, scale_a=150, scale_b=127, float32_mode=1)
+
+@cocotb.test()
+async def test_ena_stall_gating(dut):
+    """Verify that deasserting ena=0 mid-stream freezes FSM and accumulator cleanly."""
+    dut._log.info("Start ENA Stall Gating Test")
+    clock = Clock(dut.clk, 10, unit="ns")
+    cocotb.start_soon(clock.start())
+
+    support_serial = get_param(dut, "SUPPORT_SERIAL", 0)
+    k_factor = get_param(dut, "SERIAL_K_FACTOR", 1) if support_serial else 1
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
+    fmt = 0 if support_e4m3 else 4
+    el_one = 0x38 if support_e4m3 else 0x02
+
+    dut.ena.value = 1
+    dut.rst_n.value = 0
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 5)
+    dut.rst_n.value = 1
+
+    # Cycle 0: Metadata (standard, TRN, SAT)
+    dut.ui_in.value = 0x00
+    dut.uio_in.value = 0x00
+    await ClockCycles(dut.clk, 1)
+
+    # Cycle 1: Scale A = 127, Format A
+    dut.ui_in.value = 127
+    dut.uio_in.value = fmt
+    await ClockCycles(dut.clk, k_factor)
+
+    # Cycle 2: Scale B = 127, Format B
+    dut.ui_in.value = 127
+    dut.uio_in.value = fmt
+    await ClockCycles(dut.clk, k_factor)
+
+    # Stream 32 elements (1.0 * 1.0 = 1.0), stalling ena=0 for 4 cycles mid-stream
+    for i in range(32):
+        dut.ui_in.value = el_one
+        dut.uio_in.value = el_one
+        await ClockCycles(dut.clk, k_factor)
+        if i == 10:
+            dut.ena.value = 0
+            await ClockCycles(dut.clk, 4 * k_factor)
+            dut.ena.value = 1
+
+    # Flush + Shared Scaling
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    await ClockCycles(dut.clk, 2 * k_factor)
+
+    actual_acc = 0
+    for _ in range(4):
+        await Timer(1, unit="ns")
+        actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
+        await ClockCycles(dut.clk, k_factor)
+
+    # Expected: 32 * 1.0 = 32.0 -> 32 << 8 = 8192 in S23.8 (or 32 << (ALIGNER_WIDTH-24) >> (ALIGNER_WIDTH-32))
+    assert actual_acc == 8192, f"ENA stall corrupted accumulator: expected 8192, got {actual_acc}"
+

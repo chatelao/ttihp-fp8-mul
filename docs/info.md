@@ -55,7 +55,7 @@ The unit utilizes an 8-bit streaming interface to minimize pin count while maint
 | `uio_in[7:0]` | **DATA_B** | I | Operand B elements, Scale B, or Metadata 1. |
 | `uo_out[7:0]` | **RESULT** | O | Serialized 32-bit result or Debug Probe data. |
 | `uio_out[7:0]`| **RESERVED**| O | Driven to 0x00 (Configured as Inputs via `uio_oe`). |
-| `clk` | **CLK** | I | System Clock (Target: 20MHz). |
+| `clk` | **CLK** | I | System Clock (Target: 50MHz ASIC / 20MHz FPGA). |
 | `rst_n` | **RESET_N** | I | Active-low asynchronous reset. |
 | `ena` | **ENA** | I | Clock Enable. |
 
@@ -95,9 +95,9 @@ The unit operates using a **41-cycle streaming protocol** to process a block of 
 |:---:|------|-------------|
 | `[7]` | **SHORT_PROT** | 1: Reuse previous scales/formats; jump to Cycle 3. |
 | `[6]` | **DEBUG_EN** | 1: Enable internal probing and metadata echo. |
-| `[5]` | **LOOPBACK_EN** | 1: Enable XOR loopback (`uo_out = ui_in ^ uio_in`). |
-| `[4:3]` | **LNS_MODE** | Multiplier mode: `0`: Normal, `1`: LNS, `2`: Hybrid. |
-| `[2:0]` | **NBM_OFF_A** | Exponent offset for Operand A (MX++). |
+| `[5]` | **FLOAT32_MODE** | 1: IEEE-754 Float32 output; 0: Fixed-Point S23.8 output. |
+| `[4:3]` | **LNS_MODE** | Multiplier mode (`DEBUG_EN=0`): `0`: Normal, `1`: LNS, `2`: Hybrid. When `DEBUG_EN=1`, bit `[4]` enables sticky Loopback (`uo_out = ui_in ^ uio_in`) and bit `[3]` is `PROBE_SEL[3]`. |
+| `[2:0]` | **NBM_OFF_A / PROBE** | Exponent offset for Operand A (`DEBUG_EN=0`), or `PROBE_SEL[2:0]` (`DEBUG_EN=1`). |
 
 **Cycle 0: Metadata 1 (`uio_in`)**
 ![Metadata 1 (uio_in)](metadata_c0_uio.svg)
@@ -154,7 +154,7 @@ When `PACKED_EN=1` (Metadata 1) and both formats are FP4 (E2M1), the unit proces
 #### 6.5 Debug Capabilities
 The unit includes integrated logic analyzer probes for real-time silicon monitoring, enabled via `DEBUG_EN=1` at Cycle 0.
 
-| Selector (`uio_in[3:0]` @ C0) | Signal Description | Bit Mapping |
+| Selector (`ui_in[3:0]` @ C0) | Signal Description | Bit Mapping |
 |:---:|---|---|
 | `0x1` | **FSM State** | `[7:6]` State, `[5:0]` logical_cycle |
 | `0x2` | **Exceptions** | `[7]` nan_sticky, `[6]` inf_pos, `[5]` inf_neg, `[4]` strobe |
@@ -164,6 +164,8 @@ The unit includes integrated logic analyzer probes for real-time silicon monitor
 | `0xA` | **L0 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
 | `0xB-0xC`| **Multiplier L1**| Lane 1 product (MSB/LSB) |
 | `0xD` | **L1 Metadata** | `[7]` sign, `[6]` nan, `[5]` inf, `[4:0]` exp_sum |
+| `0xE` | **Float32 Status** | `[7]` float32_mode, `[6:1]` LZC, `[0]` underflow |
+| `0xF` | **Float32 Exp** | `f2f_exp_biased[7:0]` |
 
 #### 6.6 FP4 Fast Mode
 The unit provides a high-throughput **FP4 Fast Lane** mode by combining **Vector Packing** and the **Short Protocol**.

@@ -150,6 +150,6 @@ async def test_short_protocol_nan_scale_reuse(dut):
         actual_acc = (actual_acc << 8) | int(dut.uo_out.value)
         await ClockCycles(dut.clk, k_factor)
 
-    # Result should be NaN (0x7FC00000)
-    dut._log.info(f"Actual Result: 0x{actual_acc:08X}, Expected: 0x7FC00000")
-    assert actual_acc == 0x7FC00000
+    # Result should be fixed-point NaN sentinel (0x80000000)
+    dut._log.info(f"Actual Result: 0x{actual_acc:08X}, Expected: 0x80000000")
+    assert actual_acc == 0x80000000

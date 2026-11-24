@@ -29,14 +29,15 @@ module tt_um_chatelao_fp8_multiplier #(
     parameter SUPPORT_MIXED_PRECISION = 1,
     parameter SUPPORT_VECTOR_PACKING = 1,
     parameter SUPPORT_PACKED_SERIAL = 0,
-    parameter SUPPORT_INPUT_BUFFERING = 1,
+    parameter SUPPORT_INPUT_BUFFERING = 0,
     parameter SUPPORT_MX_PLUS = 1,
     parameter SUPPORT_SERIAL = 0,
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 1,
-    parameter SUPPORT_DEBUG = 1
+    parameter SUPPORT_DEBUG = 1,
+    parameter SUPPORT_FLOAT32 = 1
 )(
     input  wire [7:0] ui_in,    // Primary inputs: Elements or Metadata.
     output wire [7:0] uo_out,   // Primary outputs: MAC result or Debug data.
@@ -106,7 +107,9 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // --- Debug and Probing Logic ---
     wire       debug_en_val;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [3:0] probe_sel_val;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire       loopback_en_val;
 
     generate
@@ -123,10 +126,10 @@ module tt_um_chatelao_fp8_multiplier #(
                 end else if (ena && strobe && logical_cycle == 6'd0) begin
                     // Capture debug configuration in Cycle 0.
                     debug_en_reg    <= ui_in[6];
-                    probe_sel_reg   <= ui_in[3:0];
+                    if (ui_in[6]) probe_sel_reg <= ui_in[3:0];
                     // Loopback is sticky once enabled until reset.
-                    // Requires debug_en (bit 6) to be active to avoid conflict with float32_mode (bit 5).
-                    loopback_en_reg <= loopback_en_reg | (ui_in[5] && ui_in[6]);
+                    // Uses ui_in[4] with debug_en (ui_in[6]) so ui_in[5] remains dedicated to float32_mode.
+                    loopback_en_reg <= loopback_en_reg | (ui_in[6] && ui_in[4]);
                 end
             end
 
@@ -153,13 +156,17 @@ module tt_um_chatelao_fp8_multiplier #(
     /* verilator lint_on UNUSED */
     wire [2:0] nbm_offset_a_val;
     wire [2:0] nbm_offset_b_val;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire       mx_plus_en_val;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire [7:0] buffered_a_lane0;
     wire [7:0] buffered_b_lane0;
     wire is_bm_a_lane0_raw;
     wire is_bm_b_lane0_raw;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire is_bm_a_lane1_raw;
     wire is_bm_b_lane1_raw;
+    /* verilator lint_on UNUSEDSIGNAL */
     wire is_bm_a_lane0_val;
     wire is_bm_b_lane0_val;
     wire is_bm_a_lane1_val;
@@ -184,7 +191,7 @@ module tt_um_chatelao_fp8_multiplier #(
                         // Capture MX+ configuration in Cycle 0.
                         mx_plus_en <= uio_in[7];
                         if (!ui_in[7]) begin
-                            nbm_offset_a <= ui_in[2:0];
+                            if (!ui_in[6]) nbm_offset_a <= ui_in[2:0];
                             nbm_offset_b <= uio_in[2:0];
                         end
                     end
@@ -324,16 +331,6 @@ module tt_um_chatelao_fp8_multiplier #(
                        (logical_cycle <= capture_cycle) ? STATE_STREAM :
                        STATE_OUTPUT;
 
-    initial begin
-        cycle_count = {COUNTER_WIDTH{1'b0}};
-        format_a_reg = 3'd0;
-        round_mode_reg = 2'd0;
-        overflow_wrap_reg = 1'b0;
-        packed_mode_reg = 1'b0;
-        float32_mode_reg = 1'b0;
-        lns_mode_reg = 2'd0;
-    end
-
     // Configure bidirectional pins as inputs for Tiny Tapeout.
     assign uio_oe  = 8'b00000000; 
     assign uio_out = 8'b00000000;
@@ -358,7 +355,7 @@ module tt_um_chatelao_fp8_multiplier #(
                 overflow_wrap_reg <= uio_in[5];
                 if (CAN_PACK) packed_mode_reg <= uio_in[6];
                 float32_mode_reg  <= ui_in[5];
-                lns_mode_reg      <= ui_in[4:3];
+                if (!ui_in[6]) lns_mode_reg <= ui_in[4:3];
 
                 if (ui_in[7]) begin
                     // Fast Start: Skip scale loading and reuse previous values.
@@ -387,10 +384,11 @@ module tt_um_chatelao_fp8_multiplier #(
                                (SUPPORT_E4M3 || SUPPORT_INT8 || SUPPORT_MX_PLUS) ? 6 : 5;
 
     // Control signal to enable the accumulator only when valid products are arriving.
-    wire acc_en    = strobe && (SUPPORT_PIPELINING ?
+    wire acc_en    = ena && strobe && (SUPPORT_PIPELINING ?
                      ((logical_cycle >= 6'd4 && logical_cycle <= last_stream_cycle + 6'd1) && (state == STATE_STREAM || state == STATE_OUTPUT)) :
                      ((logical_cycle >= 6'd3 && logical_cycle <= last_stream_cycle) && (state == STATE_STREAM)));
 
+    /* verilator lint_off UNUSEDSIGNAL */
     // Multiplier results wires.
     wire [15:0] mul_prod_lane0, mul_prod_lane1;
     // Extended product wires for aligner compatibility
@@ -399,6 +397,7 @@ module tt_um_chatelao_fp8_multiplier #(
     wire mul_sign_lane0, mul_sign_lane1;
     wire mul_nan_lane0, mul_nan_lane1;
     wire mul_inf_lane0, mul_inf_lane1;
+    /* verilator lint_on UNUSEDSIGNAL */
 
     // Buffer for packed elements in bit-serial modes.
     reg [3:0] packed_a_buf, packed_b_buf;
@@ -457,7 +456,7 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // Instantiate Multipliers (either standard or LNS based on parameters).
     generate
-        if (USE_LNS_MUL) begin : lns_gen
+        if (USE_LNS_MUL != 0) begin : lns_gen
             fp8_mul_lns #(
                 .SUPPORT_E4M3(SUPPORT_E4M3),
                 .SUPPORT_E5M2(SUPPORT_E5M2),
@@ -805,41 +804,50 @@ module tt_um_chatelao_fp8_multiplier #(
     endgenerate
 
     // 4. Combined Lane Result: Merge Lane 0 and Lane 1 (for Packed Mode).
-    // Sign-extend lane results to match the internal accumulator width.
-    // Using guarded concatenation to avoid negative replication factors during elaboration.
-    wire [ACTUAL_ACC_WIDTH-1:0] lane0_extended;
-    wire [ACTUAL_ACC_WIDTH-1:0] lane1_extended;
+    // Sign-extend or saturate-and-truncate lane results to match ACCUMULATOR_WIDTH.
+    wire [ACCUMULATOR_WIDTH-1:0] lane0_acc;
+    wire [ACCUMULATOR_WIDTH-1:0] lane1_acc;
 
     generate
-        if (ACTUAL_ACC_WIDTH > ALIGNER_WIDTH) begin : gen_lane_ext_wide
-            assign lane0_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res };
-            assign lane1_extended = { {(ACTUAL_ACC_WIDTH-ALIGNER_WIDTH){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res };
-        end else if (ACTUAL_ACC_WIDTH < ALIGNER_WIDTH) begin : gen_lane_ext_narrow
-            assign lane0_extended = aligned_lane0_res[ACTUAL_ACC_WIDTH-1:0];
-            assign lane1_extended = aligned_lane1_res[ACTUAL_ACC_WIDTH-1:0];
+        if (ACCUMULATOR_WIDTH > ALIGNER_WIDTH) begin : gen_lane_ext_wide
+            assign lane0_acc = { {(ACCUMULATOR_WIDTH-ALIGNER_WIDTH){aligned_lane0_res[ALIGNER_WIDTH-1]}}, aligned_lane0_res };
+            assign lane1_acc = { {(ACCUMULATOR_WIDTH-ALIGNER_WIDTH){aligned_lane1_res[ALIGNER_WIDTH-1]}}, aligned_lane1_res };
+        end else if (ACCUMULATOR_WIDTH < ALIGNER_WIDTH) begin : gen_lane_ext_narrow
+            wire lane0_trunc_ovf = (aligned_lane0_res[ALIGNER_WIDTH-1 : ACCUMULATOR_WIDTH-1] != {(ALIGNER_WIDTH-ACCUMULATOR_WIDTH+1){1'b0}}) &&
+                                   (aligned_lane0_res[ALIGNER_WIDTH-1 : ACCUMULATOR_WIDTH-1] != {(ALIGNER_WIDTH-ACCUMULATOR_WIDTH+1){1'b1}});
+            wire lane1_trunc_ovf = (aligned_lane1_res[ALIGNER_WIDTH-1 : ACCUMULATOR_WIDTH-1] != {(ALIGNER_WIDTH-ACCUMULATOR_WIDTH+1){1'b0}}) &&
+                                   (aligned_lane1_res[ALIGNER_WIDTH-1 : ACCUMULATOR_WIDTH-1] != {(ALIGNER_WIDTH-ACCUMULATOR_WIDTH+1){1'b1}});
+            assign lane0_acc = (!overflow_wrap && lane0_trunc_ovf) ?
+                               {aligned_lane0_res[ALIGNER_WIDTH-1], {(ACCUMULATOR_WIDTH-1){~aligned_lane0_res[ALIGNER_WIDTH-1]}}} :
+                               aligned_lane0_res[ACCUMULATOR_WIDTH-1:0];
+            assign lane1_acc = (!overflow_wrap && lane1_trunc_ovf) ?
+                               {aligned_lane1_res[ALIGNER_WIDTH-1], {(ACCUMULATOR_WIDTH-1){~aligned_lane1_res[ALIGNER_WIDTH-1]}}} :
+                               aligned_lane1_res[ACCUMULATOR_WIDTH-1:0];
         end else begin : gen_lane_ext_equal
-            assign lane0_extended = aligned_lane0_res;
-            assign lane1_extended = aligned_lane1_res;
+            assign lane0_acc = aligned_lane0_res;
+            assign lane1_acc = aligned_lane1_res;
         end
     endgenerate
 
-    wire signed [ACTUAL_ACC_WIDTH:0] combined_full = $signed({lane0_extended[ACTUAL_ACC_WIDTH-1], lane0_extended}) +
-                                                     $signed({lane1_extended[ACTUAL_ACC_WIDTH-1], lane1_extended});
+    wire signed [ACCUMULATOR_WIDTH:0] combined_full = $signed({lane0_acc[ACCUMULATOR_WIDTH-1], lane0_acc}) +
+                                                      $signed({lane1_acc[ACCUMULATOR_WIDTH-1], lane1_acc});
     /* verilator lint_off UNUSEDSIGNAL */
-    wire combined_overflow = (lane0_extended[ACTUAL_ACC_WIDTH-1] == lane1_extended[ACTUAL_ACC_WIDTH-1]) &&
-                             (combined_full[ACTUAL_ACC_WIDTH-1] != lane0_extended[ACTUAL_ACC_WIDTH-1]);
-    wire combined_full_msb_unused = combined_full[ACTUAL_ACC_WIDTH];
+    wire combined_overflow = (lane0_acc[ACCUMULATOR_WIDTH-1] == lane1_acc[ACCUMULATOR_WIDTH-1]) &&
+                             (combined_full[ACCUMULATOR_WIDTH-1] != lane0_acc[ACCUMULATOR_WIDTH-1]);
+    wire combined_full_msb_unused = combined_full[ACCUMULATOR_WIDTH];
     /* verilator lint_on UNUSEDSIGNAL */
-    wire [ACTUAL_ACC_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
-                                                     (lane0_extended[ACTUAL_ACC_WIDTH-1] ? {1'b1, {(ACTUAL_ACC_WIDTH-1){1'b0}}} : {1'b0, {(ACTUAL_ACC_WIDTH-1){1'b1}}}) :
-                                                     combined_full[ACTUAL_ACC_WIDTH-1:0];
+    wire [ACCUMULATOR_WIDTH-1:0] aligned_combined = (!overflow_wrap && combined_overflow) ?
+                                                      (lane0_acc[ACCUMULATOR_WIDTH-1] ? {1'b1, {(ACCUMULATOR_WIDTH-1){1'b0}}} : {1'b0, {(ACCUMULATOR_WIDTH-1){1'b1}}}) :
+                                                      combined_full[ACCUMULATOR_WIDTH-1:0];
 
     wire acc_clear = ena && strobe && (logical_cycle <= 6'd2) && (state != STATE_STREAM) && (cycle_count <= 6'd2);
 
     wire [7:0] acc_shift_out;
 
     // Standardize accumulator output to ALIGNER_WIDTH for consistent windowing.
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [ALIGNER_WIDTH-1:0] acc_out_aligned;
+    /* verilator lint_on UNUSEDSIGNAL */
     generate
         if (ACTUAL_ACC_WIDTH >= ALIGNER_WIDTH) begin : gen_acc_aligned_trunc
             assign acc_out_aligned = acc_out[ALIGNER_WIDTH-1:0];
@@ -862,10 +870,10 @@ module tt_um_chatelao_fp8_multiplier #(
 
     // --- Fixed-to-Float Engine ---
     wire [31:0] f2f_result;
+    /* verilator lint_off UNUSEDSIGNAL */
     wire [5:0]  f2f_lzc;
     wire        f2f_underflow;
     wire [11:0] f2f_exp_biased;
-    /* verilator lint_off UNUSEDSIGNAL */
     wire        f2f_sign;
     wire [39:0] f2f_mag;
     wire [39:0] f2f_norm_mag;
@@ -874,49 +882,70 @@ module tt_um_chatelao_fp8_multiplier #(
     wire [3:0]  f2f_exp_biased_unused = f2f_exp_biased[11:8];
     /* verilator lint_on UNUSEDSIGNAL */
 
-    wire [39:0] f2f_acc_in;
-    // required shift to align internal binary point (ALIGNER_WIDTH-24) to f2f binary point (16)
-    // shift = 16 - (ALIGNER_WIDTH - 24) = 40 - ALIGNER_WIDTH
-    localparam F2F_SHIFT = 40 - ALIGNER_WIDTH;
+    wire use_float32 = SUPPORT_FLOAT32 ? float32_mode_reg : 1'b0;
+
     generate
-        if (F2F_SHIFT > 0) begin : gen_f2f_pad
-            assign f2f_acc_in = { acc_out_aligned, {F2F_SHIFT{1'b0}} };
-        end else if (F2F_SHIFT < 0) begin : gen_f2f_trunc
-            assign f2f_acc_in = acc_out_aligned[ALIGNER_WIDTH-1 : -F2F_SHIFT];
-        end else begin : gen_f2f_direct
-            assign f2f_acc_in = acc_out_aligned;
+        if (SUPPORT_FLOAT32) begin : gen_f2f
+            wire [39:0] f2f_acc_in;
+            // required shift to align internal binary point (ALIGNER_WIDTH-24) to f2f binary point (16)
+            // shift = 16 - (ALIGNER_WIDTH - 24) = 40 - ALIGNER_WIDTH
+            localparam F2F_SHIFT = 40 - ALIGNER_WIDTH;
+            if (F2F_SHIFT > 0) begin : gen_f2f_pad
+                assign f2f_acc_in = { acc_out_aligned, {F2F_SHIFT{1'b0}} };
+            end else if (F2F_SHIFT < 0) begin : gen_f2f_trunc
+                assign f2f_acc_in = acc_out_aligned[ALIGNER_WIDTH-1 : -F2F_SHIFT];
+            end else begin : gen_f2f_direct
+                assign f2f_acc_in = acc_out_aligned;
+            end
+
+            fixed_to_float f2f_inst (
+                .acc(f2f_acc_in),
+                .shared_exp(shared_exp),
+                .nan_sticky(nan_sticky),
+                .inf_pos_sticky(inf_pos_sticky),
+                .inf_neg_sticky(inf_neg_sticky),
+                .result(f2f_result),
+                .sign(f2f_sign),
+                .mag(f2f_mag),
+                .lzc(f2f_lzc),
+                .norm_mag(f2f_norm_mag),
+                .exp_biased(f2f_exp_biased),
+                .mantissa(f2f_mantissa),
+                .zero(f2f_zero),
+                .underflow(f2f_underflow)
+            );
+        end else begin : gen_no_f2f
+            assign f2f_result     = 32'd0;
+            assign f2f_sign       = 1'b0;
+            assign f2f_mag        = 40'd0;
+            assign f2f_lzc        = 6'd0;
+            assign f2f_norm_mag   = 40'd0;
+            assign f2f_exp_biased = 12'd0;
+            assign f2f_mantissa   = 23'd0;
+            assign f2f_zero       = 1'b1;
+            assign f2f_underflow  = 1'b0;
         end
     endgenerate
 
-    fixed_to_float f2f_inst (
-        .acc(f2f_acc_in),
-        .shared_exp(shared_exp),
-        .nan_sticky(nan_sticky),
-        .inf_pos_sticky(inf_pos_sticky),
-        .inf_neg_sticky(inf_neg_sticky),
-        .result(f2f_result),
-        .sign(f2f_sign),
-        .mag(f2f_mag),
-        .lzc(f2f_lzc),
-        .norm_mag(f2f_norm_mag),
-        .exp_biased(f2f_exp_biased),
-        .mantissa(f2f_mantissa),
-        .zero(f2f_zero),
-        .underflow(f2f_underflow)
-    );
-
     // --- Sticky Override Logic ---
-    // Standardizes the representation of Infinities and NaNs in the output.
+    // In Float32 mode, f2f_result already produces IEEE-754 0x7FC00000 / 0x7F800000 / 0xFF800000.
+    // In Fixed-Point S23.8 mode, saturate +Inf to 0x7FFFFFFF and -Inf/NaN to 0x80000000.
     reg [7:0] sticky_byte;
     wire [5:0] output_byte_idx = logical_cycle - capture_cycle;
+    wire is_nan_out = nan_sticky || (inf_pos_sticky && inf_neg_sticky);
+    wire [31:0] fixed_sticky_val = is_nan_out     ? 32'h80000000 :
+                                   inf_pos_sticky ? 32'h7FFFFFFF :
+                                                    32'h80000000;
     always @(*) begin
         case (output_byte_idx)
-            6'd1: sticky_byte = (nan_sticky || (inf_pos_sticky && inf_neg_sticky)) ? 8'h7F : (inf_pos_sticky ? 8'h7F : 8'hFF);
-            6'd2: sticky_byte = (nan_sticky || (inf_pos_sticky && inf_neg_sticky)) ? 8'hC0 : 8'h80;
+            6'd1: sticky_byte = fixed_sticky_val[31:24];
+            6'd2: sticky_byte = fixed_sticky_val[23:16];
+            6'd3: sticky_byte = fixed_sticky_val[15:8];
+            6'd4: sticky_byte = fixed_sticky_val[7:0];
             default: sticky_byte = 8'h00;
         endcase
     end
-    wire sticky_any = nan_sticky | inf_pos_sticky | inf_neg_sticky;
+    wire sticky_any = !use_float32 && (nan_sticky | inf_pos_sticky | inf_neg_sticky);
 
     wire [31:0] final_scaled_result_sh;
     generate
@@ -927,7 +956,7 @@ module tt_um_chatelao_fp8_multiplier #(
         end
     endgenerate
 
-    wire [31:0] final_scaled_result = float32_mode_reg ? f2f_result :
+    wire [31:0] final_scaled_result = use_float32 ? f2f_result :
                                       (ENABLE_SHARED_SCALING ? final_scaled_result_sh : acc_out_ext);
 
     // Accumulator instance.
@@ -1042,7 +1071,7 @@ module tt_um_chatelao_fp8_multiplier #(
             if ($past(state) == STATE_IDLE && $past(ui_in[7])) begin
                 assert(logical_cycle == 6'd3);
                 assert(state == STATE_STREAM);
-            end else if ($past(logical_cycle) == last_cycle) begin
+            end else if ($past(logical_cycle) == $past(last_cycle)) begin
                 assert(logical_cycle == 6'd0);
             end else begin
                 assert(logical_cycle == $past(logical_cycle) + 6'd1);
@@ -1119,20 +1148,27 @@ module tt_um_chatelao_fp8_multiplier #(
     // Note: assertions must account for 1 cycle pipeline delay if active
     always @(posedge clk) begin
         if (rst_n && SUPPORT_MX_PLUS && state == STATE_STREAM) begin
-            // Internal signals from gen_mx_plus (match elements being processed by multipliers)
-            if (gen_mx_plus.element_index_lane0_reg == bm_index_a_val) assert(is_bm_a_lane0_raw);
-            else assert(!is_bm_a_lane0_raw);
+            if (mx_plus_en_val) begin
+                // Internal signals from gen_mx_plus (match elements being processed by multipliers)
+                if (gen_mx_plus.element_index_lane0_reg == bm_index_a_val) assert(is_bm_a_lane0_raw);
+                else assert(!is_bm_a_lane0_raw);
 
-            if (gen_mx_plus.element_index_lane0_reg == bm_index_b_val) assert(is_bm_b_lane0_raw);
-            else assert(!is_bm_b_lane0_raw);
+                if (gen_mx_plus.element_index_lane0_reg == bm_index_b_val) assert(is_bm_b_lane0_raw);
+                else assert(!is_bm_b_lane0_raw);
 
-            if (actual_packed_mode) begin
-                if (gen_mx_plus.element_index_lane1_reg == bm_index_a_val) assert(is_bm_a_lane1_raw);
-                else assert(!is_bm_a_lane1_raw);
+                if (actual_packed_mode) begin
+                    if (gen_mx_plus.element_index_lane1_reg == bm_index_a_val) assert(is_bm_a_lane1_raw);
+                    else assert(!is_bm_a_lane1_raw);
 
-                if (gen_mx_plus.element_index_lane1_reg == bm_index_b_val) assert(is_bm_b_lane1_raw);
-                else assert(!is_bm_b_lane1_raw);
+                    if (gen_mx_plus.element_index_lane1_reg == bm_index_b_val) assert(is_bm_b_lane1_raw);
+                    else assert(!is_bm_b_lane1_raw);
+                end else begin
+                    assert(!is_bm_a_lane1_raw);
+                    assert(!is_bm_b_lane1_raw);
+                end
             end else begin
+                assert(!is_bm_a_lane0_raw);
+                assert(!is_bm_b_lane0_raw);
                 assert(!is_bm_a_lane1_raw);
                 assert(!is_bm_b_lane1_raw);
             end

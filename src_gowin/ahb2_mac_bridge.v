@@ -49,9 +49,11 @@ module ahb2_mac_bridge #(
     localparam CYCLE_SCALE_B       = 6'd2;
     localparam CYCLE_STREAM_START  = 6'd3;
     localparam CYCLE_STREAM_END    = 6'd34;
+    /* verilator lint_off UNUSEDPARAM */
     localparam CYCLE_FLUSH_START   = 6'd35;
     localparam CYCLE_FLUSH_END     = 6'd36;
     localparam CYCLE_READ_START    = 6'd37;
+    /* verilator lint_on UNUSEDPARAM */
     localparam CYCLE_READ_END      = 6'd40;
 
     // Register Definitions
@@ -77,7 +79,7 @@ module ahb2_mac_bridge #(
         end else if (s_hready) begin
             s_addr_reg  <= s_haddr;
             s_write_reg <= s_hwrite;
-            s_sel_reg   <= s_hsel && s_htrans[1];
+            s_sel_reg   <= s_hsel && s_htrans[1] && (s_haddr[31:8] == AHB_BASE_ADDR[31:8]);
         end
     end
 
@@ -103,24 +105,29 @@ module ahb2_mac_bridge #(
     assign s_hresp = 1'b0;
 
     // DMA Master State Machine
-    localparam STATE_IDLE       = 4'd0;
-    localparam STATE_CONF_CYCLE = 4'd1;
-    localparam STATE_REQ_DATA   = 4'd2;
-    localparam STATE_WAIT_DATA  = 4'd3;
-    localparam STATE_MAC_CLK_HI = 4'd4;
-    localparam STATE_MAC_CLK_LO = 4'd5;
-    localparam STATE_REQ_READ   = 4'd6;
-    localparam STATE_WAIT_READ  = 4'd7;
-    localparam STATE_REQ_WRITE  = 4'd8;
-    localparam STATE_WAIT_WRITE = 4'd9;
-    localparam STATE_DONE       = 4'd10;
+    localparam STATE_IDLE            = 4'd0;
+    localparam STATE_CONF_CYCLE      = 4'd1;
+    localparam STATE_REQ_DATA        = 4'd2;
+    localparam STATE_WAIT_DATA_ADDR  = 4'd3;
+    localparam STATE_WAIT_DATA_PHASE = 4'd4;
+    localparam STATE_MAC_STEP        = 4'd5;
+    localparam STATE_MAC_NEXT        = 4'd6;
+    localparam STATE_REQ_READ        = 4'd7;
+    localparam STATE_WAIT_READ       = 4'd8;
+    localparam STATE_REQ_WRITE       = 4'd9;
+    localparam STATE_WAIT_WRITE_ADDR = 4'd10;
+    localparam STATE_WAIT_WRITE_DATA = 4'd11;
+    localparam STATE_DONE            = 4'd12;
 
     reg [3:0]  state;
     reg [5:0]  cycle_count;
     reg [31:0] result_accumulator;
-    reg        slave_mac_clk_pulse;
+    reg        slave_mac_ena_pulse;
+    reg        mac_ena_ctrl;
 
-    assign mac_clk = (state == STATE_IDLE) ? slave_mac_clk_pulse : (state == STATE_MAC_CLK_HI);
+    // Synchronous clock-enable architecture: mac_clk is tied to system clk,
+    // and mac_ena pulses high for 1 clock cycle per MAC step.
+    assign mac_clk = clk;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -144,11 +151,14 @@ module ahb2_mac_bridge #(
             scale_b_reg  <= 32'h0;
             mac_rst_n    <= 1'b0;
             mac_ena      <= 1'b0;
-            slave_mac_clk_pulse <= 1'b0;
+            mac_ena_ctrl <= 1'b0;
+            slave_mac_ena_pulse <= 1'b0;
             mac_ui_in <= 8'h0;
             mac_uio_in <= 8'h0;
         end else begin
-            slave_mac_clk_pulse <= 1'b0;
+            slave_mac_ena_pulse <= 1'b0;
+            mac_ena <= (state == STATE_IDLE) ? (slave_mac_ena_pulse && mac_ena_ctrl) :
+                       ((state == STATE_MAC_STEP) && mac_ena_ctrl);
 
             // Handle Slave Writes
             if (s_sel_reg && s_write_reg) begin
@@ -156,12 +166,12 @@ module ahb2_mac_bridge #(
                     8'h00: begin
                         mac_ui_in <= s_hwdata[7:0];
                         mac_uio_in <= s_hwdata[15:8];
-                        slave_mac_clk_pulse <= 1'b1;
+                        slave_mac_ena_pulse <= 1'b1;
                     end
                     8'h08: begin
-                        ctrl_reg <= s_hwdata;
-                        mac_ena  <= s_hwdata[0];
-                        mac_rst_n <= s_hwdata[1];
+                        ctrl_reg     <= s_hwdata;
+                        mac_ena_ctrl <= s_hwdata[0];
+                        mac_rst_n    <= s_hwdata[1];
                     end
                     8'h0C: begin
                         if (s_hwdata[1]) status_reg[1] <= 1'b0; // Clear done bit
@@ -176,7 +186,7 @@ module ahb2_mac_bridge #(
                 endcase
             end
 
-            // DMA FSM
+            // DMA FSM (AMBA 3 AHB-Lite 2-phase pipelined)
             case (state)
                 STATE_IDLE: begin
                     if (dma_ctrl[0] && !status_reg[0]) begin
@@ -185,7 +195,6 @@ module ahb2_mac_bridge #(
                         status_reg[0] <= 1'b1; // Busy
                         status_reg[1] <= 1'b0; // Not Done
                         m_haddr <= dma_src_addr;
-                        m_hsel <= 1'b1;
                         dma_ctrl[0] <= 1'b0; // Auto-clear start
                         result_accumulator <= 32'h0;
                     end
@@ -206,30 +215,39 @@ module ahb2_mac_bridge #(
                             mac_uio_in <= scale_b_reg[15:8];
                         end
                     endcase
-                    state <= STATE_MAC_CLK_HI;
+                    state <= STATE_MAC_STEP;
                 end
 
                 STATE_REQ_DATA: begin
-                    m_htrans <= 2'b10; // NONSEQ
+                    m_htrans <= 2'b10; // NONSEQ Address Phase
                     m_hwrite <= 1'b0;
                     m_hsize <= 3'b010; // Word
-                    state <= STATE_WAIT_DATA;
+                    m_hsel <= 1'b1;
+                    state <= STATE_WAIT_DATA_ADDR;
                 end
 
-                STATE_WAIT_DATA: begin
+                STATE_WAIT_DATA_ADDR: begin
                     if (m_hready) begin
-                        m_htrans <= 2'b0; // IDLE
-                        mac_ui_in <= m_hrdata[7:0];
-                        mac_uio_in <= m_hrdata[15:8];
-                        state <= STATE_MAC_CLK_HI;
+                        m_htrans <= 2'b00; // IDLE while awaiting Data Phase
+                        state <= STATE_WAIT_DATA_PHASE;
                     end
                 end
 
-                STATE_MAC_CLK_HI: begin
-                    state <= STATE_MAC_CLK_LO;
+                STATE_WAIT_DATA_PHASE: begin
+                    if (m_hready) begin
+                        m_hsel <= 1'b0;
+                        mac_ui_in <= m_hrdata[7:0];
+                        mac_uio_in <= m_hrdata[15:8];
+                        state <= STATE_MAC_STEP;
+                    end
                 end
 
-                STATE_MAC_CLK_LO: begin
+                STATE_MAC_STEP: begin
+                    // mac_ena pulses high for this cycle
+                    state <= STATE_MAC_NEXT;
+                end
+
+                STATE_MAC_NEXT: begin
                     if (cycle_count < CYCLE_SCALE_B) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_CONF_CYCLE;
@@ -241,7 +259,7 @@ module ahb2_mac_bridge #(
                         cycle_count <= cycle_count + 1;
                         mac_ui_in <= 8'h0;
                         mac_uio_in <= 8'h0;
-                        state <= STATE_MAC_CLK_HI;
+                        state <= STATE_MAC_STEP;
                     end else if (cycle_count < CYCLE_READ_END) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_REQ_READ;
@@ -255,22 +273,29 @@ module ahb2_mac_bridge #(
                 end
 
                 STATE_WAIT_READ: begin
-                    result_accumulator <= (result_accumulator << 8) | mac_uo_out;
-                    state <= STATE_MAC_CLK_HI;
+                    result_accumulator <= {result_accumulator[23:0], mac_uo_out};
+                    state <= STATE_MAC_STEP;
                 end
 
                 STATE_REQ_WRITE: begin
                     m_haddr <= dma_dst_addr;
-                    m_htrans <= 2'b10; // NONSEQ
+                    m_htrans <= 2'b10; // NONSEQ Address Phase
                     m_hwrite <= 1'b1;
                     m_hsize <= 3'b010; // Word
-                    m_hwdata <= result_accumulator;
-                    state <= STATE_WAIT_WRITE;
+                    m_hsel <= 1'b1;
+                    state <= STATE_WAIT_WRITE_ADDR;
                 end
 
-                STATE_WAIT_WRITE: begin
+                STATE_WAIT_WRITE_ADDR: begin
                     if (m_hready) begin
-                        m_htrans <= 2'b0;
+                        m_htrans <= 2'b00; // Data Phase starts
+                        m_hwdata <= result_accumulator;
+                        state <= STATE_WAIT_WRITE_DATA;
+                    end
+                end
+
+                STATE_WAIT_WRITE_DATA: begin
+                    if (m_hready) begin
                         m_hwrite <= 1'b0;
                         m_hsel <= 1'b0;
                         state <= STATE_DONE;

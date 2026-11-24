@@ -5,6 +5,10 @@ from cocotb.triggers import FallingEdge, RisingEdge, Timer
 @cocotb.test()
 async def test_asynchronous_reset(dut):
     """Verify that rst_n acts as an asynchronous reset."""
+    from test import get_param
+    if not get_param(dut, "SUPPORT_DEBUG", 1):
+        dut._log.info("Skipping test_asynchronous_reset: SUPPORT_DEBUG=0")
+        return
     clock = Clock(dut.clk, 10, unit="ns")
     cocotb.start_soon(clock.start())
 
@@ -41,8 +45,8 @@ async def test_asynchronous_reset(dut):
 
     # Let's restart with debug enabled.
     dut.rst_n.value = 1
-    dut.ui_in.value = 0x40 # debug_en (ui_in[6])
-    dut.uio_in.value = 0x01 # probe_sel = 1 (uio_in[3:0])
+    dut.ui_in.value = 0x41 # debug_en (ui_in[6]) | probe_sel = 1 (ui_in[3:0])
+    dut.uio_in.value = 0x00
     await RisingEdge(dut.clk) # Samples Cycle 0
 
     # Cycle 1
