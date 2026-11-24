@@ -1019,6 +1019,7 @@ async def run_yaml_file(dut, filename):
         return
 
     # Detect hardware support
+    support_e4m3 = get_param(dut, "SUPPORT_E4M3", 1)
     support_e5m2 = get_param(dut, "SUPPORT_E5M2", 0)
     support_mxfp6 = get_param(dut, "SUPPORT_MXFP6", 0)
     support_mxfp4 = get_param(dut, "SUPPORT_MXFP4", 1)
@@ -1042,6 +1043,9 @@ async def run_yaml_file(dut, filename):
         fmt_a = inputs['format_a']
         fmt_b = inputs.get('format_b', fmt_a)
 
+        if not support_e4m3 and (fmt_a == 0 or fmt_b == 0):
+            dut._log.info(f"Skipping Case {case['test_case']}: E4M3 not supported")
+            continue
         if not support_e5m2 and (fmt_a == 1 or fmt_b == 1):
             dut._log.info(f"Skipping Case {case['test_case']}: E5M2 not supported")
             continue
