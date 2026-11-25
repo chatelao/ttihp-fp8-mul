@@ -14,21 +14,17 @@ def bin_to_mi(bin_path, mi_path):
     with open(bin_path, "rb") as f:
         data = f.read()
 
-    # Gowin .mi Header
-    # #GOWIN BINARY FILE
-    # #DEPTH=XXXX
-    # #WIDTH=32
-    # #ADDR_MODE=0
-    # #RADIX=16
+    # Gowin .mi Header (official Gowin EDA Hex format)
+    # #File_format=Hex
+    # #Address_depth=XXXX
+    # #Data_width=32
 
     depth = (len(data) + 3) // 4  # Number of 32-bit words
 
     with open(mi_path, "w") as f:
-        f.write("#GOWIN BINARY FILE\n")
-        f.write(f"#DEPTH={depth}\n")
-        f.write("#WIDTH=32\n")
-        f.write("#ADDR_MODE=0\n")
-        f.write("#RADIX=16\n")
+        f.write("#File_format=Hex\n")
+        f.write(f"#Address_depth={depth}\n")
+        f.write("#Data_width=32\n")
 
         for i in range(0, len(data), 4):
             word_bytes = data[i:i+4]

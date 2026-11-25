@@ -40,6 +40,13 @@ module tt_gowin_top #(
         end
     endgenerate
 
+    // Divide 27 MHz Tang Nano 4K crystal clock by 2 -> 13.5 MHz so Full/Lite
+    // variants (~15 MHz Fmax on GW1NS-4) meet setup timing on hardware.
+    reg clk_div2 = 1'b0;
+    always @(posedge clk) begin
+        clk_div2 <= ~clk_div2;
+    end
+
     tt_um_chatelao_fp8_multiplier #(
         .ALIGNER_WIDTH(ALIGNER_WIDTH),
         .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
@@ -67,7 +74,7 @@ module tt_gowin_top #(
         .uio_out(uio_out),
         .uio_oe(uio_oe),
         .ena(ena),
-        .clk(clk),
+        .clk(clk_div2),
         .rst_n(rst_n)
     );
 

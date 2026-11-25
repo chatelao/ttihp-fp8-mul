@@ -84,6 +84,7 @@ jobs:
           fi
 
       - name: Place and Route
+        if: ${{ !startsWith(matrix.variant, 'M3-') }}
         run: |
           # Try nextpnr-gowin first, fall back to nextpnr-himbaechel
           if command -v nextpnr-gowin >/dev/null 2>&1; then
@@ -108,6 +109,7 @@ jobs:
           fi
 
       - name: Pack bitstream
+        if: ${{ !startsWith(matrix.variant, 'M3-') }}
         run: |
           if command -v gowin_pack >/dev/null 2>&1; then
             gowin_pack -d GW1NS-4 -o build/tangnano4k_${{ matrix.variant }}.fs build/gowin_pnr.json
@@ -117,7 +119,7 @@ jobs:
           fi
 
       - name: Upload Release Assets
-        if: github.event_name == 'release'
+        if: ${{ github.event_name == 'release' && !startsWith(matrix.variant, 'M3-') }}
         uses: softprops/action-gh-release@v2
         with:
           files: build/tangnano4k_${{ matrix.variant }}.fs
@@ -125,6 +127,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload bitstream
+        if: ${{ !startsWith(matrix.variant, 'M3-') }}
         uses: actions/upload-artifact@v4
         with:
           name: gowin_bitstream_${{ matrix.variant }}

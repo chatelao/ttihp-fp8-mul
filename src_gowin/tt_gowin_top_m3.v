@@ -29,14 +29,16 @@ module tt_gowin_top_m3 #(
 `else
     parameter INTEGRATION_MODE = 1, // Default: APB
 `endif
-    parameter APB_BASE_ADDR = 32'h40020000,
-    parameter AHB_BASE_ADDR = 32'h40020000
+    /* verilator lint_off UNUSEDPARAM */
+    parameter APB_BASE_ADDR = 32'h40002400,
+    /* verilator lint_on UNUSEDPARAM */
+    parameter AHB_BASE_ADDR = 32'hA0000000
 )(
-    input  wire       ext_clk,   // External 20MHz crystal
-    input  wire       ext_rst_n, // S1 button
-    output wire [7:0] uo_out,    // Physical pins for logic analyzer
-    output wire       uart_tx,   // Pin 19
-    input  wire       uart_rx    // Pin 18
+    input  wire       ext_clk,   // External 27MHz crystal (Pin 45, Bank 1, 3.3V)
+    input  wire       ext_rst_n, // S2 button (Pin 15, Bank 3, 1.8V)
+    output wire [7:0] uo_out,    // Physical pins for 1.8V logic analyzer (Bank 3)
+    output wire       uart_tx,   // Pin 46 (Bank 1, 3.3V)
+    input  wire       uart_rx    // Pin 44 (Bank 1, 3.3V)
 );
 
     // M3 Peripheral Buses
@@ -44,12 +46,19 @@ module tt_gowin_top_m3 #(
     wire [15:0] m3_gpio_i;
     wire [15:0] m3_gpio_oe;
 
-    // M3 APB-like Peripheral Bus (EMCU specific)
-    wire [15:0] m3_addr;
-    wire [31:0] m3_data_out;
-    wire        m3_write;
-    wire        m3_read;
-    wire [31:0] m3_data_in;
+    // M3 AMBA APB2 Master Expansion Slot 1 (0x40002400)
+    wire        m3_pclk;
+    wire        m3_prst;
+    wire        m3_penable;
+    wire [7:0]  m3_paddr;
+    wire        m3_pwrite;
+    wire [31:0] m3_pwdata;
+    wire [3:0]  m3_pstrb;
+    wire [2:0]  m3_pprot;
+    wire        m3_psel1;
+    wire [31:0] m3_prdata1;
+    wire        m3_pready1;
+    wire        m3_pslverr1;
 
     // M3 AHB-Lite Master Bus (from M3 to fabric)
     wire [31:0] m3_haddr;
@@ -128,7 +137,9 @@ module tt_gowin_top_m3 #(
 
             assign m3_gpio_i[7:0]   = m3_gpio_i_data;
             assign m3_gpio_i[15:8]  = 8'b0;
-            assign m3_data_in       = 32'h0;
+            assign m3_prdata1       = 32'h0;
+            assign m3_pready1       = 1'b1;
+            assign m3_pslverr1      = 1'b0;
             assign m3_hrdata        = 32'h0;
             assign m3_hreadyout     = 1'b1;
             assign m3_hresp         = 1'b0;
@@ -140,13 +151,12 @@ module tt_gowin_top_m3 #(
             assign m3_s_hsel_dma    = 1'b0;
             assign m3_s_hready_dma  = 1'b1;
         end else if (INTEGRATION_MODE == 1) begin : gen_apb_integration
-            // APB-to-MAC Bridge
+            // AMBA APB4-to-MAC Bridge (APB2 Master Slot 1 @ APB_BASE_ADDR = 0x40002400)
             reg [7:0] ui_in_reg;
             reg [7:0] uio_in_reg;
             reg       mac_ena_reg;
             reg       mac_rst_n_reg;
             reg       apb_mac_ena_pulse;
-            wire      apb_addr_hit = (m3_addr[15:8] == APB_BASE_ADDR[15:8]);
 
             always @(posedge ext_clk or negedge ext_rst_n) begin
                 if (!ext_rst_n) begin
@@ -157,16 +167,16 @@ module tt_gowin_top_m3 #(
                     apb_mac_ena_pulse <= 1'b0;
                 end else begin
                     apb_mac_ena_pulse <= 1'b0; // Default to 0, single-cycle synchronous enable pulse
-                    if (m3_write && apb_addr_hit) begin
-                        case (m3_addr[7:0])
+                    if (m3_psel1 && m3_penable && m3_pwrite) begin
+                        case (m3_paddr[7:0])
                             8'h00: begin
-                                ui_in_reg         <= m3_data_out[7:0];
-                                uio_in_reg        <= m3_data_out[15:8];
+                                ui_in_reg         <= m3_pwdata[7:0];
+                                uio_in_reg        <= m3_pwdata[15:8];
                                 apb_mac_ena_pulse <= 1'b1;
                             end
                             8'h08: begin
-                                mac_ena_reg   <= m3_data_out[0];
-                                mac_rst_n_reg <= m3_data_out[1];
+                                mac_ena_reg   <= m3_pwdata[0];
+                                mac_rst_n_reg <= m3_pwdata[1];
                             end
                         endcase
                     end
@@ -181,8 +191,8 @@ module tt_gowin_top_m3 #(
 
             reg [31:0] prdata_reg;
             always @(*) begin
-                if (m3_read && apb_addr_hit) begin
-                    case (m3_addr[7:0])
+                if (m3_psel1 && !m3_pwrite) begin
+                    case (m3_paddr[7:0])
                         8'h00:   prdata_reg = {16'h0, uio_in_reg, ui_in_reg};
                         8'h04:   prdata_reg = {16'h0, uio_out, uo_out_mac};
                         8'h08:   prdata_reg = {30'h0, mac_rst_n_reg, mac_ena_reg};
@@ -192,7 +202,9 @@ module tt_gowin_top_m3 #(
                     prdata_reg = 32'h0;
                 end
             end
-            assign m3_data_in = prdata_reg;
+            assign m3_prdata1  = prdata_reg;
+            assign m3_pready1  = 1'b1;
+            assign m3_pslverr1 = 1'b0;
 
             // In APB mode, GPIOs and AHB are unused
             assign m3_gpio_i    = 16'h0;
@@ -285,10 +297,10 @@ module tt_gowin_top_m3 #(
 
             // In AHB mode, GPIOs and APB are unused
             assign m3_gpio_i = 16'h0;
-            assign m3_data_in = 32'h0;
+            assign m3_prdata1 = 32'h0;
+            assign m3_pready1 = 1'b1;
+            assign m3_pslverr1 = 1'b0;
         end else if (INTEGRATION_MODE == 3) begin : gen_ahb_dma_integration
-            assign m3_s_hsel_dma = 1'b1; // Always select M3 SRAM for DMA transfers
-
             // AHB2 DMA Integration (INTEGRATION_MODE == 3)
             ahb2_mac_bridge #(
                 .AHB_BASE_ADDR(AHB_BASE_ADDR)
@@ -314,7 +326,7 @@ module tt_gowin_top_m3 #(
                 .m_hwrite(m3_s_hwrite),
                 .m_hsize(m3_s_hsize),
                 .m_hwdata(m3_s_hwdata),
-                .m_hsel(),
+                .m_hsel(m3_s_hsel_dma),
                 .m_hrdata(m3_s_hrdata),
                 .m_hready(m3_s_hreadyout), // SRAM ready from M3
                 .m_hresp(m3_s_hresp),
@@ -336,10 +348,14 @@ module tt_gowin_top_m3 #(
 
             // In DMA mode, GPIOs and APB are unused
             assign m3_gpio_i = 16'h0;
-            assign m3_data_in = 32'h0;
+            assign m3_prdata1 = 32'h0;
+            assign m3_pready1 = 1'b1;
+            assign m3_pslverr1 = 1'b0;
         end else begin : gen_default_integration
             assign m3_gpio_i = 16'h0;
-            assign m3_data_in = 32'h0;
+            assign m3_prdata1 = 32'h0;
+            assign m3_pready1 = 1'b1;
+            assign m3_pslverr1 = 1'b0;
             assign m3_hrdata = 32'h0;
             assign m3_hreadyout = 1'b1;
             assign m3_hresp = 1'b0;
@@ -356,57 +372,96 @@ module tt_gowin_top_m3 #(
     // Output to physical pins for monitoring
     assign uo_out = uo_out_mac;
 
-    // Instantiate Gowin EMPU (Cortex-M3)
+    // Instantiate Gowin EMPU (Cortex-M3) IP Core (`Gowin_EMPU_Top`)
     generate
         if (INTEGRATION_MODE == 2 || INTEGRATION_MODE == 3) begin : gen_m3_ahb
-            Gowin_EMPU_M3 m3_inst (
-                .CLK           (ext_clk),
-                .RESETN        (ext_rst_n),
-                .UART0_TXD     (uart_tx),
-                .UART0_RXD     (uart_rx),
-                .GPIO0_IO      (),
-                .GPIO0_I       (m3_gpio_i),
-                .GPIO0_O       (m3_gpio_o),
-                .GPIO0_OE      (m3_gpio_oe),
-                // AHB-Lite Master ports from M3
-                .M_AHB_HADDR    (m3_haddr),
-                .M_AHB_HTRANS   (m3_htrans),
-                .M_AHB_HWRITE   (m3_hwrite),
-                .M_AHB_HSIZE    (m3_hsize),
-                .M_AHB_HWDATA   (m3_hwdata),
-                .M_AHB_HSEL     (m3_hsel),
-                .M_AHB_HREADY   (m3_hready),
-                .M_AHB_HRDATA   (m3_hrdata),
-                .M_AHB_HREADYOUT(m3_hreadyout),
-                .M_AHB_HRESP    (m3_hresp),
-                // AHB-Lite Slave ports to M3 (for DMA access to SRAM)
-                .S_AHB_HADDR    (m3_s_haddr),
-                .S_AHB_HTRANS   (m3_s_htrans),
-                .S_AHB_HWRITE   (m3_s_hwrite),
-                .S_AHB_HSIZE    (m3_s_hsize),
-                .S_AHB_HWDATA   (m3_s_hwdata),
-                .S_AHB_HSEL     (m3_s_hsel_dma),
-                .S_AHB_HREADY   (m3_s_hready_dma),
-                .S_AHB_HRDATA   (m3_s_hrdata),
-                .S_AHB_HREADYOUT(m3_s_hreadyout),
-                .S_AHB_HRESP    (m3_s_hresp)
+            Gowin_EMPU_Top m3_inst (
+                .sys_clk          (ext_clk),
+                .reset_n          (ext_rst_n),
+                .uart0_txd        (uart_tx),
+                .uart0_rxd        (uart_rx),
+                .gpioin           (m3_gpio_i),
+                .gpioout          (m3_gpio_o),
+                .gpioouten        (m3_gpio_oe),
+                // AMBA APB2 Master Expansion (unused in AHB modes)
+                .master_pclk      (m3_pclk),
+                .master_prst      (m3_prst),
+                .master_penable   (m3_penable),
+                .master_paddr     (m3_paddr),
+                .master_pwrite    (m3_pwrite),
+                .master_pwdata    (m3_pwdata),
+                .master_pstrb     (m3_pstrb),
+                .master_pprot     (m3_pprot),
+                .master_psel1     (m3_psel1),
+                .master_prdata1   (m3_prdata1),
+                .master_pready1   (m3_pready1),
+                .master_pslverr1  (m3_pslverr1),
+                // AMBA AHB2 Master ports from M3 (TARGEXP0, 0xA0000000)
+                .master_haddr     (m3_haddr),
+                .master_htrans    (m3_htrans),
+                .master_hwrite    (m3_hwrite),
+                .master_hsize     (m3_hsize),
+                .master_hwdata    (m3_hwdata),
+                .master_hsel      (m3_hsel),
+                .master_hreadymux (m3_hready),
+                .master_hrdata    (m3_hrdata),
+                .master_hreadyout (m3_hreadyout),
+                .master_hresp     (m3_hresp),
+                // AMBA AHB2 Slave ports to M3 (INITEXP0, DMA access to SRAM)
+                .slave_haddr      (m3_s_haddr),
+                .slave_htrans     (m3_s_htrans),
+                .slave_hwrite     (m3_s_hwrite),
+                .slave_hsize      (m3_s_hsize),
+                .slave_hwdata     (m3_s_hwdata),
+                .slave_hsel       (m3_s_hsel_dma),
+                .slave_hready     (m3_s_hready_dma),
+                .slave_hrdata     (m3_s_hrdata),
+                .slave_hreadyout  (m3_s_hreadyout),
+                .slave_hresp      (m3_s_hresp)
             );
         end else begin : gen_m3_standard
-            Gowin_EMPU_M3 m3_inst (
-                .CLK           (ext_clk),
-                .RESETN        (ext_rst_n),
-                .UART0_TXD     (uart_tx),
-                .UART0_RXD     (uart_rx),
-                .GPIO0_IO      (),
-                .GPIO0_I       (m3_gpio_i),
-                .GPIO0_O       (m3_gpio_o),
-                .GPIO0_OE      (m3_gpio_oe),
-                // Extension Bus (used for GPIO/APB)
-                .ADDR          (m3_addr),
-                .DATAOUT       (m3_data_out),
-                .WRITE         (m3_write),
-                .READ          (m3_read),
-                .DATAIN        (m3_data_in)
+            Gowin_EMPU_Top m3_inst (
+                .sys_clk          (ext_clk),
+                .reset_n          (ext_rst_n),
+                .uart0_txd        (uart_tx),
+                .uart0_rxd        (uart_rx),
+                .gpioin           (m3_gpio_i),
+                .gpioout          (m3_gpio_o),
+                .gpioouten        (m3_gpio_oe),
+                // AMBA APB2 Master Expansion Slot 1 (0x40002400)
+                .master_pclk      (m3_pclk),
+                .master_prst      (m3_prst),
+                .master_penable   (m3_penable),
+                .master_paddr     (m3_paddr),
+                .master_pwrite    (m3_pwrite),
+                .master_pwdata    (m3_pwdata),
+                .master_pstrb     (m3_pstrb),
+                .master_pprot     (m3_pprot),
+                .master_psel1     (m3_psel1),
+                .master_prdata1   (m3_prdata1),
+                .master_pready1   (m3_pready1),
+                .master_pslverr1  (m3_pslverr1),
+                // AMBA AHB2 Master/Slave (unused in GPIO/APB modes)
+                .master_haddr     (m3_haddr),
+                .master_htrans    (m3_htrans),
+                .master_hwrite    (m3_hwrite),
+                .master_hsize     (m3_hsize),
+                .master_hwdata    (m3_hwdata),
+                .master_hsel      (m3_hsel),
+                .master_hreadymux (m3_hready),
+                .master_hrdata    (m3_hrdata),
+                .master_hreadyout (m3_hreadyout),
+                .master_hresp     (m3_hresp),
+                .slave_haddr      (m3_s_haddr),
+                .slave_htrans     (m3_s_htrans),
+                .slave_hwrite     (m3_s_hwrite),
+                .slave_hsize      (m3_s_hsize),
+                .slave_hwdata     (m3_s_hwdata),
+                .slave_hsel       (m3_s_hsel_dma),
+                .slave_hready     (m3_s_hready_dma),
+                .slave_hrdata     (m3_s_hrdata),
+                .slave_hreadyout  (m3_s_hreadyout),
+                .slave_hresp      (m3_s_hresp)
             );
         end
     endgenerate

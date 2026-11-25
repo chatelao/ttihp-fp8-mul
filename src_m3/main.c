@@ -1,16 +1,18 @@
 #include <stdint.h>
 
-// Register Definitions for Gowin EMPU (Cortex-M3)
-#define UART0_BASE 0x40000000
+// Register Definitions for Gowin EMPU (GW1NS-4C Cortex-M3, IPUG931)
+#define UART0_BASE 0x40004000
 #define GPIO0_BASE 0x40010000
 
 #define UART0_DATA  (*(volatile uint32_t *)(UART0_BASE + 0x00))
 #define UART0_STATE (*(volatile uint32_t *)(UART0_BASE + 0x04))
 #define UART0_CTRL  (*(volatile uint32_t *)(UART0_BASE + 0x08))
-#define UART0_BAUD  (*(volatile uint32_t *)(UART0_BASE + 0x0C))
+#define UART0_BAUD  (*(volatile uint32_t *)(UART0_BASE + 0x10))
 
-#define GPIO0_DATA  (*(volatile uint32_t *)(GPIO0_BASE + 0x00))
-#define GPIO0_DIR   (*(volatile uint32_t *)(GPIO0_BASE + 0x04))
+#define GPIO0_DATA     (*(volatile uint32_t *)(GPIO0_BASE + 0x00))
+#define GPIO0_DATAOUT  (*(volatile uint32_t *)(GPIO0_BASE + 0x04))
+#define GPIO0_OUTENSET (*(volatile uint32_t *)(GPIO0_BASE + 0x10))
+#define GPIO0_OUTENCLR (*(volatile uint32_t *)(GPIO0_BASE + 0x14))
 
 // GPIO Bit Offsets (16-bit Multiplexed Mapping)
 #define BIT_DATA    0    // GPIO[7:0]   - Data Bus
@@ -62,42 +64,42 @@ void delay(int count) {
 }
 
 void write_ui_in(uint8_t val) {
-    GPIO0_DIR |= 0x00FF; // Ensure bits 0-7 are outputs
-    uint32_t current = GPIO0_DATA;
+    GPIO0_OUTENSET = 0x00FF; // Ensure bits 0-7 are outputs
+    uint32_t current = GPIO0_DATAOUT;
     // Preserve Clk, Rst, Ena (bits 11, 12, 13)
     uint32_t ctrl = current & ((1 << BIT_CLK) | (1 << BIT_RST) | (1 << BIT_ENA));
-    GPIO0_DATA = ctrl | (ADDR_UI_IN << BIT_ADDR) | (val << BIT_DATA);
-    GPIO0_DATA |= (1 << BIT_WEN);
+    GPIO0_DATAOUT = ctrl | (ADDR_UI_IN << BIT_ADDR) | (val << BIT_DATA);
+    GPIO0_DATAOUT |= (1 << BIT_WEN);
     delay(2);
-    GPIO0_DATA &= ~(1 << BIT_WEN);
+    GPIO0_DATAOUT &= ~(1 << BIT_WEN);
 }
 
 void write_uio_in(uint8_t val) {
-    GPIO0_DIR |= 0x00FF; // Ensure bits 0-7 are outputs
-    uint32_t current = GPIO0_DATA;
+    GPIO0_OUTENSET = 0x00FF; // Ensure bits 0-7 are outputs
+    uint32_t current = GPIO0_DATAOUT;
     uint32_t ctrl = current & ((1 << BIT_CLK) | (1 << BIT_RST) | (1 << BIT_ENA));
-    GPIO0_DATA = ctrl | (ADDR_UIO_IN << BIT_ADDR) | (val << BIT_DATA);
-    GPIO0_DATA |= (1 << BIT_WEN);
+    GPIO0_DATAOUT = ctrl | (ADDR_UIO_IN << BIT_ADDR) | (val << BIT_DATA);
+    GPIO0_DATAOUT |= (1 << BIT_WEN);
     delay(2);
-    GPIO0_DATA &= ~(1 << BIT_WEN);
+    GPIO0_DATAOUT &= ~(1 << BIT_WEN);
 }
 
 uint8_t read_mac_uo() {
-    GPIO0_DIR &= ~0x00FF; // Set bits 0-7 as inputs
-    uint32_t current = GPIO0_DATA;
+    GPIO0_OUTENCLR = 0x00FF; // Set bits 0-7 as inputs
+    uint32_t current = GPIO0_DATAOUT;
     uint32_t ctrl = current & ((1 << BIT_CLK) | (1 << BIT_RST) | (1 << BIT_ENA));
-    GPIO0_DATA = ctrl | (ADDR_UO_OUT << BIT_ADDR);
+    GPIO0_DATAOUT = ctrl | (ADDR_UO_OUT << BIT_ADDR);
     delay(5); // Stabilize bus
     uint8_t val = (uint8_t)(GPIO0_DATA & 0xFF);
-    GPIO0_DIR |= 0x00FF; // Restore as outputs
+    GPIO0_OUTENSET = 0x00FF; // Restore as outputs
     return val;
 }
 
 void clock_tick() {
     delay(10);
-    GPIO0_DATA |= (1 << BIT_CLK);
+    GPIO0_DATAOUT |= (1 << BIT_CLK);
     delay(10);
-    GPIO0_DATA &= ~(1 << BIT_CLK);
+    GPIO0_DATAOUT &= ~(1 << BIT_CLK);
 }
 
 /**
@@ -118,12 +120,12 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 
     // Reset Sequence (skip reset when Short Protocol reuses loaded scales)
     if (!(cycle0_ui & 0x80)) {
-        GPIO0_DATA &= ~(1 << BIT_RST);
+        GPIO0_DATAOUT &= ~(1 << BIT_RST);
         clock_tick();
         clock_tick();
-        GPIO0_DATA |= (1 << BIT_RST);
+        GPIO0_DATAOUT |= (1 << BIT_RST);
     }
-    GPIO0_DATA |= (1 << BIT_ENA);
+    GPIO0_DATAOUT |= (1 << BIT_ENA);
 
     // Cycle 0: IDLE / Metadata (write BEFORE clocking Cycle 0!)
     write_ui_in(cycle0_ui);
@@ -170,9 +172,9 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 }
 
 int main() {
-    UART0_BAUD = 174; // 20MHz / 115200
+    UART0_BAUD = 234; // 27MHz / 115200
     UART0_CTRL = 0x03;
-    GPIO0_DIR = 0x00007FFF; // 15 bits of output (including WEN)
+    GPIO0_OUTENSET = 0x00007FFF; // 15 bits of output (including WEN)
 
     uart_puts("\r\n--- OCP MXFP8 MAC M3 Testbench (v1.3.0) ---\r\n");
     uart_puts("Commands: [t] E4M3, [e] E5M2, [i] INT8, [y] INT8_SYM, [p] Packed, [m] MX+, [s] Short, [l] LNS, [v] Version\r\n");

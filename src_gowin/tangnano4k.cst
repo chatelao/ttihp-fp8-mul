@@ -1,33 +1,67 @@
+// Tang Nano 4K (GW1NSR-LV4CQN48PC6/I5) Standalone Pin Constraints
+// Bank Voltages: Bank 0/1 = 3.3V (LVCMOS33), Bank 2 = 2.5V (LVCMOS25), Bank 3 = 1.8V (LVCMOS18)
+// Reserved/Avoided: JTAG (3,4,6,7,8), DONE (9), SPI Flash (1,2,47,48)
+
+// System Clock (27 MHz Crystal, Bank 1, 3.3V)
 IO_LOC "clk" 45;
-IO_PORT "clk" PULL_MODE=UP;
-IO_LOC "rst_n" 15;
-IO_PORT "rst_n" PULL_MODE=UP;
-IO_LOC "ena" 14;
-IO_PORT "ena" PULL_MODE=UP;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
-IO_LOC "ui_in[0]" 30;
-IO_LOC "ui_in[1]" 31;
-IO_LOC "ui_in[2]" 32;
-IO_LOC "ui_in[3]" 33;
-IO_LOC "ui_in[4]" 34;
-IO_LOC "ui_in[5]" 35;
-IO_LOC "ui_in[6]" 39;
-IO_LOC "ui_in[7]" 40;
+// Control Signals (Buttons S1=Pin 14, S2=Pin 15, Bank 3, 1.8V)
+IO_LOC "rst_n" 14;
+IO_PORT "rst_n" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "ena" 15;
+IO_PORT "ena" IO_TYPE=LVCMOS18 PULL_MODE=UP;
 
-IO_LOC "uo_out[0]" 41;
-IO_LOC "uo_out[1]" 42;
-IO_LOC "uo_out[2]" 43;
-IO_LOC "uo_out[3]" 44;
-IO_LOC "uo_out[4]" 22;
-IO_LOC "uo_out[5]" 7;
-IO_LOC "uo_out[6]" 8;
-IO_LOC "uo_out[7]" 9;
+// ui_in[7:0] on Bank 2 (2.5V; note Pins 27-32, 34 are multiplexed with HDMI TMDS pull-ups)
+IO_LOC "ui_in[0]" 27;
+IO_PORT "ui_in[0]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[1]" 28;
+IO_PORT "ui_in[1]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[2]" 29;
+IO_PORT "ui_in[2]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[3]" 30;
+IO_PORT "ui_in[3]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[4]" 31;
+IO_PORT "ui_in[4]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[5]" 32;
+IO_PORT "ui_in[5]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[6]" 33;
+IO_PORT "ui_in[6]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+IO_LOC "ui_in[7]" 34;
+IO_PORT "ui_in[7]" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
 
-IO_LOC "uio[0]" 10;
-IO_LOC "uio[1]" 13;
-IO_LOC "uio[2]" 16;
-IO_LOC "uio[3]" 17;
-IO_LOC "uio[4]" 18;
-IO_LOC "uio[5]" 19;
-IO_LOC "uio[6]" 20;
-IO_LOC "uio[7]" 21;
+// uo_out[7:0] on Bank 1 (3.3V) + Pin 10 (Bank 0, 3.3V onboard LED)
+IO_LOC "uo_out[0]" 39;
+IO_PORT "uo_out[0]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[1]" 40;
+IO_PORT "uo_out[1]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[2]" 41;
+IO_PORT "uo_out[2]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[3]" 42;
+IO_PORT "uo_out[3]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[4]" 43;
+IO_PORT "uo_out[4]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[5]" 44;
+IO_PORT "uo_out[5]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[6]" 46;
+IO_PORT "uo_out[6]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC "uo_out[7]" 10;
+IO_PORT "uo_out[7]" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// uio[7:0] on Bank 3 (1.8V — DO NOT drive with 3.3V logic!)
+IO_LOC "uio[0]" 13;
+IO_PORT "uio[0]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[1]" 16;
+IO_PORT "uio[1]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[2]" 17;
+IO_PORT "uio[2]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[3]" 18;
+IO_PORT "uio[3]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[4]" 19;
+IO_PORT "uio[4]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[5]" 20;
+IO_PORT "uio[5]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[6]" 21;
+IO_PORT "uio[6]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
+IO_LOC "uio[7]" 22;
+IO_PORT "uio[7]" IO_TYPE=LVCMOS18 PULL_MODE=UP;
