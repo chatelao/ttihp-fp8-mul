@@ -13,38 +13,38 @@
 
 ## Summary of Findings
 
-| ID | Severity | Area | Summary |
-| :--- | :---: | :--- | :--- |
-| **`F-TN4K-01`** | **CRITICAL** | Pinout (`.cst`) | `uo_out[5:7]` and `uio[0]` collide with **JTAG (`TCK`, `JTAGSEL_N`)**, `DONE`, and onboard LED (`MODE`), soft-bricking JTAG when flashed. |
-| **`F-TN4K-02`** | **CRITICAL** | Electrical / Banks | 3.3 V `LVCMOS33` constraints and external MCU wiring applied to **1.8 V Bank 3** (Pins 13–23) and **HDMI TMDS Bank 2** (Pins 27–35). |
-| **`F-TN4K-03`** | **CRITICAL** | M3 Firmware (`main.c`) | Wrong memory map & CMSDK register offsets: `UART0_BASE` points to `TIMER0` (`0x40000000`), `BAUDDIV` offset is wrong (`0x0C` vs `0x10`), and `GPIO0_DIR` writes `DATAOUT` (`0x04`) while reading `DATA` (`0x00`) resets the MAC on every write. |
-| **`F-TN4K-04`** | **CRITICAL** | M3 RTL (`tt_gowin_top_m3.v`) | `Gowin_EMPU_M3` module name and port list (`ADDR`/`DATAOUT`, `M_AHB_*`, `S_AHB_*`) are invented and match neither Gowin EDA's `Gowin_EMPU_Top` IP nor the silicon `EMCU` primitive. |
-| **`F-TN4K-05`** | **CRITICAL** | CI / Releases (`gowin.yaml`) | `M3-*` CI jobs synthesize a constant-zero stub (`gowin_empu_m3_stub.v`), optimizing away 100% of the MAC/bridge logic and publishing **empty `.fs` bitstreams** to GitHub Releases. |
-| **`F-TN4K-06`** | **HIGH** | SoC Memory Map | `APB_BASE_ADDR` and `AHB_BASE_ADDR` are hardcoded to `0x40020000`, whereas `GW1NS-4C` silicon maps APB2 slots at `0x40002400–0x40002FFF` and AHB2 (`TARGEXP0`) at `0xA0000000`. |
-| **`F-TN4K-07`** | **HIGH** | Clocking & UART | Board crystal on Pin 45 is **27 MHz** (not 20 MHz): UART baud divider `174` causes a +35% baud error, and feeding 27 MHz directly into `Full`/`Lite` (~15 MHz `Fmax`) violates FPGA setup timing without a PLL/divider. Also, BL702 on Tang Nano 4K is USB-JTAG only (no onboard USB-UART). |
-| **`F-TN4K-08`** | **HIGH** | M3 Flash & Tooling | `GW1NS-4C` boots Cortex-M3 from **32 KB Embedded UserFlash** (raw `.bin` via `--mcufw`), not a `.mi` BSRAM file; `bin2mi.py` uses a non-existent `#GOWIN BINARY FILE` header, `link.ld` limits Flash/SRAM to 16 KB, and committed `testbench.{bin,elf,mi}` are stale. |
-| **`F-TN4K-09`** | **MEDIUM** | DMA Bridge (`ahb2_mac_bridge.v`) | Hardcodes 41-cycle unpacked protocol (`0..40`); breaks if Packed FP4 (`last_cycle=24`), Short Protocol (`ui_in[7]=1`), or Serial mode is used. Leaves `.m_hsel()` unconnected while tying `S_AHB_HSEL=1'b1`. |
-| **`F-TN4K-10`** | **MEDIUM** | Parameter Sync | `tt_gowin_top.v` and `tt_gowin_top_m3.v` omit `SUPPORT_DEBUG` and `SUPPORT_FLOAT32`; `gowin.yaml` hardcodes stale `chparam` flags instead of `scripts/configure_variant.py`. |
-| **`F-TN4K-11`** | **MEDIUM** | Synchronization & Buttons | Standalone `ena` (Pin 14) and `rst_n` (Pin 15) connect directly to active-low 1.8 V buttons `S1`/`S2` (labels swapped in docs) with no CDC/reset synchronizer against the 27 MHz clock. |
-| **`F-TN4K-12`** | **MEDIUM** | Verification & Docs | Zero cocotb/RTL functional tests for `src_gowin/`; `TANG_NANO_4K_GUIDE.md` still documents `ui_in[5]=1` for Loopback Mode (now `float32_mode` after `F-RTL-02`). |
+| ID | Severity | Status | Area | Summary |
+| :--- | :---: | :---: | :--- | :--- |
+| **`F-TN4K-01`** | **CRITICAL** | **Fixed** | Pinout (`.cst`) | `uo_out[5:7]` and `uio[0]` collided with **JTAG (`TCK`, `JTAGSEL_N`)**, `DONE`, and onboard LED (`MODE`), soft-bricking JTAG when flashed. *Fixed in `tangnano4k.cst` and `tangnano4k_m3.cst`.* |
+| **`F-TN4K-02`** | **CRITICAL** | **Fixed** | Electrical / Banks | 3.3 V `LVCMOS33` constraints were applied to **1.8 V Bank 3** (Pins 13–23) and **HDMI TMDS Bank 2** (Pins 27–35). *Fixed: Bank 3 set to `LVCMOS18`, Bank 2 to `LVCMOS25`, UART moved to 3.3 V Bank 1 (Pins 44/46).* |
+| **`F-TN4K-03`** | **CRITICAL** | **Fixed** | M3 Firmware (`main.c`) | Wrong memory map & CMSDK register offsets (`UART0_BASE`, `BAUDDIV`, `GPIO0_DIR` vs `OUTENSET`/`DATAOUT`). *Fixed in `src_m3/main.c`.* |
+| **`F-TN4K-04`** | **CRITICAL** | **Fixed** | M3 RTL (`tt_gowin_top_m3.v`) | `Gowin_EMPU_M3` module name and port list did not match Gowin EDA's `Gowin_EMPU_Top` IP. *Fixed: aligned to `Gowin_EMPU_Top` with AMBA APB4/AHB2 ports.* |
+| **`F-TN4K-05`** | **CRITICAL** | **Fixed** | CI / Releases (`gowin.yaml`) | `M3-*` CI jobs synthesized a constant-zero stub and published empty `.fs` bitstreams. *Fixed: `Gowin_EMPU_Top` marked `(* blackbox *)`, `M3-*` runs Yosys synthesis check only.* |
+| **`F-TN4K-06`** | **HIGH** | **Fixed** | SoC Memory Map | `APB_BASE_ADDR` and `AHB_BASE_ADDR` were hardcoded to `0x40020000`. *Fixed: `APB_BASE_ADDR = 0x40002400`, `AHB_BASE_ADDR = 0xA0000000`.* |
+| **`F-TN4K-07`** | **HIGH** | **Fixed** | Clocking & UART | Board crystal on Pin 45 is **27 MHz** (not 20 MHz): UART baud divider `174` caused +35% error, and 27 MHz violated `Full`/`Lite` timing (~15 MHz `Fmax`). *Fixed: `UART0_BAUD = 234` in `main.c` and ÷2 clock divider (13.5 MHz) in `tt_gowin_top.v`. BL702 is assumed cross-connected to FPGA/M3 for serial.* |
+| **`F-TN4K-08`** | **HIGH** | **Fixed** | M3 Flash & Tooling | `GW1NS-4C` boots Cortex-M3 from **32 KB Embedded UserFlash** (`.bin` via `--mcufw`); `bin2mi.py` had an invalid header, `link.ld` limited Flash to 16 KB, and committed `testbench.{bin,elf,mi}` were stale. *Fixed: `link.ld` updated to 32 KB + `ALIGN(4)`, `bin2mi.py` header fixed, stale binaries removed.* |
+| **`F-TN4K-09`** | **MEDIUM** | **Partial** | DMA Bridge (`ahb2_mac_bridge.v`) | `.m_hsel(m3_s_hsel_dma)` is now connected in `tt_gowin_top_m3.v`; dynamic cycle counts for Packed FP4 / Short Protocol remain open. |
+| **`F-TN4K-10`** | **MEDIUM** | **Open** | Parameter Sync | `tt_gowin_top.v` and `tt_gowin_top_m3.v` omit `SUPPORT_DEBUG` and `SUPPORT_FLOAT32`; `gowin.yaml` hardcodes `chparam` flags instead of `scripts/configure_variant.py`. |
+| **`F-TN4K-11`** | **MEDIUM** | **Open** | Synchronization & Buttons | Standalone `ena` (Pin 14) and `rst_n` (Pin 15) connect directly to active-low 1.8 V buttons `S1`/`S2` with no CDC/reset synchronizer. |
+| **`F-TN4K-12`** | **MEDIUM** | **Open** | Verification & Docs | Zero cocotb/RTL functional tests for `src_gowin/`; `TANG_NANO_4K_GUIDE.md` still documents `ui_in[5]=1` for Loopback Mode. |
 
 ---
 
-## Tang Nano 4K Hardware Reality vs. Current Repo Mapping
+## Tang Nano 4K Hardware Reality vs. Original Repo Mapping
 
 ```mermaid
 flowchart LR
     subgraph Board["Tang Nano 4K PCB (GW1NSR-LV4CQN48PC6/I5)"]
         OSC["27 MHz Crystal\nPin 45 (Bank 1, 3.3V)"]
-        BL702["BL702 USB-C\nUSB-JTAG ONLY\nPins 3,4,6,7,8 (Bank 0, 3.3V)"]
-        HDMI["HDMI Connector + Pull-ups\nPins 27-35 (Bank 2)"]
+        BL702["BL702 USB-C\nJTAG (Pins 3,4,6,7,8)\n+ Cross-connected Serial"]
+        HDMI["HDMI Connector + Pull-ups\nPins 27-35 (Bank 2, 2.5V)"]
         BTNS["Buttons S1 (Pin 14) & S2 (Pin 15)\n+ HyperRAM Rail (Bank 3, 1.8V)"]
         BANK1["Free 3.3V Header I/O\nPins 39-44, 46 (Bank 1, 3.3V)"]
     end
 
-    BL702 -. "COLLISION: uo_out[5:6]\ndrives Pin 7 (TCK) & Pin 8 (JTAGSEL_N)!" .-> PNR["tangnano4k.cst &\ntangnano4k_m3.cst"]
-    HDMI -. "CONFLICT: ui_in[0:5]\non HDMI TMDS Pins 30-35" .-> PNR
-    BTNS -. "OVERVOLTAGE: LVCMOS33\non 1.8V Pins 18, 19, 22" .-> PNR
+    BL702 -. "COLLISION (Fixed): uo_out[5:6]\ndrove Pin 7 (TCK) & Pin 8 (JTAGSEL_N)" .-> PNR["tangnano4k.cst &\ntangnano4k_m3.cst"]
+    HDMI -. "CONFLICT (Fixed): LVCMOS33\non Bank 2 Pins 30-35" .-> PNR
+    BTNS -. "OVERVOLTAGE (Fixed): LVCMOS33\non 1.8V Pins 18, 19, 22" .-> PNR
 ```
 
 ---

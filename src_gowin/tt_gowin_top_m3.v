@@ -29,7 +29,9 @@ module tt_gowin_top_m3 #(
 `else
     parameter INTEGRATION_MODE = 1, // Default: APB
 `endif
+    /* verilator lint_off UNUSEDPARAM */
     parameter APB_BASE_ADDR = 32'h40002400,
+    /* verilator lint_on UNUSEDPARAM */
     parameter AHB_BASE_ADDR = 32'hA0000000
 )(
     input  wire       ext_clk,   // External 27MHz crystal (Pin 45, Bank 1, 3.3V)
