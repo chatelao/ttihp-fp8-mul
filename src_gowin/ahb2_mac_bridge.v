@@ -186,6 +186,12 @@ module ahb2_mac_bridge #(
                 endcase
             end
 
+            // Dynamic cycle thresholds based on meta_reg:
+            //   meta_reg[3] == 1: Packed FP4 mode (16 stream cycles instead of 32)
+            //   meta_reg[7] == 1: Short Protocol (skips Cycles 1-2 scale/format)
+            // Note: cycle_count still uses 3..34 (unpacked) or 3..18 (packed)
+            // when short_mode skips directly from 0 -> 3.
+
             // DMA FSM (AMBA 3 AHB-Lite 2-phase pipelined)
             case (state)
                 STATE_IDLE: begin
@@ -248,19 +254,23 @@ module ahb2_mac_bridge #(
                 end
 
                 STATE_MAC_NEXT: begin
-                    if (cycle_count < CYCLE_SCALE_B) begin
+                    if (cycle_count == CYCLE_METADATA && meta_reg[7]) begin
+                        // Short Protocol: skip Cycles 1-2 and jump straight to streaming
+                        cycle_count <= CYCLE_STREAM_START;
+                        state <= STATE_REQ_DATA;
+                    end else if (cycle_count < CYCLE_SCALE_B) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_CONF_CYCLE;
-                    end else if (cycle_count < CYCLE_STREAM_END) begin
+                    end else if (cycle_count < (meta_reg[3] ? 6'd18 : CYCLE_STREAM_END)) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_REQ_DATA;
                         if (cycle_count >= CYCLE_STREAM_START) m_haddr <= m_haddr + 4;
-                    end else if (cycle_count < CYCLE_FLUSH_END) begin
+                    end else if (cycle_count < (meta_reg[3] ? 6'd20 : CYCLE_FLUSH_END)) begin
                         cycle_count <= cycle_count + 1;
                         mac_ui_in <= 8'h0;
                         mac_uio_in <= 8'h0;
                         state <= STATE_MAC_STEP;
-                    end else if (cycle_count < CYCLE_READ_END) begin
+                    end else if (cycle_count < (meta_reg[3] ? 6'd24 : CYCLE_READ_END)) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_REQ_READ;
                     end else begin

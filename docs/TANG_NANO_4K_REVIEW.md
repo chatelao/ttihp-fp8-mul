@@ -23,10 +23,10 @@
 | **`F-TN4K-06`** | **HIGH** | **Fixed** | SoC Memory Map | `APB_BASE_ADDR` and `AHB_BASE_ADDR` were hardcoded to `0x40020000`. *Fixed: `APB_BASE_ADDR = 0x40002400`, `AHB_BASE_ADDR = 0xA0000000`.* |
 | **`F-TN4K-07`** | **HIGH** | **Fixed** | Clocking & UART | Board crystal on Pin 45 is **27 MHz** (not 20 MHz): UART baud divider `174` caused +35% error, and 27 MHz violated `Full`/`Lite` timing (~15 MHz `Fmax`). *Fixed: `UART0_BAUD = 234` in `main.c` and ÷2 clock divider (13.5 MHz) in `tt_gowin_top.v`. BL702 is assumed cross-connected to FPGA/M3 for serial.* |
 | **`F-TN4K-08`** | **HIGH** | **Fixed** | M3 Flash & Tooling | `GW1NS-4C` boots Cortex-M3 from **32 KB Embedded UserFlash** (`.bin` via `--mcufw`); `bin2mi.py` had an invalid header, `link.ld` limited Flash to 16 KB, and committed `testbench.{bin,elf,mi}` were stale. *Fixed: `link.ld` updated to 32 KB + `ALIGN(4)`, `bin2mi.py` header fixed, stale binaries removed.* |
-| **`F-TN4K-09`** | **MEDIUM** | **Partial** | DMA Bridge (`ahb2_mac_bridge.v`) | `.m_hsel(m3_s_hsel_dma)` is now connected in `tt_gowin_top_m3.v`; dynamic cycle counts for Packed FP4 / Short Protocol remain open. |
-| **`F-TN4K-10`** | **MEDIUM** | **Open** | Parameter Sync | `tt_gowin_top.v` and `tt_gowin_top_m3.v` omit `SUPPORT_DEBUG` and `SUPPORT_FLOAT32`; `gowin.yaml` hardcodes `chparam` flags instead of `scripts/configure_variant.py`. |
-| **`F-TN4K-11`** | **MEDIUM** | **Open** | Synchronization & Buttons | Standalone `ena` (Pin 14) and `rst_n` (Pin 15) connect directly to active-low 1.8 V buttons `S1`/`S2` with no CDC/reset synchronizer. |
-| **`F-TN4K-12`** | **MEDIUM** | **Open** | Verification & Docs | Zero cocotb/RTL functional tests for `src_gowin/`; `TANG_NANO_4K_GUIDE.md` still documents `ui_in[5]=1` for Loopback Mode. |
+| **`F-TN4K-09`** | **MEDIUM** | **Fixed** | DMA Bridge (`ahb2_mac_bridge.v`) | `.m_hsel(m3_s_hsel_dma)` connected and dynamic cycle counts for Packed FP4 (`meta_reg[3]=1`) and Short Protocol (`meta_reg[7]=1`) implemented. |
+| **`F-TN4K-10`** | **MEDIUM** | **Fixed** | Parameter Sync | `SUPPORT_DEBUG` and `SUPPORT_FLOAT32` forwarded in `tt_gowin_top.v`, `tt_gowin_top_m3.v`, `verify_rtl.py`, and `verify_rtl_m3.py`; `gowin.yaml` now uses `scripts/configure_variant.py --format=yosys`. |
+| **`F-TN4K-11`** | **MEDIUM** | **Fixed** | Synchronization & Buttons | Added 2-FF synchronizers for `rst_n` and `ena` in `tt_gowin_top.v`; corrected `S1`/`S2` button labels in `TANG_NANO_4K_GUIDE.md`. |
+| **`F-TN4K-12`** | **MEDIUM** | **Fixed** | Verification & Docs | Updated `TANG_NANO_4K_GUIDE.md` (Loopback Mode `ui_in = 0x50`, per-bank voltages), removed bundled ARM APB PDF, and added `ahb2_mac_bridge` functional verification test. |
 
 ---
 

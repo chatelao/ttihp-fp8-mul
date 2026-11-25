@@ -62,6 +62,8 @@ def verify_gowin_m3_top():
         "parameter ENABLE_SHARED_SCALING",
         "parameter USE_LNS_MUL",
         "parameter USE_LNS_MUL_PRECISE",
+        "parameter SUPPORT_DEBUG",
+        "parameter SUPPORT_FLOAT32",
         "parameter INTEGRATION_MODE",
         "parameter APB_BASE_ADDR",
         "parameter AHB_BASE_ADDR"
