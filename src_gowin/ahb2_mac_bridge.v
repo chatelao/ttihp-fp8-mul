@@ -1,7 +1,7 @@
 `default_nettype none
 
 module ahb2_mac_bridge #(
-    parameter AHB_BASE_ADDR = 32'h40020000
+    parameter AHB_BASE_ADDR = 32'hA0000000
 )(
     input  wire        clk,
     input  wire        rst_n,

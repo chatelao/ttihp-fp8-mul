@@ -84,14 +84,14 @@ def verify_gowin_m3_top():
         (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*2\)\s*begin\s*:\s*gen_ahb_integration", "Missing gen_ahb_integration"),
         (r"else\s+if\s*\(INTEGRATION_MODE\s*==\s*3\)\s*begin\s*:\s*gen_ahb_dma_integration", "Missing gen_ahb_dma_integration"),
         (r"ahb2_mac_bridge\s+#\(", "ahb2_mac_bridge not instantiated"),
-        (r"Gowin_EMPU_M3\s+m3_inst", "Gowin_EMPU_M3 instance not found"),
+        (r"Gowin_EMPU_Top\s+m3_inst", "Gowin_EMPU_Top instance not found"),
         (r"if\s*\(INTEGRATION_MODE\s*==\s*2\s*\|\|\s*INTEGRATION_MODE\s*==\s*3\)\s*begin\s*:\s*gen_m3_ahb", "Missing gen_m3_ahb block for combined AHB modes"),
-        (r"\.ADDR\s*\(m3_addr\)", "ADDR port not connected in M3 instance"),
-        (r"\.M_AHB_HADDR\s*\(m3_haddr\)", "M_AHB_HADDR port not connected in M3 instance"),
-        (r"\.M_AHB_HREADY\s*\(m3_hready\)", "M_AHB_HREADY port not connected in M3 instance"),
-        (r"\.M_AHB_HREADYOUT\s*\(m3_hreadyout\)", "M_AHB_HREADYOUT port not connected in M3 instance"),
-        (r"\.S_AHB_HADDR\s*\(m3_s_haddr\)", "S_AHB_HADDR port not connected in M3 instance"),
-        (r"\.S_AHB_HREADYOUT\s*\(m3_s_hreadyout\)", "S_AHB_HREADYOUT port not connected in M3 instance"),
+        (r"\.master_paddr\s*\(m3_paddr\)", "master_paddr port not connected in M3 instance"),
+        (r"\.master_haddr\s*\(m3_haddr\)", "master_haddr port not connected in M3 instance"),
+        (r"\.master_hreadymux\s*\(m3_hready\)", "master_hreadymux port not connected in M3 instance"),
+        (r"\.master_hreadyout\s*\(m3_hreadyout\)", "master_hreadyout port not connected in M3 instance"),
+        (r"\.slave_haddr\s*\(m3_s_haddr\)", "slave_haddr port not connected in M3 instance"),
+        (r"\.slave_hreadyout\s*\(m3_s_hreadyout\)", "slave_hreadyout port not connected in M3 instance"),
         (r"tt_um_chatelao_fp8_multiplier #\(", "MAC unit not instantiated with parameters")
     ]
 
