@@ -28,7 +28,9 @@ def verify_gowin_top():
         "parameter SERIAL_K_FACTOR",
         "parameter ENABLE_SHARED_SCALING",
         "parameter USE_LNS_MUL",
-        "parameter USE_LNS_MUL_PRECISE"
+        "parameter USE_LNS_MUL_PRECISE",
+        "parameter SUPPORT_DEBUG",
+        "parameter SUPPORT_FLOAT32"
     ]
 
     missing_params = []

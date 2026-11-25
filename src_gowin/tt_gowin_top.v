@@ -19,7 +19,9 @@ module tt_gowin_top #(
     parameter SERIAL_K_FACTOR = 8,
     parameter ENABLE_SHARED_SCALING = 0,
     parameter USE_LNS_MUL = 0,
-    parameter USE_LNS_MUL_PRECISE = 0
+    parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SUPPORT_DEBUG = 1,
+    parameter SUPPORT_FLOAT32 = 1
 )(
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
@@ -47,6 +49,20 @@ module tt_gowin_top #(
         clk_div2 <= ~clk_div2;
     end
 
+    // 2-FF synchronizers for asynchronous push-button inputs (S1=ena, S2=rst_n)
+    reg [1:0] rst_n_sync = 2'b00;
+    reg [1:0] ena_sync   = 2'b00;
+    always @(posedge clk_div2 or negedge rst_n) begin
+        if (!rst_n) begin
+            rst_n_sync <= 2'b00;
+        end else begin
+            rst_n_sync <= {rst_n_sync[0], 1'b1};
+        end
+    end
+    always @(posedge clk_div2) begin
+        ena_sync <= {ena_sync[0], ena};
+    end
+
     tt_um_chatelao_fp8_multiplier #(
         .ALIGNER_WIDTH(ALIGNER_WIDTH),
         .ACCUMULATOR_WIDTH(ACCUMULATOR_WIDTH),
@@ -66,16 +82,18 @@ module tt_gowin_top #(
         .SERIAL_K_FACTOR(SERIAL_K_FACTOR),
         .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
         .USE_LNS_MUL(USE_LNS_MUL),
-        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+        .SUPPORT_DEBUG(SUPPORT_DEBUG),
+        .SUPPORT_FLOAT32(SUPPORT_FLOAT32)
     ) user_project (
         .ui_in(ui_in),
         .uo_out(uo_out),
         .uio_in(uio_in),
         .uio_out(uio_out),
         .uio_oe(uio_oe),
-        .ena(ena),
+        .ena(ena_sync[1]),
         .clk(clk_div2),
-        .rst_n(rst_n)
+        .rst_n(rst_n_sync[1])
     );
 
 endmodule

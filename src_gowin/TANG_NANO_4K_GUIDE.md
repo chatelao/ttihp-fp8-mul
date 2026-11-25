@@ -74,35 +74,14 @@ openFPGALoader -b tangnano4k -f build/tangnano4k.fs
 
 The following table maps the Tiny Tapeout signals to the physical pins of the Tang Nano 4K.
 
-| TT Signal | Direction | Tang Nano 4K Pin | On-board Hardware |
-|:---:|:---:|:---:|---|
-| `clk` | Input | 45 | 27MHz Oscillator |
-| `rst_n` | Input | 15 | Button S1 |
-| `ena` | Input | 14 | Button S2 |
-| `ui_in[0]` | Input | 30 | |
-| `ui_in[1]` | Input | 31 | |
-| `ui_in[2]` | Input | 32 | |
-| `ui_in[3]` | Input | 33 | |
-| `ui_in[4]` | Input | 34 | |
-| `ui_in[5]` | Input | 35 | |
-| `ui_in[6]` | Input | 39 | |
-| `ui_in[7]` | Input | 40 | |
-| `uo_out[0]` | Output | 41 | |
-| `uo_out[1]` | Output | 42 | |
-| `uo_out[2]` | Output | 43 | |
-| `uo_out[3]` | Output | 44 | |
-| `uo_out[4]` | Output | 22 | |
-| `uo_out[5]` | Output | 7 | |
-| `uo_out[6]` | Output | 8 | |
-| `uo_out[7]` | Output | 9 | |
-| `uio[0]` | Inout | 10 | |
-| `uio[1]` | Inout | 13 | |
-| `uio[2]` | Inout | 16 | |
-| `uio[3]` | Inout | 17 | |
-| `uio[4]` | Inout | 18 | |
-| `uio[5]` | Inout | 19 | |
-| `uio[6]` | Inout | 20 | |
-| `uio[7]` | Inout | 21 | |
+| TT Signal | Direction | Tang Nano 4K Pin | Bank / Voltage | On-board Hardware |
+|:---:|:---:|:---:|:---:|---|
+| `clk` | Input | 45 | Bank 1 (3.3 V) | 27 MHz Oscillator (divided ÷2 internally to 13.5 MHz) |
+| `rst_n` | Input | 15 | Bank 3 (1.8 V) | Button **S2** (active-low, 2-FF synchronized) |
+| `ena` | Input | 14 | Bank 3 (1.8 V) | Button **S1** (active-low, 2-FF synchronized) |
+| `ui_in[7:0]` | Input | 34, 33, 32, 31, 30, 29, 28, 27 | Bank 2 (2.5 V) | HDMI header pins (do not exceed 2.5 V) |
+| `uo_out[7:0]` | Output | 10, 46, 44, 43, 42, 41, 40, 39 | Bank 0/1 (3.3 V) | Pin 10 = onboard LED |
+| `uio[7:0]` | Inout | 22, 21, 20, 19, 18, 17, 16, 13 | Bank 3 (1.8 V) | **1.8 V only** (HyperRAM bank) |
 
 ---
 
@@ -111,17 +90,17 @@ The following table maps the Tiny Tapeout signals to the physical pins of the Ta
 ### Step A: Connectivity Loopback (The "Smoke Test")
 Before running complex arithmetic, verify that your wiring and the FPGA are communicating correctly.
 
-1. Hold the board in **Reset** (Press S1).
+1. Hold the board in **Reset** (Press **S2**, Pin 15).
 2. Set `ui_in[7:0]` and `uio_in[7:0]` to known values.
-3. Pulse **Reset** High (Release S1).
-4. In **Cycle 0** (immediately after reset release), set `ui_in[5] = 1`.
+3. Pulse **Reset** High (Release **S2**).
+4. In **Cycle 0** (immediately after reset release), set `ui_in = 0x50` (`ui_in[6] = 1` Debug Mode and `ui_in[4] = 1` Loopback Enable; note that `ui_in[5]` is `float32_mode`).
 5. The unit enters **Loopback Mode**. `uo_out` should now reflect `ui_in ^ uio_in`.
 6. Vary the input pins and observe if `uo_out` updates correctly.
 
 ### Step B: Metadata Echo
 Verify that the configuration logic is correctly sampling your inputs.
 
-1. Enable **Debug Mode** by setting `ui_in[6] = 1` in Cycle 0.
+1. Enable **Debug Mode** by setting `ui_in[6] = 1` (and `ui_in[4] = 0`) in Cycle 0.
 2. Proceed through Cycles 1 and 2 to load formats and scales.
 3. At **Cycle 35** (Pipeline Flush), observe `uo_out`. It should echo the latched configuration:
    - `uo_out[2:0]`: Latched `format_a`
@@ -146,4 +125,4 @@ Run a full 32-element dot product. You can use a MicroPython script (see `../tes
 
 If you have a Raspberry Pi Pico or similar MCU connected to the Tang Nano 4K pins, you can use the `../test/TT_MAC_RUN.PY` script as a template.
 
-**Connection Tip**: Ensure a common ground between the Tang Nano 4K and your test controller. The Tang Nano 4K uses 3.3V logic levels.
+**Connection Tip**: Ensure a common ground between the Tang Nano 4K and your test controller. Respect per-bank I/O voltages: **Bank 0/1 = 3.3 V**, **Bank 2 = 2.5 V**, and **Bank 3 (Pins 13–23) = 1.8 V** (use level shifters before connecting 3.3 V logic to Bank 2 or Bank 3).

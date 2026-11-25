@@ -20,6 +20,8 @@ module tt_gowin_top_m3 #(
     parameter ENABLE_SHARED_SCALING = 1,
     parameter USE_LNS_MUL = 0,
     parameter USE_LNS_MUL_PRECISE = 0,
+    parameter SUPPORT_DEBUG = 1,
+    parameter SUPPORT_FLOAT32 = 1,
 `ifdef M3_MODE_GPIO
     parameter INTEGRATION_MODE = 0,
 `elsif M3_MODE_AHB
@@ -486,7 +488,9 @@ module tt_gowin_top_m3 #(
         .SERIAL_K_FACTOR(SERIAL_K_FACTOR),
         .ENABLE_SHARED_SCALING(ENABLE_SHARED_SCALING),
         .USE_LNS_MUL(USE_LNS_MUL),
-        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE)
+        .USE_LNS_MUL_PRECISE(USE_LNS_MUL_PRECISE),
+        .SUPPORT_DEBUG(SUPPORT_DEBUG),
+        .SUPPORT_FLOAT32(SUPPORT_FLOAT32)
     ) mac_inst (
         .ui_in(ui_in),
         .uo_out(uo_out_mac),
