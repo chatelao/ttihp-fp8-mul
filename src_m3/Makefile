@@ -1,6 +1,7 @@
 CC = arm-none-eabi-gcc
 OBJCOPY = arm-none-eabi-objcopy
-CFLAGS = -mcpu=cortex-m3 -mthumb -O2 -Wall -g
+MODE ?= GPIO
+CFLAGS = -mcpu=cortex-m3 -mthumb -O2 -Wall -g -DM3_MODE_$(MODE)
 LDFLAGS = -T link.ld -nostartfiles -Wl,--gc-sections
 
 all: testbench.bin
