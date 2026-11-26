@@ -1,0 +1,49 @@
+SIM ?= icarus
+TOPLEVEL_LANG ?= verilog
+
+COSIM_MODE ?= GPIO
+M3_DIR = ../src_m3
+SRC_DIR = ../src
+GOWIN_DIR = ../src_gowin
+
+SIM_BUILD = sim_build/m3_cosim_$(COSIM_MODE)
+
+VERILOG_SOURCES = \
+	$(SRC_DIR)/project.v \
+	$(SRC_DIR)/fp8_mul.v \
+	$(SRC_DIR)/fp8_mul_lns.v \
+	$(SRC_DIR)/fp8_mul_serial_lns.v \
+	$(SRC_DIR)/fp8_aligner.v \
+	$(SRC_DIR)/fp8_aligner_serial.v \
+	$(SRC_DIR)/accumulator.v \
+	$(SRC_DIR)/accumulator_serial.v \
+	$(SRC_DIR)/lzc40.v \
+	$(SRC_DIR)/fixed_to_float.v \
+	$(GOWIN_DIR)/ahb2_mac_bridge.v \
+	$(GOWIN_DIR)/tt_gowin_top_m3.v \
+	$(PWD)/gowin_empu_cosim_bfm.v \
+	$(PWD)/tb_m3_cosim.v
+
+COMPILE_ARGS += -I$(SRC_DIR) -DM3_MODE_$(COSIM_MODE)
+TOPLEVEL = tb_m3_cosim
+COCOTB_TEST_MODULES = test_m3_cosim
+MODULE = test_m3_cosim
+
+export COSIM_MODE
+export M3_FIRMWARE_BIN = $(abspath $(SIM_BUILD)/testbench.bin)
+
+.PHONY: firmware all_modes
+firmware:
+	mkdir -p $(SIM_BUILD)
+	$(MAKE) -C $(M3_DIR) clean all MODE=$(COSIM_MODE)
+	cp $(M3_DIR)/testbench.bin $(M3_FIRMWARE_BIN)
+	$(MAKE) -C $(M3_DIR) clean
+
+all_modes:
+	@set -e; \
+	for m in GPIO APB AHB AHB_DMA; do \
+		echo "=== Co-Simulating M3 + FPGA (MODE=$$m) ==="; \
+		$(MAKE) -f Makefile_m3_cosim COSIM_MODE=$$m firmware sim; \
+	done
+
+include $(shell cocotb-config --makefiles)/Makefile.sim

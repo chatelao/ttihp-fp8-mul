@@ -129,6 +129,14 @@ module ahb2_mac_bridge #(
     // and mac_ena pulses high for 1 clock cycle per MAC step.
     assign mac_clk = clk;
 
+    // Dynamic cycle thresholds based on meta_reg / scale formats:
+    //   packed_fp4: meta_reg[14] (cycle0 uio_in[6]) && format_a == FP4 (4) && format_b == FP4 (4)
+    //   short_mode: meta_reg[7] (cycle0 ui_in[7], skips Cycles 1-2)
+    wire is_packed_fp4 = meta_reg[14] && (
+        meta_reg[7] ? (meta_reg[10:8] == 3'b100)
+                    : ((scale_a_reg[10:8] == 3'b100) && (scale_b_reg[10:8] == 3'b100))
+    );
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= STATE_IDLE;
@@ -185,12 +193,6 @@ module ahb2_mac_bridge #(
                     8'h2C: dma_ctrl     <= s_hwdata;
                 endcase
             end
-
-            // Dynamic cycle thresholds based on meta_reg:
-            //   meta_reg[3] == 1: Packed FP4 mode (16 stream cycles instead of 32)
-            //   meta_reg[7] == 1: Short Protocol (skips Cycles 1-2 scale/format)
-            // Note: cycle_count still uses 3..34 (unpacked) or 3..18 (packed)
-            // when short_mode skips directly from 0 -> 3.
 
             // DMA FSM (AMBA 3 AHB-Lite 2-phase pipelined)
             case (state)
@@ -261,16 +263,16 @@ module ahb2_mac_bridge #(
                     end else if (cycle_count < CYCLE_SCALE_B) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_CONF_CYCLE;
-                    end else if (cycle_count < (meta_reg[3] ? 6'd18 : CYCLE_STREAM_END)) begin
+                    end else if (cycle_count < (is_packed_fp4 ? 6'd18 : CYCLE_STREAM_END)) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_REQ_DATA;
                         if (cycle_count >= CYCLE_STREAM_START) m_haddr <= m_haddr + 4;
-                    end else if (cycle_count < (meta_reg[3] ? 6'd20 : CYCLE_FLUSH_END)) begin
+                    end else if (cycle_count < (is_packed_fp4 ? 6'd20 : CYCLE_FLUSH_END)) begin
                         cycle_count <= cycle_count + 1;
                         mac_ui_in <= 8'h0;
                         mac_uio_in <= 8'h0;
                         state <= STATE_MAC_STEP;
-                    end else if (cycle_count < (meta_reg[3] ? 6'd24 : CYCLE_READ_END)) begin
+                    end else if (cycle_count < (is_packed_fp4 ? 6'd24 : CYCLE_READ_END)) begin
                         cycle_count <= cycle_count + 1;
                         state <= STATE_REQ_READ;
                     end else begin

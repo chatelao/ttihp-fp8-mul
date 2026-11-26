@@ -102,6 +102,31 @@ void clock_tick() {
     GPIO0_DATAOUT &= ~(1 << BIT_CLK);
 }
 
+#if defined(M3_MODE_APB)
+#define MAC_BUS_BASE 0x40002400
+#elif defined(M3_MODE_AHB) || defined(M3_MODE_AHB_DMA)
+#define MAC_BUS_BASE 0xA0000000
+#endif
+
+#if defined(M3_MODE_APB) || defined(M3_MODE_AHB) || defined(M3_MODE_AHB_DMA)
+#define MAC_REG_DATA_IN   (*(volatile uint32_t *)(MAC_BUS_BASE + 0x00))
+#define MAC_REG_DATA_OUT  (*(volatile uint32_t *)(MAC_BUS_BASE + 0x04))
+#define MAC_REG_CTRL      (*(volatile uint32_t *)(MAC_BUS_BASE + 0x08))
+#endif
+
+#ifdef M3_MODE_AHB_DMA
+#define MAC_REG_STATUS    (*(volatile uint32_t *)(MAC_BUS_BASE + 0x0C))
+#define MAC_REG_META      (*(volatile uint32_t *)(MAC_BUS_BASE + 0x14))
+#define MAC_REG_SCALE_A   (*(volatile uint32_t *)(MAC_BUS_BASE + 0x18))
+#define MAC_REG_SCALE_B   (*(volatile uint32_t *)(MAC_BUS_BASE + 0x1C))
+#define MAC_REG_DMA_SRC   (*(volatile uint32_t *)(MAC_BUS_BASE + 0x20))
+#define MAC_REG_DMA_DST   (*(volatile uint32_t *)(MAC_BUS_BASE + 0x24))
+#define MAC_REG_DMA_CTRL  (*(volatile uint32_t *)(MAC_BUS_BASE + 0x2C))
+
+static uint32_t dma_src_buf[32];
+static volatile uint32_t dma_dst_res;
+#endif
+
 /**
  * Enhanced MAC Test Driver
  * @param meta_ui_base: ui_in[7:0] for Cycle 0 (excluding nbm_offset_a)
@@ -117,7 +142,70 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
     uint32_t result = 0;
     uint8_t cycle0_ui = meta_ui_base | (nbm_offset_a & 0x07);
     uint8_t cycle0_uio = meta_uio_base | (nbm_offset_b & 0x07);
+    uint8_t cycle1_uio = (bm_index_a << 3) | (format_a & 0x07);
+    uint8_t cycle2_uio = (bm_index_b << 3) | (format_b & 0x07);
+    int is_packed = (cycle0_uio & 0x40) && ((format_a & 0x07) == 4) && ((format_b & 0x07) == 4);
+    int stream_cycles = is_packed ? 16 : 32;
 
+#if defined(M3_MODE_AHB_DMA)
+    if (!(cycle0_ui & 0x80)) {
+        MAC_REG_CTRL = 0x01; // Assert mac_rst_n = 0, mac_ena_ctrl = 1
+        MAC_REG_CTRL = 0x03; // Release mac_rst_n = 1
+        MAC_REG_SCALE_A = ((uint32_t)cycle1_uio << 8) | scale_a;
+        MAC_REG_SCALE_B = ((uint32_t)cycle2_uio << 8) | scale_b;
+    } else {
+        MAC_REG_CTRL = 0x03;
+    }
+    MAC_REG_STATUS = 0x06; // Clear previous done & IRQ
+    MAC_REG_META   = ((uint32_t)cycle0_uio << 8) | cycle0_ui;
+
+    uint32_t word = ((uint32_t)element_b << 8) | element_a;
+    for (int i = 0; i < stream_cycles; i++) {
+        dma_src_buf[i] = word;
+    }
+    dma_dst_res = 0xDEADBEEF;
+    MAC_REG_DMA_SRC  = (uint32_t)&dma_src_buf[0];
+    MAC_REG_DMA_DST  = (uint32_t)&dma_dst_res;
+    MAC_REG_DMA_CTRL = 0x01; // Start autonomous DMA
+
+    while (!(MAC_REG_STATUS & 0x02));
+    result = dma_dst_res;
+
+#elif defined(M3_MODE_APB) || defined(M3_MODE_AHB)
+    if (!(cycle0_ui & 0x80)) {
+        MAC_REG_CTRL = 0x01; // mac_rst_n = 0, mac_ena_reg = 1
+        MAC_REG_DATA_IN = 0;
+        MAC_REG_DATA_IN = 0;
+        MAC_REG_CTRL = 0x03; // mac_rst_n = 1, mac_ena_reg = 1
+    } else {
+        MAC_REG_CTRL = 0x03;
+    }
+
+    // Cycle 0: Metadata + step
+    MAC_REG_DATA_IN = ((uint32_t)cycle0_uio << 8) | cycle0_ui;
+
+    if (!(cycle0_ui & 0x80)) { // Standard Protocol
+        MAC_REG_DATA_IN = ((uint32_t)cycle1_uio << 8) | scale_a;
+        MAC_REG_DATA_IN = ((uint32_t)cycle2_uio << 8) | scale_b;
+    }
+
+    uint32_t elem_word = ((uint32_t)element_b << 8) | element_a;
+    for (int i = 0; i < stream_cycles; i++) {
+        MAC_REG_DATA_IN = elem_word;
+    }
+
+    // Flush (2 cycles)
+    MAC_REG_DATA_IN = 0;
+    MAC_REG_DATA_IN = 0;
+
+    // Read 4 result bytes (MSB first)
+    for (int i = 0; i < 4; i++) {
+        uint8_t byte = (uint8_t)(MAC_REG_DATA_OUT & 0xFF);
+        result = (result << 8) | byte;
+        MAC_REG_DATA_IN = 0;
+    }
+
+#else // Default: M3_MODE_GPIO
     // Reset Sequence (skip reset when Short Protocol reuses loaded scales)
     if (!(cycle0_ui & 0x80)) {
         GPIO0_DATAOUT &= ~(1 << BIT_RST);
@@ -134,21 +222,17 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 
     if (!(cycle0_ui & 0x80)) { // Standard Protocol
         // Cycle 1: Scale A, Format A, BM Index A
-        uint8_t cycle1_uio = (bm_index_a << 3) | (format_a & 0x07);
         write_ui_in(scale_a);
         write_uio_in(cycle1_uio);
         clock_tick();
 
         // Cycle 2: Scale B, Format B, BM Index B
-        uint8_t cycle2_uio = (bm_index_b << 3) | (format_b & 0x07);
         write_ui_in(scale_b);
         write_uio_in(cycle2_uio);
         clock_tick();
     }
 
     // Cycles 3-34 (Standard) or 3-18 (Packed FP4): Stream elements
-    int is_packed = (cycle0_uio & 0x40) && ((format_a & 0x07) == 4) && ((format_b & 0x07) == 4);
-    int stream_cycles = is_packed ? 16 : 32;
     for (int i = 0; i < stream_cycles; i++) {
         write_ui_in(element_a);
         write_uio_in(element_b);
@@ -167,6 +251,7 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
         result = (result << 8) | byte;
         clock_tick();
     }
+#endif
 
     return result;
 }
@@ -174,7 +259,9 @@ uint32_t run_mac_test_ext(uint8_t meta_ui_base, uint8_t meta_uio_base,
 int main() {
     UART0_BAUD = 234; // 27MHz / 115200
     UART0_CTRL = 0x03;
+#if !defined(M3_MODE_APB) && !defined(M3_MODE_AHB) && !defined(M3_MODE_AHB_DMA)
     GPIO0_OUTENSET = 0x00007FFF; // 15 bits of output (including WEN)
+#endif
 
     uart_puts("\r\n--- OCP MXFP8 MAC M3 Testbench (v1.3.0) ---\r\n");
     uart_puts("Commands: [t] E4M3, [e] E5M2, [i] INT8, [y] INT8_SYM, [p] Packed, [m] MX+, [s] Short, [l] LNS, [v] Version\r\n");

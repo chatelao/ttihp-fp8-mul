@@ -31,17 +31,25 @@ jobs:
         run: |
           python3 test/gate_analysis.py
 
-      - name: Verify M3 Integration Compilation & RTL Checks
+      - name: Verify M3 Integration & Hybrid Co-Simulation (Unicorn + cocotb)
         if: matrix.config == 'Full'
         run: |
+          sudo apt-get install -y gcc-arm-none-eabi
+          pip install unicorn
           python3 test/verify_rtl.py
           python3 test/verify_rtl_m3.py
+          # Verify AHB2 DMA bridge self-checking testbench
+          iverilog -g2012 -Isrc -o m3_dma_tb src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/fp8_aligner_serial.v src/accumulator.v src/accumulator_serial.v src/lzc40.v src/fixed_to_float.v src_gowin/ahb2_mac_bridge.v test/tb_ahb2_mac_bridge.v
+          vvp m3_dma_tb
+          rm -f m3_dma_tb
           # Verify compilation of all M3 modes using iverilog
           for mode in M3_MODE_GPIO M3_MODE_APB M3_MODE_AHB M3_MODE_AHB_DMA; do
             echo "Verifying $mode..."
             iverilog -g2012 -Isrc -D$mode src/project.v src/fp8_mul.v src/fp8_mul_lns.v src/fp8_mul_serial_lns.v src/fp8_aligner.v src/fp8_aligner_serial.v src/accumulator.v src/accumulator_serial.v src/lzc40.v src/fixed_to_float.v src_gowin/tt_gowin_top_m3.v src_gowin/gowin_empu_m3_stub.v src_gowin/ahb2_mac_bridge.v -o m3_test
             rm m3_test
           done
+          # Run ARM Cortex-M3 (Unicorn) + FPGA RTL (cocotb) co-simulation across all 4 modes
+          make -C test -f Makefile_m3_cosim all_modes
 
       - name: Run Unit Test Suites
         if: matrix.config == 'Full'
